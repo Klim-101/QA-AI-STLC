@@ -47,4 +47,32 @@ describe('RunResultSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rejects a result that finished before it started', () => {
+    const result = RunResultSchema.safeParse({
+      id: 'result-4',
+      runId: 'run-1',
+      testCaseId: 'case-4',
+      testType: 'e2e',
+      status: 'passed',
+      startedAt: '2026-09-16T12:00:05Z',
+      finishedAt: '2026-09-16T12:00:00Z',
+      evidenceIds: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a "failed" status with no failure block', () => {
+    const result = RunResultSchema.safeParse({
+      id: 'result-5',
+      runId: 'run-1',
+      testCaseId: 'case-5',
+      testType: 'e2e',
+      status: 'failed',
+      startedAt: '2026-09-16T12:00:00Z',
+      finishedAt: '2026-09-16T12:00:01Z',
+      evidenceIds: [],
+    });
+    expect(result.success).toBe(false);
+  });
 });
