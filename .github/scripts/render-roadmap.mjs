@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { readFile, writeFile } from 'node:fs/promises';
+import prettier from 'prettier';
 
 const START_MARKER = '<!-- roadmap:progress:start -->';
 const END_MARKER = '<!-- roadmap:progress:end -->';
@@ -47,7 +48,14 @@ export async function renderRoadmap({ github, owner, repo, roadmapPath, today })
     throw new Error(`Roadmap markers are missing in ${roadmapPath}.`);
   }
 
-  const next = current.slice(0, startIndex) + section + current.slice(endIndex + END_MARKER.length);
+  const rawNext = current.slice(0, startIndex) + section + current.slice(endIndex + END_MARKER.length);
+  // Format before comparing, not after: `current` is already Prettier-formatted (CI checks it),
+  // so comparing it against unformatted `rawNext` reported a change on every run, even when
+  // nothing but table whitespace would differ, and left nothing for git to commit.
+  const next = await prettier.format(rawNext, {
+    ...(await prettier.resolveConfig(roadmapPath)),
+    filepath: roadmapPath,
+  });
   // The date line changes every day, so compare without it to avoid daily no-op pull requests.
   if (withoutSyncDate(next) === withoutSyncDate(current)) {
     return false;
