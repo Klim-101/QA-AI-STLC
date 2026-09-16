@@ -34,6 +34,7 @@ The project skeleton everything else depends on.
 
 First usable release, published on npm.
 
+- `qa init` with a testing scope survey: you decide, per project, whether Web E2E, API, accessibility and security testing are in scope
 - Safe-mode crawler with a domain allowlist
 - Sign-in by attaching to a browser you are already logged into
 - Static analysis of React, Angular and Vue sources
@@ -49,7 +50,7 @@ The agent can drive the engine inside Claude Code.
 
 - Local MCP server with typed tools
 - Browser tools that register every action as evidence
-- Scope and test case design with approval gates bound to artifact hashes
+- Scope and test case design with approval gates bound to artifact hashes, one case set per in-scope testing type
 - Claude Code plugin generated from one canonical source
 
 ## Phase 3 — Runner and generation
@@ -76,11 +77,16 @@ The same framework inside Codex.
 - Codex plugin generated from the same source
 - Verified flow in Codex CLI and desktop
 
-## Phase 6 — API, accessibility and defect drafts
+## Phase 6 — API, accessibility, defects, RCA and security
 
 - API-surface discovery from real traffic, OpenAPI diff and draft synthesis
-- API and accessibility runners
+- API tests generated from your OpenAPI contract as Playwright request specs, verified by execution like the UI tests
+- Accessibility runner (axe-core)
 - Tracker-neutral defect drafts with an acceptance gate, ready for you to file with your own tools
+- Root cause analysis for every accepted defect, with facts separated from hypotheses and its own review gate
+- On-demand security audit, outside the regular pipeline: non-destructive black-box checks, plus code-assisted checks when you point the framework at the application's source
+
+## Not planned
 
 ## Phase 7 — Release 1.0
 

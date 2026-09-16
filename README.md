@@ -6,11 +6,13 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 
 ## What it does
 
-- **Explores your application** and builds a stable selector registry and an API-surface map.
+- **Asks what is in scope** for the project: Web E2E, API, accessibility and security testing are each decided by you, and the pipeline enforces the answer.
+- **Explores your application** and builds a stable selector registry and an API-surface map before any test is written.
 - **Designs test cases** with the agent in your host, behind approval gates you control.
-- **Generates Playwright tests** that are verified by execution before they are kept, and run in CI without any model.
+- **Generates Playwright tests**, for the UI and for the API from your OpenAPI contract, that are verified by execution before they are kept and run in CI without any model.
 - **Records evidence** (screenshots, traces, redacted network data) that only the engine can create, so results cannot be invented.
-- **Prepares defect drafts** in a tracker-neutral format for you to file.
+- **Prepares defect drafts** in a tracker-neutral format for you to file, and a root cause analysis for every defect you accept.
+- **Runs a security audit on demand**: non-destructive checks against the running application, and code-assisted checks when you point it at the source.
 
 A deterministic TypeScript engine does the work that must be reliable. A thin layer of skills lets the agent in your host drive it.
 
