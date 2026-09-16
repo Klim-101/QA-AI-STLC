@@ -48,6 +48,11 @@ npx @qa-ai-stlc/cli explore
 
 Everything the framework creates in your project lives in `.qa/`, plus generated tests in `tests/qa/`.
 
+## Documentation
+
+- [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
+- [Architecture decision records](docs/adr/README.md): the significant, hard-to-reverse decisions behind the design, and why.
+
 ## Contributing
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
