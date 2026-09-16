@@ -1,0 +1,20 @@
+{
+  "name": "qa-ai-stlc",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "clean": "pnpm -r --if-present run clean"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
