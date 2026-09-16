@@ -1,0 +1,17 @@
+{
+  "name": "@qa-ai-stlc/test-utils",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./golden-file": "./dist/golden-file.js",
+    "./temp-dir": "./dist/temp-dir.js"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "clean": "node ../../scripts/clean-dir.mjs dist"
+  }
+}

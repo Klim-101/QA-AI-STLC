@@ -8,23 +8,27 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=22.11.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "build": "node scripts/run-workspaces.mjs build",
     "typecheck": "node scripts/run-workspaces.mjs typecheck",
     "lint": "node scripts/check-llm-denylist.mjs && eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
-    "test": "node scripts/run-workspaces.mjs test",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "node scripts/run-workspaces.mjs clean"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@types/node": "22.20.3",
+    "@vitest/coverage-v8": "5.0.1",
     "eslint": "10.10.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.12.0",
     "prettier": "3.9.7",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.70.0"
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.1"
   }
 }

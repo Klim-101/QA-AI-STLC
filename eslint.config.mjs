@@ -54,7 +54,10 @@ export default tseslint.config(
     extends: [...tseslint.configs.strictTypeChecked, ...tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        // Root-level *.config.ts files sit outside every package's tsconfig "include"; let the
+        // project service fall back to an ad hoc program for exactly those instead of requiring
+        // them in a package's tsconfig.
+        projectService: { allowDefaultProject: ['*.config.ts'] },
         tsconfigRootDir: import.meta.dirname,
       },
     },
