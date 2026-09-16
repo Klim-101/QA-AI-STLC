@@ -16,11 +16,11 @@ A deterministic TypeScript engine does the work that must be reliable. A thin la
 
 ## Supported hosts
 
-| Host | Status |
-|---|---|
-| Claude Code (CLI and desktop) | Planned first |
-| Codex (CLI and desktop) | Planned |
-| Other MCP-capable hosts | Engine usable through the local MCP server |
+| Host                          | Status                                     |
+| ----------------------------- | ------------------------------------------ |
+| Claude Code (CLI and desktop) | Planned first                              |
+| Codex (CLI and desktop)       | Planned                                    |
+| Other MCP-capable hosts       | Engine usable through the local MCP server |
 
 ## Responsibility boundary
 

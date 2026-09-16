@@ -4,10 +4,10 @@
 
 The project is pre-alpha and has no stable release. Security fixes are applied to `main` and to the latest published version once releases begin.
 
-| Version | Supported |
-|---|---|
-| Latest release | Yes |
-| Older releases | No |
+| Version        | Supported |
+| -------------- | --------- |
+| Latest release | Yes       |
+| Older releases | No        |
 
 ## Reporting a vulnerability
 
