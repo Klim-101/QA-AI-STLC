@@ -15,6 +15,7 @@
     "typecheck": "node scripts/run-workspaces.mjs typecheck",
     "lint": "node scripts/check-llm-denylist.mjs && eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
+    "licenses:check": "license-checker-rseidelsohn --production --excludePrivatePackages --onlyAllow \"MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;BlueOak-1.0.0;Python-2.0\"",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "node scripts/run-workspaces.mjs clean"
@@ -26,6 +27,7 @@
     "eslint": "10.10.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.12.0",
+    "license-checker-rseidelsohn": "4.4.2",
     "prettier": "3.9.7",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0",
