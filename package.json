@@ -1,0 +1,23 @@
+{
+  "name": "qa-ai-stlc",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "npm@11.16.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "scripts": {
+    "build": "node scripts/run-workspaces.mjs build",
+    "typecheck": "node scripts/run-workspaces.mjs typecheck",
+    "lint": "node scripts/run-workspaces.mjs lint",
+    "test": "node scripts/run-workspaces.mjs test",
+    "clean": "node scripts/run-workspaces.mjs clean"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

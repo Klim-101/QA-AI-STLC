@@ -1,0 +1,11 @@
+# Normalize line endings so Windows checkouts and Linux CI hash the same content.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tgz binary
