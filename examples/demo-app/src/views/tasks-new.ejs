@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>New task — Demo App</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <%- include('partials/_nav', { user }) %>
+    <main>
+      <h1>New task</h1>
+      <form method="post" action="/tasks">
+        <input type="hidden" name="csrfToken" value="<%= csrfToken %>" />
+        <label for="title">Title</label>
+        <input id="title" name="title" type="text" required />
+        <label for="priority">Priority</label>
+        <select id="priority" name="priority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+        <label for="assignee">Assignee</label>
+        <input id="assignee" name="assignee" type="text" />
+        <button type="submit">Create</button>
+      </form>
+    </main>
+  </body>
+</html>

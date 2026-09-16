@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Log in — Demo App</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Log in</h1>
+      <% if (error) { %>
+      <p role="alert" class="error"><%= error %></p>
+      <% } %>
+      <form method="post" action="/login">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+        <!-- BUG-006: this label has no `for`, and no `id` on the input, so a screen reader
+             cannot associate "Password" with this field. -->
+        <label>Password</label>
+        <input name="password" type="password" required />
+        <button type="submit">Log in</button>
+      </form>
+      <p>Try <code>admin@example.com</code> / <code>admin123</code> or <code>employee@example.com</code> / <code>employee123</code>.</p>
+    </main>
+  </body>
+</html>

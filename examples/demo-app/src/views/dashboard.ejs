@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dashboard — Demo App</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <%- include('partials/_nav', { user }) %>
+    <main>
+      <!-- BUG-007: reads `user.name`, a field that does not exist on User (only `displayName`
+           does); EJS renders a missing value as an empty string, so every account gets an empty
+           greeting instead of its display name. -->
+      <h1>Welcome, <%= user.name %></h1>
+      <p>Role: <%= user.role %></p>
+    </main>
+  </body>
+</html>

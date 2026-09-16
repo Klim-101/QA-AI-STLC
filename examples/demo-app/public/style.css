@@ -1,0 +1,34 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 2rem;
+  color: #1a1a1a;
+}
+
+nav a,
+nav button {
+  margin-right: 1rem;
+}
+
+table {
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 0.5rem 1rem;
+  text-align: left;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 24rem;
+  margin-top: 1rem;
+}
+
+.error {
+  color: #b00020;
+}

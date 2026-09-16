@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tasks — Demo App</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <%- include('partials/_nav', { user }) %>
+    <main>
+      <h1>Tasks</h1>
+      <form method="get" action="/tasks">
+        <label for="status">Filter by status</label>
+        <!-- BUG-002: this select posts `status`, but the server never applies it, so every
+             option shows the same full list. -->
+        <select id="status" name="status">
+          <option value="" <%= !statusFilter ? 'selected' : '' %>>All</option>
+          <option value="open" <%= statusFilter === 'open' ? 'selected' : '' %>>Open</option>
+          <option value="in-progress" <%= statusFilter === 'in-progress' ? 'selected' : '' %>>In progress</option>
+          <option value="done" <%= statusFilter === 'done' ? 'selected' : '' %>>Done</option>
+        </select>
+        <button type="submit">Apply</button>
+        <a href="/tasks?sort=priority">Sort by priority</a>
+      </form>
+      <a href="/tasks/new">New task</a>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Assignee</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% tasks.forEach(function (task) { %>
+          <tr>
+            <td><a href="/tasks/<%= task.id %>"><%= task.title %></a></td>
+            <td><%= task.status %></td>
+            <td><%= task.priority %></td>
+            <td><%= task.assignee %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>
