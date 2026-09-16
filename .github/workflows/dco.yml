@@ -1,0 +1,35 @@
+name: DCO
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  sign-off:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require Signed-off-by on every commit
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const unsigned = commits.filter(({ commit }) => {
+              // Commits created by GitHub automation (merges, bots) are exempt from the contributor sign-off.
+              if (commit.author?.email?.endsWith('[bot]@users.noreply.github.com')) return false;
+              return !/^Signed-off-by: .+ <.+>$/m.test(commit.message);
+            });
+            if (unsigned.length > 0) {
+              const list = unsigned.map(({ sha, commit }) => `- ${sha.slice(0, 7)} ${commit.message.split('\n')[0]}`).join('\n');
+              core.setFailed(
+                `These commits are missing a Signed-off-by line (see CONTRIBUTING.md):\n${list}\n\n` +
+                'Fix with: git rebase --signoff origin/main && git push --force-with-lease',
+              );
+            }

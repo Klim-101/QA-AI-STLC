@@ -1,5 +1,6 @@
-# Local planning and working notes (not part of the published repository)
-docs/
+# Local planning and working notes (not part of the published repository).
+# docs/public/ is committed: it holds the public roadmap and other published documentation.
+docs/dev/
 
 # Node
 node_modules/

@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Actions are pinned to commit SHAs; Dependabot keeps the pins and version comments current.
+  # The npm ecosystem is added together with the monorepo skeleton.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Wait after an action release before opening a PR, so a compromised or quickly yanked
+    # release is caught upstream before it reaches this repository.
+    cooldown:
+      default-days: 10
+    groups:
+      github-actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+    labels: ['area: repo']

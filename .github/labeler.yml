@@ -1,0 +1,33 @@
+'area: schemas':
+  - changed-files:
+      - any-glob-to-any-file: packages/schemas/**
+'area: core':
+  - changed-files:
+      - any-glob-to-any-file: packages/core/**
+'area: explorer':
+  - changed-files:
+      - any-glob-to-any-file: packages/explorer/**
+'area: runners':
+  - changed-files:
+      - any-glob-to-any-file: packages/runner-*/**
+'area: cli':
+  - changed-files:
+      - any-glob-to-any-file: packages/cli/**
+'area: mcp':
+  - changed-files:
+      - any-glob-to-any-file: packages/mcp-server/**
+'area: agents':
+  - changed-files:
+      - any-glob-to-any-file: agents/**
+'area: adapters':
+  - changed-files:
+      - any-glob-to-any-file: adapters/**
+'area: demo':
+  - changed-files:
+      - any-glob-to-any-file: examples/**
+'area: docs':
+  - changed-files:
+      - any-glob-to-any-file: ['docs/**', '*.md']
+'area: repo':
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', 'package.json', 'pnpm-workspace.yaml', 'tsconfig*.json', '.gitignore']
