@@ -21,8 +21,13 @@ jobs:
               pull_number: context.payload.pull_request.number,
               per_page: 100,
             });
-            const unsigned = commits.filter(({ commit }) => {
-              // Commits created by GitHub automation (merges, bots) are exempt from the contributor sign-off.
+            const unsigned = commits.filter((entry) => {
+              const { commit, parents } = entry;
+              // A merge commit (2+ parents) combines already-signed-off commits and introduces no
+              // new content of its own; GitHub's own "Update branch" button creates one without a
+              // Signed-off-by line, so DCO does not apply to it.
+              if ((parents?.length ?? 0) > 1) return false;
+              // Commits created by GitHub automation (bots) are exempt from the contributor sign-off.
               if (commit.author?.email?.endsWith('[bot]@users.noreply.github.com')) return false;
               return !/^Signed-off-by: .+ <.+>$/m.test(commit.message);
             });
