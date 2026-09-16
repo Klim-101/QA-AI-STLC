@@ -2,8 +2,16 @@ name: CI
 
 on:
   pull_request:
+    # roadmap-sync (chore/roadmap-sync) only ever changes this one generated file, pushed and
+    # opened with the default GITHUB_TOKEN; GitHub does not run pull_request-triggered workflows
+    # for events caused by that token, so this run would sit as a permanently unrunnable check
+    # (0 jobs, conclusion failure) that a required-status-check rule could never satisfy.
+    paths-ignore:
+      - docs/public/ROADMAP.md
   push:
     branches: [main]
+    paths-ignore:
+      - docs/public/ROADMAP.md
   workflow_dispatch:
 
 concurrency:
