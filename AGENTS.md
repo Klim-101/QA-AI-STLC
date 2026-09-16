@@ -74,7 +74,7 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
     - Every roadmap task is an issue titled `[P<phase>-<nn>] ...` with the `roadmap` label, a phase milestone, `size:` and `area:` labels, and "blocked by" links for its dependencies.
     - Do not start a task while it has open "blocked by" issues. The board shows such tasks as `Todo`; startable tasks are `Ready`.
     - Start work by creating a branch `<type>/<issue-number>-<short-description>`. The board moves the issue to `In progress` automatically.
-    - Open the pull request with `Closes #<issue-number>` in the description. The board moves the issue to `In review`, and merging closes it and moves it to `Done`.
+    - Open the pull request with `Closes #<issue-number>` in the description. The board moves the issue to `In review`, and merging closes it and moves it to `Done`. Write `Closes #<issue-number>` only on the pull request that actually does that issue's exit-criterion work. A pull request that merely records or documents a future task (for example, adding it to this file or to the task breakdown) must not close it — merging it would mark undone work `Done`.
     - Add the `blocked` label only for external blockers (a decision, a third party). Record the reason in an issue comment.
     - The progress table in `docs/public/ROADMAP.md` is regenerated from milestones by the `Roadmap sync` workflow. Edit the roadmap by hand only when phase scope or delivered capabilities change.
     - `docs/dev/task-breakdown.md` (local, git-ignored) holds the plan context, local-only tasks and the decisions log. Refresh its statuses with `node docs/dev/sync-breakdown.mjs --project <number>`; record scope-changing findings in its decisions log.

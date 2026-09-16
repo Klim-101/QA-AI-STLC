@@ -56,12 +56,6 @@ jobs:
             });
             core.setOutput('changed', String(changed));
 
-      - name: Format with Prettier
-        if: steps.render.outputs.changed == 'true'
-        # The generated table is plain markdown; CI now runs `prettier --check .` (P0-07), so the
-        # generated file has to match its formatting or every sync would fail that check.
-        run: npx prettier --write "$ROADMAP_PATH"
-
       - name: Open and merge roadmap pull request
         if: steps.render.outputs.changed == 'true'
         env:
