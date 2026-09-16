@@ -8,7 +8,7 @@ Live task status is on the [project board](https://github.com/users/Klim-101/pro
 
 | Phase                                                | Status      | Progress |
 | ---------------------------------------------------- | ----------- | -------- |
-| Phase 0 — Foundation                                 | in progress | 10 / 16  |
+| Phase 0 — Foundation                                 | in progress | 15 / 16  |
 | Phase 1 — Explorer 0.1                               | planned     | 0 / 18   |
 | Phase 2 — MCP and Claude Code plugin                 | planned     | 0 / 16   |
 | Phase 3 — Runner and generation                      | planned     | 0 / 13   |
