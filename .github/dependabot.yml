@@ -31,3 +31,10 @@ updates:
     commit-message:
       prefix: build
     labels: ['area: repo']
+    ignore:
+      # typescript-eslint@8.70.0 declares a peerDependency of `typescript: >=4.8.4 <6.1.0`
+      # (verified live: this exact major bump failed a real Dependabot run with "Error while
+      # updating peer dependency"). Wait for typescript-eslint to support the new major before
+      # proposing it; a coordinated bump of both is a manual decision, not an automated one.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
