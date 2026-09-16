@@ -1,7 +1,6 @@
 version: 2
 updates:
   # Actions are pinned to commit SHAs; Dependabot keeps the pins and version comments current.
-  # The npm ecosystem is added together with the monorepo skeleton.
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -15,4 +14,20 @@ updates:
         patterns: ['*']
     commit-message:
       prefix: ci
+    labels: ['area: repo']
+
+  # Root directory covers the npm workspace: Dependabot resolves package.json in every
+  # packages/* workspace from the root lockfile (AGENTS.md 5.7: exact versions, allowlisted
+  # licenses checked in CI regardless of what Dependabot proposes).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 10
+    groups:
+      npm-dependencies:
+        patterns: ['*']
+    commit-message:
+      prefix: build
     labels: ['area: repo']
