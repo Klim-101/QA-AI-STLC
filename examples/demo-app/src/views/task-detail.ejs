@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title><%= task.title %> — Demo App</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <%- include('partials/_nav', { user }) %>
+    <main>
+      <% if (deleted) { %>
+      <!-- BUG-004: this banner claims the task was deleted, but the delete handler never
+           actually removed it — the section below still renders the "deleted" task. -->
+      <p role="status">Task deleted.</p>
+      <% } %>
+      <h1><%= task.title %></h1>
+      <dl>
+        <dt>Status</dt>
+        <dd><%= task.status %></dd>
+        <dt>Priority</dt>
+        <dd><%= task.priority %></dd>
+        <dt>Assignee</dt>
+        <dd><%= task.assignee %></dd>
+      </dl>
+      <button type="button" data-open-dialog="edit-task-dialog">Edit</button>
+      <form method="post" action="/tasks/<%= task.id %>/delete">
+        <input type="hidden" name="csrfToken" value="<%= csrfToken %>" />
+        <button type="submit">Delete</button>
+      </form>
+
+      <dialog id="edit-task-dialog">
+        <form method="post" action="/tasks/<%= task.id %>">
+          <input type="hidden" name="csrfToken" value="<%= csrfToken %>" />
+          <!-- BUG-011: icon-only close button with no accessible name; a screen reader announces
+               just "button". -->
+          <button type="button" data-close-dialog="edit-task-dialog">×</button>
+          <label for="edit-title">Title</label>
+          <input id="edit-title" name="title" type="text" value="<%= task.title %>" required />
+          <label for="edit-priority">Priority</label>
+          <select id="edit-priority" name="priority">
+            <option value="low" <%= task.priority === 'low' ? 'selected' : '' %>>Low</option>
+            <option value="medium" <%= task.priority === 'medium' ? 'selected' : '' %>>Medium</option>
+            <option value="high" <%= task.priority === 'high' ? 'selected' : '' %>>High</option>
+          </select>
+          <!-- BUG-003: the update handler reads `assignee`, not `assignedTo` — this field's
+               value is silently dropped on submit. -->
+          <label for="edit-assignee">Assignee</label>
+          <input id="edit-assignee" name="assignedTo" type="text" value="<%= task.assignee %>" />
+          <button type="submit">Save</button>
+        </form>
+      </dialog>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

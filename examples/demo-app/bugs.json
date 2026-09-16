@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "title": "Task creation accepts an empty title",
+      "category": "functional",
+      "severity": "major",
+      "location": "POST /tasks (src/routes/tasks.ts)",
+      "description": "The new-task form marks the title input `required`, but the server never checks for a non-empty title, so a direct POST (or a client with JavaScript/HTML validation disabled) creates a blank task."
+    },
+    {
+      "id": "BUG-002",
+      "title": "Status filter on the task list has no effect",
+      "category": "functional",
+      "severity": "major",
+      "location": "GET /tasks (src/routes/tasks.ts)",
+      "description": "Selecting a status in the filter dropdown and submitting always renders the full, unfiltered task list; the `status` query parameter is read but never applied."
+    },
+    {
+      "id": "BUG-003",
+      "title": "Editing a task's assignee never saves",
+      "category": "functional",
+      "severity": "major",
+      "location": "POST /tasks/:id (src/routes/tasks.ts, src/views/task-detail.ejs)",
+      "description": "The edit dialog's assignee field is named `assignedTo`, but the update handler reads `assignee`, a field the form never sends, so the assignee silently never changes."
+    },
+    {
+      "id": "BUG-004",
+      "title": "Deleting a task reports success without deleting it",
+      "category": "functional",
+      "severity": "critical",
+      "location": "POST /tasks/:id/delete (src/routes/tasks.ts)",
+      "description": "The delete action redirects to a \"Task deleted\" confirmation, but never removes the task from the in-memory list; it still appears in the task list and at its own detail page."
+    },
+    {
+      "id": "BUG-005",
+      "title": "Any authenticated user can view the admin user list",
+      "category": "security",
+      "severity": "critical",
+      "location": "GET /admin/users (src/routes/admin.ts)",
+      "description": "The \"Admin\" navigation link is hidden from employees, but the route itself only checks that a session exists, not that the user holds the admin role. Navigating to /admin/users directly bypasses the intended restriction."
+    },
+    {
+      "id": "BUG-006",
+      "title": "Password field has no accessible label association",
+      "category": "accessibility",
+      "severity": "minor",
+      "location": "src/views/login.ejs",
+      "description": "The \"Password\" label has no `for` attribute and the password input has no `id`, so assistive technology cannot associate the label with the field."
+    },
+    {
+      "id": "BUG-007",
+      "title": "Dashboard greeting is always empty",
+      "category": "functional",
+      "severity": "minor",
+      "location": "src/views/dashboard.ejs",
+      "description": "The dashboard template reads `user.name`, a field the User type never declares, instead of `user.displayName`. EJS renders a missing value as an empty string, so every account's greeting reads \"Welcome, \" with no name."
+    },
+    {
+      "id": "BUG-008",
+      "title": "Sorting by priority orders by label text, not severity",
+      "category": "functional",
+      "severity": "minor",
+      "location": "GET /tasks?sort=priority (src/routes/tasks.ts)",
+      "description": "The \"Sort by priority\" link compares the priority strings alphabetically (\"high\", \"low\", \"medium\") instead of by actual severity rank, so a medium-priority task appears after low-priority ones."
+    },
+    {
+      "id": "BUG-009",
+      "title": "Editing a task deleted in another tab creates a duplicate",
+      "category": "functional",
+      "severity": "major",
+      "location": "POST /tasks/:id (src/routes/tasks.ts)",
+      "description": "If a task is deleted (see BUG-004) or otherwise missing when its edit dialog is submitted, the handler does not report an error; it silently creates a new task from the stale form data instead."
+    },
+    {
+      "id": "BUG-010",
+      "title": "CSRF token is generated but never verified",
+      "category": "security",
+      "severity": "critical",
+      "location": "src/csrf.ts, src/routes/tasks.ts",
+      "description": "Every state-changing form includes a hidden CSRF token rendered from the session, but no route handler checks it against the submitted value, so the protection is decorative."
+    },
+    {
+      "id": "BUG-011",
+      "title": "Edit dialog's close button has no accessible name",
+      "category": "accessibility",
+      "severity": "minor",
+      "location": "src/views/task-detail.ejs",
+      "description": "The dialog's close control is an icon-only button (\"×\") with no `aria-label`, so a screen reader announces only \"button\" with no indication of what it does."
+    },
+    {
+      "id": "BUG-012",
+      "title": "Session cookie is missing the HttpOnly flag",
+      "category": "security",
+      "severity": "major",
+      "location": "src/server.ts",
+      "description": "The session cookie is configured with `httpOnly: false`, making it readable from client-side script and increasing the impact of any script-injection vulnerability."
+    }
+  ]
+}

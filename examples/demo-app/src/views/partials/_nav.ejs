@@ -1,0 +1,10 @@
+<nav>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/tasks">Tasks</a>
+  <% if (typeof user !== 'undefined' && user && user.role === 'admin') { %>
+  <a href="/admin/users">Admin</a>
+  <% } %>
+  <form method="post" action="/logout" style="display: inline">
+    <button type="submit">Log out</button>
+  </form>
+</nav>

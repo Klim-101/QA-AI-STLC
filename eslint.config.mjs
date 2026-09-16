@@ -50,6 +50,12 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // The demo app's client-side script runs in a browser, not Node (AGENTS.md 3: examples are
+    // ordinary application code, not framework internals).
+    files: ['examples/*/public/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ['**/*.ts'],
     extends: [...tseslint.configs.strictTypeChecked, ...tseslint.configs.stylisticTypeChecked],
     languageOptions: {
@@ -66,6 +72,11 @@ export default tseslint.config(
     files: ['**/*.{ts,js,mjs,cjs}'],
     plugins: { local: { rules: { 'spdx-header': spdxHeaderRule } } },
     rules: { 'local/spdx-header': 'error' },
+  },
+  {
+    // AGENTS.md 5.2: "No non-null assertions (!) except in tests."
+    files: ['**/*.test.ts'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   eslintConfigPrettier,
 );
