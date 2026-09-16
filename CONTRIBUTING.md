@@ -45,14 +45,14 @@ The repository is being bootstrapped, so some scripts may not exist yet. Run the
 ## Workflow
 
 1. Create a branch from the latest `main`: `<type>/<issue-number>-<short-description>`, for example `fix/57-registry-hash-order`. Types: `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`.
-2. Keep the change focused on one concern and include tests.
+2. Keep the change focused on one concern and include tests. Coverage is a required CI check; a pull request that lowers a package's coverage below its threshold will not pass.
 3. Commit using [Conventional Commits](https://www.conventionalcommits.org/) and sign off every commit:
 
    ```sh
    git commit -s -m "fix(core): keep approval hash stable across line endings"
    ```
 
-4. Add a changeset with `npx changeset` if users will notice the change.
+4. Add a changeset with `npx changeset` if users will notice the change. This is the only manual release step: versioning, changelogs and npm publishing happen automatically from merged changesets. Never bump a version or run `npm publish` by hand.
 5. Update documentation affected by the change, including `README.md` and this file.
 6. Rebase on `main`, push, and open a pull request using the template.
 

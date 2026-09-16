@@ -51,7 +51,7 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
 1. Read this file and the relevant package `README.md` before editing.
 2. Work on a branch (section 8). Never commit to `main`.
 3. Keep a change to one concern. Do not refactor unrelated code in the same change.
-4. Write or update tests in the same change as the behavior.
+4. Write or update tests in the same change as the behavior. Unit-test the change directly; add an integration test in the package's `test/` directory when the change crosses a module boundary (filesystem, browser, CLI, MCP). Never merge a behavior change with only manual verification — coverage in CI (section 13) is the only accepted evidence.
 5. Run the full local gate before declaring work done:
 
    ```sh
@@ -66,7 +66,7 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
 
    The repository is being bootstrapped. Until a script exists, run the checks that do exist and state which ones were unavailable.
 
-6. Add a changeset (`npx changeset`) when behavior visible to users changes.
+6. Add a changeset (`npx changeset`) when behavior visible to users changes. This is the only manual step in the release process (section 8.4): do not bump a package version or run `npm publish` by hand.
 7. Update documentation and community files affected by the change (section 10).
 8. Report what was verified and what was not. Never claim a check passed if it was not run.
 9. Do not push, open pull requests, publish packages, create tags or change repository settings unless the maintainer asked for it.
@@ -241,7 +241,8 @@ Acronyms are words: `apiUrl`, `HttpClient`, `parseHtml`, not `APIURL` or `parseH
 
 ### 8.4 Releases
 
-- Versioning with changesets; one shared version for engine packages and adapters.
+- Versioning and publishing are automated end to end with `changesets/action` (task P0-16). A contributor's only manual step is adding a changeset (section 4, step 6). Every push to `main` with pending changesets opens or updates a bot-maintained "Version Packages" pull request; merging that pull request bumps versions, updates changelogs and publishes the changed packages to npm with provenance. Never run `npm version`, `npm publish` or edit a `package.json` version field by hand.
+- One shared version for engine packages and adapters.
 - Tags `vX.Y.Z` are created from `main` by the release workflow, never by hand.
 - Artifact schemas carry their own version; incompatible schema changes ship with a migration.
 
@@ -354,6 +355,7 @@ GitHub's community profile checklist must stay complete. When a change affects o
 ## 13. Testing
 
 - Vitest. Unit tests sit next to the code as `*.test.ts`; integration and end-to-end tests live in `test/` of the package.
+- Coverage is a required CI check (task P0-17), enforced per package with Vitest's `v8` provider. A pull request that drops a package's coverage below its recorded threshold fails CI; raise the threshold when coverage improves, never lower it to make a change pass. New code needs both unit tests for its logic and, where it crosses a module boundary (filesystem, browser, CLI, MCP), an integration test in `test/`.
 - Test behavior through public functions, not private internals.
 - Unit tests make no network calls and do not launch browsers. Browser tests run against `examples/demo-app` only.
 - Use temporary directories for filesystem tests and clean them up. Never touch the developer's home directory or real host configuration.
