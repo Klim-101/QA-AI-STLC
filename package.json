@@ -18,9 +18,11 @@
     "licenses:check": "license-checker-rseidelsohn --production --excludePrivatePackages --onlyAllow \"MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;BlueOak-1.0.0;Python-2.0\"",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "clean": "node scripts/run-workspaces.mjs clean"
+    "clean": "node scripts/run-workspaces.mjs clean",
+    "pack:check": "node scripts/pack-check.mjs"
   },
   "devDependencies": {
+    "@changesets/cli": "3.0.3",
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.3",
     "@vitest/coverage-v8": "5.0.1",
