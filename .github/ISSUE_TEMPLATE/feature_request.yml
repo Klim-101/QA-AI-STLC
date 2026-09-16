@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose an improvement or a new capability.
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before proposing, check the scope boundaries in README.md and CONTRIBUTING.md.
+        The project does not add model calls, hosted services, or integrations that publish to issue trackers or wikis.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work from the user's point of view?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Explorer and selector registry
+        - Test design and approvals
+        - Test generation and runner
+        - Evidence and reports
+        - Defect drafts
+        - CLI
+        - MCP server
+        - Plugin or installation
+        - Documentation
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: The proposal does not require the framework to call a language model or run hosted infrastructure.
+          required: true
+        - label: The proposal does not require the framework to publish records to external trackers, wikis or test management tools.
+          required: true
+        - label: I would be willing to contribute a pull request.
