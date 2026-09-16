@@ -17,6 +17,16 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
       reportsDirectory: 'coverage',
+      // Without `include`, v8 only reports files a test actually imported, so a source file with
+      // zero tests is silently absent from the summary instead of failing a threshold at 0%.
+      include: ['packages/*/src/**/*.ts'],
+      exclude: ['packages/*/src/**/*.test.ts'],
+      // AGENTS.md 13: enforced per package; a threshold is only ever raised as coverage
+      // improves, never lowered to make an unrelated change pass.
+      thresholds: {
+        'packages/schemas/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'packages/test-utils/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+      },
     },
   },
 });
