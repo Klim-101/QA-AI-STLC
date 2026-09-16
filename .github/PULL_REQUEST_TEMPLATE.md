@@ -18,12 +18,12 @@ Closes #
 
 <!-- Commands run and their results. List any check that could not be run and why. -->
 
-- [ ] `pnpm lint`
-- [ ] `pnpm typecheck`
-- [ ] `pnpm test`
-- [ ] `pnpm build`
-- [ ] `pnpm lint:generated`
-- [ ] `pnpm licenses:check`
+- [ ] `npm run lint`
+- [ ] `npm run typecheck`
+- [ ] `npm run test`
+- [ ] `npm run build`
+- [ ] `npm run lint:generated`
+- [ ] `npm run licenses:check`
 
 ## Checklist
 

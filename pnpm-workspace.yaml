@@ -1,3 +1,0 @@
-# Package boundaries and their allowed dependency direction are documented in AGENTS.md §3.
-packages:
-  - 'packages/*'

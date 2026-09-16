@@ -42,7 +42,7 @@ Stop and ask the maintainer before any change that would cross one of these line
 | `docs/adr/` | Architecture decision records for hard-to-reverse decisions | Yes |
 | `.github/` | Community health files, workflows, templates | Yes |
 
-Generated trees are rebuilt with `pnpm generate` and checked by `pnpm lint:generated`. Never hand-edit them; change the source and regenerate.
+Generated trees are rebuilt with `npm run generate` and checked by `npm run lint:generated`. Never hand-edit them; change the source and regenerate.
 
 Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `explorer`; `core` and `explorer` depend on `schemas`; `schemas` depends on nothing internal.
 
@@ -55,18 +55,18 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
 5. Run the full local gate before declaring work done:
 
    ```sh
-   pnpm install --frozen-lockfile
-   pnpm lint
-   pnpm typecheck
-   pnpm test
-   pnpm build
-   pnpm lint:generated
-   pnpm licenses:check
+   npm ci
+   npm run lint
+   npm run typecheck
+   npm run test
+   npm run build
+   npm run lint:generated
+   npm run licenses:check
    ```
 
    The repository is being bootstrapped. Until a script exists, run the checks that do exist and state which ones were unavailable.
 
-6. Add a changeset (`pnpm changeset`) when behavior visible to users changes.
+6. Add a changeset (`npx changeset`) when behavior visible to users changes.
 7. Update documentation and community files affected by the change (section 10).
 8. Report what was verified and what was not. Never claim a check passed if it was not run.
 9. Do not push, open pull requests, publish packages, create tags or change repository settings unless the maintainer asked for it.
@@ -260,7 +260,7 @@ The project is licensed under Apache-2.0 (`LICENSE`). Every contributor, human o
   // SPDX-License-Identifier: Apache-2.0
   ```
 
-  Markdown, JSON, YAML and generated files do not carry headers. `pnpm lint` checks headers.
+  Markdown, JSON, YAML and generated files do not carry headers. `npm run lint` checks headers.
 
 ### 9.2 Contributions
 
@@ -274,7 +274,7 @@ The project is licensed under Apache-2.0 (`LICENSE`). Every contributor, human o
 - Allowed licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, CC0-1.0, Unlicense, BlueOak-1.0.0, Python-2.0.
 - Require maintainer approval: MPL-2.0, EPL-2.0, CC-BY-4.0 (content only).
 - Forbidden: GPL, LGPL, AGPL, SSPL, BUSL, Commons Clause, "no license", and any custom or non-commercial license.
-- `pnpm licenses:check` enforces the allowlist in CI for all runtime dependencies.
+- `npm run licenses:check` enforces the allowlist in CI for all runtime dependencies.
 - Copied third-party source (a vendored file or a function longer than a few lines) is avoided. When unavoidable: keep its original copyright and license header, add a comment with the source URL and commit, list it in `NOTICE` if its license requires it, and mark local modifications as required by Apache-2.0 section 4(b).
 - Published packages include `LICENSE` and `NOTICE`.
 
@@ -306,7 +306,7 @@ GitHub's community profile checklist must stay complete. When a change affects o
 
 - Every publishable package declares an explicit `files` allowlist. The allowlist includes built output, `README.md`, `LICENSE` and `NOTICE`, and nothing else.
 - Never shipped: `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.github/`, `docs/`, tests, fixtures, source maps with absolute paths, `.qa/` data, examples.
-- Before a release, `pnpm pack:check` runs `npm pack --dry-run` for each package and fails on any file outside the allowlist.
+- Before a release, `npm run pack:check` runs `npm pack --dry-run` for each package and fails on any file outside the allowlist.
 - Plugins and extensions are generated and follow the same rule.
 
 ## 12. Best practices for this kind of framework
@@ -358,7 +358,7 @@ GitHub's community profile checklist must stay complete. When a change affects o
 - Unit tests make no network calls and do not launch browsers. Browser tests run against `examples/demo-app` only.
 - Use temporary directories for filesystem tests and clean them up. Never touch the developer's home directory or real host configuration.
 - Every bug fix includes a regression test that fails without the fix.
-- Golden files for rendered reports and generated code; update them intentionally with `pnpm test -u` and review the diff.
+- Golden files for rendered reports and generated code; update them intentionally with `npm run test -- -u` and review the diff.
 - Tests pass on Windows, macOS and Linux.
 
 ## 14. Security

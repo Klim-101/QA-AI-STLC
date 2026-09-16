@@ -21,23 +21,23 @@ The project deliberately does **not** accept:
 
 ## Development setup
 
-Requirements: Node.js active LTS, pnpm, Git.
+Requirements: Node.js active LTS, Git. npm ships with Node; no separate install needed.
 
 ```sh
 git clone https://github.com/Klim-101/QA-AI-STLC.git
 cd QA-AI-STLC
-pnpm install --frozen-lockfile
+npm ci
 ```
 
 Local gate, required before every pull request:
 
 ```sh
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm lint:generated
-pnpm licenses:check
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run lint:generated
+npm run licenses:check
 ```
 
 The repository is being bootstrapped, so some scripts may not exist yet. Run the ones that do and mention the rest in your pull request.
@@ -52,7 +52,7 @@ The repository is being bootstrapped, so some scripts may not exist yet. Run the
    git commit -s -m "fix(core): keep approval hash stable across line endings"
    ```
 
-4. Add a changeset with `pnpm changeset` if users will notice the change.
+4. Add a changeset with `npx changeset` if users will notice the change.
 5. Update documentation affected by the change, including `README.md` and this file.
 6. Rebase on `main`, push, and open a pull request using the template.
 

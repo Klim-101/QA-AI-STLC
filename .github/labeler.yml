@@ -30,4 +30,4 @@
       - any-glob-to-any-file: ['docs/**', '*.md']
 'area: repo':
   - changed-files:
-      - any-glob-to-any-file: ['.github/**', 'package.json', 'pnpm-workspace.yaml', 'tsconfig*.json', '.gitignore']
+      - any-glob-to-any-file: ['.github/**', 'package.json', 'package-lock.json', 'tsconfig*.json', '.gitignore']
