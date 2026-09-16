@@ -39,6 +39,7 @@ Stop and ask the maintainer before any change that would cross one of these line
 | `examples/demo-app` | Demo application with catalogued bugs | Yes |
 | `docs/dev/` | Development plan and task breakdown, ignored by git | Local only |
 | `docs/public/` | Public roadmap and published documentation | Yes |
+| `docs/adr/` | Architecture decision records for hard-to-reverse decisions | Yes |
 | `.github/` | Community health files, workflows, templates | Yes |
 
 Generated trees are rebuilt with `pnpm generate` and checked by `pnpm lint:generated`. Never hand-edit them; change the source and regenerate.
