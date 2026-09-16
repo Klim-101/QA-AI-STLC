@@ -13,7 +13,10 @@ jobs:
   # check, keeps every squash commit title compliant without a special case in the check itself:
   # this job's edit re-triggers the workflow on the corrected title, which then passes normally.
   normalize-dependabot-title:
-    if: github.actor == 'dependabot[bot]'
+    # `github.actor` is whoever caused this specific run (a maintainer re-running jobs would
+    # spoof it); the pull request's own recorded author is the value that can't be forged this
+    # way.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
