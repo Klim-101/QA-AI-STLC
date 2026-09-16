@@ -2,7 +2,7 @@
 
 QA-AI-STLC is built in phases. Each phase ends with an end-to-end scenario on the demo application and on at least one real open-source application.
 
-Live task status is on the [project board](https://github.com/users/Klim-101/projects) and in [milestones](https://github.com/Klim-101/QA-AI-STLC/milestones). The progress table below is updated automatically from the milestones; do not edit it by hand.
+Live task status is on the [project board](https://github.com/users/Klim-101/projects/2) and in [milestones](https://github.com/Klim-101/QA-AI-STLC/milestones). The progress table below is updated automatically from the milestones; do not edit it by hand.
 
 <!-- roadmap:progress:start -->
 | Phase | Status | Progress |
