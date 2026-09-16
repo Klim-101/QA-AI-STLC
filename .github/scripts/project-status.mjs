@@ -56,7 +56,15 @@ async function handleIssueEvent({ github, owner, repo, board, payload }) {
 
   const isBlockedLabelChange = (action === 'labeled' || action === 'unlabeled') && label?.name === BLOCKED_LABEL;
   if (action === 'opened' || action === 'reopened' || isBlockedLabelChange) {
-    await board.setStatus(issue.node_id, await resolveOpenStatus({ github, owner, repo, issue }));
+    // Two webhook deliveries for the same issue (for example a stale "labeled" event queued
+    // behind a "closed" one) can process out of order under this workflow's concurrency group;
+    // re-reading the issue here stops a late, no-longer-accurate event from undoing Done.
+    const { data: current } = await github.rest.issues.get({ owner, repo, issue_number: issue.number });
+    if (current.state === 'closed') {
+      await board.setStatus(issue.node_id, STATUS.done);
+      return;
+    }
+    await board.setStatus(issue.node_id, await resolveOpenStatus({ github, owner, repo, issue: current }));
   }
 }
 
