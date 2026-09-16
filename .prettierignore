@@ -1,0 +1,5 @@
+dist
+coverage
+adapters
+package-lock.json
+docs/dev

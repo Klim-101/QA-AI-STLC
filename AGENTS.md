@@ -27,20 +27,20 @@ Stop and ask the maintainer before any change that would cross one of these line
 
 ## 3. Repository map
 
-| Path | Content | Editable |
-|---|---|---|
-| `packages/schemas` | Zod schemas, generated JSON Schema, schema migrations | Yes |
-| `packages/core` | State machine, gates, `.qa/` store, evidence, runners, rendering | Yes |
-| `packages/explorer` | Crawler, static analysis, pick mode, locator synthesis, registry, API-surface discovery | Yes |
-| `packages/cli` | `qa` command | Yes |
-| `packages/mcp-server` | Local stdio MCP server over the core API | Yes |
-| `agents/` | Canonical skills and agent definitions | Yes |
-| `adapters/*` | Claude Code plugin, Codex plugin, VS Code extension | **No, generated** |
-| `examples/demo-app` | Demo application with catalogued bugs | Yes |
-| `docs/dev/` | Development plan and task breakdown, ignored by git | Local only |
-| `docs/public/` | Public roadmap and published documentation | Yes |
-| `docs/adr/` | Architecture decision records for hard-to-reverse decisions | Yes |
-| `.github/` | Community health files, workflows, templates | Yes |
+| Path                  | Content                                                                                 | Editable          |
+| --------------------- | --------------------------------------------------------------------------------------- | ----------------- |
+| `packages/schemas`    | Zod schemas, generated JSON Schema, schema migrations                                   | Yes               |
+| `packages/core`       | State machine, gates, `.qa/` store, evidence, runners, rendering                        | Yes               |
+| `packages/explorer`   | Crawler, static analysis, pick mode, locator synthesis, registry, API-surface discovery | Yes               |
+| `packages/cli`        | `qa` command                                                                            | Yes               |
+| `packages/mcp-server` | Local stdio MCP server over the core API                                                | Yes               |
+| `agents/`             | Canonical skills and agent definitions                                                  | Yes               |
+| `adapters/*`          | Claude Code plugin, Codex plugin, VS Code extension                                     | **No, generated** |
+| `examples/demo-app`   | Demo application with catalogued bugs                                                   | Yes               |
+| `docs/dev/`           | Development plan and task breakdown, ignored by git                                     | Local only        |
+| `docs/public/`        | Public roadmap and published documentation                                              | Yes               |
+| `docs/adr/`           | Architecture decision records for hard-to-reverse decisions                             | Yes               |
+| `.github/`            | Community health files, workflows, templates                                            | Yes               |
 
 Generated trees are rebuilt with `npm run generate` and checked by `npm run lint:generated`. Never hand-edit them; change the source and regenerate.
 
@@ -187,18 +187,18 @@ await row.scrollIntoViewIfNeeded();
 
 ### 7.1 Casing
 
-| Element | Convention | Example |
-|---|---|---|
-| Files and directories | kebab-case | `locator-synthesis.ts` |
-| Variables, functions, methods, properties | camelCase | `stabilityScore`, `synthesizeLocators` |
-| Types, interfaces, classes | PascalCase | `SelectorRegistry`, `Runner` |
-| Zod schemas | PascalCase with `Schema` suffix; inferred type without it | `TestCaseSchema`, `TestCase` |
-| Module-level true constants | UPPER_SNAKE_CASE | `DEFAULT_TIMEOUT_MS` |
-| Type parameters | Descriptive PascalCase, `T` only when trivial | `TArtifact` |
-| CLI commands and flags | kebab-case | `qa explore --safe-mode` |
-| MCP tool names | snake_case with a domain prefix | `browser_click`, `registry_verify` |
-| JSON artifact fields | camelCase | `lastVerifiedAt` |
-| Environment variables | UPPER_SNAKE_CASE with `QA_` prefix | `QA_BASE_URL` |
+| Element                                   | Convention                                                | Example                                |
+| ----------------------------------------- | --------------------------------------------------------- | -------------------------------------- |
+| Files and directories                     | kebab-case                                                | `locator-synthesis.ts`                 |
+| Variables, functions, methods, properties | camelCase                                                 | `stabilityScore`, `synthesizeLocators` |
+| Types, interfaces, classes                | PascalCase                                                | `SelectorRegistry`, `Runner`           |
+| Zod schemas                               | PascalCase with `Schema` suffix; inferred type without it | `TestCaseSchema`, `TestCase`           |
+| Module-level true constants               | UPPER_SNAKE_CASE                                          | `DEFAULT_TIMEOUT_MS`                   |
+| Type parameters                           | Descriptive PascalCase, `T` only when trivial             | `TArtifact`                            |
+| CLI commands and flags                    | kebab-case                                                | `qa explore --safe-mode`               |
+| MCP tool names                            | snake_case with a domain prefix                           | `browser_click`, `registry_verify`     |
+| JSON artifact fields                      | camelCase                                                 | `lastVerifiedAt`                       |
+| Environment variables                     | UPPER_SNAKE_CASE with `QA_` prefix                        | `QA_BASE_URL`                          |
 
 Acronyms are words: `apiUrl`, `HttpClient`, `parseHtml`, not `APIURL` or `parseHTML`.
 
@@ -211,7 +211,7 @@ Acronyms are words: `apiUrl`, `HttpClient`, `parseHtml`, not `APIURL` or `parseH
 - Include units in numeric names: `timeoutMs`, `sizeBytes`, `retryCount`.
 - Avoid vague words: `data`, `info`, `item`, `obj`, `temp`, `manager`, `helper`, `util`, `handler` without a qualifier.
 - Allowed abbreviations: `id`, `url`, `api`, `html`, `json`, `dom`, `cdp`, `mcp`, `cli`, `ms`. Spell out everything else.
-- Use the domain glossary consistently: *artifact*, *gate*, *approval*, *evidence*, *registry*, *locator*, *element*, *identity*, *run*, *spoke*, *hub*, *defect draft*. Do not introduce synonyms.
+- Use the domain glossary consistently: _artifact_, _gate_, _approval_, _evidence_, _registry_, _locator_, _element_, _identity_, _run_, _spoke_, _hub_, _defect draft_. Do not introduce synonyms.
 
 ## 8. Branches, commits and pull requests
 
@@ -288,18 +288,18 @@ The project is licensed under Apache-2.0 (`LICENSE`). Every contributor, human o
 
 GitHub's community profile checklist must stay complete. When a change affects one of these areas, update the file in the same pull request.
 
-| Item | File or setting | Must contain | Update when |
-|---|---|---|---|
-| Description | Repository settings: description and topics | One sentence: open-source, model-agnostic QA framework running inside Claude Code and Codex | Positioning or supported hosts change |
-| README | `README.md` | Purpose, status, supported hosts, install, quick start, responsibility boundary, license, links to contributing and security | Install steps, commands, hosts, scope or boundaries change |
-| Code of conduct | `CODE_OF_CONDUCT.md` | Contributor Covenant 2.1 and a working enforcement contact | The contact changes |
-| Contributing | `CONTRIBUTING.md` | Setup, local gate, branch and commit rules, DCO, license terms, scope boundaries | Tooling, commands or rules in this file change |
-| License | `LICENSE`, `NOTICE` | Unmodified Apache-2.0; project attribution | Third-party attribution is required |
-| Security policy | `SECURITY.md` | Supported versions, private reporting channel, response expectations, scope | A release line starts or ends support, or the channel changes |
-| Issue templates | `.github/ISSUE_TEMPLATE/*` | Bug report and feature request forms with redaction warnings and scope checks | Supported hosts, required diagnostics or scope change |
-| Pull request template | `.github/PULL_REQUEST_TEMPLATE.md` | Summary, linked issue, verification, checklist mirroring section 4 | The local gate or review rules change |
-| Roadmap | `docs/public/ROADMAP.md` | Generated progress table; phases with planned capabilities; "Not planned" boundaries; no estimates | Phase scope or delivered capabilities change; the progress table is updated by the `Roadmap sync` workflow |
-| Project board and milestones | GitHub project, milestones per phase, `roadmap` issues | Status field with `Todo`, `Ready`, `In progress`, `In review`, `Blocked`, `Done`; automation in `.github/workflows/project-status.yml` | Tasks are added, split or dropped |
+| Item                         | File or setting                                        | Must contain                                                                                                                           | Update when                                                                                                |
+| ---------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Description                  | Repository settings: description and topics            | One sentence: open-source, model-agnostic QA framework running inside Claude Code and Codex                                            | Positioning or supported hosts change                                                                      |
+| README                       | `README.md`                                            | Purpose, status, supported hosts, install, quick start, responsibility boundary, license, links to contributing and security           | Install steps, commands, hosts, scope or boundaries change                                                 |
+| Code of conduct              | `CODE_OF_CONDUCT.md`                                   | Contributor Covenant 2.1 and a working enforcement contact                                                                             | The contact changes                                                                                        |
+| Contributing                 | `CONTRIBUTING.md`                                      | Setup, local gate, branch and commit rules, DCO, license terms, scope boundaries                                                       | Tooling, commands or rules in this file change                                                             |
+| License                      | `LICENSE`, `NOTICE`                                    | Unmodified Apache-2.0; project attribution                                                                                             | Third-party attribution is required                                                                        |
+| Security policy              | `SECURITY.md`                                          | Supported versions, private reporting channel, response expectations, scope                                                            | A release line starts or ends support, or the channel changes                                              |
+| Issue templates              | `.github/ISSUE_TEMPLATE/*`                             | Bug report and feature request forms with redaction warnings and scope checks                                                          | Supported hosts, required diagnostics or scope change                                                      |
+| Pull request template        | `.github/PULL_REQUEST_TEMPLATE.md`                     | Summary, linked issue, verification, checklist mirroring section 4                                                                     | The local gate or review rules change                                                                      |
+| Roadmap                      | `docs/public/ROADMAP.md`                               | Generated progress table; phases with planned capabilities; "Not planned" boundaries; no estimates                                     | Phase scope or delivered capabilities change; the progress table is updated by the `Roadmap sync` workflow |
+| Project board and milestones | GitHub project, milestones per phase, `roadmap` issues | Status field with `Todo`, `Ready`, `In progress`, `In review`, `Blocked`, `Done`; automation in `.github/workflows/project-status.yml` | Tasks are added, split or dropped                                                                          |
 
 `CONTRIBUTING.md` summarizes this file for human contributors. When a rule changes here, update `CONTRIBUTING.md` in the same change.
 

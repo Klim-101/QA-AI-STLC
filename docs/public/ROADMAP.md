@@ -5,16 +5,17 @@ QA-AI-STLC is built in phases. Each phase ends with an end-to-end scenario on th
 Live task status is on the [project board](https://github.com/users/Klim-101/projects/2) and in [milestones](https://github.com/Klim-101/QA-AI-STLC/milestones). The progress table below is updated automatically from the milestones; do not edit it by hand.
 
 <!-- roadmap:progress:start -->
-| Phase | Status | Progress |
-|---|---|---|
-| Phase 0 — Foundation | in progress | 8 / 16 |
-| Phase 1 — Explorer 0.1 | planned | 0 / 17 |
-| Phase 2 — MCP and Claude Code plugin | planned | 0 / 15 |
-| Phase 3 — Runner and generation | planned | 0 / 13 |
-| Phase 4 — Hub-and-spoke | planned | 0 / 8 |
-| Phase 5 — Codex | planned | 0 / 6 |
-| Phase 6 — API, accessibility, defect drafts | planned | 0 / 12 |
-| Phase 7 — Release 1.0 | planned | 0 / 10 |
+
+| Phase                                       | Status      | Progress |
+| ------------------------------------------- | ----------- | -------- |
+| Phase 0 — Foundation                        | in progress | 8 / 16   |
+| Phase 1 — Explorer 0.1                      | planned     | 0 / 17   |
+| Phase 2 — MCP and Claude Code plugin        | planned     | 0 / 15   |
+| Phase 3 — Runner and generation             | planned     | 0 / 13   |
+| Phase 4 — Hub-and-spoke                     | planned     | 0 / 8    |
+| Phase 5 — Codex                             | planned     | 0 / 6    |
+| Phase 6 — API, accessibility, defect drafts | planned     | 0 / 12   |
+| Phase 7 — Release 1.0                       | planned     | 0 / 10   |
 
 _Last synchronized: 2026-09-16._
 <!-- roadmap:progress:end -->

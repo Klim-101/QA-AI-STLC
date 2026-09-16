@@ -54,7 +54,8 @@ async function handleIssueEvent({ github, owner, repo, board, payload }) {
     return;
   }
 
-  const isBlockedLabelChange = (action === 'labeled' || action === 'unlabeled') && label?.name === BLOCKED_LABEL;
+  const isBlockedLabelChange =
+    (action === 'labeled' || action === 'unlabeled') && label?.name === BLOCKED_LABEL;
   if (action === 'opened' || action === 'reopened' || isBlockedLabelChange) {
     // Two webhook deliveries for the same issue (for example a stale "labeled" event queued
     // behind a "closed" one) can process out of order under this workflow's concurrency group;
@@ -139,7 +140,10 @@ async function promoteUnblockedDependents({ github, owner, repo, board, issueNum
     if (current === STATUS.inProgress || current === STATUS.inReview) {
       continue;
     }
-    await board.setStatus(dependent.node_id, await resolveOpenStatus({ github, owner, repo, issue: dependent }));
+    await board.setStatus(
+      dependent.node_id,
+      await resolveOpenStatus({ github, owner, repo, issue: dependent }),
+    );
   }
 }
 
@@ -192,7 +196,9 @@ async function loadProject(github, projectOwner, projectNumber) {
   if (!project?.field) {
     throw new Error(`Project ${projectOwner}/${projectNumber} or its Status field was not found.`);
   }
-  const missing = Object.values(STATUS).filter((name) => !project.field.options.some((option) => option.name === name));
+  const missing = Object.values(STATUS).filter(
+    (name) => !project.field.options.some((option) => option.name === name),
+  );
   if (missing.length > 0) {
     throw new Error(`Status field is missing options: ${missing.join(', ')}.`);
   }
@@ -245,7 +251,12 @@ function createBoard(github, project, core) {
             value: { singleSelectOptionId: $optionId }
           }) { projectV2Item { id } }
         }`,
-        { projectId: project.id, itemId, fieldId: project.field.id, optionId: optionIdByName.get(statusName) },
+        {
+          projectId: project.id,
+          itemId,
+          fieldId: project.field.id,
+          optionId: optionIdByName.get(statusName),
+        },
       );
       core.info(`${contentId} -> ${statusName}`);
     },

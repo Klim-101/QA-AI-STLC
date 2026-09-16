@@ -1,6 +1,6 @@
 name: Bug report
 description: Something in the framework does not work as documented.
-labels: ["bug", "triage"]
+labels: ['bug', 'triage']
 body:
   - type: markdown
     attributes:
@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Framework version or commit
-      placeholder: "0.1.0 or a commit SHA"
+      placeholder: '0.1.0 or a commit SHA'
     validations:
       required: true
   - type: dropdown
@@ -41,7 +41,7 @@ body:
     id: node
     attributes:
       label: Node.js version
-      placeholder: "node --version"
+      placeholder: 'node --version'
     validations:
       required: true
   - type: dropdown
