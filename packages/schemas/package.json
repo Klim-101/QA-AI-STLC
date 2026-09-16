@@ -1,0 +1,22 @@
+{
+  "name": "@qa-ai-stlc/schemas",
+  "version": "0.0.0",
+  "description": "Zod schemas for every QA-AI-STLC artifact: the versioned contract between agents and the engine.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json && node ../../scripts/generate-json-schema.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "clean": "node ../../scripts/clean-dir.mjs dist"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}
