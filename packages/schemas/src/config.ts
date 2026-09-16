@@ -1,0 +1,94 @@
+// Copyright The QA-AI-STLC Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import { z } from 'zod';
+import { RelativePathSchema } from './primitives.js';
+import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
+
+export const TestingScopeDecisionSchema = z.enum(['in-scope', 'out-of-scope', 'undecided']);
+export type TestingScopeDecision = z.infer<typeof TestingScopeDecisionSchema>;
+
+export const TestingScopeSchema = z.object({
+  e2e: TestingScopeDecisionSchema,
+  api: TestingScopeDecisionSchema,
+  a11y: TestingScopeDecisionSchema,
+  security: TestingScopeDecisionSchema,
+});
+export type TestingScope = z.infer<typeof TestingScopeSchema>;
+
+export const SourceConfigSchema = z.object({
+  path: RelativePathSchema,
+});
+export type SourceConfig = z.infer<typeof SourceConfigSchema>;
+
+// v1 supports an OpenAPI 3.x contract only (development plan section 2.7); GraphQL and other
+// contract formats are deferred.
+export const ApiConfigSchema = z.object({
+  contract: z.literal('openapi'),
+  source: z.union([z.string().min(1), z.literal('discover'), z.literal('synthesize')]),
+});
+export type ApiConfig = z.infer<typeof ApiConfigSchema>;
+
+export const EnvironmentConfigSchema = z.object({
+  baseUrl: z.string().min(1),
+  allowlist: z.array(z.string().min(1)).min(1),
+});
+export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
+
+export const IdentityAuthSchema = z.enum(['cdp-attach', 'storage-state']);
+export type IdentityAuth = z.infer<typeof IdentityAuthSchema>;
+
+export const IdentityConfigSchema = z.object({
+  auth: IdentityAuthSchema,
+  // The name of an environment variable holding the credential, never the credential itself
+  // (AGENTS.md 5.8, 14): for example `QA_ADMIN_PASSWORD`.
+  secret: z.string().regex(/^QA_[A-Z0-9_]+$/, 'must be a QA_-prefixed environment variable name'),
+});
+export type IdentityConfig = z.infer<typeof IdentityConfigSchema>;
+
+export const DataStrategySchema = z.enum(['disposable', 'reset-endpoint', 'manual']);
+export type DataStrategy = z.infer<typeof DataStrategySchema>;
+
+export const DataConfigSchema = z.object({
+  strategy: DataStrategySchema,
+  ownerMarker: z.string().min(1),
+});
+export type DataConfig = z.infer<typeof DataConfigSchema>;
+
+export const SelectorPolicySchema = z.enum(['playwright-default', 'testid-first', 'strict-no-css']);
+export type SelectorPolicy = z.infer<typeof SelectorPolicySchema>;
+
+export const SelectorsConfigSchema = z.object({
+  policy: SelectorPolicySchema,
+  testIdAttribute: z.string().min(1),
+});
+export type SelectorsConfig = z.infer<typeof SelectorsConfigSchema>;
+
+export const AgentsConfigSchema = z.object({
+  parallelism: z.number().int().positive(),
+  spokeTimeoutSeconds: z.number().int().positive(),
+  retries: z.number().int().nonnegative(),
+});
+export type AgentsConfig = z.infer<typeof AgentsConfigSchema>;
+
+export const ConfigSchema = z
+  .object({
+    schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+    testing: TestingScopeSchema,
+    source: SourceConfigSchema.optional(),
+    api: ApiConfigSchema.optional(),
+    environments: z.record(z.string().min(1), EnvironmentConfigSchema),
+    identities: z.record(z.string().min(1), IdentityConfigSchema),
+    data: DataConfigSchema,
+    selectors: SelectorsConfigSchema,
+    agents: AgentsConfigSchema,
+  })
+  // The testing scope survey (development plan section 2.7) is the single source of truth for
+  // whether a contract or a source checkout is required; a config that claims API is in scope
+  // without a contract source, or security code-assisted checks without `source.path`, would let
+  // `qa doctor` pass while the pipeline has nothing to run against.
+  .refine((config) => config.testing.api !== 'in-scope' || config.api !== undefined, {
+    message: '"api" is required when testing.api is "in-scope"',
+    path: ['api'],
+  });
+export type Config = z.infer<typeof ConfigSchema>;
