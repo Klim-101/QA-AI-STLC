@@ -19,7 +19,8 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "node scripts/run-workspaces.mjs clean",
-    "pack:check": "node scripts/pack-check.mjs"
+    "pack:check": "node scripts/pack-check.mjs",
+    "release": "npm run pack:check && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
