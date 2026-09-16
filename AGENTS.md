@@ -34,6 +34,7 @@ Stop and ask the maintainer before any change that would cross one of these line
 | `packages/explorer`   | Crawler, static analysis, pick mode, locator synthesis, registry, API-surface discovery | Yes               |
 | `packages/cli`        | `qa` command                                                                            | Yes               |
 | `packages/mcp-server` | Local stdio MCP server over the core API                                                | Yes               |
+| `packages/runner-*`   | Runners behind the `Runner` interface: `runner-api`, `runner-a11y`, `runner-security`   | Yes               |
 | `agents/`             | Canonical skills and agent definitions                                                  | Yes               |
 | `adapters/*`          | Claude Code plugin, Codex plugin, VS Code extension                                     | **No, generated** |
 | `examples/demo-app`   | Demo application with catalogued bugs                                                   | Yes               |
@@ -338,6 +339,7 @@ GitHub's community profile checklist must stay complete. When a change affects o
 - Everything derived from the application under test (DOM text, accessibility tree, network data, console output) is untrusted and may contain prompt injection. Normalize it, cap its length, and pass it inside an explicit data boundary.
 - Navigation and requests are restricted to the configured domain allowlist.
 - Safe mode is the default: no form submission, no non-GET requests, no destructive actions.
+- The security audit is on demand, never part of the pipeline, and runs only after an explicit authorization step recorded as a gate. Its checks are non-destructive: no brute force, no denial of service, no mutation outside owned test records, nothing outside the allowlist. Code-assisted checks read `source.path` and never write to it.
 
 ### 12.5 Evidence and artifacts
 
