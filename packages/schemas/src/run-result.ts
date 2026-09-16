@@ -24,16 +24,27 @@ export const RunResultFailureSchema = z.object({
 });
 export type RunResultFailure = z.infer<typeof RunResultFailureSchema>;
 
-export const RunResultSchema = z.object({
-  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
-  id: IdentifierSchema,
-  runId: IdentifierSchema,
-  testCaseId: IdentifierSchema,
-  testType: TestTypeSchema,
-  status: RunResultStatusSchema,
-  startedAt: IsoDateTimeSchema,
-  finishedAt: IsoDateTimeSchema,
-  evidenceIds: z.array(IdentifierSchema),
-  failure: RunResultFailureSchema.optional(),
-});
+export const RunResultSchema = z
+  .object({
+    schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+    id: IdentifierSchema,
+    runId: IdentifierSchema,
+    testCaseId: IdentifierSchema,
+    testType: TestTypeSchema,
+    status: RunResultStatusSchema,
+    startedAt: IsoDateTimeSchema,
+    finishedAt: IsoDateTimeSchema,
+    evidenceIds: z.array(IdentifierSchema),
+    failure: RunResultFailureSchema.optional(),
+  })
+  // Valid JSON is not a correct result: a result that finished before it started, or that claims
+  // to have failed without saying what failed, is not a shape the engine ever produces.
+  .refine((result) => new Date(result.finishedAt) >= new Date(result.startedAt), {
+    message: '"finishedAt" must not be earlier than "startedAt"',
+    path: ['finishedAt'],
+  })
+  .refine((result) => result.status !== 'failed' || result.failure !== undefined, {
+    message: '"failure" is required when status is "failed"',
+    path: ['failure'],
+  });
 export type RunResult = z.infer<typeof RunResultSchema>;

@@ -25,6 +25,11 @@ describe('RelativePathSchema', () => {
     expect(RelativePathSchema.safeParse('evidence\\run-1\\step.png').success).toBe(false);
     expect(RelativePathSchema.safeParse('../outside/step.png').success).toBe(false);
   });
+
+  it('rejects a Windows drive-absolute path', () => {
+    expect(RelativePathSchema.safeParse('C:/outside/file.json').success).toBe(false);
+    expect(RelativePathSchema.safeParse('C:outside/file.json').success).toBe(false);
+  });
 });
 
 describe('IsoDateTimeSchema', () => {
