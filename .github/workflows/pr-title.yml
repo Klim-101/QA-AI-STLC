@@ -8,6 +8,32 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Dependabot always capitalizes its generated summary ("Bump the x group..."), which the
+  # subjectPattern below rejects. Lowercasing it here, instead of exempting Dependabot from the
+  # check, keeps every squash commit title compliant without a special case in the check itself:
+  # this job's edit re-triggers the workflow on the corrected title, which then passes normally.
+  normalize-dependabot-title:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Lowercase the summary after the Conventional Commits prefix
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const match = title.match(/^([a-z]+(?:\([a-z-]+\))?: )([A-Z])(.*)$/);
+            if (!match) return;
+            const [, prefix, firstLetter, rest] = match;
+            const normalized = `${prefix}${firstLetter.toLowerCase()}${rest}`;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              title: normalized,
+            });
+
   conventional-commit:
     runs-on: ubuntu-latest
     steps:
