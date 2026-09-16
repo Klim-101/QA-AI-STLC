@@ -26,6 +26,7 @@ export default defineConfig({
       thresholds: {
         'packages/schemas/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/test-utils/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'packages/core/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
   },
