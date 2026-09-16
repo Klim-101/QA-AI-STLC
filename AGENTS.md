@@ -37,7 +37,8 @@ Stop and ask the maintainer before any change that would cross one of these line
 | `agents/` | Canonical skills and agent definitions | Yes |
 | `adapters/*` | Claude Code plugin, Codex plugin, VS Code extension | **No, generated** |
 | `examples/demo-app` | Demo application with catalogued bugs | Yes |
-| `docs/` | Local planning notes, ignored by git | Local only |
+| `docs/dev/` | Development plan and task breakdown, ignored by git | Local only |
+| `docs/public/` | Public roadmap and published documentation | Yes |
 | `.github/` | Community health files, workflows, templates | Yes |
 
 Generated trees are rebuilt with `pnpm generate` and checked by `pnpm lint:generated`. Never hand-edit them; change the source and regenerate.
@@ -68,6 +69,15 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
 7. Update documentation and community files affected by the change (section 10).
 8. Report what was verified and what was not. Never claim a check passed if it was not run.
 9. Do not push, open pull requests, publish packages, create tags or change repository settings unless the maintainer asked for it.
+10. Track progress through GitHub, which is the single source of truth for task status:
+    - Every roadmap task is an issue titled `[P<phase>-<nn>] ...` with the `roadmap` label, a phase milestone, `size:` and `area:` labels, and "blocked by" links for its dependencies.
+    - Do not start a task while it has open "blocked by" issues. The board shows such tasks as `Todo`; startable tasks are `Ready`.
+    - Start work by creating a branch `<type>/<issue-number>-<short-description>`. The board moves the issue to `In progress` automatically.
+    - Open the pull request with `Closes #<issue-number>` in the description. The board moves the issue to `In review`, and merging closes it and moves it to `Done`.
+    - Add the `blocked` label only for external blockers (a decision, a third party). Record the reason in an issue comment.
+    - The progress table in `docs/public/ROADMAP.md` is regenerated from milestones by the `Roadmap sync` workflow. Edit the roadmap by hand only when phase scope or delivered capabilities change.
+    - `docs/dev/task-breakdown.md` (local, git-ignored) holds the plan context, local-only tasks and the decisions log. Refresh its statuses with `node docs/dev/sync-breakdown.mjs --project <number>`; record scope-changing findings in its decisions log.
+    - New tasks are added to the breakdown first, then created as issues with the next free ID. Never invent or reuse a task ID.
 
 ## 5. TypeScript code style
 
@@ -286,6 +296,8 @@ GitHub's community profile checklist must stay complete. When a change affects o
 | Security policy | `SECURITY.md` | Supported versions, private reporting channel, response expectations, scope | A release line starts or ends support, or the channel changes |
 | Issue templates | `.github/ISSUE_TEMPLATE/*` | Bug report and feature request forms with redaction warnings and scope checks | Supported hosts, required diagnostics or scope change |
 | Pull request template | `.github/PULL_REQUEST_TEMPLATE.md` | Summary, linked issue, verification, checklist mirroring section 4 | The local gate or review rules change |
+| Roadmap | `docs/public/ROADMAP.md` | Generated progress table; phases with planned capabilities; "Not planned" boundaries; no estimates | Phase scope or delivered capabilities change; the progress table is updated by the `Roadmap sync` workflow |
+| Project board and milestones | GitHub project, milestones per phase, `roadmap` issues | Status field with `Todo`, `Ready`, `In progress`, `In review`, `Blocked`, `Done`; automation in `.github/workflows/project-status.yml` | Tasks are added, split or dropped |
 
 `CONTRIBUTING.md` summarizes this file for human contributors. When a rule changes here, update `CONTRIBUTING.md` in the same change.
 

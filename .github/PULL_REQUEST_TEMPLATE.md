@@ -36,3 +36,4 @@ Closes #
 - [ ] Generated trees were regenerated, not hand-edited.
 - [ ] A changeset is added if users will notice the change.
 - [ ] README, CONTRIBUTING, SECURITY, templates and AGENTS.md are updated if affected.
+- [ ] The description links the task with `Closes #<issue>`; the roadmap text is updated if phase scope changed.

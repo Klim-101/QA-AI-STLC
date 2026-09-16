@@ -1,0 +1,97 @@
+# Roadmap
+
+QA-AI-STLC is built in phases. Each phase ends with an end-to-end scenario on the demo application and on at least one real open-source application.
+
+Live task status is on the [project board](https://github.com/users/Klim-101/projects) and in [milestones](https://github.com/Klim-101/QA-AI-STLC/milestones). The progress table below is updated automatically from the milestones; do not edit it by hand.
+
+<!-- roadmap:progress:start -->
+| Phase | Status | Progress |
+|---|---|---|
+| Phase 0 — Foundation | in progress | 1 / 14 |
+| Phase 1 — Explorer 0.1 | planned | 0 / 17 |
+| Phase 2 — MCP and Claude Code plugin | planned | 0 / 15 |
+| Phase 3 — Runner and generation | planned | 0 / 13 |
+| Phase 4 — Hub-and-spoke | planned | 0 / 8 |
+| Phase 5 — Codex | planned | 0 / 6 |
+| Phase 6 — API, accessibility, defect drafts | planned | 0 / 12 |
+| Phase 7 — Release 1.0 | planned | 0 / 10 |
+
+_Last synchronized: 2026-09-16._
+<!-- roadmap:progress:end -->
+
+## Phase 0 — Foundation
+
+The project skeleton everything else depends on.
+
+- Monorepo with strict TypeScript and CI on Windows, macOS and Linux
+- Licence, community files and contribution rules
+- Architecture decision records
+- Versioned artifact schemas
+- Demo application with a catalogue of known bugs
+
+## Phase 1 — Explorer 0.1
+
+First usable release, published on npm.
+
+- Safe-mode crawler with a domain allowlist
+- Sign-in by attaching to a browser you are already logged into
+- Static analysis of React, Angular and Vue sources
+- Pick mode: build a selector registry by clicking elements
+- Locator synthesis with stability scoring
+- Generated, typed locator module for Playwright
+- `qa explore --verify` to catch selector drift in CI
+- "Missing test ID" report for developers
+
+## Phase 2 — MCP server and Claude Code plugin
+
+The agent can drive the engine inside Claude Code.
+
+- Local MCP server with typed tools
+- Browser tools that register every action as evidence
+- Scope and test case design with approval gates bound to artifact hashes
+- Claude Code plugin generated from one canonical source
+
+## Phase 3 — Runner and generation
+
+Generated tests you can keep and run without a model.
+
+- Playwright runner with honest result statuses
+- Test generation verified by execution before it is kept
+- Reports and a requirement-to-evidence traceability matrix
+- Linking existing hand-written tests into traceability
+
+## Phase 4 — Hub-and-spoke
+
+Parallel work where it pays off, measured rather than assumed.
+
+- Parallel subagents in Claude Code with budgets
+- Failure triage and independent reviewer agents
+- Agent-layer evaluation set and a sequential versus parallel comparison
+
+## Phase 5 — Codex
+
+The same framework inside Codex.
+
+- Codex plugin generated from the same source
+- Verified flow in Codex CLI and desktop
+
+## Phase 6 — API, accessibility and defect drafts
+
+- API-surface discovery from real traffic, OpenAPI diff and draft synthesis
+- API and accessibility runners
+- Tracker-neutral defect drafts with an acceptance gate, ready for you to file with your own tools
+
+## Phase 7 — Release 1.0
+
+- `qa upgrade` for schema migrations and regeneration that preserves manual edits
+- Documentation site with a five-minute quick start
+- Public benchmark on the demo application
+- Submissions to the Claude Code and Codex plugin directories
+
+## Not planned
+
+These are deliberate boundaries, not gaps. See the responsibility boundary in the [README](../../README.md).
+
+- Calling language models directly or running hosted infrastructure
+- Publishing defects or reports to Jira, Confluence, GitHub Issues or other trackers
+- Bundling third-party MCP servers

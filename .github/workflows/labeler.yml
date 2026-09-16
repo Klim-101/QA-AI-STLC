@@ -1,0 +1,21 @@
+name: Pull request labels
+
+on:
+  # Labels must also be applied to pull requests from forks, which requires a write token.
+  # The job never checks out or runs pull request code, so the trigger is safe here.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          sync-labels: true
