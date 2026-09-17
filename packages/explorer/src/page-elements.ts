@@ -23,6 +23,12 @@ interface RawInteractiveElement {
   readonly kind: string;
   readonly accessibleName: string | undefined;
   readonly testId: string | undefined;
+  readonly role: string | undefined;
+  readonly label: string | undefined;
+  readonly placeholder: string | undefined;
+  readonly htmlId: string | undefined;
+  readonly tagName: string;
+  readonly nthOfType: number;
 }
 
 interface RawForm {
@@ -73,7 +79,7 @@ function isInteractiveElementKind(value: string): value is InteractiveElementKin
  * globals unavailable to the rest of this package.
  */
 async function readRawPageElements(page: AuthPage): Promise<RawPageElements | undefined> {
-  /* v8 ignore next 60 -- runs in the browser's own V8 instance, invisible to Node coverage */
+  /* v8 ignore next 90 -- runs in the browser's own V8 instance, invisible to Node coverage */
   const result = await page.evaluate(() => {
     function accessibleName(element: Element): string | undefined {
       const ariaLabel = element.getAttribute('aria-label');
@@ -82,6 +88,66 @@ async function readRawPageElements(page: AuthPage): Promise<RawPageElements | un
       }
       const text = element.textContent.trim();
       return text.length > 0 ? text : undefined;
+    }
+
+    // A small, explicit table rather than full ARIA role computation: locator synthesis only
+    // needs a role plausible enough for `getByRole`, and the five kinds below are the only ones
+    // this extractor recognizes in the first place.
+    function computeRole(element: Element, kind: string): string | undefined {
+      const explicit = element.getAttribute('role');
+      if (explicit !== null && explicit.trim().length > 0) {
+        return explicit;
+      }
+      if (kind === 'textarea') {
+        return 'textbox';
+      }
+      if (kind === 'select') {
+        return 'combobox';
+      }
+      if (kind === 'input') {
+        const type = (element.getAttribute('type') ?? 'text').toLowerCase();
+        if (type === 'checkbox' || type === 'radio') {
+          return type;
+        }
+        if (type === 'button' || type === 'submit' || type === 'reset') {
+          return 'button';
+        }
+        return 'textbox';
+      }
+      return kind === 'button' || kind === 'link' ? kind : undefined;
+    }
+
+    // `for`/`id` association first, then an ancestor `<label>` that wraps the field.
+    function labelText(element: Element): string | undefined {
+      const id = element.getAttribute('id');
+      if (id !== null && id.length > 0) {
+        const associated = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+        const text = associated?.textContent.trim();
+        if (text !== undefined && text.length > 0) {
+          return text;
+        }
+      }
+      const wrapping = element.closest('label')?.textContent.trim();
+      return wrapping !== undefined && wrapping.length > 0 ? wrapping : undefined;
+    }
+
+    // Position among same-tag siblings, so a CSS fallback candidate can be built without a live
+    // page: `tagName:nth-of-type(nthOfType)` scoped to the element's own parent.
+    function nthOfType(element: Element): number {
+      const parent = element.parentElement;
+      if (parent === null) {
+        return 1;
+      }
+      let index = 0;
+      for (const sibling of parent.children) {
+        if (sibling.tagName === element.tagName) {
+          index += 1;
+          if (sibling === element) {
+            return index;
+          }
+        }
+      }
+      return 1;
     }
 
     const kindByTagName: Record<string, string> = {
@@ -93,11 +159,21 @@ async function readRawPageElements(page: AuthPage): Promise<RawPageElements | un
     };
     const interactiveElements = Array.from(
       document.querySelectorAll('button, a[href], input, select, textarea'),
-    ).map((element) => ({
-      kind: kindByTagName[element.tagName.toLowerCase()] ?? element.tagName.toLowerCase(),
-      accessibleName: accessibleName(element),
-      testId: element.getAttribute('data-testid') ?? undefined,
-    }));
+    ).map((element) => {
+      const tagName = element.tagName.toLowerCase();
+      const kind = kindByTagName[tagName] ?? tagName;
+      return {
+        kind,
+        accessibleName: accessibleName(element),
+        testId: element.getAttribute('data-testid') ?? undefined,
+        role: computeRole(element, kind),
+        label: labelText(element),
+        placeholder: element.getAttribute('placeholder') ?? undefined,
+        htmlId: element.getAttribute('id') ?? undefined,
+        tagName,
+        nthOfType: nthOfType(element),
+      };
+    });
 
     const forms = Array.from(document.querySelectorAll('form')).map((form) => ({
       action: form.getAttribute('action') ?? undefined,
@@ -147,7 +223,7 @@ function normalizeInteractiveElement(
   if (!isInteractiveElementKind(raw.kind)) {
     return undefined;
   }
-  const element: InteractiveElement = { kind: raw.kind };
+  const element: InteractiveElement = { kind: raw.kind, tagName: raw.tagName, nthOfType: raw.nthOfType };
   if (raw.accessibleName !== undefined) {
     const { text, truncated } = truncateText(raw.accessibleName, limits);
     element.accessibleName = text;
@@ -157,6 +233,30 @@ function normalizeInteractiveElement(
   }
   if (raw.testId !== undefined) {
     element.testId = raw.testId;
+  }
+  if (raw.role !== undefined) {
+    element.role = raw.role;
+  }
+  if (raw.label !== undefined) {
+    const { text, truncated } = truncateText(raw.label, limits);
+    element.label = text;
+    if (truncated) {
+      onTruncated();
+    }
+  }
+  if (raw.placeholder !== undefined) {
+    const { text, truncated } = truncateText(raw.placeholder, limits);
+    element.placeholder = text;
+    if (truncated) {
+      onTruncated();
+    }
+  }
+  if (raw.htmlId !== undefined) {
+    const { text, truncated } = truncateText(raw.htmlId, limits);
+    element.htmlId = text;
+    if (truncated) {
+      onTruncated();
+    }
   }
   return element;
 }

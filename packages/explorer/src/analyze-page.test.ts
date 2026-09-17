@@ -23,7 +23,9 @@ describe('analyzePage', () => {
     const page = fakePage({
       ariaSnapshot: { role: 'document', name: 'Tasks' },
       elements: {
-        interactiveElements: [{ kind: 'button', accessibleName: 'New task', testId: undefined }],
+        interactiveElements: [
+          { kind: 'button', accessibleName: 'New task', testId: undefined, tagName: 'button', nthOfType: 1 },
+        ],
         forms: [],
         tables: [],
         dialogs: [],
@@ -35,7 +37,7 @@ describe('analyzePage', () => {
     expect(model).toEqual({
       url: 'https://staging.example.com/tasks',
       accessibilityTree: { role: 'document', name: 'Tasks' },
-      interactiveElements: [{ kind: 'button', accessibleName: 'New task' }],
+      interactiveElements: [{ kind: 'button', accessibleName: 'New task', tagName: 'button', nthOfType: 1 }],
       forms: [],
       tables: [],
       dialogs: [],

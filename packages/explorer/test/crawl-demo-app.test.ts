@@ -8,6 +8,7 @@ import type { IdentityConfig } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { analyzePages } from '../src/analyze-pages.js';
 import { crawl } from '../src/crawl.js';
+import { synthesizeLocatorCandidates } from '../src/synthesize-locators.js';
 
 // A fixed port, not 0: the demo app logs the port it was told to bind to, not the one the OS
 // actually assigned, so port 0 would leave this test unable to find the real address.
@@ -121,5 +122,36 @@ describe('analyzePages (demo app)', () => {
     expect(newTaskPage?.forms.length).toBeGreaterThan(0);
     expect(newTaskPage?.interactiveElements.some((element) => element.kind === 'link')).toBe(true);
     expect(result.blockedRequestCount).toBe(0);
+  }, 30_000);
+
+  // The login form deliberately catalogues an accessibility bug (BUG-006): the password field's
+  // `<label>` has no `for`, so it never associates with the input. Synthesizing locators against
+  // real DOM extraction proves both the happy path (email, labeled correctly) and the degraded
+  // one (password, falling back all the way to the CSS candidate) without relying on a fixture
+  // written by hand to already have the right shape.
+  it('extracts real label associations and degrades gracefully to css when they are missing', async () => {
+    const result = await analyzePages({
+      urls: [`${BASE_URL}/login`],
+      browserLauncher: playwrightBrowserLauncher,
+    });
+
+    const inputs = result.pageModelSet.pages[0]?.interactiveElements.filter(
+      (element) => element.tagName === 'input',
+    );
+    const [emailInput, passwordInput] = inputs ?? [];
+
+    expect(emailInput).toEqual(expect.objectContaining({ role: 'textbox', label: 'Email', htmlId: 'email' }));
+    expect(passwordInput).toEqual(expect.objectContaining({ role: 'textbox' }));
+    expect(passwordInput?.htmlId).toBeUndefined();
+    expect(passwordInput?.label).toBeUndefined();
+
+    const emailCandidates = synthesizeLocatorCandidates(emailInput!, 'playwright-default');
+    expect(emailCandidates.map((candidate) => candidate.strategy)).toEqual(['role', 'label', 'css']);
+    expect(emailCandidates.at(-1)).toEqual({ strategy: 'css', value: '#email', fragile: true });
+
+    const passwordCandidates = synthesizeLocatorCandidates(passwordInput!, 'playwright-default');
+    expect(passwordCandidates).toHaveLength(1);
+    expect(passwordCandidates[0]?.strategy).toBe('css');
+    expect(passwordCandidates[0]?.fragile).toBe(true);
   }, 30_000);
 });
