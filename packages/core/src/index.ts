@@ -14,3 +14,6 @@ export * from './config-loader.js';
 export * from './ports/http-client.js';
 export * from './ports/process-runner.js';
 export * from './browser-doctor.js';
+export * from './secret-scan.js';
+export * from './redaction.js';
+export * from './evidence-store.js';

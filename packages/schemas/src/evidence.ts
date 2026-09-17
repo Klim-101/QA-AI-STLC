@@ -29,3 +29,18 @@ export const EvidenceSchema = z.object({
   redacted: z.boolean(),
 });
 export type Evidence = z.infer<typeof EvidenceSchema>;
+
+// Written in place of an `Evidence` record when a secret scan finds a leak (AGENTS.md 12.5): the
+// leaking content is never written to disk, and this receipt names only the kind of pattern
+// found, never the matched value.
+export const EvidenceQuarantineReceiptSchema = z.object({
+  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+  id: IdentifierSchema,
+  runId: IdentifierSchema,
+  stepId: IdentifierSchema.optional(),
+  kind: EvidenceKindSchema,
+  createdAt: IsoDateTimeSchema,
+  reason: z.literal('secret-detected'),
+  patterns: z.array(z.string().min(1)).min(1),
+});
+export type EvidenceQuarantineReceipt = z.infer<typeof EvidenceQuarantineReceiptSchema>;
