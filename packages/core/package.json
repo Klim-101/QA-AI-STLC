@@ -3,6 +3,14 @@
   "version": "0.0.0",
   "description": "The QA-AI-STLC engine: .qa/ store, manifest hashing, config loading, and the injected clock/file-system/logger ports every other package builds on.",
   "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/Klim-101/QA-AI-STLC/tree/main/packages/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Klim-101/QA-AI-STLC.git",
+    "directory": "packages/core"
+  },
+  "bugs": "https://github.com/Klim-101/QA-AI-STLC/issues",
   "files": [
     "dist"
   ],
