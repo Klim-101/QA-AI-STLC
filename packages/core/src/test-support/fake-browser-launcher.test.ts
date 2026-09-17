@@ -88,6 +88,79 @@ describe('createFakeBrowserLauncher', () => {
     await expect(page.goto('https://example.com')).resolves.toBeNull();
   });
 
+  it('defaults reload() to a 200 response and honors an explicitly configured null', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    const response = await page.reload();
+
+    expect(response?.status()).toBe(200);
+
+    const nullLauncher = createFakeBrowserLauncher({ reloadResponse: null });
+    const nullPage = await (await (await nullLauncher.launch()).newContext()).newPage();
+    await expect(nullPage.reload()).resolves.toBeNull();
+  });
+
+  it('records setViewportSize() calls', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    expect(launcher.pageCalls).toEqual([{ method: 'setViewportSize', args: [{ width: 375, height: 667 }] }]);
+  });
+
+  it('records every locator method and each resolves to exactly one match by default', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    expect(await page.getByRole('button', { name: 'Save' }).count()).toBe(1);
+    expect(await page.getByTestId('save-button').count()).toBe(1);
+    expect(await page.getByLabel('Email').count()).toBe(1);
+    expect(await page.getByPlaceholder('you@example.com').count()).toBe(1);
+    expect(await page.getByText('Save').count()).toBe(1);
+    expect(await page.locator('#save').count()).toBe(1);
+
+    expect(launcher.pageCalls.map((call) => call.method)).toEqual([
+      'getByRole',
+      'getByTestId',
+      'getByLabel',
+      'getByPlaceholder',
+      'getByText',
+      'locator',
+    ]);
+  });
+
+  it('defaults viewportSize() to 1280x720 and honors a configured value, including null', async () => {
+    const defaultPage = await (await (await createFakeBrowserLauncher().launch()).newContext()).newPage();
+    expect(defaultPage.viewportSize()).toEqual({ width: 1280, height: 720 });
+
+    const customLauncher = createFakeBrowserLauncher({ viewportSize: { width: 375, height: 667 } });
+    const customPage = await (await (await customLauncher.launch()).newContext()).newPage();
+    expect(customPage.viewportSize()).toEqual({ width: 375, height: 667 });
+
+    const nullLauncher = createFakeBrowserLauncher({ viewportSize: null });
+    const nullPage = await (await (await nullLauncher.launch()).newContext()).newPage();
+    expect(nullPage.viewportSize()).toBeNull();
+  });
+
+  it('consumes configured locatorCounts one count() call at a time, repeating the last value', async () => {
+    const launcher = createFakeBrowserLauncher({ locatorCounts: [1, 0] });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    const target = page.locator('#save');
+
+    expect(await target.count()).toBe(1);
+    expect(await target.count()).toBe(0);
+    expect(await target.count()).toBe(0);
+  });
+
+  it('defaults to a count of 1 when locatorCounts is configured empty', async () => {
+    const launcher = createFakeBrowserLauncher({ locatorCounts: [] });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    expect(await page.locator('#save').count()).toBe(1);
+  });
+
   it('records the options passed to newContext(), defaulting to an empty object', async () => {
     const launcher = createFakeBrowserLauncher();
     const browser = await launcher.launch();

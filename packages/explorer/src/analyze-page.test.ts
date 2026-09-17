@@ -5,6 +5,7 @@ import type { AuthPage } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
 import { analyzePage } from './analyze-page.js';
 import { DEFAULT_NORMALIZE_LIMITS } from './normalize.js';
+import { createLocatorMethods } from './test-support/locator-stub.js';
 
 function fakePage(options: { readonly ariaSnapshot?: unknown; readonly elements?: unknown }): AuthPage {
   return {
@@ -15,6 +16,7 @@ function fakePage(options: { readonly ariaSnapshot?: unknown; readonly elements?
     route: () => Promise.resolve(),
     evaluate: () => Promise.resolve(options.elements),
     ariaSnapshotJSON: () => Promise.resolve(options.ariaSnapshot),
+    ...createLocatorMethods(),
   };
 }
 
