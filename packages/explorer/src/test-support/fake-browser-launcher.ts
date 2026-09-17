@@ -42,6 +42,8 @@ export interface FakeCrawlPageOptions {
   readonly authStorageState?: StorageState;
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
   readonly subRequestsByUrl?: Readonly<Record<string, readonly FakeSubRequest[]>>;
+  /** Forwarded to `createLocatorMethods()`, for tests driving `getByRole()`/`locator()` etc. */
+  readonly locatorCounts?: readonly number[];
 }
 
 export interface FakeCrawlPage extends AuthPage {
@@ -85,7 +87,9 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     },
     ariaSnapshotJSON: () =>
       Promise.resolve(currentUrl === undefined ? undefined : options.ariaSnapshotByUrl?.[currentUrl]),
-    ...createLocatorMethods(),
+    ...createLocatorMethods(
+      options.locatorCounts === undefined ? {} : { locatorCounts: options.locatorCounts },
+    ),
   };
 }
 

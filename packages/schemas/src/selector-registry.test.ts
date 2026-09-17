@@ -43,7 +43,7 @@ describe('SelectorRegistrySchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects an element with no locator candidates', () => {
+  it('accepts an element with no locator candidates (strict-no-css found none)', () => {
     const result = SelectorRegistrySchema.safeParse({
       generatedAt: '2026-09-16T12:00:00Z',
       elements: [
@@ -51,14 +51,14 @@ describe('SelectorRegistrySchema', () => {
           elementId: 'checkout-submit-button',
           kind: 'button',
           locatorCandidates: [],
-          stabilityScore: 0.5,
+          stabilityScore: 0,
           lastVerifiedAt: '2026-09-16T12:00:00Z',
           pii: false,
           dynamicText: false,
-          source: 'manual',
+          source: 'crawl',
         },
       ],
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });
