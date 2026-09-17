@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
 import type { IdentityConfig } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { analyzePages } from '../src/analyze-pages.js';
 import { crawl } from '../src/crawl.js';
 
 // A fixed port, not 0: the demo app logs the port it was told to bind to, not the one the OS
@@ -90,6 +91,35 @@ describe('crawl (demo app)', () => {
       ]),
     );
     expect(result.routeMap.routes.every((route) => route.httpStatus === 200)).toBe(true);
+    expect(result.blockedRequestCount).toBe(0);
+  }, 30_000);
+});
+
+// Exercises page analysis against the same real browser and application: a real
+// page.ariaSnapshotJSON() accessibility tree and real DOM extraction of interactive elements,
+// forms, tables and dialogs (AGENTS.md section 13).
+describe('analyzePages (demo app)', () => {
+  it('produces a structured page model for the login page, tasks list and new-task form', async () => {
+    const result = await analyzePages({
+      urls: [`${BASE_URL}/login`, `${BASE_URL}/tasks/new`],
+      browserLauncher: playwrightBrowserLauncher,
+      identity: {
+        config: {
+          auth: 'storage-state',
+          secret: 'QA_DEMO_ADMIN_PASSWORD',
+          loginUrl: `${BASE_URL}/login`,
+          username: 'admin@example.com',
+        },
+        env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' },
+      },
+    });
+
+    const [loginPage, newTaskPage] = result.pageModelSet.pages;
+    expect(loginPage?.accessibilityTree.role).toBe('main');
+    expect(loginPage?.accessibilityTree.children?.length).toBeGreaterThan(0);
+    expect(loginPage?.forms).toEqual([expect.objectContaining({ method: 'post', action: '/login' })]);
+    expect(newTaskPage?.forms.length).toBeGreaterThan(0);
+    expect(newTaskPage?.interactiveElements.some((element) => element.kind === 'link')).toBe(true);
     expect(result.blockedRequestCount).toBe(0);
   }, 30_000);
 });

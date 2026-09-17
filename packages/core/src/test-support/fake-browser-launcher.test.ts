@@ -47,16 +47,24 @@ describe('createFakeBrowserLauncher', () => {
     const response = await page.goto('https://example.com');
     await page.route('**/*', () => undefined);
     const evaluated = await page.evaluate(() => 'ignored');
+    const snapshot = await page.ariaSnapshotJSON();
 
     expect(response?.status()).toBe(200);
     expect(evaluated).toBeUndefined();
-    expect(launcher.pageCalls.map((call) => call.method)).toEqual(['goto', 'route', 'evaluate']);
+    expect(snapshot).toBeUndefined();
+    expect(launcher.pageCalls.map((call) => call.method)).toEqual([
+      'goto',
+      'route',
+      'evaluate',
+      'ariaSnapshotJSON',
+    ]);
   });
 
-  it('returns the configured gotoResponse and evaluateResult', async () => {
+  it('returns the configured gotoResponse, evaluateResult and ariaSnapshotResult', async () => {
     const launcher = createFakeBrowserLauncher({
       gotoResponse: { status: () => 404 },
       evaluateResult: ['https://example.com/a'],
+      ariaSnapshotResult: { role: 'document' },
     });
     const browser = await launcher.launch();
     const context = await browser.newContext();
@@ -64,9 +72,11 @@ describe('createFakeBrowserLauncher', () => {
 
     const response = await page.goto('https://example.com/missing');
     const evaluated = await page.evaluate(() => []);
+    const snapshot = await page.ariaSnapshotJSON();
 
     expect(response?.status()).toBe(404);
     expect(evaluated).toEqual(['https://example.com/a']);
+    expect(snapshot).toEqual({ role: 'document' });
   });
 
   it('honors an explicitly configured null gotoResponse', async () => {

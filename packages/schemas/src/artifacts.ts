@@ -7,6 +7,7 @@ import { ConfigSchema } from './config.js';
 import { DefectDraftSchema } from './defect.js';
 import { EvidenceSchema } from './evidence.js';
 import { ManifestSchema } from './manifest.js';
+import { PageModelSetSchema } from './page-model.js';
 import { RcaSchema } from './rca.js';
 import { RouteMapSchema } from './route-map.js';
 import { RunResultSchema } from './run-result.js';
@@ -21,6 +22,7 @@ export const artifactSchemas = {
   config: ConfigSchema,
   scope: ScopeSchema,
   'route-map': RouteMapSchema,
+  'page-models': PageModelSetSchema,
   'test-case': TestCaseSchema,
   'run-result': RunResultSchema,
   evidence: EvidenceSchema,

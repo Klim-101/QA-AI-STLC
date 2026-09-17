@@ -39,7 +39,7 @@ describe('createFakeCrawlBrowserLauncher', () => {
     await expect(context?.storageState()).resolves.toEqual({ cookies: [], origins: [] });
   });
 
-  it('resolves evaluate() to undefined before any goto() call', async () => {
+  it('resolves evaluate() and ariaSnapshotJSON() to undefined before any goto() call', async () => {
     const launcher = createFakeCrawlBrowserLauncher();
 
     const browser = await launcher.launch();
@@ -47,5 +47,18 @@ describe('createFakeCrawlBrowserLauncher', () => {
     const page = await context.newPage();
 
     await expect(page.evaluate(() => 'ignored')).resolves.toBeUndefined();
+    await expect(page.ariaSnapshotJSON()).resolves.toBeUndefined();
+  });
+
+  it('resolves ariaSnapshotJSON() to the snapshot configured for the current URL', async () => {
+    const launcher = createFakeCrawlBrowserLauncher({
+      ariaSnapshotByUrl: { 'https://example.com/': { role: 'document' } },
+    });
+    const browser = await launcher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto('https://example.com/');
+
+    await expect(page.ariaSnapshotJSON()).resolves.toEqual({ role: 'document' });
   });
 });
