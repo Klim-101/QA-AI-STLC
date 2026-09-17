@@ -12,6 +12,7 @@ import type {
   RouteHandler,
   StorageState,
 } from '@qa-ai-stlc/core';
+import { createLocatorMethods } from './locator-stub.js';
 
 const EMPTY_STORAGE_STATE: StorageState = { cookies: [], origins: [] };
 
@@ -84,6 +85,7 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     },
     ariaSnapshotJSON: () =>
       Promise.resolve(currentUrl === undefined ? undefined : options.ariaSnapshotByUrl?.[currentUrl]),
+    ...createLocatorMethods(),
   };
 }
 

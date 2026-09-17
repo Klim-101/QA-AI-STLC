@@ -12,4 +12,5 @@ export * from './normalize.js';
 export * from './page-elements.js';
 export * from './request-log.js';
 export * from './safe-mode.js';
+export * from './stability-scoring.js';
 export * from './synthesize-locators.js';

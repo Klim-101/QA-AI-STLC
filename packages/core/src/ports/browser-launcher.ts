@@ -26,6 +26,20 @@ export interface PageRoute {
 
 export type RouteHandler = (route: PageRoute) => Promise<void> | void;
 
+/** The one piece of Playwright's `Locator` API stability scoring needs: how many elements it resolves to. */
+export interface PageLocator {
+  count(): Promise<number>;
+}
+
+export interface GetByRoleOptions {
+  readonly name?: string;
+}
+
+export interface ViewportSize {
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
  * The narrow slice of Playwright's `Page` API authentication and crawling need. A real Playwright
  * `Page` satisfies this structurally; unit tests supply a small fake instead (AGENTS.md 5.3, 13).
@@ -41,6 +55,15 @@ export interface AuthPage {
   evaluate(pageFunction: () => unknown): Promise<unknown>;
   /** The page's accessibility tree as free-form JSON (Playwright's own aria snapshot). */
   ariaSnapshotJSON(): Promise<unknown>;
+  getByRole(role: string, options?: GetByRoleOptions): PageLocator;
+  getByTestId(testId: string): PageLocator;
+  getByLabel(text: string): PageLocator;
+  getByPlaceholder(text: string): PageLocator;
+  getByText(text: string): PageLocator;
+  locator(selector: string): PageLocator;
+  reload(): Promise<PageResponse | null>;
+  setViewportSize(size: ViewportSize): Promise<void>;
+  viewportSize(): ViewportSize | null;
 }
 
 export interface AuthBrowserContext {

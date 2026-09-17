@@ -4,10 +4,11 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
-import type { IdentityConfig } from '@qa-ai-stlc/schemas';
+import type { IdentityConfig, LocatorCandidate } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { analyzePages } from '../src/analyze-pages.js';
 import { crawl } from '../src/crawl.js';
+import { scoreLocatorStability } from '../src/stability-scoring.js';
 import { synthesizeLocatorCandidates } from '../src/synthesize-locators.js';
 
 // A fixed port, not 0: the demo app logs the port it was told to bind to, not the one the OS
@@ -153,5 +154,50 @@ describe('analyzePages (demo app)', () => {
     expect(passwordCandidates).toHaveLength(1);
     expect(passwordCandidates[0]?.strategy).toBe('css');
     expect(passwordCandidates[0]?.fragile).toBe(true);
+  }, 30_000);
+});
+
+// Exercises stability scoring against the same real browser and application: real
+// getByRole()/locator() resolution, a real page.reload() and real page.setViewportSize() calls
+// (AGENTS.md section 13), and the exit criterion that scores are reproducible across two runs.
+describe('scoreLocatorStability (demo app)', () => {
+  it('scores a real, uniquely-resolving candidate identically across two runs', async () => {
+    const browser = await playwrightBrowserLauncher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/login`);
+
+    const roleCandidate: LocatorCandidate = {
+      strategy: 'role',
+      value: JSON.stringify({ role: 'button', name: 'Log in' }),
+      fragile: false,
+    };
+
+    const firstScore = await scoreLocatorStability(page, roleCandidate);
+    const secondScore = await scoreLocatorStability(page, roleCandidate);
+
+    expect(firstScore).toBe(1);
+    expect(secondScore).toBe(1);
+
+    await context.close();
+    await browser.close();
+  }, 30_000);
+
+  it('scores 0 for a candidate that does not resolve to any real element', async () => {
+    const browser = await playwrightBrowserLauncher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/login`);
+
+    const missingCandidate: LocatorCandidate = {
+      strategy: 'testId',
+      value: 'does-not-exist',
+      fragile: false,
+    };
+
+    await expect(scoreLocatorStability(page, missingCandidate)).resolves.toBe(0);
+
+    await context.close();
+    await browser.close();
   }, 30_000);
 });
