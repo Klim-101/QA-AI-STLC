@@ -1,5 +1,13 @@
 # @qa-ai-stlc/cli
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [823eb39]
+  - @qa-ai-stlc/core@0.1.0
+  - @qa-ai-stlc/schemas@0.1.0
+
 ## 0.1.0
 
 ### Minor Changes
