@@ -16,6 +16,7 @@ describe('artifactSchemas', () => {
         'evidence',
         'manifest',
         'rca',
+        'route-map',
         'run-result',
         'scope',
         'selector-registry',

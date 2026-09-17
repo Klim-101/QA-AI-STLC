@@ -7,15 +7,38 @@ import type { BrowserContext as PlaywrightBrowserContext } from 'playwright';
 /** Playwright's own `BrowserContext.storageState()` return shape: cookies plus per-origin storage. */
 export type StorageState = Awaited<ReturnType<PlaywrightBrowserContext['storageState']>>;
 
+/** The one piece of a navigation response the engine reads: its HTTP status. */
+export interface PageResponse {
+  status(): number;
+}
+
+export interface RouteRequest {
+  method(): string;
+  url(): string;
+}
+
+/** The narrow slice of Playwright's `Route` API safe mode needs to allow or cancel a request. */
+export interface PageRoute {
+  request(): RouteRequest;
+  abort(): Promise<void>;
+  continue(): Promise<void>;
+}
+
+export type RouteHandler = (route: PageRoute) => Promise<void> | void;
+
 /**
- * The narrow slice of Playwright's `Page` API authentication needs. A real Playwright `Page`
- * satisfies this structurally; unit tests supply a small fake instead (AGENTS.md 5.3, 13).
+ * The narrow slice of Playwright's `Page` API authentication and crawling need. A real Playwright
+ * `Page` satisfies this structurally; unit tests supply a small fake instead (AGENTS.md 5.3, 13).
  */
 export interface AuthPage {
-  goto(url: string): Promise<unknown>;
+  goto(url: string): Promise<PageResponse | null>;
   fill(selector: string, value: string): Promise<void>;
   click(selector: string): Promise<void>;
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
+  /** Intercepts every request matching `pattern` (a glob, per Playwright's own syntax). */
+  route(pattern: string, handler: RouteHandler): Promise<unknown>;
+  /** Runs `pageFunction` in the page's browsing context. Untyped: callers narrow the result. */
+  evaluate(pageFunction: () => unknown): Promise<unknown>;
 }
 
 export interface AuthBrowserContext {
@@ -24,8 +47,13 @@ export interface AuthBrowserContext {
   close(): Promise<void>;
 }
 
+export interface NewContextOptions {
+  /** Reuses a session `authenticate()` already captured, instead of logging in again. */
+  readonly storageState?: StorageState;
+}
+
 export interface AuthBrowser {
-  newContext(): Promise<AuthBrowserContext>;
+  newContext(options?: NewContextOptions): Promise<AuthBrowserContext>;
   /** The contexts an attached, already-authenticated browser owns (ADR-004, section 6.2 step 1). */
   contexts(): readonly AuthBrowserContext[];
   close(): Promise<void>;

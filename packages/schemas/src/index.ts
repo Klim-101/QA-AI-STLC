@@ -6,6 +6,7 @@ export * from './primitives.js';
 export * from './artifacts.js';
 export * from './config.js';
 export * from './scope.js';
+export * from './route-map.js';
 export * from './test-case.js';
 export * from './evidence.js';
 export * from './run-result.js';
