@@ -50,7 +50,7 @@ The agent can drive the engine inside Claude Code.
 
 - Local MCP server with typed tools
 - Browser tools that register every action as evidence
-- Scope and test case design with approval gates bound to artifact hashes, one case set per in-scope testing type
+- Scope and test case design with approval gates bound to artifact hashes, one case set per in-scope testing type; every case classified by regression tier
 - Claude Code plugin generated from one canonical source
 
 ## Phase 3 — Runner and generation
@@ -58,6 +58,7 @@ The agent can drive the engine inside Claude Code.
 Generated tests you can keep and run without a model.
 
 - Playwright runner with honest result statuses
+- Live, interactive execution of an approved test case before any code is generated — a headed browser for the web, a real call for API, an axe-core scan for accessibility — so a problem is visible the moment it happens, and works even where no stable locator exists yet
 - Test generation verified by execution before it is kept
 - Reports and a requirement-to-evidence traceability matrix
 - Linking existing hand-written tests into traceability
@@ -68,6 +69,8 @@ Parallel work where it pays off, measured rather than assumed.
 
 - Parallel subagents in Claude Code with budgets
 - Failure triage and independent reviewer agents
+- Regression suite selection by test priority, replayed through the generated tests or live execution as needed
+- Run metrics — how a run was carried out, not how much it cost to think
 - Agent-layer evaluation set and a sequential versus parallel comparison
 
 ## Phase 5 — Codex
