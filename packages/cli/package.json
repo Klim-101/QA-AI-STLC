@@ -1,0 +1,41 @@
+{
+  "name": "@qa-ai-stlc/cli",
+  "version": "0.0.0",
+  "description": "The qa command: init, doctor and every deterministic engine operation exposed for CI and humans.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/Klim-101/QA-AI-STLC/tree/main/packages/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Klim-101/QA-AI-STLC.git",
+    "directory": "packages/cli"
+  },
+  "bugs": "https://github.com/Klim-101/QA-AI-STLC/issues",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "qa": "./dist/bin/qa.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "pretypecheck": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "typecheck": "tsc --noEmit -p .",
+    "pretest": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "test": "vitest run",
+    "pretest:coverage": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "node ../../scripts/clean-dir.mjs dist"
+  },
+  "dependencies": {
+    "@qa-ai-stlc/core": "0.0.0",
+    "@qa-ai-stlc/schemas": "0.0.0",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@qa-ai-stlc/test-utils": "0.0.0"
+  }
+}
