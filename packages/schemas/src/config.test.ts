@@ -13,7 +13,12 @@ function validConfig() {
       staging: { baseUrl: '${QA_BASE_URL}', allowlist: ['staging.example.com'] },
     },
     identities: {
-      admin: { auth: 'storage-state', secret: 'QA_ADMIN_PASSWORD' },
+      admin: {
+        auth: 'storage-state',
+        secret: 'QA_ADMIN_PASSWORD',
+        loginUrl: '/login',
+        username: 'qa.admin@example.com',
+      },
     },
     data: { strategy: 'disposable', ownerMarker: 'qa-${runId}' },
     selectors: { policy: 'testid-first', testIdAttribute: 'data-testid' },
@@ -54,5 +59,29 @@ describe('ConfigSchema', () => {
     (config.testing as Record<string, string>).e2e = 'maybe';
     const result = ConfigSchema.safeParse(config);
     expect(result.success).toBe(false);
+  });
+
+  it('rejects a "storage-state" identity with no loginUrl', () => {
+    const config = validConfig();
+    delete (config.identities.admin as { loginUrl?: string }).loginUrl;
+    const result = ConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a "storage-state" identity with no username', () => {
+    const config = validConfig();
+    delete (config.identities.admin as { username?: string }).username;
+    const result = ConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a "cdp-attach" identity with no loginUrl or username', () => {
+    const config = validConfig();
+    const admin = config.identities.admin as { auth: string; loginUrl?: string; username?: string };
+    admin.auth = 'cdp-attach';
+    delete admin.loginUrl;
+    delete admin.username;
+    const result = ConfigSchema.safeParse(config);
+    expect(result.success).toBe(true);
   });
 });
