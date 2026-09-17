@@ -41,10 +41,18 @@ export interface AccessibilityNode {
 export const InteractiveElementKindSchema = z.enum(['button', 'link', 'input', 'select', 'textarea']);
 export type InteractiveElementKind = z.infer<typeof InteractiveElementKindSchema>;
 
+// `tagName` and `nthOfType` carry no meaning to an agent; they exist so locator synthesis
+// (P1-08) can build a CSS fallback candidate from a stored page model without a live page open.
 export const InteractiveElementSchema = z.object({
   kind: InteractiveElementKindSchema,
   accessibleName: z.string().optional(),
   testId: z.string().optional(),
+  role: z.string().optional(),
+  label: z.string().optional(),
+  placeholder: z.string().optional(),
+  htmlId: z.string().optional(),
+  tagName: z.string().min(1),
+  nthOfType: z.number().int().min(1),
 });
 export type InteractiveElement = z.infer<typeof InteractiveElementSchema>;
 

@@ -21,7 +21,19 @@ function fakePage(evaluateResult: unknown): AuthPage {
 describe('extractPageElements', () => {
   it('normalizes a well-formed set of raw page elements', async () => {
     const page = fakePage({
-      interactiveElements: [{ kind: 'button', accessibleName: 'Save', testId: 'save-button' }],
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: 'Save',
+          testId: 'save-button',
+          role: 'button',
+          label: undefined,
+          placeholder: undefined,
+          htmlId: undefined,
+          tagName: 'button',
+          nthOfType: 1,
+        },
+      ],
       forms: [
         { action: '/tasks', method: 'post', fields: [{ name: 'title', type: 'text', required: true }] },
       ],
@@ -32,7 +44,16 @@ describe('extractPageElements', () => {
     const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
 
     expect(result).toEqual({
-      interactiveElements: [{ kind: 'button', accessibleName: 'Save', testId: 'save-button' }],
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: 'Save',
+          testId: 'save-button',
+          role: 'button',
+          tagName: 'button',
+          nthOfType: 1,
+        },
+      ],
       forms: [
         { action: '/tasks', method: 'post', fields: [{ name: 'title', type: 'text', required: true }] },
       ],
@@ -42,11 +63,31 @@ describe('extractPageElements', () => {
     });
   });
 
-  it('drops an interactive element with an unrecognized kind', async () => {
+  it('resolves a label associated by `for`/`id` and falls back to undefined without one', async () => {
     const page = fakePage({
       interactiveElements: [
-        { kind: 'video', accessibleName: undefined, testId: undefined },
-        { kind: 'link', accessibleName: undefined, testId: undefined },
+        {
+          kind: 'input',
+          accessibleName: undefined,
+          testId: undefined,
+          role: 'textbox',
+          label: 'Email',
+          placeholder: 'you@example.com',
+          htmlId: 'email',
+          tagName: 'input',
+          nthOfType: 1,
+        },
+        {
+          kind: 'input',
+          accessibleName: undefined,
+          testId: undefined,
+          role: 'textbox',
+          label: undefined,
+          placeholder: undefined,
+          htmlId: undefined,
+          tagName: 'input',
+          nthOfType: 2,
+        },
       ],
       forms: [],
       tables: [],
@@ -55,7 +96,63 @@ describe('extractPageElements', () => {
 
     const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
 
-    expect(result.interactiveElements).toEqual([{ kind: 'link' }]);
+    expect(result.interactiveElements).toEqual([
+      {
+        kind: 'input',
+        role: 'textbox',
+        label: 'Email',
+        placeholder: 'you@example.com',
+        htmlId: 'email',
+        tagName: 'input',
+        nthOfType: 1,
+      },
+      { kind: 'input', role: 'textbox', tagName: 'input', nthOfType: 2 },
+    ]);
+  });
+
+  it('truncates an oversized label, placeholder and html id', async () => {
+    const limits = { maxTextLength: 4, maxArrayLength: 200, maxTreeNodes: 500 };
+    const page = fakePage({
+      interactiveElements: [
+        {
+          kind: 'input',
+          accessibleName: undefined,
+          testId: undefined,
+          role: 'textbox',
+          label: 'a very long label',
+          placeholder: 'a very long placeholder',
+          htmlId: 'a-very-long-id',
+          tagName: 'input',
+          nthOfType: 1,
+        },
+      ],
+      forms: [],
+      tables: [],
+      dialogs: [],
+    });
+
+    const result = await extractPageElements(page, limits);
+
+    expect(result.interactiveElements[0]?.label).toBe('a ve…');
+    expect(result.interactiveElements[0]?.placeholder).toBe('a ve…');
+    expect(result.interactiveElements[0]?.htmlId).toBe('a-ve…');
+    expect(result.truncated).toBe(true);
+  });
+
+  it('drops an interactive element with an unrecognized kind', async () => {
+    const page = fakePage({
+      interactiveElements: [
+        { kind: 'video', accessibleName: undefined, testId: undefined, tagName: 'video', nthOfType: 1 },
+        { kind: 'link', accessibleName: undefined, testId: undefined, tagName: 'a', nthOfType: 1 },
+      ],
+      forms: [],
+      tables: [],
+      dialogs: [],
+    });
+
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
+
+    expect(result.interactiveElements).toEqual([{ kind: 'link', tagName: 'a', nthOfType: 1 }]);
   });
 
   it('omits optional fields a form field does not have', async () => {
@@ -86,10 +183,12 @@ describe('extractPageElements', () => {
   });
 
   it('caps oversized element lists and reports truncation', async () => {
-    const manyButtons = Array.from({ length: 3 }, () => ({
+    const manyButtons = Array.from({ length: 3 }, (_value, index) => ({
       kind: 'button',
       accessibleName: undefined,
       testId: undefined,
+      tagName: 'button',
+      nthOfType: index + 1,
     }));
     const page = fakePage({ interactiveElements: manyButtons, forms: [], tables: [], dialogs: [] });
 
@@ -129,7 +228,15 @@ describe('extractPageElements', () => {
   it('truncates an interactive element accessible name, a table header and a dialog name', async () => {
     const limits = { maxTextLength: 4, maxArrayLength: 200, maxTreeNodes: 500 };
     const page = fakePage({
-      interactiveElements: [{ kind: 'button', accessibleName: 'a very long label', testId: undefined }],
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: 'a very long label',
+          testId: undefined,
+          tagName: 'button',
+          nthOfType: 1,
+        },
+      ],
       forms: [],
       tables: [{ columnHeaders: ['a very long header'], rowCount: 0 }],
       dialogs: [{ accessibleName: 'a very long dialog name', open: true }],
