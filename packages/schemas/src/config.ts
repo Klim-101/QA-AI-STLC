@@ -38,12 +38,35 @@ export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 export const IdentityAuthSchema = z.enum(['cdp-attach', 'storage-state']);
 export type IdentityAuth = z.infer<typeof IdentityAuthSchema>;
 
-export const IdentityConfigSchema = z.object({
-  auth: IdentityAuthSchema,
-  // The name of an environment variable holding the credential, never the credential itself
-  // (AGENTS.md 5.8, 14): for example `QA_ADMIN_PASSWORD`.
-  secret: z.string().regex(/^QA_[A-Z0-9_]+$/, 'must be a QA_-prefixed environment variable name'),
+// A missing selector falls back to a generic default (development plan section 6.2); given only
+// when the application's login form does not match it.
+export const LoginSelectorsSchema = z.object({
+  username: z.string().min(1).optional(),
+  password: z.string().min(1).optional(),
+  submit: z.string().min(1).optional(),
 });
+export type LoginSelectors = z.infer<typeof LoginSelectorsSchema>;
+
+export const IdentityConfigSchema = z
+  .object({
+    auth: IdentityAuthSchema,
+    // The name of an environment variable holding the credential, never the credential itself
+    // (AGENTS.md 5.8, 14): for example `QA_ADMIN_PASSWORD`.
+    secret: z.string().regex(/^QA_[A-Z0-9_]+$/, 'must be a QA_-prefixed environment variable name'),
+    // Scripted login only ("storage-state" auth, development plan section 6.2); "cdp-attach"
+    // reuses a session the operator already signed into and needs neither.
+    loginUrl: z.string().min(1).optional(),
+    username: z.string().min(1).optional(),
+    selectors: LoginSelectorsSchema.optional(),
+  })
+  .refine((identity) => identity.auth !== 'storage-state' || identity.loginUrl !== undefined, {
+    message: '"loginUrl" is required when auth is "storage-state"',
+    path: ['loginUrl'],
+  })
+  .refine((identity) => identity.auth !== 'storage-state' || identity.username !== undefined, {
+    message: '"username" is required when auth is "storage-state"',
+    path: ['username'],
+  });
 export type IdentityConfig = z.infer<typeof IdentityConfigSchema>;
 
 export const DataStrategySchema = z.enum(['disposable', 'reset-endpoint', 'manual']);

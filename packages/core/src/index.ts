@@ -17,3 +17,6 @@ export * from './browser-doctor.js';
 export * from './secret-scan.js';
 export * from './redaction.js';
 export * from './evidence-store.js';
+export * from './ports/browser-launcher.js';
+export * from './auth.js';
+export * from './auth-session-store.js';
