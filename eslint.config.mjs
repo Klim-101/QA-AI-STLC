@@ -26,11 +26,19 @@ const spdxHeaderRule = {
         // Compare after normalizing line endings: a Windows checkout can leave CRLF on disk for
         // a file whose committed blob is LF, and the header check should not depend on that.
         const text = sourceCode.getText().replace(/\r\n/g, '\n');
-        if (!text.startsWith(SPDX_HEADER_LINES.join('\n'))) {
+        // A CLI entry point's shebang must stay the literal first line of the file for the OS to
+        // exec it, so the header is expected right after it instead of at column zero.
+        const shebangMatch = /^#!.*\n/.exec(text);
+        const afterShebang = shebangMatch ? text.slice(shebangMatch[0].length) : text;
+        if (!afterShebang.startsWith(SPDX_HEADER_LINES.join('\n'))) {
           context.report({
             node,
             messageId: 'missing',
-            fix: (fixer) => fixer.insertTextBefore(node, `${SPDX_HEADER_LINES.join('\n')}\n\n`),
+            fix: (fixer) =>
+              fixer.insertTextAfterRange(
+                [0, shebangMatch ? shebangMatch[0].length : 0],
+                `${SPDX_HEADER_LINES.join('\n')}\n\n`,
+              ),
           });
         }
       },

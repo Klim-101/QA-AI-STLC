@@ -20,13 +20,16 @@ export default defineConfig({
       // Without `include`, v8 only reports files a test actually imported, so a source file with
       // zero tests is silently absent from the summary instead of failing a threshold at 0%.
       include: ['packages/*/src/**/*.ts'],
-      exclude: ['packages/*/src/**/*.test.ts'],
+      // `bin/` entry points call `process.exit` (AGENTS.md 5.4) and cannot be exercised in-process
+      // without killing the test runner; `runCli`, the logic they call, is fully covered instead.
+      exclude: ['packages/*/src/**/*.test.ts', 'packages/*/src/bin/**'],
       // AGENTS.md 13: enforced per package; a threshold is only ever raised as coverage
       // improves, never lowered to make an unrelated change pass.
       thresholds: {
         'packages/schemas/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/test-utils/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/core/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'packages/cli/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
   },
