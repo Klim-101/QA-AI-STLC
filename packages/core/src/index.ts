@@ -11,3 +11,6 @@ export * from './ports/logger.js';
 export * from './qa-store.js';
 export * from './manifest-store.js';
 export * from './config-loader.js';
+export * from './ports/http-client.js';
+export * from './ports/process-runner.js';
+export * from './browser-doctor.js';
