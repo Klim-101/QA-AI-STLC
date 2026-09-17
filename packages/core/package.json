@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The QA-AI-STLC engine: .qa/ store, manifest hashing, config loading, and the injected clock/file-system/logger ports every other package builds on.",
   "type": "module",
   "license": "Apache-2.0",
@@ -28,7 +28,7 @@
     "clean": "node ../../scripts/clean-dir.mjs dist"
   },
   "dependencies": {
-    "@qa-ai-stlc/schemas": "0.2.0",
+    "@qa-ai-stlc/schemas": "0.3.0",
     "playwright": "1.63.0",
     "yaml": "2.9.1",
     "zod": "4.6.5"
