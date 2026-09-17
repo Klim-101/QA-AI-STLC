@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Klim-101/QA-AI-STLC.git"
+  },
+  "bugs": "https://github.com/Klim-101/QA-AI-STLC/issues",
   "packageManager": "npm@11.16.0",
   "workspaces": [
     "packages/*",

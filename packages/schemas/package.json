@@ -3,6 +3,14 @@
   "version": "0.0.0",
   "description": "Zod schemas for every QA-AI-STLC artifact: the versioned contract between agents and the engine.",
   "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/Klim-101/QA-AI-STLC/tree/main/packages/schemas#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Klim-101/QA-AI-STLC.git",
+    "directory": "packages/schemas"
+  },
+  "bugs": "https://github.com/Klim-101/QA-AI-STLC/issues",
   "files": [
     "dist"
   ],
