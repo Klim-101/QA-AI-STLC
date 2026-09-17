@@ -7,6 +7,7 @@ import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
 import type { IdentityConfig, LocatorCandidate } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { analyzePages } from '../src/analyze-pages.js';
+import { buildSelectorRegistry, diffSelectorRegistry } from '../src/build-selector-registry.js';
 import { crawl } from '../src/crawl.js';
 import { scoreLocatorStability } from '../src/stability-scoring.js';
 import { synthesizeLocatorCandidates } from '../src/synthesize-locators.js';
@@ -199,5 +200,29 @@ describe('scoreLocatorStability (demo app)', () => {
 
     await context.close();
     await browser.close();
+  }, 30_000);
+});
+
+// Exercises the full P1-06..P1-10 chain against the same real browser and application: a real
+// page model feeds real locator synthesis and real stability scoring, assembled into a registry
+// twice in a row to demonstrate the exit criterion that a diff between two crawls of an unchanged
+// application reports nothing new, removed or degraded.
+describe('buildSelectorRegistry (demo app)', () => {
+  it('produces a stable registry with no diff between two runs against an unchanged page', async () => {
+    const { pageModelSet } = await analyzePages({
+      urls: [`${BASE_URL}/login`],
+      browserLauncher: playwrightBrowserLauncher,
+    });
+
+    const first = await buildSelectorRegistry({ pageModelSet, browserLauncher: playwrightBrowserLauncher });
+    const second = await buildSelectorRegistry({ pageModelSet, browserLauncher: playwrightBrowserLauncher });
+
+    expect(first.registry.elements.length).toBeGreaterThan(0);
+    expect(first.registry.elements.every((selectorElement) => selectorElement.stabilityScore === 1)).toBe(
+      true,
+    );
+
+    const diff = diffSelectorRegistry(first.registry, second.registry);
+    expect(diff).toEqual({ added: [], removed: [], degraded: [] });
   }, 30_000);
 });

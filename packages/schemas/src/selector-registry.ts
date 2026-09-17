@@ -16,12 +16,16 @@ export const SelectorElementSourceSchema = z.enum(['crawl', 'static', 'manual'])
 export type SelectorElementSource = z.infer<typeof SelectorElementSourceSchema>;
 
 // `elementId` is the stable key generated tests import through the locator module (ADR-006); it
-// never changes even when every locator candidate underneath it does.
+// never changes even when every locator candidate underneath it does. `locatorCandidates` may be
+// empty: the `strict-no-css` synthesis policy deliberately produces no candidate at all for an
+// element with no role, test ID, label, placeholder or text signal, and the element is still
+// recorded (with `stabilityScore: 0`) rather than silently dropped, so a "missing locator" report
+// can surface it.
 export const SelectorElementSchema = z.object({
   elementId: IdentifierSchema,
   kind: z.string().min(1),
   library: z.string().optional(),
-  locatorCandidates: z.array(LocatorCandidateSchema).min(1),
+  locatorCandidates: z.array(LocatorCandidateSchema),
   stabilityScore: z.number().min(0).max(1),
   lastVerifiedAt: IsoDateTimeSchema,
   pii: z.boolean(),
