@@ -10,14 +10,17 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
  */
 export interface FileSystem {
   readFile(absolutePath: string): Promise<string>;
-  writeFile(absolutePath: string, content: string): Promise<void>;
+  writeFile(absolutePath: string, content: string | Uint8Array): Promise<void>;
   mkdir(absolutePath: string): Promise<void>;
   pathExists(absolutePath: string): Promise<boolean>;
 }
 
 export const nodeFileSystem: FileSystem = {
   readFile: (absolutePath) => readFile(absolutePath, 'utf-8'),
-  writeFile: (absolutePath, content) => writeFile(absolutePath, content, 'utf-8'),
+  writeFile: (absolutePath, content) =>
+    typeof content === 'string'
+      ? writeFile(absolutePath, content, 'utf-8')
+      : writeFile(absolutePath, content),
   mkdir: async (absolutePath) => {
     await mkdir(absolutePath, { recursive: true });
   },

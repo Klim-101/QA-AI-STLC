@@ -10,3 +10,14 @@ export function hashText(content: string): Sha256Hex {
   const normalized = content.replace(/\r\n/g, '\n');
   return createHash('sha256').update(normalized, 'utf-8').digest('hex');
 }
+
+// Binary content (screenshots, traces, video) is hashed byte for byte: there is no line-ending
+// convention to normalize.
+export function hashBytes(content: Uint8Array): Sha256Hex {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+/** Picks the text or binary hasher based on the content's runtime type. */
+export function hashContent(content: string | Uint8Array): Sha256Hex {
+  return typeof content === 'string' ? hashText(content) : hashBytes(content);
+}

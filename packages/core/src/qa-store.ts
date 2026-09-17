@@ -76,6 +76,11 @@ export class QaStore {
   }
 
   async writeText(relativePath: RelativePath, content: string): Promise<void> {
+    await this.writeBytes(relativePath, content);
+  }
+
+  /** Like `writeText`, but also accepts raw bytes for binary artifacts such as evidence. */
+  async writeBytes(relativePath: RelativePath, content: string | Uint8Array): Promise<void> {
     const absolutePath = this.resolve(relativePath);
     await this.fs.mkdir(dirname(absolutePath));
     await this.fs.writeFile(absolutePath, content);

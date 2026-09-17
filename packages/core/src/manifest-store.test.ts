@@ -4,7 +4,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { QaError } from './errors.js';
-import { hashText } from './hash.js';
+import { hashBytes, hashText } from './hash.js';
 import { ManifestStore } from './manifest-store.js';
 import type { Clock } from './ports/clock.js';
 import { QaStore } from './qa-store.js';
@@ -83,6 +83,18 @@ describe('ManifestStore', () => {
     await manifestStore.register('a.json', 'original');
 
     await expect(manifestStore.assertRegistered('a.json', 'original')).resolves.toBeUndefined();
+  });
+
+  it('registers and verifies raw bytes the same way as text', async () => {
+    const manifestStore = createManifestStore();
+    const bytes = new Uint8Array([1, 2, 3]);
+
+    await manifestStore.register('evidence/run-1/step.png', bytes);
+
+    const manifest = await manifestStore.load();
+    expect(manifest.artifacts['evidence/run-1/step.png']?.sha256).toBe(hashBytes(bytes));
+    expect(await manifestStore.verify('evidence/run-1/step.png', bytes)).toBe(true);
+    expect(await manifestStore.verify('evidence/run-1/step.png', new Uint8Array([9]))).toBe(false);
   });
 
   it('defaults to the system clock when none is provided', async () => {

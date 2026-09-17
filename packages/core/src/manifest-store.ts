@@ -3,7 +3,7 @@
 
 import { ManifestSchema, SCHEMA_VERSION, type Manifest, type RelativePath } from '@qa-ai-stlc/schemas';
 import { QaError } from './errors.js';
-import { hashText } from './hash.js';
+import { hashContent } from './hash.js';
 import { systemClock, type Clock } from './ports/clock.js';
 import type { QaStore } from './qa-store.js';
 
@@ -42,27 +42,27 @@ export class ManifestStore {
   }
 
   /** Hashes `content` and records it as the current registered version of `relativePath`. */
-  async register(relativePath: RelativePath, content: string): Promise<void> {
+  async register(relativePath: RelativePath, content: string | Uint8Array): Promise<void> {
     const manifest = await this.load();
     const nextManifest: Manifest = {
       ...manifest,
       artifacts: {
         ...manifest.artifacts,
-        [relativePath]: { sha256: hashText(content), registeredAt: this.clock.now().toISOString() },
+        [relativePath]: { sha256: hashContent(content), registeredAt: this.clock.now().toISOString() },
       },
     };
     await this.save(nextManifest);
   }
 
   /** Reports whether `content` still matches the hash registered for `relativePath`, if any. */
-  async verify(relativePath: RelativePath, content: string): Promise<boolean> {
+  async verify(relativePath: RelativePath, content: string | Uint8Array): Promise<boolean> {
     const manifest = await this.load();
     const entry = manifest.artifacts[relativePath];
-    return entry?.sha256 === hashText(content);
+    return entry?.sha256 === hashContent(content);
   }
 
   /** Throws a coded `QaError` when `relativePath` is unregistered or its content was tampered with. */
-  async assertRegistered(relativePath: RelativePath, content: string): Promise<void> {
+  async assertRegistered(relativePath: RelativePath, content: string | Uint8Array): Promise<void> {
     const manifest = await this.load();
     const entry = manifest.artifacts[relativePath];
     if (entry === undefined) {
@@ -70,7 +70,7 @@ export class ManifestStore {
         remediation: 'Register the artifact through the engine before referencing it.',
       });
     }
-    if (entry.sha256 !== hashText(content)) {
+    if (entry.sha256 !== hashContent(content)) {
       throw new QaError('ARTIFACT_HASH_MISMATCH', `"${relativePath}" does not match its registered hash`, {
         remediation: 'The file changed outside the engine; regenerate or re-register it through the engine.',
       });

@@ -59,6 +59,16 @@ describe('QaStore', () => {
     expect(await store.readText('config.yaml')).toBe('testing: {}\n');
   });
 
+  it('writes raw bytes, creating parent directories as needed', async () => {
+    const fs = createFakeFileSystem();
+    const store = new QaStore({ projectRoot: join('project'), fs });
+    const bytes = new Uint8Array([1, 2, 3]);
+
+    await store.writeBytes('evidence/run-1/step.png', bytes);
+
+    expect(fs.getRawFile(store.resolve('evidence/run-1/step.png'))).toEqual(bytes);
+  });
+
   it('defaults to the real Node filesystem when none is provided', () => {
     const store = new QaStore({ projectRoot: join('project') });
     expect(store.qaDir).toBe(join('project', '.qa'));
