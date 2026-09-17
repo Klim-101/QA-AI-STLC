@@ -30,6 +30,7 @@ export default defineConfig({
         'packages/test-utils/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/core/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/cli/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'packages/explorer/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
   },

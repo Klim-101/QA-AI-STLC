@@ -38,6 +38,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The explorer package's integration test drives a real Chromium against examples/demo-app
+      # (AGENTS.md section 13); `--with-deps` also installs the OS packages Linux runners need.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
       - name: Lint
         run: npm run lint
 

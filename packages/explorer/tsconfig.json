@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    // Only `extract-links.ts`'s `page.evaluate()` callback needs DOM types; it runs inside the
+    // browser, not this package's own Node runtime.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "test"],
+  "references": [{ "path": "../schemas" }, { "path": "../core" }, { "path": "../test-utils" }]
+}

@@ -8,6 +8,7 @@ import { DefectDraftSchema } from './defect.js';
 import { EvidenceSchema } from './evidence.js';
 import { ManifestSchema } from './manifest.js';
 import { RcaSchema } from './rca.js';
+import { RouteMapSchema } from './route-map.js';
 import { RunResultSchema } from './run-result.js';
 import { ScopeSchema } from './scope.js';
 import { SelectorRegistrySchema } from './selector-registry.js';
@@ -19,6 +20,7 @@ import { TestCaseSchema } from './test-case.js';
 export const artifactSchemas = {
   config: ConfigSchema,
   scope: ScopeSchema,
+  'route-map': RouteMapSchema,
   'test-case': TestCaseSchema,
   'run-result': RunResultSchema,
   evidence: EvidenceSchema,

@@ -1,0 +1,95 @@
+// Copyright The QA-AI-STLC Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import { spawn, type ChildProcess } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
+import type { IdentityConfig } from '@qa-ai-stlc/schemas';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { crawl } from '../src/crawl.js';
+
+// A fixed port, not 0: the demo app logs the port it was told to bind to, not the one the OS
+// actually assigned, so port 0 would leave this test unable to find the real address.
+const PORT = 4391;
+const BASE_URL = `http://localhost:${String(PORT)}`;
+const STARTUP_TIMEOUT_MS = 60_000;
+
+let demoApp: ChildProcess;
+
+async function waitForServer(url: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await fetch(url);
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  throw new Error(`Demo app did not become reachable at ${url} within ${String(timeoutMs)}ms`);
+}
+
+beforeAll(async () => {
+  const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath === undefined) {
+    throw new Error('This test must run through an npm script (npm_execpath is unset).');
+  }
+  demoApp = spawn(process.execPath, [npmExecPath, 'run', 'start', '--workspace', '@qa-ai-stlc/demo-app'], {
+    cwd: repoRoot,
+    env: { ...process.env, DEMO_APP_PORT: String(PORT) },
+    stdio: 'ignore',
+  });
+  await waitForServer(`${BASE_URL}/login`, STARTUP_TIMEOUT_MS);
+}, STARTUP_TIMEOUT_MS + 5_000);
+
+afterAll(() => {
+  demoApp.kill();
+});
+
+// Exercises the crawler against a real browser and a real running application (AGENTS.md
+// section 13: browser tests run against examples/demo-app only), the boundary a fake
+// BrowserLauncher cannot cover: an actual page.evaluate() DOM extraction, actual navigation
+// responses, and actual safe-mode request interception.
+describe('crawl (demo app)', () => {
+  it('crawls anonymously and stops at the unauthenticated login page', async () => {
+    const result = await crawl({
+      startUrl: `${BASE_URL}/login`,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+    });
+
+    expect(result.routeMap.routes).toEqual([
+      { url: `${BASE_URL}/login`, discoveredVia: 'link', httpStatus: 200 },
+    ]);
+    expect(result.blockedRequestCount).toBe(0);
+  }, 30_000);
+
+  it('signs in as admin and discovers every reachable page without sending a non-GET request', async () => {
+    const identityConfig: IdentityConfig = {
+      auth: 'storage-state',
+      secret: 'QA_DEMO_ADMIN_PASSWORD',
+      loginUrl: `${BASE_URL}/login`,
+      username: 'admin@example.com',
+    };
+
+    const result = await crawl({
+      startUrl: `${BASE_URL}/dashboard`,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+      identity: { config: identityConfig, env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' } },
+    });
+
+    const urls = result.routeMap.routes.map((route) => route.url);
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        `${BASE_URL}/dashboard`,
+        `${BASE_URL}/tasks`,
+        `${BASE_URL}/tasks/new`,
+        `${BASE_URL}/admin/users`,
+      ]),
+    );
+    expect(result.routeMap.routes.every((route) => route.httpStatus === 200)).toBe(true);
+    expect(result.blockedRequestCount).toBe(0);
+  }, 30_000);
+});
