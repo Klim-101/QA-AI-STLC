@@ -14,7 +14,7 @@ import type {
 const EMPTY_STORAGE_STATE: StorageState = { cookies: [], origins: [] };
 
 export interface FakePageCall {
-  readonly method: 'goto' | 'fill' | 'click' | 'waitForLoadState' | 'route' | 'evaluate';
+  readonly method: 'goto' | 'fill' | 'click' | 'waitForLoadState' | 'route' | 'evaluate' | 'ariaSnapshotJSON';
   readonly args: readonly unknown[];
 }
 
@@ -25,6 +25,8 @@ export interface FakeBrowserLauncherOptions {
   readonly gotoResponse?: PageResponse | null;
   /** Returned by every `page.evaluate()` call; defaults to `undefined`. */
   readonly evaluateResult?: unknown;
+  /** Returned by every `page.ariaSnapshotJSON()` call; defaults to `undefined`. */
+  readonly ariaSnapshotResult?: unknown;
 }
 
 export interface FakeBrowserLauncher extends BrowserLauncher {
@@ -63,6 +65,10 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
     evaluate: (...args) => {
       calls.push({ method: 'evaluate', args });
       return Promise.resolve(options.evaluateResult);
+    },
+    ariaSnapshotJSON: (...args) => {
+      calls.push({ method: 'ariaSnapshotJSON', args });
+      return Promise.resolve(options.ariaSnapshotResult);
     },
   };
 }

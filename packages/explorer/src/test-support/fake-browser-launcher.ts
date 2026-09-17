@@ -33,6 +33,10 @@ export interface FakeCrawlPageOptions {
   readonly responsesByUrl?: Readonly<Record<string, PageResponse | null>>;
   /** Maps a normalized URL to the links `extractLinks()` should see on it. */
   readonly linksByUrl?: Readonly<Record<string, readonly string[]>>;
+  /** Maps a normalized URL to the accessibility snapshot `ariaSnapshotJSON()` should see on it. */
+  readonly ariaSnapshotByUrl?: Readonly<Record<string, unknown>>;
+  /** Maps a normalized URL to the raw page-elements `extractPageElements()` should see on it. */
+  readonly elementsByUrl?: Readonly<Record<string, unknown>>;
   /** The session `authenticate()` resolves to for a `cdp-attach` identity in these tests. */
   readonly authStorageState?: StorageState;
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
@@ -72,7 +76,14 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
       routeHandlers.push(handler);
       return Promise.resolve();
     },
-    evaluate: () => Promise.resolve(currentUrl === undefined ? undefined : options.linksByUrl?.[currentUrl]),
+    evaluate: () => {
+      if (currentUrl === undefined) {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve(options.elementsByUrl?.[currentUrl] ?? options.linksByUrl?.[currentUrl]);
+    },
+    ariaSnapshotJSON: () =>
+      Promise.resolve(currentUrl === undefined ? undefined : options.ariaSnapshotByUrl?.[currentUrl]),
   };
 }
 

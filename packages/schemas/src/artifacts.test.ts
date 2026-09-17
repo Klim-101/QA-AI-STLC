@@ -15,6 +15,7 @@ describe('artifactSchemas', () => {
         'defect-draft',
         'evidence',
         'manifest',
+        'page-models',
         'rca',
         'route-map',
         'run-result',

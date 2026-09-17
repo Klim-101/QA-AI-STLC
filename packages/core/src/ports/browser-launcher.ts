@@ -39,6 +39,8 @@ export interface AuthPage {
   route(pattern: string, handler: RouteHandler): Promise<unknown>;
   /** Runs `pageFunction` in the page's browsing context. Untyped: callers narrow the result. */
   evaluate(pageFunction: () => unknown): Promise<unknown>;
+  /** The page's accessibility tree as free-form JSON (Playwright's own aria snapshot). */
+  ariaSnapshotJSON(): Promise<unknown>;
 }
 
 export interface AuthBrowserContext {

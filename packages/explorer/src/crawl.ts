@@ -1,33 +1,17 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  authenticate,
-  systemClock,
-  type AuthPage,
-  type BrowserLauncher,
-  type Clock,
-  type StorageState,
-} from '@qa-ai-stlc/core';
-import {
-  SCHEMA_VERSION,
-  type DiscoveredRoute,
-  type IdentityConfig,
-  type RouteMap,
-} from '@qa-ai-stlc/schemas';
+import { systemClock, type AuthPage, type BrowserLauncher, type Clock } from '@qa-ai-stlc/core';
+import { SCHEMA_VERSION, type DiscoveredRoute, type RouteMap } from '@qa-ai-stlc/schemas';
 import { isAllowedUrl, normalizeUrl } from './allowlist.js';
 import { extractLinks } from './extract-links.js';
+import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { buildRequestLogHar, type RequestLogEntry } from './request-log.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
 
 const DEFAULT_MAX_PAGES = 50;
 
-export interface CrawlIdentity {
-  readonly config: IdentityConfig;
-  readonly env: Readonly<Record<string, string | undefined>>;
-  /** Required, and only used, when `identity.config.auth` is `"cdp-attach"`. */
-  readonly cdpEndpointUrl?: string;
-}
+export type CrawlIdentity = ExplorerIdentity;
 
 export interface CrawlOptions {
   readonly startUrl: string;
@@ -64,7 +48,7 @@ interface QueueItem {
 export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
   const clock = options.clock ?? systemClock;
   const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
-  const storageState = await resolveStorageState(options);
+  const storageState = await resolveStorageState(options.browserLauncher, options.identity);
 
   const browser = await options.browserLauncher.launch();
   try {
@@ -97,17 +81,6 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
   } finally {
     await browser.close();
   }
-}
-
-async function resolveStorageState(options: CrawlOptions): Promise<StorageState | undefined> {
-  if (options.identity === undefined) {
-    return undefined;
-  }
-  return authenticate(options.browserLauncher, options.identity.config, options.identity.env, {
-    ...(options.identity.cdpEndpointUrl !== undefined
-      ? { cdpEndpointUrl: options.identity.cdpEndpointUrl }
-      : {}),
-  });
 }
 
 async function visitAllowedRoutes(
