@@ -10,6 +10,7 @@ import {
   type SelectorRegistry,
 } from '@qa-ai-stlc/schemas';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
+import { createElementNamer } from './naming.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
 import { scoreLocatorStability } from './stability-scoring.js';
 import { synthesizeLocatorCandidates, type LocatorPolicy } from './synthesize-locators.js';
@@ -48,97 +49,6 @@ function computeElementId(url: string, element: InteractiveElement): string {
   return hashText(`${url} ${element.kind} ${elementNameForId(element)}`);
 }
 
-// Splits on anything that is not a letter or digit, dropping empty segments, so accented and
-// non-Latin text collapses to nothing rather than surviving as invalid identifier characters.
-function wordsOf(text: string): string[] {
-  return text.split(/[^A-Za-z0-9]+/u).filter((word) => word.length > 0);
-}
-
-// An accessible name equal to a reserved word ("Export", "Delete") would otherwise produce a
-// locator module export that fails to compile.
-const RESERVED_WORDS = new Set([
-  'break',
-  'case',
-  'catch',
-  'class',
-  'const',
-  'continue',
-  'debugger',
-  'default',
-  'delete',
-  'do',
-  'else',
-  'enum',
-  'export',
-  'extends',
-  'false',
-  'finally',
-  'for',
-  'function',
-  'if',
-  'implements',
-  'import',
-  'in',
-  'instanceof',
-  'interface',
-  'let',
-  'new',
-  'null',
-  'package',
-  'private',
-  'protected',
-  'public',
-  'return',
-  'static',
-  'super',
-  'switch',
-  'this',
-  'throw',
-  'true',
-  'try',
-  'typeof',
-  'var',
-  'void',
-  'while',
-  'with',
-  'yield',
-]);
-
-// `.charAt(0)` (unlike `word[0]`) always returns a plain `string` even under
-// `noUncheckedIndexedAccess`, so this never needs an `undefined` fallback for an empty `word`.
-function upperFirst(word: string): string {
-  return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
-}
-
-// `fallback` never needs its own empty-words guard: every caller passes an `InteractiveElement`
-// `kind`, and `InteractiveElementKindSchema` is a fixed enum of real words ('button', 'link', ...),
-// so `wordsOf(fallback)` is never empty even when `text` (untrusted, page-derived) is symbols only.
-function toCamelCaseIdentifier(text: string, fallback: string): string {
-  const words = wordsOf(text);
-  const source = words.length > 0 ? words : wordsOf(fallback);
-  const identifier = source
-    .map((word, index) => (index === 0 ? word.toLowerCase() : upperFirst(word.toLowerCase())))
-    .join('');
-  if (/^[0-9]/u.test(identifier)) {
-    return `element${upperFirst(identifier)}`;
-  }
-  return RESERVED_WORDS.has(identifier) ? `${identifier}Element` : identifier;
-}
-
-// Produces the camelCase export name an element's locator module entry will use (ADR-006). Two
-// elements resolving to the same base name (e.g. two buttons both named "Submit" on different
-// pages) get a numeric suffix from `seenNameCounts`, tracked across the whole registry so no two
-// elements ever collide on the same export.
-function nextElementName(
-  interactiveElement: InteractiveElement,
-  seenNameCounts: Map<string, number>,
-): string {
-  const base = toCamelCaseIdentifier(elementNameForId(interactiveElement), interactiveElement.kind);
-  const seen = seenNameCounts.get(base) ?? 0;
-  seenNameCounts.set(base, seen + 1);
-  return seen === 0 ? base : `${base}${String(seen + 1)}`;
-}
-
 /**
  * Builds a `SelectorRegistry` from a `PageModelSet` produced by `analyzePages()` (development
  * plan section 6.3 steps 4-6): synthesizes locator candidates for every interactive element under
@@ -167,7 +77,7 @@ export async function buildSelectorRegistry(
 
     const generatedAt = clock.now().toISOString();
     const elements: SelectorElement[] = [];
-    const seenNameCounts = new Map<string, number>();
+    const nameFor = createElementNamer();
 
     for (const pageModel of options.pageModelSet.pages) {
       await page.goto(pageModel.url);
@@ -185,7 +95,7 @@ export async function buildSelectorRegistry(
 
         elements.push({
           elementId: computeElementId(pageModel.url, interactiveElement),
-          name: nextElementName(interactiveElement, seenNameCounts),
+          name: nameFor(elementNameForId(interactiveElement), interactiveElement.kind),
           kind: interactiveElement.kind,
           locatorCandidates: candidates,
           stabilityScore,

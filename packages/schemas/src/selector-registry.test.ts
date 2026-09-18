@@ -99,4 +99,34 @@ describe('SelectorRegistrySchema', () => {
     expect(withName.success).toBe(true);
     expect(withName.data?.elements[0]?.name).toBe('submitButton');
   });
+
+  it('accepts a static element with a source file location and rejects a non-project-relative path', () => {
+    const element = {
+      elementId: 'login-submit',
+      name: 'submit',
+      kind: 'button',
+      locatorCandidates: [{ strategy: 'testId', value: 'submit', fragile: false }],
+      stabilityScore: 0,
+      lastVerifiedAt: '2026-09-16T12:00:00Z',
+      pii: false,
+      dynamicText: false,
+      source: 'static',
+    };
+
+    const withLocation = SelectorRegistrySchema.safeParse({
+      generatedAt: '2026-09-16T12:00:00Z',
+      elements: [{ ...element, sourceLocation: { filePath: 'src/components/LoginForm.tsx', line: 42 } }],
+    });
+    expect(withLocation.success).toBe(true);
+    expect(withLocation.data?.elements[0]?.sourceLocation).toEqual({
+      filePath: 'src/components/LoginForm.tsx',
+      line: 42,
+    });
+
+    const withAbsolutePath = SelectorRegistrySchema.safeParse({
+      generatedAt: '2026-09-16T12:00:00Z',
+      elements: [{ ...element, sourceLocation: { filePath: '/src/components/LoginForm.tsx', line: 42 } }],
+    });
+    expect(withAbsolutePath.success).toBe(false);
+  });
 });
