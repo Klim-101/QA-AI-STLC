@@ -21,8 +21,14 @@ export type SelectorElementSource = z.infer<typeof SelectorElementSourceSchema>;
 // element with no role, test ID, label, placeholder or text signal, and the element is still
 // recorded (with `stabilityScore: 0`) rather than silently dropped, so a "missing locator" report
 // can surface it.
+// `name` is a camelCase identifier derived from the element's human-meaningful name (development
+// plan 6.3.4), deduplicated against sibling elements at registry-build time. It is the export name
+// the locator module (ADR-006) generates for this element, so it is optional here: a `static` or
+// `manual` entry predating this field, or one this package's schema version does not require, has
+// no export and is reported as a missing locator instead of failing validation.
 export const SelectorElementSchema = z.object({
   elementId: IdentifierSchema,
+  name: z.string().min(1).optional(),
   kind: z.string().min(1),
   library: z.string().optional(),
   locatorCandidates: z.array(LocatorCandidateSchema),

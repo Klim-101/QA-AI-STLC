@@ -142,6 +142,42 @@ describe('buildSelectorRegistry', () => {
     expect(registry.elements[0]?.stabilityScore).toBe(1);
   });
 
+  it('assigns a camelCase name derived from the element accessible name', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+
+    expect(registry.elements[0]?.name).toBe('logIn');
+  });
+
+  it('deduplicates two elements that resolve to the same base name', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([
+      pageModel(url, [element({ accessibleName: 'Submit' }), element({ accessibleName: 'Submit' })]),
+    ]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+
+    expect(registry.elements[0]?.name).toBe('submit');
+    expect(registry.elements[1]?.name).toBe('submit2');
+  });
+
+  it('falls back to the element kind and never emits a reserved word as a name', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([
+      pageModel(url, [element({ kind: 'link', accessibleName: 'Delete' }), element({ tagName: 'div' })]),
+    ]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+
+    expect(registry.elements[0]?.name).toBe('deleteElement');
+    expect(registry.elements[1]?.name).toBe('div1');
+  });
+
   it('counts a non-GET subrequest safe mode blocks while re-navigating to score', async () => {
     const url = 'https://staging.example.com/login';
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);

@@ -48,6 +48,91 @@ function computeElementId(url: string, element: InteractiveElement): string {
   return hashText(`${url} ${element.kind} ${elementNameForId(element)}`);
 }
 
+// Splits on anything that is not a letter or digit, dropping empty segments, so accented and
+// non-Latin text collapses to nothing rather than surviving as invalid identifier characters.
+function wordsOf(text: string): string[] {
+  return text.split(/[^A-Za-z0-9]+/u).filter((word) => word.length > 0);
+}
+
+// An accessible name equal to a reserved word ("Export", "Delete") would otherwise produce a
+// locator module export that fails to compile.
+const RESERVED_WORDS = new Set([
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'interface',
+  'let',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+]);
+
+function toCamelCaseIdentifier(text: string, fallback: string): string {
+  const words = wordsOf(text);
+  const source = words.length > 0 ? words : wordsOf(fallback);
+  if (source.length === 0) {
+    return 'element';
+  }
+  const [first, ...rest] = source;
+  const capitalized = rest.map((word) => `${word[0]?.toUpperCase() ?? ''}${word.slice(1).toLowerCase()}`);
+  const identifier = [(first ?? '').toLowerCase(), ...capitalized].join('');
+  if (/^[0-9]/u.test(identifier)) {
+    return `element${identifier[0]?.toUpperCase() ?? ''}${identifier.slice(1)}`;
+  }
+  return RESERVED_WORDS.has(identifier) ? `${identifier}Element` : identifier;
+}
+
+// Produces the camelCase export name an element's locator module entry will use (ADR-006). Two
+// elements resolving to the same base name (e.g. two buttons both named "Submit" on different
+// pages) get a numeric suffix from `seenNameCounts`, tracked across the whole registry so no two
+// elements ever collide on the same export.
+function nextElementName(
+  interactiveElement: InteractiveElement,
+  seenNameCounts: Map<string, number>,
+): string {
+  const base = toCamelCaseIdentifier(elementNameForId(interactiveElement), interactiveElement.kind);
+  const seen = seenNameCounts.get(base) ?? 0;
+  seenNameCounts.set(base, seen + 1);
+  return seen === 0 ? base : `${base}${String(seen + 1)}`;
+}
+
 /**
  * Builds a `SelectorRegistry` from a `PageModelSet` produced by `analyzePages()` (development
  * plan section 6.3 steps 4-6): synthesizes locator candidates for every interactive element under
@@ -76,6 +161,7 @@ export async function buildSelectorRegistry(
 
     const generatedAt = clock.now().toISOString();
     const elements: SelectorElement[] = [];
+    const seenNameCounts = new Map<string, number>();
 
     for (const pageModel of options.pageModelSet.pages) {
       await page.goto(pageModel.url);
@@ -93,6 +179,7 @@ export async function buildSelectorRegistry(
 
         elements.push({
           elementId: computeElementId(pageModel.url, interactiveElement),
+          name: nextElementName(interactiveElement, seenNameCounts),
           kind: interactiveElement.kind,
           locatorCandidates: candidates,
           stabilityScore,
