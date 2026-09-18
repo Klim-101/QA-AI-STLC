@@ -55,22 +55,14 @@ the answers as flags, as above, skips the interactive prompts; change a decision
 `qa config set testing.<type> <value>`. `qa doctor` checks Node, installed browsers, identities and
 environment reachability.
 
-Add an environment and an identity to `.qa/config.yaml`, then explore it:
-
-```yaml
-environments:
-  staging: { baseUrl: 'https://staging.example.com/dashboard', allowlist: ['staging.example.com'] }
-identities:
-  admin:
-    {
-      auth: storage-state,
-      secret: QA_ADMIN_PASSWORD,
-      loginUrl: 'https://staging.example.com/login',
-      username: 'admin@example.com',
-    }
-```
+Add an environment and an identity — validated against the schema, no hand-editing `.qa/config.yaml` — then explore it:
 
 ```sh
+npx @qa-ai-stlc/cli config add environment staging \
+  --base-url https://staging.example.com/dashboard --allowlist staging.example.com
+npx @qa-ai-stlc/cli config add identity admin \
+  --auth storage-state --secret QA_ADMIN_PASSWORD \
+  --login-url https://staging.example.com/login --username admin@example.com
 npx @qa-ai-stlc/cli explore --environment staging --identity admin
 ```
 
