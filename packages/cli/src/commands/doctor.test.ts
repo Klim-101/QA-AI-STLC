@@ -104,6 +104,7 @@ describe('runDoctor', () => {
       writeFile: () => Promise.resolve(),
       mkdir: () => Promise.resolve(),
       pathExists: (path) => Promise.resolve(path.endsWith('config.yaml')),
+      listFiles: () => Promise.resolve([]),
     };
     const context = fakeContext({ fs: brokenFs });
 

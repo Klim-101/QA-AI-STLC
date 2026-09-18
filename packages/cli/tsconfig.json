@@ -4,5 +4,10 @@
     "outDir": "dist"
   },
   "include": ["src", "test"],
-  "references": [{ "path": "../schemas" }, { "path": "../core" }, { "path": "../test-utils" }]
+  "references": [
+    { "path": "../schemas" },
+    { "path": "../core" },
+    { "path": "../explorer" },
+    { "path": "../test-utils" }
+  ]
 }

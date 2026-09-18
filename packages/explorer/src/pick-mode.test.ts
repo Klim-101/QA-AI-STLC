@@ -160,6 +160,7 @@ describe('capturePickModeElements', () => {
       defaultNameText: 'Log in',
       locatorCandidates: synthesizeLocatorCandidates(interactiveElement, 'playwright-default'),
       stabilityScore: 1,
+      pageUrl: 'https://example.com/login',
     });
   });
 
@@ -244,6 +245,7 @@ describe('finalizeManualSelectorEntries', () => {
       defaultNameText: 'Log in',
       locatorCandidates: [],
       stabilityScore: 1,
+      pageUrl: 'https://example.com/login',
       ...overrides,
     };
   }

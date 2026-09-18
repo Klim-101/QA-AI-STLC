@@ -1,14 +1,15 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { createRequire } from 'node:module';
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { QaError } from '@qa-ai-stlc/core';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
 import { runDoctor, type DoctorReport } from './commands/doctor.js';
+import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult } from './commands/init.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
+import { readPackageVersion } from './package-version.js';
 
 export type RunCliDependencies = Omit<CreateCommandContextOptions, 'projectRoot' | 'json'> & {
   readonly io: CliIO;
@@ -20,17 +21,12 @@ const USAGE = `Usage: qa <command> [options]
 Commands:
   init      Create the .qa/ store and a starting config.yaml
   doctor    Check Node, browsers, identities and environment reachability
+  explore   Build the selector registry: crawl, static source analysis, pick mode, --verify
 
 Global options:
   --json         Print machine-readable JSON instead of human text
   -h, --help     Show this help
   --version      Show the CLI version`;
-
-function readCliVersion(): string {
-  const require = createRequire(import.meta.url);
-  const packageJson = require('../package.json') as { readonly version: string };
-  return packageJson.version;
-}
 
 /**
  * Parses argv and dispatches to a command, returning the process exit code (AGENTS.md 5.4:
@@ -46,7 +42,7 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
     return command === undefined ? EXIT_USAGE : EXIT_SUCCESS;
   }
   if (command === '--version') {
-    io.stdout(readCliVersion());
+    io.stdout(readPackageVersion());
     return EXIT_SUCCESS;
   }
 
@@ -56,6 +52,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchInit(rest, dependencies);
       case 'doctor':
         return await dispatchDoctor(rest, dependencies);
+      case 'explore':
+        return await dispatchExplore(rest, dependencies);
       default:
         io.stderr(`Unknown command "${command}".\n\n${USAGE}`);
         return EXIT_USAGE;
@@ -130,6 +128,48 @@ async function dispatchDoctor(rest: readonly string[], dependencies: RunCliDepen
   return report.ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+function parsePositiveInt(value: string, flag: string): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new QaError('EXPLORE_OPTION_INVALID', `"${value}" is not a positive integer for ${flag}`);
+  }
+  return parsed;
+}
+
+async function dispatchExplore(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    environment: { type: 'string' },
+    identity: { type: 'string' },
+    'cdp-endpoint': { type: 'string' },
+    policy: { type: 'string' },
+    static: { type: 'boolean', default: false },
+    pick: { type: 'string' },
+    'max-pages': { type: 'string' },
+    verify: { type: 'boolean', default: false },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const report = await runExplore(context, {
+    ...(typeof values.environment === 'string' ? { environment: values.environment } : {}),
+    ...(typeof values.identity === 'string' ? { identity: values.identity } : {}),
+    ...(typeof values['cdp-endpoint'] === 'string' ? { cdpEndpointUrl: values['cdp-endpoint'] } : {}),
+    ...(typeof values.policy === 'string' ? { policy: values.policy } : {}),
+    static: values.static === true,
+    ...(typeof values.pick === 'string' ? { pick: values.pick } : {}),
+    ...(typeof values['max-pages'] === 'string'
+      ? { maxPages: parsePositiveInt(values['max-pages'], '--max-pages') }
+      : {}),
+    verify: values.verify === true,
+  });
+  printResult(context.io, json, 'explore', report, formatExploreReport(report));
+  return report.degraded.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
 function printResult(
   io: CliIO,
   json: boolean,
@@ -159,4 +199,27 @@ function formatDoctorReport(report: DoctorReport): readonly string[] {
     const remediation = check.remediation !== undefined ? ` — ${check.remediation}` : '';
     return `[${marker}] ${check.name}: ${check.message}${remediation}`;
   });
+}
+
+function formatExploreReport(report: ExploreReport): readonly string[] {
+  if (report.mode === 'verify') {
+    const lines = [`Verified ${report.registryPath}: ${String(report.elementCount)} element(s) checked.`];
+    if (report.degraded.length === 0) {
+      lines.push('No degraded selectors.');
+      return lines;
+    }
+    lines.push(`${String(report.degraded.length)} degraded selector(s):`);
+    for (const element of report.degraded) {
+      lines.push(
+        `  ${element.elementId}: ${String(element.previousScore)} -> ${String(element.currentScore)}`,
+      );
+    }
+    return lines;
+  }
+  return [
+    `Wrote ${report.registryPath}: ${String(report.elementCount)} element(s) (` +
+      `${String(report.added)} added, ${String(report.removed)} removed, ${String(report.degraded.length)} degraded).`,
+    `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
+    `${String(report.blockedRequestCount)} non-GET request(s) blocked by safe mode.`,
+  ];
 }

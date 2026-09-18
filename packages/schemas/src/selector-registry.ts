@@ -35,6 +35,9 @@ export type SelectorElementSource = z.infer<typeof SelectorElementSourceSchema>;
 // the locator module (ADR-006) generates for this element, so it is optional here: a `static` or
 // `manual` entry predating this field, or one this package's schema version does not require, has
 // no export and is reported as a missing locator instead of failing validation.
+// The live page a `crawl`/`manual` element was found on, so `qa explore --verify` (P1-15) knows
+// where to navigate to re-check its stored candidates against the current DOM. A `static` entry
+// has no live page (it never opened a browser) and never sets this.
 export const SelectorElementSchema = z.object({
   elementId: IdentifierSchema,
   name: z.string().min(1).optional(),
@@ -47,6 +50,7 @@ export const SelectorElementSchema = z.object({
   dynamicText: z.boolean(),
   source: SelectorElementSourceSchema,
   sourceLocation: SourceLocationSchema.optional(),
+  pageUrl: z.string().min(1).optional(),
   deprecatedAt: IsoDateTimeSchema.optional(),
 });
 export type SelectorElement = z.infer<typeof SelectorElementSchema>;
