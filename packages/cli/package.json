@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The qa command: init, doctor and every deterministic engine operation exposed for CI and humans.",
   "type": "module",
   "license": "Apache-2.0",
