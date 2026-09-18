@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
-import { IsoDateTimeSchema } from './primitives.js';
-import { SelectorElementSourceSchema, SourceLocationSchema } from './selector-registry.js';
+import { IsoDateTimeSchema, SourceLocationSchema } from './primitives.js';
+import { SelectorElementSourceSchema } from './selector-registry.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
 // `sourceLocation` (never split into separate optional `filePath`/`line` fields) is known only

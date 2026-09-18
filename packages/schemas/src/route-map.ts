@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
-import { IsoDateTimeSchema } from './primitives.js';
+import { IsoDateTimeSchema, SourceLocationSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
 // Sitemap discovery has no referrer inside the crawled page graph; a link click always does
-// (development plan section 6.3 step 2).
-export const RouteDiscoveryMethodSchema = z.enum(['link', 'sitemap']);
+// (development plan section 6.3 step 2). `static` (P1-19) has neither: it comes from a client-side
+// router declaration in source, never a live navigation.
+export const RouteDiscoveryMethodSchema = z.enum(['link', 'sitemap', 'static']);
 export type RouteDiscoveryMethod = z.infer<typeof RouteDiscoveryMethodSchema>;
 
 export const DiscoveredRouteSchema = z.object({
@@ -15,6 +16,9 @@ export const DiscoveredRouteSchema = z.object({
   discoveredVia: RouteDiscoveryMethodSchema,
   discoveredFrom: z.string().min(1).optional(),
   httpStatus: z.number().int().optional(),
+  // Set only for `discoveredVia: 'static'`: where the route declaration was found, since there is
+  // no live navigation to point at instead.
+  sourceLocation: SourceLocationSchema.optional(),
 });
 export type DiscoveredRoute = z.infer<typeof DiscoveredRouteSchema>;
 

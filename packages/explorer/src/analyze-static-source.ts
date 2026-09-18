@@ -42,13 +42,16 @@ const KIND_BY_ROLE: Readonly<Record<string, InteractiveElementKind>> = {
 // `:name=`/`v-bind:name=` and Angular's `[attr.name]=`/`[name]=` bindings never are — so a bound,
 // non-literal value (a JS expression, not stable text) is never captured as one. The attrs chunk
 // is padded with a leading space so an attribute at the very start of it still matches.
-function literalAttribute(attrs: string, name: string): string | undefined {
+// Exported for analyze-static-routes.ts (P1-19), which reads the same literal-attribute shape
+// out of a `<Route path="...">` tag.
+export function literalAttribute(attrs: string, name: string): string | undefined {
   const pattern = new RegExp(`(?<=\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'u');
   const match = pattern.exec(` ${attrs}`);
   return match?.[1] ?? match?.[2];
 }
 
-function lineNumberAt(content: string, index: number): number {
+/** Exported for analyze-static-routes.ts (P1-19): both scan the same raw source text for findings. */
+export function lineNumberAt(content: string, index: number): number {
   let line = 1;
   for (let i = 0; i < index; i += 1) {
     if (content[i] === '\n') {
