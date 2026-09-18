@@ -17,3 +17,4 @@ export * from './selector-registry.js';
 export * from './api-surface.js';
 export * from './approval-ledger.js';
 export * from './manifest.js';
+export * from './missing-test-id-report.js';

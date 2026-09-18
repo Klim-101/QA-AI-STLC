@@ -6,6 +6,7 @@ export * from './allowlist.js';
 export * from './analyze-page.js';
 export * from './analyze-pages.js';
 export * from './analyze-static-source.js';
+export * from './build-missing-test-id-report.js';
 export * from './build-selector-registry.js';
 export * from './crawl.js';
 export * from './extract-links.js';
