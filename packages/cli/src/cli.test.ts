@@ -511,4 +511,186 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(stderr.join('\n')).toContain('config.yaml');
   });
+
+  it('runs "config add environment" and prints a human-readable confirmation', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'environment',
+        'staging',
+        '--base-url',
+        'https://staging.example.com',
+        '--allowlist',
+        'staging.example.com, other.example.com',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain(
+      'Added environment "staging": https://staging.example.com (allowlist: staging.example.com, other.example.com)',
+    );
+  });
+
+  it('runs "config add environment" and prints machine-readable JSON with --json', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'environment',
+        'staging',
+        '--base-url',
+        'https://staging.example.com',
+        '--allowlist',
+        'staging.example.com',
+        '--json',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({
+      command: 'config-add-environment',
+      data: { name: 'staging', environment: { baseUrl: 'https://staging.example.com' } },
+    });
+  });
+
+  it('reports a coded error when "config add environment" is missing required flags', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config', 'add', 'environment', 'staging'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa config add environment');
+  });
+
+  it('runs "config add identity" and prints a human-readable confirmation', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'identity',
+        'admin',
+        '--auth',
+        'storage-state',
+        '--secret',
+        'QA_ADMIN_PASSWORD',
+        '--login-url',
+        'https://staging.example.com/login',
+        '--username',
+        'admin@example.com',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Added identity "admin": auth=storage-state, secret=QA_ADMIN_PASSWORD');
+  });
+
+  it('runs "config add identity" and prints machine-readable JSON with --json', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'identity',
+        'admin',
+        '--auth',
+        'cdp-attach',
+        '--secret',
+        'QA_ADMIN_PASSWORD',
+        '--json',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({
+      command: 'config-add-identity',
+      data: { name: 'admin', identity: { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' } },
+    });
+  });
+
+  it('reports a coded error when "config add identity" is missing required flags', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config', 'add', 'identity', 'admin'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa config add identity');
+  });
+
+  it('reports a coded error when "config add identity" fails schema validation', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(
+      ['config', 'add', 'identity', 'admin', '--auth', 'storage-state', '--secret', 'QA_ADMIN_PASSWORD'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('error:');
+  });
+
+  it('reports a usage error for an unknown "config add" target', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config', 'add', 'bogus'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa config add" target "bogus"');
+  });
+
+  it('reports a usage error when "config add" is given no target at all', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config', 'add'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa config add" target ""');
+  });
+
+  it('defaults the project root to the current working directory for "config add environment"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(
+      ['config', 'add', 'environment', 'staging', '--base-url', 'https://a.example.com', '--allowlist', 'a'],
+      { io, fs: createFakeFileSystem(), env: {} },
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('config.yaml');
+  });
+
+  it('defaults the project root to the current working directory for "config add identity"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(
+      ['config', 'add', 'identity', 'admin', '--auth', 'cdp-attach', '--secret', 'QA_ADMIN_PASSWORD'],
+      { io, fs: createFakeFileSystem(), env: {} },
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('config.yaml');
+  });
 });

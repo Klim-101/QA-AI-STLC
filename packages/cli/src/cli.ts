@@ -6,6 +6,12 @@ import { QaError } from '@qa-ai-stlc/core';
 import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
+import {
+  runConfigAddEnvironment,
+  runConfigAddIdentity,
+  type ConfigAddEnvironmentResult,
+  type ConfigAddIdentityResult,
+} from './commands/config-add.js';
 import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
 import { runDoctor, type DoctorReport } from './commands/doctor.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
@@ -25,6 +31,7 @@ Commands:
   doctor        Check Node, browsers, identities and environment reachability
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   config set    Change one testing.<type> scope decision after init
+  config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
 
 Global options:
   --json         Print machine-readable JSON instead of human text
@@ -157,12 +164,19 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
 
 async function dispatchConfig(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const [subcommand, ...subRest] = rest;
-  if (subcommand !== 'set') {
-    dependencies.io.stderr(`Unknown "qa config" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
-    return EXIT_USAGE;
+  if (subcommand === 'set') {
+    return await dispatchConfigSet(subRest, dependencies);
   }
+  if (subcommand === 'add') {
+    return await dispatchConfigAdd(subRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa config" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchConfigSet(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
-    args: subRest,
+    args: rest,
     options: { json: { type: 'boolean', default: false } },
     allowPositionals: true,
     strict: true,
@@ -181,6 +195,110 @@ async function dispatchConfig(rest: readonly string[], dependencies: RunCliDepen
   });
   const result = await runConfigSet(context, { key, value });
   printResult(context.io, json, 'config-set', result, formatConfigSetResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchConfigAdd(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [target, ...targetRest] = rest;
+  if (target === 'environment') {
+    return await dispatchConfigAddEnvironment(targetRest, dependencies);
+  }
+  if (target === 'identity') {
+    return await dispatchConfigAddIdentity(targetRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa config add" target "${target ?? ''}".\n\n${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchConfigAddEnvironment(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      'base-url': { type: 'string' },
+      allowlist: { type: 'string' },
+      force: { type: 'boolean', default: false },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [name] = positionals;
+  if (name === undefined || typeof values['base-url'] !== 'string' || typeof values.allowlist !== 'string') {
+    throw new QaError(
+      'CONFIG_ADD_USAGE',
+      'Usage: qa config add environment <name> --base-url <url> --allowlist <a,b,c>',
+      {
+        remediation:
+          'Example: qa config add environment staging --base-url https://staging.example.com --allowlist staging.example.com',
+      },
+    );
+  }
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const allowlist = values.allowlist
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  const result = await runConfigAddEnvironment(context, {
+    name,
+    baseUrl: values['base-url'],
+    allowlist,
+    force: values.force,
+  });
+  printResult(context.io, json, 'config-add-environment', result, formatConfigAddEnvironmentResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchConfigAddIdentity(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      auth: { type: 'string' },
+      secret: { type: 'string' },
+      'login-url': { type: 'string' },
+      username: { type: 'string' },
+      force: { type: 'boolean', default: false },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [name] = positionals;
+  if (name === undefined || typeof values.auth !== 'string' || typeof values.secret !== 'string') {
+    throw new QaError(
+      'CONFIG_ADD_USAGE',
+      'Usage: qa config add identity <name> --auth <cdp-attach|storage-state> --secret <QA_...>',
+      {
+        remediation:
+          'Example: qa config add identity admin --auth storage-state --secret QA_ADMIN_PASSWORD --login-url https://staging.example.com/login --username admin@example.com',
+      },
+    );
+  }
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runConfigAddIdentity(context, {
+    name,
+    auth: values.auth,
+    secret: values.secret,
+    ...(typeof values['login-url'] === 'string' ? { loginUrl: values['login-url'] } : {}),
+    ...(typeof values.username === 'string' ? { username: values.username } : {}),
+    force: values.force,
+  });
+  printResult(context.io, json, 'config-add-identity', result, formatConfigAddIdentityResult(result));
   return EXIT_SUCCESS;
 }
 
@@ -267,6 +385,16 @@ function formatInitResult(result: InitResult): readonly string[] {
 
 function formatConfigSetResult(result: ConfigSetResult): readonly string[] {
   return [`Set ${result.key} = ${result.value}`];
+}
+
+function formatConfigAddEnvironmentResult(result: ConfigAddEnvironmentResult): readonly string[] {
+  return [
+    `Added environment "${result.name}": ${result.environment.baseUrl} (allowlist: ${result.environment.allowlist.join(', ')})`,
+  ];
+}
+
+function formatConfigAddIdentityResult(result: ConfigAddIdentityResult): readonly string[] {
+  return [`Added identity "${result.name}": auth=${result.identity.auth}, secret=${result.identity.secret}`];
 }
 
 function formatDoctorReport(report: DoctorReport): readonly string[] {
