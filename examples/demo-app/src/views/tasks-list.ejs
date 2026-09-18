@@ -19,7 +19,7 @@
           <option value="in-progress" <%= statusFilter === 'in-progress' ? 'selected' : '' %>>In progress</option>
           <option value="done" <%= statusFilter === 'done' ? 'selected' : '' %>>Done</option>
         </select>
-        <button type="submit">Apply</button>
+        <button type="submit" data-testid="apply-filter">Apply</button>
         <a href="/tasks?sort=priority">Sort by priority</a>
       </form>
       <a href="/tasks/new">New task</a>

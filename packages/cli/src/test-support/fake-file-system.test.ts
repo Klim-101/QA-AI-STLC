@@ -33,4 +33,13 @@ describe('createFakeFileSystem', () => {
     expect(await fs.pathExists('/dir')).toBe(true);
     expect(await fs.pathExists('/missing')).toBe(false);
   });
+
+  it('lists only files whose path is under the given directory', async () => {
+    const fs = createFakeFileSystem();
+    await fs.writeFile('/a/b.txt', 'b');
+    await fs.writeFile('/ab.txt', 'shares the prefix but is not under /a');
+    await fs.writeFile('/other/c.txt', 'does not share the prefix at all');
+
+    await expect(fs.listFiles('/a')).resolves.toEqual(['/a/b.txt']);
+  });
 });

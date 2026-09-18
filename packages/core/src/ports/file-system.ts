@@ -1,7 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 /**
  * The filesystem operations the engine needs, injected so store and manifest logic can be
@@ -13,6 +14,8 @@ export interface FileSystem {
   writeFile(absolutePath: string, content: string | Uint8Array): Promise<void>;
   mkdir(absolutePath: string): Promise<void>;
   pathExists(absolutePath: string): Promise<boolean>;
+  /** Every regular file's absolute path under `absolutePath`, recursively; `[]` if it does not exist. */
+  listFiles(absolutePath: string): Promise<readonly string[]>;
 }
 
 export const nodeFileSystem: FileSystem = {
@@ -34,5 +37,17 @@ export const nodeFileSystem: FileSystem = {
       }
       throw error;
     }
+  },
+  listFiles: async (absolutePath) => {
+    let entries;
+    try {
+      entries = await readdir(absolutePath, { recursive: true, withFileTypes: true });
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+    return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name));
   },
 };

@@ -262,6 +262,7 @@ export interface PickModeElement {
   readonly defaultNameText: string;
   readonly locatorCandidates: readonly LocatorCandidate[];
   readonly stabilityScore: number;
+  readonly pageUrl: string;
 }
 
 export interface CapturePickModeElementsOptions {
@@ -332,6 +333,7 @@ export async function capturePickModeElements(
       defaultNameText: elementNameForId(interactiveElement),
       locatorCandidates: candidates,
       stabilityScore,
+      pageUrl: url,
     });
   }
 
@@ -362,5 +364,6 @@ export function finalizeManualSelectorEntries(
     pii: false,
     dynamicText: false,
     source: 'manual',
+    pageUrl: element.pageUrl,
   }));
 }

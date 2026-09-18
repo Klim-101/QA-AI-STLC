@@ -104,6 +104,7 @@ export async function buildSelectorRegistry(
           pii: false,
           dynamicText: false,
           source: 'crawl',
+          pageUrl: pageModel.url,
         });
       }
     }

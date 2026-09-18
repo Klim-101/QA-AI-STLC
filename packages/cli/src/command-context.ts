@@ -6,7 +6,9 @@ import {
   nodeFileSystem,
   nodeProcessRunner,
   noopLogger,
+  playwrightBrowserLauncher,
   systemClock,
+  type BrowserLauncher,
   type Clock,
   type FileSystem,
   type HttpClient,
@@ -29,6 +31,7 @@ export interface CommandContext {
   readonly logger: Logger;
   readonly processRunner: ProcessRunner;
   readonly httpClient: HttpClient;
+  readonly browserLauncher: BrowserLauncher;
   readonly env: Readonly<Record<string, string | undefined>>;
 }
 
@@ -41,6 +44,7 @@ export interface CreateCommandContextOptions {
   readonly logger?: Logger;
   readonly processRunner?: ProcessRunner;
   readonly httpClient?: HttpClient;
+  readonly browserLauncher?: BrowserLauncher;
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
@@ -54,6 +58,7 @@ export function createCommandContext(options: CreateCommandContextOptions): Comm
     logger: options.logger ?? noopLogger,
     processRunner: options.processRunner ?? nodeProcessRunner,
     httpClient: options.httpClient ?? fetchHttpClient,
+    browserLauncher: options.browserLauncher ?? playwrightBrowserLauncher,
     env: options.env ?? process.env,
   };
 }
