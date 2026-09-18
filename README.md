@@ -2,7 +2,7 @@
 
 Open-source, model-agnostic QA framework that runs inside the agent host you already use: Claude Code or Codex.
 
-> **Status: pre-alpha.** The repository is being bootstrapped. No package is published yet, and the commands below describe the planned interface.
+> **Status: pre-alpha.** The engine packages (`schemas`, `core`, `explorer`, `cli`) are published to npm and covered by tests, and the explorer's crawler, static source analysis, locator synthesis, selector registry and reports already run against real source and a real browser (see the example below). They are not yet wired into one `qa explore` command, and there is no agent-host plugin or MCP server yet — see the [roadmap](docs/public/ROADMAP.md) for what that leaves planned.
 
 ## Why
 
@@ -42,19 +42,52 @@ Read this before adopting the framework.
 
 **Environments are yours to choose.** Point the framework only at non-production environments you are authorized to test. Safe mode is on by default, but you remain responsible for the data and systems it touches.
 
-## Quick start (planned)
+## Quick start
 
 ```sh
-# Claude Code: install the plugin from the marketplace, then in a session:
-/qa start
-
-# CLI, for deterministic steps and CI:
-npx @qa-ai-stlc/cli init
-npx @qa-ai-stlc/cli doctor
-npx @qa-ai-stlc/cli explore
+npx @qa-ai-stlc/cli init     # creates .qa/ and a starting config.yaml
+npx @qa-ai-stlc/cli doctor   # checks Node, browsers, identities and reachability
 ```
 
-Everything the framework creates in your project lives in `.qa/`, plus generated tests in `tests/qa/`.
+Everything the framework creates in your project lives in `.qa/`, plus generated tests in `tests/qa/`. `qa explore` — the command that ties crawling, static analysis and the selector registry together — and the Claude Code / Codex plugins are still planned; see the [roadmap](docs/public/ROADMAP.md).
+
+## Example: what static analysis produces today
+
+The explorer's static source analysis and reporting run today as library functions (`@qa-ai-stlc/explorer`), ahead of the `qa explore` command that will wire them into the CLI. Given two real, unmodified views from [`examples/demo-app`](examples/demo-app) — a login form and a "new task" form, neither with a `data-testid` on any field (a deliberately catalogued gap) — this is the actual, unedited output:
+
+```ts
+import { analyzeStaticSource, buildMissingTestIdReport, renderMissingTestIdReportMarkdown } from '@qa-ai-stlc/explorer';
+
+const { elements } = analyzeStaticSource({ files: [
+  { filePath: 'examples/demo-app/src/views/login.ejs', content: /* ... */ },
+  { filePath: 'examples/demo-app/src/views/tasks-new.ejs', content: /* ... */ },
+] });
+
+const report = buildMissingTestIdReport({ schemaVersion: 1, generatedAt: new Date().toISOString(), elements });
+console.log(renderMissingTestIdReportMarkdown(report));
+```
+
+```md
+# Missing test ID report
+
+_Generated 2026-09-18T12:00:00.000Z — 8 element(s) with no test ID._
+
+## examples/demo-app/src/views/login.ejs
+
+- input `input16` (static) — line 16
+- input `input20` (static) — line 20
+- button `button21` (static) — line 21
+
+## examples/demo-app/src/views/tasks-new.ejs
+
+- input `input13` (static) — line 13
+- input `input15` (static) — line 15
+- select `select17` (static) — line 17
+- input `input23` (static) — line 23
+- button `button24` (static) — line 24
+```
+
+Every field the scanner cannot name from a `data-testid`, `aria-label` or `role` falls back to a `tag:line` name — itself a hint that the field would benefit from one. Once every element does carry a test ID, `renderMissingTestIdReportMarkdown` reports a clean bill of health instead.
 
 ## Documentation
 
