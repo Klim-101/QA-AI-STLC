@@ -8,6 +8,7 @@ export * from './analyze-pages.js';
 export * from './build-selector-registry.js';
 export * from './crawl.js';
 export * from './extract-links.js';
+export * from './generate-locator-module.js';
 export * from './identity.js';
 export * from './normalize.js';
 export * from './page-elements.js';

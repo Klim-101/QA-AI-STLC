@@ -61,4 +61,42 @@ describe('SelectorRegistrySchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('accepts an element both with and without a name (name is optional)', () => {
+    const withoutName = SelectorRegistrySchema.safeParse({
+      generatedAt: '2026-09-16T12:00:00Z',
+      elements: [
+        {
+          elementId: 'checkout-submit-button',
+          kind: 'button',
+          locatorCandidates: [],
+          stabilityScore: 0,
+          lastVerifiedAt: '2026-09-16T12:00:00Z',
+          pii: false,
+          dynamicText: false,
+          source: 'crawl',
+        },
+      ],
+    });
+    expect(withoutName.success).toBe(true);
+
+    const withName = SelectorRegistrySchema.safeParse({
+      generatedAt: '2026-09-16T12:00:00Z',
+      elements: [
+        {
+          elementId: 'checkout-submit-button',
+          name: 'submitButton',
+          kind: 'button',
+          locatorCandidates: [],
+          stabilityScore: 0,
+          lastVerifiedAt: '2026-09-16T12:00:00Z',
+          pii: false,
+          dynamicText: false,
+          source: 'crawl',
+        },
+      ],
+    });
+    expect(withName.success).toBe(true);
+    expect(withName.data?.elements[0]?.name).toBe('submitButton');
+  });
 });
