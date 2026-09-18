@@ -2,7 +2,7 @@
 
 Open-source, model-agnostic QA framework that runs inside the agent host you already use: Claude Code or Codex.
 
-> **Status: pre-alpha.** The engine packages (`schemas`, `core`, `explorer`, `cli`) are published to npm and covered by tests, and the explorer's crawler, static source analysis, locator synthesis, selector registry and reports already run against real source and a real browser (see the example below). They are not yet wired into one `qa explore` command, and there is no agent-host plugin or MCP server yet — see the [roadmap](docs/public/ROADMAP.md) for what that leaves planned.
+> **Status: pre-alpha.** The engine packages (`schemas`, `core`, `explorer`, `cli`) are published to npm and covered by tests. `qa explore` runs end to end — crawl, static source analysis, locator synthesis, selector registry, stale-selector detection — against a real running application (see the example below). There is no agent-host plugin or MCP server yet — see the [roadmap](docs/public/ROADMAP.md) for what that leaves planned.
 
 ## Why
 
@@ -45,49 +45,151 @@ Read this before adopting the framework.
 ## Quick start
 
 ```sh
-npx @qa-ai-stlc/cli init     # creates .qa/ and a starting config.yaml
-npx @qa-ai-stlc/cli doctor   # checks Node, browsers, identities and reachability
+npx @qa-ai-stlc/cli init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope
+npx @qa-ai-stlc/cli doctor
 ```
 
-Everything the framework creates in your project lives in `.qa/`, plus generated tests in `tests/qa/`. `qa explore` — the command that ties crawling, static analysis and the selector registry together — and the Claude Code / Codex plugins are still planned; see the [roadmap](docs/public/ROADMAP.md).
+`qa init` runs a short scope survey — each of Web E2E, API, accessibility and security testing is
+answered `in-scope`, `out-of-scope` or (with `--defer-scope`) left `undecided` for later. Passing
+the answers as flags, as above, skips the interactive prompts; change a decision later with
+`qa config set testing.<type> <value>`. `qa doctor` checks Node, installed browsers, identities and
+environment reachability.
 
-## Example: what static analysis produces today
+Add an environment and an identity to `.qa/config.yaml`, then explore it:
 
-The explorer's static source analysis and reporting run today as library functions (`@qa-ai-stlc/explorer`), ahead of the `qa explore` command that will wire them into the CLI. Given two real, unmodified views from [`examples/demo-app`](examples/demo-app) — a login form and a "new task" form, neither with a `data-testid` on any field (a deliberately catalogued gap) — this is the actual, unedited output:
+```yaml
+environments:
+  staging: { baseUrl: 'https://staging.example.com/dashboard', allowlist: ['staging.example.com'] }
+identities:
+  admin:
+    {
+      auth: storage-state,
+      secret: QA_ADMIN_PASSWORD,
+      loginUrl: 'https://staging.example.com/login',
+      username: 'admin@example.com',
+    }
+```
+
+```sh
+npx @qa-ai-stlc/cli explore --environment staging --identity admin
+```
+
+This is the actual output of that command against [`examples/demo-app`](examples/demo-app), a
+small task tracker used to validate the explorer against a real, running application:
+
+```
+Wrote selectors/registry.json: 78 element(s) (78 added, 0 removed, 0 degraded).
+0 element(s) with no locator candidate.
+0 non-GET request(s) blocked by safe mode.
+```
+
+`--json` gives the same result as data instead of text:
+
+```json
+{
+  "command": "explore",
+  "data": {
+    "mode": "explore",
+    "registryPath": "selectors/registry.json",
+    "elementCount": 78,
+    "added": 78,
+    "removed": 0,
+    "degraded": [],
+    "missingLocatorCount": 0,
+    "blockedRequestCount": 0
+  }
+}
+```
+
+Everything the framework creates lives in `.qa/`, plus a generated locator module in
+`tests/qa/locators.ts`. A couple of real entries from each, unedited:
+
+```json
+{
+  "elementId": "0c39ce7809e90e508adfaa7caaab21befc7adbacf20bf7b87facd333326c0861",
+  "name": "dashboard",
+  "kind": "link",
+  "locatorCandidates": [
+    { "strategy": "role", "value": "{\"role\":\"link\",\"name\":\"Dashboard\"}", "fragile": false },
+    { "strategy": "text", "value": "Dashboard", "fragile": false },
+    { "strategy": "css", "value": "a:nth-of-type(1)", "fragile": true }
+  ],
+  "stabilityScore": 1,
+  "source": "crawl",
+  "pageUrl": "http://localhost:4310/dashboard"
+}
+```
 
 ```ts
-import { analyzeStaticSource, buildMissingTestIdReport, renderMissingTestIdReportMarkdown } from '@qa-ai-stlc/explorer';
-
-const { elements } = analyzeStaticSource({ files: [
-  { filePath: 'examples/demo-app/src/views/login.ejs', content: /* ... */ },
-  { filePath: 'examples/demo-app/src/views/tasks-new.ejs', content: /* ... */ },
-] });
-
-const report = buildMissingTestIdReport({ schemaVersion: 1, generatedAt: new Date().toISOString(), elements });
-console.log(renderMissingTestIdReportMarkdown(report));
+export function apply(page: Page): Locator {
+  return page.getByTestId('apply-filter');
+}
 ```
 
-```md
-# Missing test ID report
+Generated tests reference locators through this module by name (`apply(page)`), never through a
+literal selector, so a selector change is a one-line diff here instead of a search-and-replace
+across every test file.
 
-_Generated 2026-09-18T12:00:00.000Z — 8 element(s) with no test ID._
+### Catching a stale selector
 
-## examples/demo-app/src/views/login.ejs
+`qa explore --verify` re-checks every stored primary candidate against the live page, without
+re-crawling — the only way to actually notice a selector that used to work and no longer does. With
+`examples/demo-app`'s "Apply" filter button renamed from `data-testid="apply-filter"` to
+`apply-filter-renamed` on the live page but not yet re-crawled:
 
-- input `input16` (static) — line 16
-- input `input20` (static) — line 20
-- button `button21` (static) — line 21
-
-## examples/demo-app/src/views/tasks-new.ejs
-
-- input `input13` (static) — line 13
-- input `input15` (static) — line 15
-- select `select17` (static) — line 17
-- input `input23` (static) — line 23
-- button `button24` (static) — line 24
+```
+Verified selectors/registry.json: 78 element(s) checked.
+1 degraded selector(s):
+  e4fdfc0102d95678698c91fff17367185e23560634c6d531cf896bdcf554f65b: 1 -> 0
 ```
 
-Every field the scanner cannot name from a `data-testid`, `aria-label` or `role` falls back to a `tag:line` name — itself a hint that the field would benefit from one. Once every element does carry a test ID, `renderMissingTestIdReportMarkdown` reports a clean bill of health instead.
+The exit code is non-zero, so this is a real CI gate: a rename ships broken tests only if nobody
+looks, and `--verify` catches it before that happens.
+
+### Static source analysis
+
+`qa explore --static` (with `source.path` set in `config.yaml`) merges a lightweight scan of your
+source into the same registry — elements a crawl alone would miss, and every field with no
+`data-testid`, `aria-label` or `role` to name it, recorded in
+`.qa/selectors/missing-test-ids.json` with its file and line. Against the same demo app's real,
+unmodified views: 26 of its 105 elements have no locator candidate at all — a login form and a
+"new task" form, neither with a `data-testid` on any field, a deliberately catalogued gap.
+
+Static route extraction is also available as a library function ahead of its own CLI flag (see the
+[roadmap](docs/public/ROADMAP.md)) — React Router, Vue Router and Angular route configs, with file
+and line:
+
+```ts
+import { analyzeStaticRoutes } from '@qa-ai-stlc/explorer';
+
+const { routes } = analyzeStaticRoutes({
+  files: [
+    {
+      filePath: 'src/App.tsx',
+      content:
+        '<Routes>\n  <Route path="/dashboard" element={<Dashboard />}>\n    <Route path="/dashboard/tasks" element={<Tasks />} />\n  </Route>\n</Routes>',
+    },
+  ],
+});
+```
+
+```json
+[
+  { "path": "/dashboard", "filePath": "src/App.tsx", "line": 2 },
+  { "path": "/dashboard/tasks", "filePath": "src/App.tsx", "line": 3 }
+]
+```
+
+### Pick mode
+
+When a crawl can't reach an element (behind a multi-step flow, a modal, a canvas widget), record it
+by hand instead: `qa explore --pick <url>` opens the page, lets you click the element, and writes a
+registry entry with `"source": "manual"` — same schema, same downstream locator generation, honestly
+labelled as not crawler-discovered:
+
+```json
+{ "elementId": "element-1", "source": "manual", "pii": false, "dynamicText": false }
+```
 
 ## Documentation
 
