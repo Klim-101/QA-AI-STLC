@@ -7,6 +7,7 @@ import { ConfigSchema } from './config.js';
 import { DefectDraftSchema } from './defect.js';
 import { EvidenceSchema } from './evidence.js';
 import { ManifestSchema } from './manifest.js';
+import { MissingTestIdReportSchema } from './missing-test-id-report.js';
 import { PageModelSetSchema } from './page-model.js';
 import { RcaSchema } from './rca.js';
 import { RouteMapSchema } from './route-map.js';
@@ -29,6 +30,7 @@ export const artifactSchemas = {
   'defect-draft': DefectDraftSchema,
   rca: RcaSchema,
   'selector-registry': SelectorRegistrySchema,
+  'missing-test-id-report': MissingTestIdReportSchema,
   'api-surface': ApiSurfaceSchema,
   'approval-ledger': ApprovalLedgerSchema,
   manifest: ManifestSchema,
