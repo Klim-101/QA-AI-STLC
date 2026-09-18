@@ -115,6 +115,40 @@ describe('generateLocatorModule', () => {
     expect(missingLocators).toEqual([{ elementId: 'element-1', kind: 'button' }]);
   });
 
+  it('sorts multiple missing elements by elementId', () => {
+    const elements = [
+      selectorElement({ elementId: 'z', name: undefined }),
+      selectorElement({ elementId: 'a', name: undefined }),
+    ];
+
+    const { missingLocators } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
+
+    expect(missingLocators).toEqual([
+      { elementId: 'a', kind: 'button' },
+      { elementId: 'z', kind: 'button' },
+    ]);
+  });
+
+  it('throws a QaError for a role candidate whose value is not a {role, name} pair', () => {
+    const element = selectorElement({
+      locatorCandidates: [{ strategy: 'role', value: JSON.stringify({ role: 'button' }), fragile: false }],
+    });
+
+    expect(() => generateLocatorModule(registry([element]), { generatorVersion: '0.3.0' })).toThrow(
+      /role candidate value is not a \{role, name\} pair/,
+    );
+  });
+
+  it('throws a QaError for an unknown locator strategy', () => {
+    const element = selectorElement({
+      locatorCandidates: [{ strategy: 'xpath', value: '//button', fragile: true }],
+    });
+
+    expect(() => generateLocatorModule(registry([element]), { generatorVersion: '0.3.0' })).toThrow(
+      /unknown locator strategy: xpath/,
+    );
+  });
+
   it('matches the golden file for a small multi-strategy registry', () => {
     const elements = [
       selectorElement({

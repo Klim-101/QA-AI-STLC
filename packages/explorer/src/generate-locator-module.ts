@@ -65,8 +65,21 @@ function isGeneratable(element: SelectorElement): element is SelectorElement & {
   return element.name !== undefined && element.deprecatedAt === undefined;
 }
 
-function byName(a: { readonly name: string }, b: { readonly name: string }): number {
-  return a.name.localeCompare(b.name);
+interface GeneratableEntry {
+  readonly element: SelectorElement & { name: string };
+  readonly primary: LocatorCandidate;
+}
+
+// Pairs each generatable element with its primary candidate in one pass, narrowing out elements
+// with an empty `locatorCandidates` by the presence of `primary` rather than by re-checking
+// `.length`, so the later render step never needs to handle an "impossible" missing primary.
+function toGeneratableEntry(element: SelectorElement & { name: string }): GeneratableEntry | undefined {
+  const primary = element.locatorCandidates[0];
+  return primary === undefined ? undefined : { element, primary };
+}
+
+function byName(a: GeneratableEntry, b: GeneratableEntry): number {
+  return a.element.name.localeCompare(b.element.name);
 }
 
 /**
@@ -89,20 +102,14 @@ export function generateLocatorModule(
 
   const generatable = active
     .filter((element): element is SelectorElement & { name: string } => isGeneratable(element))
-    .filter((element) => element.locatorCandidates.length > 0)
-    .slice()
+    .map(toGeneratableEntry)
+    .filter((entry): entry is GeneratableEntry => entry !== undefined)
     .sort(byName);
 
-  const functions = generatable.map((element) => {
-    const primary = element.locatorCandidates[0];
-    if (primary === undefined) {
-      throw new QaError(
-        'explorer.locator_module.no_candidate',
-        `element ${element.elementId} has no locator candidate`,
-      );
-    }
-    return `export function ${element.name}(page: Page): Locator {\n  return ${locatorCall(primary)};\n}`;
-  });
+  const functions = generatable.map(
+    ({ element, primary }) =>
+      `export function ${element.name}(page: Page): Locator {\n  return ${locatorCall(primary)};\n}`,
+  );
 
   const header = [
     '// Copyright The QA-AI-STLC Authors',

@@ -104,17 +104,23 @@ const RESERVED_WORDS = new Set([
   'yield',
 ]);
 
+// `.charAt(0)` (unlike `word[0]`) always returns a plain `string` even under
+// `noUncheckedIndexedAccess`, so this never needs an `undefined` fallback for an empty `word`.
+function upperFirst(word: string): string {
+  return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
+}
+
+// `fallback` never needs its own empty-words guard: every caller passes an `InteractiveElement`
+// `kind`, and `InteractiveElementKindSchema` is a fixed enum of real words ('button', 'link', ...),
+// so `wordsOf(fallback)` is never empty even when `text` (untrusted, page-derived) is symbols only.
 function toCamelCaseIdentifier(text: string, fallback: string): string {
   const words = wordsOf(text);
   const source = words.length > 0 ? words : wordsOf(fallback);
-  if (source.length === 0) {
-    return 'element';
-  }
-  const [first, ...rest] = source;
-  const capitalized = rest.map((word) => `${word[0]?.toUpperCase() ?? ''}${word.slice(1).toLowerCase()}`);
-  const identifier = [(first ?? '').toLowerCase(), ...capitalized].join('');
+  const identifier = source
+    .map((word, index) => (index === 0 ? word.toLowerCase() : upperFirst(word.toLowerCase())))
+    .join('');
   if (/^[0-9]/u.test(identifier)) {
-    return `element${identifier[0]?.toUpperCase() ?? ''}${identifier.slice(1)}`;
+    return `element${upperFirst(identifier)}`;
   }
   return RESERVED_WORDS.has(identifier) ? `${identifier}Element` : identifier;
 }
