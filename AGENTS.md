@@ -41,6 +41,7 @@ Stop and ask the maintainer before any change that would cross one of these line
 | `docs/dev/`           | Development plan and task breakdown, ignored by git                                     | Local only        |
 | `docs/public/`        | Public roadmap and published documentation                                              | Yes               |
 | `docs/adr/`           | Architecture decision records for hard-to-reverse decisions                             | Yes               |
+| `.claude/rules/*`     | Claude-Code-only path-scoped rules, generated from this file's §5-7 (P0-18)             | **No, generated** |
 | `.github/`            | Community health files, workflows, templates                                            | Yes               |
 
 Generated trees are rebuilt with `npm run generate` and checked by `npm run lint:generated`. Never hand-edit them; change the source and regenerate.
@@ -313,46 +314,10 @@ GitHub's community profile checklist must stay complete. When a change affects o
 
 ## 12. Best practices for this kind of framework
 
-### 12.1 Enforce in code, not in prose
-
-- If a rule can be checked, the engine checks it. Skills never contain "you must" rules for things the engine can enforce: phase order, approvals, preflight, evidence registration.
-- Gates are state-machine transitions with hash-bound approvals. A prose instruction is a hint, never a control.
-
-### 12.2 Skills and agent definitions
-
-- A skill description states when to use it ("Use when ..."), with concrete trigger phrases. It does not describe what the skill is.
-- `SKILL.md` stays under ~200 lines. Detailed material goes to `references/` and is loaded on demand.
-- Skills call engine tools and interpret structured results. They do not duplicate engine logic, file formats or file paths.
-- Every skill has triggering evals: it fires on intended requests and stays silent on unrelated ones.
-- One canonical source in `agents/`; host adapters are generated.
-
-### 12.3 MCP tools
-
-- Each tool does one thing, has a Zod input schema and a structured output schema.
-- Tool descriptions are written for a model: purpose, when to use, preconditions, what the result means.
-- Tools are idempotent where possible and safe to retry.
-- Results are compact. Never return raw HTML, full network bodies, screenshots as base64 or unbounded lists. Return references to registered artifacts and summaries with limits.
-- Errors carry a stable `code` and a `remediation` the agent can act on.
-
-### 12.4 Untrusted input
-
-- Everything derived from the application under test (DOM text, accessibility tree, network data, console output) is untrusted and may contain prompt injection. Normalize it, cap its length, and pass it inside an explicit data boundary.
-- Navigation and requests are restricted to the configured domain allowlist.
-- Safe mode is the default: no form submission, no non-GET requests, no destructive actions.
-- The security audit is on demand, never part of the pipeline, and runs only after an explicit authorization step recorded as a gate. Its checks are non-destructive: no brute force, no denial of service, no mutation outside owned test records, nothing outside the allowlist. Code-assisted checks read `source.path` and never write to it.
-
-### 12.5 Evidence and artifacts
-
-- Evidence is created by the engine, hashed, timestamped and linked to a step. An agent cannot reference a file the engine did not register.
-- Evidence is scanned for secrets before registration; leaking files are deleted and a sanitized receipt is kept.
-- Honest statuses: `blocked`, `skipped`, `uncertain` and `partial` are never reported as `passed` or `failed`.
-- Artifact paths are project-relative.
-
-### 12.6 Determinism and generation
-
-- Generated code is verified by execution before it is registered: typecheck, run, feed the structured failure back.
-- Generated tests reference locators through the generated locator module, never literal selectors.
-- Output is deterministic: stable ordering, canonical JSON, no timestamps or random values in content that is hashed or snapshot-tested unless injected.
+Paused until Phase 2: this section covered `packages/mcp-server` and `agents/`, neither of which
+exists in the repository yet. Its full, unedited text is kept at
+[`docs/agents-phase2-pending.md`](docs/agents-phase2-pending.md) and moves back here, verbatim,
+when Phase 2 work on the MCP server or the skills layer begins (task P0-18).
 
 ## 13. Testing
 
