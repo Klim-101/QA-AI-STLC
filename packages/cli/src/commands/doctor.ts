@@ -5,10 +5,12 @@ import {
   QaError,
   QaStore,
   SUPPORTED_BROWSERS,
+  checkApiContractReadable,
   checkBaseUrlReachable,
   checkBrowserInstalled,
   checkIdentitiesPresent,
   checkNodeVersion,
+  checkSourcePathReadable,
   installBrowsers,
   loadConfig,
   type DoctorCheckResult,
@@ -103,5 +105,9 @@ async function runConfigChecks(
       return { ...result, name: `environment:${name}` };
     }),
   );
-  return [...identityChecks, ...environmentChecks];
+  const sourcePathChecks = await checkSourcePathReadable(context.fs, context.projectRoot, config.source);
+  const apiContractChecks = await checkApiContractReadable(context.fs, context.projectRoot, config.api, {
+    httpClient: context.httpClient,
+  });
+  return [...identityChecks, ...environmentChecks, ...sourcePathChecks, ...apiContractChecks];
 }

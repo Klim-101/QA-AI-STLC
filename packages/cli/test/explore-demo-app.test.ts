@@ -91,7 +91,7 @@ describe('runExplore (demo app)', () => {
         browserLauncher: playwrightBrowserLauncher,
         env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' },
       });
-      await runInit(context);
+      await runInit(context, { deferScope: true });
       await context.fs.writeFile(join(context.projectRoot, '.qa', 'config.yaml'), configYaml());
 
       const built = await runExplore(context, { environment: 'staging', identity: 'admin' });

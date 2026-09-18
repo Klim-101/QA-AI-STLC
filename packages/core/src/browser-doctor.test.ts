@@ -1,12 +1,15 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  checkApiContractReadable,
   checkBaseUrlReachable,
   checkBrowserInstalled,
   checkIdentitiesPresent,
   checkNodeVersion,
+  checkSourcePathReadable,
   installBrowsers,
   resolveBrowserExecutablePath,
 } from './browser-doctor.js';
@@ -135,6 +138,113 @@ describe('checkIdentitiesPresent', () => {
       { name: 'identity:admin', status: 'pass', message: 'QA_ADMIN_PASSWORD is set' },
       expect.objectContaining({ name: 'identity:viewer', status: 'fail' }),
     ]);
+  });
+});
+
+describe('checkSourcePathReadable', () => {
+  it('reports nothing when source is not configured', async () => {
+    const fs = createFakeFileSystem();
+
+    await expect(checkSourcePathReadable(fs, '/project', undefined)).resolves.toEqual([]);
+  });
+
+  it('passes when the configured path exists', async () => {
+    const fs = createFakeFileSystem();
+    await fs.mkdir(join('/project', 'app-src'));
+
+    const results = await checkSourcePathReadable(fs, '/project', { path: 'app-src' });
+
+    expect(results).toEqual([{ name: 'source-path', status: 'pass', message: 'app-src is readable' }]);
+  });
+
+  it('fails with a remediation when the configured path does not exist', async () => {
+    const fs = createFakeFileSystem();
+
+    const results = await checkSourcePathReadable(fs, '/project', { path: 'app-src' });
+
+    expect(results).toEqual([
+      {
+        name: 'source-path',
+        status: 'fail',
+        message: 'app-src does not exist',
+        remediation: 'Check source.path in config.yaml points at a real, readable checkout.',
+      },
+    ]);
+  });
+});
+
+describe('checkApiContractReadable', () => {
+  it('reports nothing when api is not configured', async () => {
+    const fs = createFakeFileSystem();
+
+    await expect(checkApiContractReadable(fs, '/project', undefined)).resolves.toEqual([]);
+  });
+
+  it.each(['discover', 'synthesize'] as const)('reports nothing when api.source is "%s"', async (source) => {
+    const fs = createFakeFileSystem();
+
+    const results = await checkApiContractReadable(fs, '/project', { contract: 'openapi', source });
+
+    expect(results).toEqual([]);
+  });
+
+  it('checks a local contract file for existence', async () => {
+    const fs = createFakeFileSystem({ [join('/project', 'openapi.yaml')]: 'openapi: 3.0.0' });
+
+    const results = await checkApiContractReadable(fs, '/project', {
+      contract: 'openapi',
+      source: 'openapi.yaml',
+    });
+
+    expect(results).toEqual([{ name: 'api-contract', status: 'pass', message: 'openapi.yaml is readable' }]);
+  });
+
+  it('fails with a remediation when a local contract file does not exist', async () => {
+    const fs = createFakeFileSystem();
+
+    const results = await checkApiContractReadable(fs, '/project', {
+      contract: 'openapi',
+      source: 'openapi.yaml',
+    });
+
+    expect(results).toEqual([
+      {
+        name: 'api-contract',
+        status: 'fail',
+        message: 'openapi.yaml does not exist',
+        remediation: 'Check api.source in config.yaml points at a real, readable contract file or URL.',
+      },
+    ]);
+  });
+
+  it('checks a contract URL over HTTP instead of the filesystem', async () => {
+    const fs = createFakeFileSystem();
+    const httpClient: HttpClient = { get: () => Promise.resolve({ ok: true, status: 200 }) };
+
+    const results = await checkApiContractReadable(
+      fs,
+      '/project',
+      { contract: 'openapi', source: 'https://api.example.com/openapi.yaml' },
+      { httpClient },
+    );
+
+    expect(results).toEqual([
+      { name: 'api-contract', status: 'pass', message: 'https://api.example.com/openapi.yaml is reachable' },
+    ]);
+  });
+
+  it('fails when a contract URL is not reachable', async () => {
+    const fs = createFakeFileSystem();
+    const httpClient: HttpClient = { get: () => Promise.reject(new Error('network down')) };
+
+    const results = await checkApiContractReadable(
+      fs,
+      '/project',
+      { contract: 'openapi', source: 'https://api.example.com/openapi.yaml' },
+      { httpClient },
+    );
+
+    expect(results).toEqual([expect.objectContaining({ name: 'api-contract', status: 'fail' })]);
   });
 });
 

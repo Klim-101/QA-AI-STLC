@@ -73,7 +73,7 @@ async function fakeContext(
     env: {},
     browserLauncher: createFakeExploreBrowserLauncher(browserOptions),
   });
-  await runInit(context);
+  await runInit(context, { deferScope: true });
   await fs.writeFile(join(QA_DIR, 'config.yaml'), configYaml(configOptions));
   return context;
 }

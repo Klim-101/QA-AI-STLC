@@ -71,7 +71,7 @@ describe('runCli', () => {
 
   it('runs init and prints human output on success', async () => {
     const deps = dependencies();
-    const exitCode = await runCli(['init'], deps);
+    const exitCode = await runCli(['init', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_SUCCESS);
     expect(deps.stdout.join('\n')).toContain(`Initialized ${join(PROJECT_ROOT, '.qa')}`);
@@ -79,7 +79,7 @@ describe('runCli', () => {
 
   it('runs init and prints machine-readable JSON with --json', async () => {
     const deps = dependencies();
-    const exitCode = await runCli(['init', '--json'], deps);
+    const exitCode = await runCli(['init', '--json', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_SUCCESS);
     expect(deps.stdout).toHaveLength(1);
@@ -95,12 +95,67 @@ describe('runCli', () => {
     expect(deps.stdout.some((line) => line.includes('[FAIL] config'))).toBe(true);
   });
 
+  it('answers the testing scope survey with --e2e, --api, --a11y and --security', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(
+      [
+        'init',
+        '--e2e',
+        'in-scope',
+        '--api',
+        'out-of-scope',
+        '--a11y',
+        'out-of-scope',
+        '--security',
+        'out-of-scope',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+  });
+
+  it('fails init with a coded error when a scope flag has an invalid value', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['init', '--e2e', 'sort-of'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('is not valid for --e2e');
+  });
+
+  it('accepts --source-path and --api-source, writing both into config.yaml', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(
+      [
+        'init',
+        '--e2e',
+        'out-of-scope',
+        '--api',
+        'in-scope',
+        '--a11y',
+        'out-of-scope',
+        '--security',
+        'out-of-scope',
+        '--source-path',
+        'app-src',
+        '--api-source',
+        'discover',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+  });
+
   it('reports nothing-to-do when init runs twice against the same store', async () => {
     const deps = dependencies();
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     deps.stdout.length = 0;
 
-    const exitCode = await runCli(['init'], deps);
+    const exitCode = await runCli(['init', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_SUCCESS);
     expect(deps.stdout.join('\n')).toContain('already initialized; nothing to do.');
@@ -119,7 +174,7 @@ describe('runCli', () => {
     };
     const deps = dependencies({ fs: throwingFs });
 
-    const exitCode = await runCli(['init'], deps);
+    const exitCode = await runCli(['init', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stderr.join('\n')).toContain('could not create .qa/');
@@ -136,7 +191,7 @@ describe('runCli', () => {
     };
     const deps = dependencies({ fs: throwingFs });
 
-    const exitCode = await runCli(['init'], deps);
+    const exitCode = await runCli(['init', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stderr.join('\n')).toBe('error: could not create .qa/');
@@ -155,7 +210,7 @@ describe('runCli', () => {
     };
     const deps = dependencies({ fs: throwingFs });
 
-    const exitCode = await runCli(['init'], deps);
+    const exitCode = await runCli(['init', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stderr.join('\n')).toBe('error: boom');
@@ -171,7 +226,7 @@ describe('runCli', () => {
     };
     const deps = dependencies({ fs: throwingFs });
 
-    const exitCode = await runCli(['init'], deps);
+    const exitCode = await runCli(['init', '--defer-scope'], deps);
 
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stderr.join('\n')).toBe('error: disk full');
@@ -180,7 +235,7 @@ describe('runCli', () => {
   it('defaults the project root to the current working directory for init', async () => {
     const { io, stdout } = captureIO();
 
-    const exitCode = await runCli(['init'], { io, fs: createFakeFileSystem(), env: {} });
+    const exitCode = await runCli(['init', '--defer-scope'], { io, fs: createFakeFileSystem(), env: {} });
 
     expect(exitCode).toBe(EXIT_SUCCESS);
     expect(stdout.join('\n')).toContain(join(process.cwd(), '.qa'));
@@ -200,7 +255,7 @@ describe('runCli', () => {
       SUPPORTED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),
     );
     const deps = dependencies({ fs: createFakeFileSystem(installed) });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     deps.stdout.length = 0;
 
     const exitCode = await runCli(['doctor'], deps);
@@ -241,7 +296,7 @@ describe('runCli', () => {
 
   it('runs explore, writes the registry and prints a human-readable summary', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
     deps.stdout.length = 0;
 
@@ -253,7 +308,7 @@ describe('runCli', () => {
 
   it('runs explore --json and prints a single JSON line', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
     deps.stdout.length = 0;
 
@@ -267,7 +322,7 @@ describe('runCli', () => {
 
   it('fails explore --max-pages with a non-numeric value', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
     deps.stdout.length = 0;
 
@@ -278,7 +333,7 @@ describe('runCli', () => {
 
   it('accepts a positive integer --max-pages', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
     deps.stdout.length = 0;
 
@@ -289,7 +344,7 @@ describe('runCli', () => {
 
   it('reports no degraded selectors and exits successfully on --verify when nothing changed', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
     await fs.writeFile(
       join(PROJECT_ROOT, '.qa', 'selectors', 'registry.json'),
@@ -335,7 +390,7 @@ describe('runCli', () => {
       locatorCount: 1,
       authStorageState: { cookies: [], origins: [] },
     });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG_WITH_IDENTITY);
     deps.stdout.length = 0;
 
@@ -361,7 +416,7 @@ describe('runCli', () => {
 
   it('reports a human-readable degraded selector and exits with a failure code on --verify', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 0 });
-    await runCli(['init'], deps);
+    await runCli(['init', '--defer-scope'], deps);
     await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
     await fs.writeFile(
       join(PROJECT_ROOT, '.qa', 'selectors', 'registry.json'),
@@ -391,5 +446,69 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stdout.some((line) => line.includes('degraded selector'))).toBe(true);
     expect(deps.stdout.some((line) => line.includes('el-1: 1 -> 0'))).toBe(true);
+  });
+
+  it('runs "config set" and prints a human-readable confirmation', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(['config', 'set', 'testing.e2e', 'in-scope'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Set testing.e2e = in-scope');
+  });
+
+  it('runs "config set" and prints machine-readable JSON with --json', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(['config', 'set', 'testing.e2e', 'in-scope', '--json'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toHaveLength(1);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({ command: 'config-set', data: { key: 'testing.e2e', value: 'in-scope' } });
+  });
+
+  it('reports a usage error for an unknown "config" subcommand', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config', 'bogus'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa config" subcommand "bogus"');
+  });
+
+  it('reports a usage error when "config" is given no subcommand at all', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa config" subcommand ""');
+  });
+
+  it('reports a coded error when "config set" is given no key or value', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['config', 'set'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa config set <key> <value>');
+  });
+
+  it('defaults the project root to the current working directory for "config set"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['config', 'set', 'testing.e2e', 'in-scope'], {
+      io,
+      fs: createFakeFileSystem(),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('config.yaml');
   });
 });
