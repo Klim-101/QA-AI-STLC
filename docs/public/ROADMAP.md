@@ -9,7 +9,7 @@ Live task status is on the [project board](https://github.com/users/Klim-101/pro
 | Phase                                                | Status      | Progress |
 | ---------------------------------------------------- | ----------- | -------- |
 | Phase 0 — Foundation                                 | done        | 16 / 16  |
-| Phase 1 — Explorer 0.1                               | in progress | 10 / 18  |
+| Phase 1 — Explorer 0.1                               | in progress | 11 / 18  |
 | Phase 2 — MCP and Claude Code plugin                 | planned     | 0 / 17   |
 | Phase 3 — Runner and generation                      | planned     | 0 / 16   |
 | Phase 4 — Hub-and-spoke                              | planned     | 0 / 11   |
@@ -17,7 +17,7 @@ Live task status is on the [project board](https://github.com/users/Klim-101/pro
 | Phase 6 — API, accessibility, defects, RCA, security | planned     | 0 / 18   |
 | Phase 7 — Release 1.0                                | planned     | 0 / 10   |
 
-_Last synchronized: 2026-09-17._
+_Last synchronized: 2026-09-18._
 <!-- roadmap:progress:end -->
 
 ## Phase 0 — Foundation
