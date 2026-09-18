@@ -71,6 +71,20 @@ describe('readPickModeState', () => {
 
     await expect(readPickModeState(page)).resolves.toEqual({ done: false, captures: [] });
   });
+
+  it('defaults to not-done when a capture in an otherwise valid array is not an object', async () => {
+    const page = fakePage({ evaluate: () => Promise.resolve({ done: true, captures: [null] }) });
+
+    await expect(readPickModeState(page)).resolves.toEqual({ done: false, captures: [] });
+  });
+
+  it('defaults to not-done when a capture object is missing required fields', async () => {
+    const page = fakePage({
+      evaluate: () => Promise.resolve({ done: true, captures: [{ notAPickModeCapture: true }] }),
+    });
+
+    await expect(readPickModeState(page)).resolves.toEqual({ done: false, captures: [] });
+  });
 });
 
 describe('waitForPickModeCompletion', () => {
@@ -112,6 +126,19 @@ describe('waitForPickModeCompletion', () => {
 
     await expect(waitForPickModeCompletion(page, { signal: controller.signal })).rejects.toThrow();
   });
+
+  it('waits on a real timer between polls when no wait override is given', async () => {
+    const states = [
+      { done: false, captures: [] },
+      { done: true, captures: [CAPTURE] },
+    ];
+    let callCount = 0;
+    const page = fakePage({
+      evaluate: () => Promise.resolve(states[Math.min(callCount++, states.length - 1)]),
+    });
+
+    await expect(waitForPickModeCompletion(page, { pollIntervalMs: 1 })).resolves.toEqual([CAPTURE]);
+  });
 });
 
 describe('capturePickModeElements', () => {
@@ -149,6 +176,49 @@ describe('capturePickModeElements', () => {
         accessibleName: 'Log in',
       }),
     );
+  });
+
+  it('carries every optional signal (testId, label, placeholder, htmlId) into the synthesized candidates', async () => {
+    const page = fakeScoringPage({ locatorCounts: [1] });
+    const capture: PickModeCapture = {
+      pickId: 'pick-3',
+      kind: 'input',
+      tagName: 'input',
+      nthOfType: 2,
+      testId: 'email-input',
+      label: 'Email',
+      placeholder: 'you@example.com',
+      htmlId: 'email',
+    };
+
+    const [element] = await capturePickModeElements(page, 'https://example.com/login', [capture], {
+      policy: 'testid-first',
+    });
+
+    expect(element?.locatorCandidates).toEqual(
+      synthesizeLocatorCandidates(
+        {
+          kind: 'input',
+          tagName: 'input',
+          nthOfType: 2,
+          testId: 'email-input',
+          label: 'Email',
+          placeholder: 'you@example.com',
+          htmlId: 'email',
+        },
+        'testid-first',
+      ),
+    );
+  });
+
+  it('forwards a given viewports option to stability scoring', async () => {
+    const page = fakeScoringPage({ locatorCounts: [1] });
+
+    const [element] = await capturePickModeElements(page, 'https://example.com/login', [CAPTURE], {
+      viewports: [{ width: 1280, height: 720 }],
+    });
+
+    expect(element?.stabilityScore).toBe(1);
   });
 
   it('scores 0 and still records the element when it has no locator candidate at all', async () => {
