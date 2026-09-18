@@ -1,5 +1,12 @@
 # @qa-ai-stlc/core
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [143e889]
+  - @qa-ai-stlc/schemas@0.6.0
+
 ## 0.4.0
 
 ### Minor Changes

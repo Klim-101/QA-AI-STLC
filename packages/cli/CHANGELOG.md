@@ -1,5 +1,14 @@
 # @qa-ai-stlc/cli
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [143e889]
+  - @qa-ai-stlc/explorer@0.6.0
+  - @qa-ai-stlc/schemas@0.6.0
+  - @qa-ai-stlc/core@0.4.1
+
 ## 0.2.0
 
 ### Minor Changes
