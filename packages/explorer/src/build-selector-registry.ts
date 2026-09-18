@@ -34,8 +34,9 @@ export interface BuildSelectorRegistryResult {
 // The element's best available human-meaningful name, in the same signal-quality order
 // synthesizeLocatorCandidates already uses: the id changes only when every one of those signals
 // changes too, not on a DOM reorder alone. A position-based fallback is last resort, matching the
-// CSS candidate's own fallback (development plan section 6.3.4).
-function elementNameForId(element: InteractiveElement): string {
+// CSS candidate's own fallback (development plan section 6.3.4). Exported for pick mode (P1-14),
+// which assigns a `source: 'manual'` element the same elementId a crawl would have found for it.
+export function elementNameForId(element: InteractiveElement): string {
   return (
     element.accessibleName ??
     element.label ??
@@ -45,7 +46,7 @@ function elementNameForId(element: InteractiveElement): string {
   );
 }
 
-function computeElementId(url: string, element: InteractiveElement): string {
+export function computeElementId(url: string, element: InteractiveElement): string {
   return hashText(`${url} ${element.kind} ${elementNameForId(element)}`);
 }
 
