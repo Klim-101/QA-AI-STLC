@@ -64,6 +64,13 @@ The project is licensed under the [Apache License 2.0](LICENSE). Contributions a
 
 Every commit must carry a `Signed-off-by` line. It certifies the [Developer Certificate of Origin 1.1](https://developercertificate.org/): you wrote the contribution or otherwise have the right to submit it under the project license.
 
+> **Planned, not yet in effect:** the project intends to also require a one-time
+> [Individual Contributor License Agreement](CLA.md) before merging a first-time external
+> contribution, on top of the DCO sign-off above. The current draft is not legally reviewed and
+> nothing is enforced yet — this note exists so nobody is surprised once it is. It grants no more
+> than the right to also offer a contribution under license terms other than Apache-2.0 in the
+> future; it does not transfer copyright or change today's license.
+
 In particular:
 
 - do not submit code owned by an employer or client without permission, or code covered by a confidentiality agreement;
