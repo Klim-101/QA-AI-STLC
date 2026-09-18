@@ -32,3 +32,12 @@ export type IsoDateTime = z.infer<typeof IsoDateTimeSchema>;
 
 export const IdentifierSchema = z.string().min(1);
 export type Identifier = z.infer<typeof IdentifierSchema>;
+
+// A place in source the engine found something without a live page to point at instead: a
+// `source: 'static'` selector element (selector-registry.ts) or a statically-extracted route
+// (route-map.ts).
+export const SourceLocationSchema = z.object({
+  filePath: RelativePathSchema,
+  line: z.number().int().positive(),
+});
+export type SourceLocation = z.infer<typeof SourceLocationSchema>;

@@ -2,17 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
-import { IdentifierSchema, IsoDateTimeSchema, RelativePathSchema } from './primitives.js';
+import { IdentifierSchema, IsoDateTimeSchema, SourceLocationSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
-
-// Where static source analysis (development plan 6.1.2) found an element, for the "missing test
-// ID" report (P1-13) to point a developer at. `crawl`/`manual` entries never set this: there is no
-// source file, only a live page.
-export const SourceLocationSchema = z.object({
-  filePath: RelativePathSchema,
-  line: z.number().int().positive(),
-});
-export type SourceLocation = z.infer<typeof SourceLocationSchema>;
 
 export const LocatorCandidateSchema = z.object({
   strategy: z.string().min(1),
