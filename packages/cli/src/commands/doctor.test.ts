@@ -64,7 +64,7 @@ describe('runDoctor', () => {
       env: { QA_ADMIN_PASSWORD: 'set' },
       httpClient: createFakeHttpClient({ ok: true, status: 200 }),
     });
-    await runInit(context);
+    await runInit(context, { deferScope: true });
     await fs.writeFile(
       join(QA_DIR, 'config.yaml'),
       [

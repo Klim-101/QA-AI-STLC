@@ -4,7 +4,8 @@
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { chromium, firefox, webkit } from 'playwright';
-import type { IdentityConfig } from '@qa-ai-stlc/schemas';
+import type { ApiConfig, IdentityConfig, SourceConfig } from '@qa-ai-stlc/schemas';
+import { resolveRelativePath } from './paths.js';
 import type { FileSystem } from './ports/file-system.js';
 import type { HttpClient } from './ports/http-client.js';
 import { fetchHttpClient } from './ports/http-client.js';
@@ -151,6 +152,66 @@ export function checkIdentitiesPresent(
           remediation: `Set the ${identity.secret} environment variable before using identity "${name}".`,
         };
   });
+}
+
+/** Checks that a configured `source.path` (P1-18) resolves to something readable. */
+export async function checkSourcePathReadable(
+  fs: FileSystem,
+  projectRoot: string,
+  source: SourceConfig | undefined,
+): Promise<readonly DoctorCheckResult[]> {
+  if (source === undefined) {
+    return [];
+  }
+  const exists = await fs.pathExists(resolveRelativePath(projectRoot, source.path));
+  return [
+    exists
+      ? { name: 'source-path', status: 'pass', message: `${source.path} is readable` }
+      : {
+          name: 'source-path',
+          status: 'fail',
+          message: `${source.path} does not exist`,
+          remediation: 'Check source.path in config.yaml points at a real, readable checkout.',
+        },
+  ];
+}
+
+const URL_SCHEME = /^https?:\/\//;
+
+export interface CheckApiContractOptions {
+  readonly httpClient?: HttpClient;
+  readonly timeoutMs?: number;
+}
+
+/**
+ * Checks that a configured `api.source` (P1-18) is reachable: a URL is checked over HTTP, a local
+ * path is checked for existence under the project root. `"discover"` and `"synthesize"` are not
+ * files or URLs at all — the explorer resolves those at run time — so neither is checked here.
+ */
+export async function checkApiContractReadable(
+  fs: FileSystem,
+  projectRoot: string,
+  api: ApiConfig | undefined,
+  options: CheckApiContractOptions = {},
+): Promise<readonly DoctorCheckResult[]> {
+  if (api === undefined || api.source === 'discover' || api.source === 'synthesize') {
+    return [];
+  }
+  if (URL_SCHEME.test(api.source)) {
+    const result = await checkBaseUrlReachable(api.source, options);
+    return [{ ...result, name: 'api-contract' }];
+  }
+  const exists = await fs.pathExists(resolveRelativePath(projectRoot, api.source));
+  return [
+    exists
+      ? { name: 'api-contract', status: 'pass', message: `${api.source} is readable` }
+      : {
+          name: 'api-contract',
+          status: 'fail',
+          message: `${api.source} does not exist`,
+          remediation: 'Check api.source in config.yaml points at a real, readable contract file or URL.',
+        },
+  ];
 }
 
 function resolvePlaywrightCliPath(): string {

@@ -3,11 +3,13 @@
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { QaError } from '@qa-ai-stlc/core';
+import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
+import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
 import { runDoctor, type DoctorReport } from './commands/doctor.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
-import { runInit, type InitResult } from './commands/init.js';
+import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { readPackageVersion } from './package-version.js';
 
@@ -19,9 +21,10 @@ export type RunCliDependencies = Omit<CreateCommandContextOptions, 'projectRoot'
 const USAGE = `Usage: qa <command> [options]
 
 Commands:
-  init      Create the .qa/ store and a starting config.yaml
-  doctor    Check Node, browsers, identities and environment reachability
-  explore   Build the selector registry: crawl, static source analysis, pick mode, --verify
+  init          Create the .qa/ store and run the testing scope survey
+  doctor        Check Node, browsers, identities and environment reachability
+  explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
+  config set    Change one testing.<type> scope decision after init
 
 Global options:
   --json         Print machine-readable JSON instead of human text
@@ -54,6 +57,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchDoctor(rest, dependencies);
       case 'explore':
         return await dispatchExplore(rest, dependencies);
+      case 'config':
+        return await dispatchConfig(rest, dependencies);
       default:
         io.stderr(`Unknown command "${command}".\n\n${USAGE}`);
         return EXIT_USAGE;
@@ -96,10 +101,29 @@ function parseCommandArgs(
   return values;
 }
 
+function parseTestingScopeFlag(value: string | undefined, flag: string): TestingScopeDecision | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value !== 'in-scope' && value !== 'out-of-scope' && value !== 'undecided') {
+    throw new QaError('INIT_OPTION_INVALID', `"${value}" is not valid for ${flag}`, {
+      remediation: 'Use one of: in-scope, out-of-scope, undecided.',
+    });
+  }
+  return value;
+}
+
 async function dispatchInit(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const values = parseCommandArgs(rest, {
     json: { type: 'boolean', default: false },
     force: { type: 'boolean', default: false },
+    'defer-scope': { type: 'boolean', default: false },
+    e2e: { type: 'string' },
+    api: { type: 'string' },
+    a11y: { type: 'string' },
+    security: { type: 'string' },
+    'source-path': { type: 'string' },
+    'api-source': { type: 'string' },
   });
   const json = values.json === true;
   const context = createCommandContext({
@@ -107,8 +131,56 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     projectRoot: dependencies.projectRoot ?? process.cwd(),
     json,
   });
-  const result = await runInit(context, { force: values.force === true });
+  const e2e = parseTestingScopeFlag(typeof values.e2e === 'string' ? values.e2e : undefined, '--e2e');
+  const api = parseTestingScopeFlag(typeof values.api === 'string' ? values.api : undefined, '--api');
+  const a11y = parseTestingScopeFlag(typeof values.a11y === 'string' ? values.a11y : undefined, '--a11y');
+  const security = parseTestingScopeFlag(
+    typeof values.security === 'string' ? values.security : undefined,
+    '--security',
+  );
+  const testing: TestingScopeAnswers = {
+    ...(e2e !== undefined ? { e2e } : {}),
+    ...(api !== undefined ? { api } : {}),
+    ...(a11y !== undefined ? { a11y } : {}),
+    ...(security !== undefined ? { security } : {}),
+  };
+  const result = await runInit(context, {
+    force: values.force === true,
+    deferScope: values['defer-scope'] === true,
+    testing,
+    ...(typeof values['source-path'] === 'string' ? { sourcePath: values['source-path'] } : {}),
+    ...(typeof values['api-source'] === 'string' ? { apiSource: values['api-source'] } : {}),
+  });
   printResult(context.io, json, 'init', result, formatInitResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchConfig(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand !== 'set') {
+    dependencies.io.stderr(`Unknown "qa config" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
+    return EXIT_USAGE;
+  }
+  const { values, positionals } = parseArgs({
+    args: subRest,
+    options: { json: { type: 'boolean', default: false } },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [key, value] = positionals;
+  if (key === undefined || value === undefined) {
+    throw new QaError('CONFIG_SET_USAGE', 'Usage: qa config set <key> <value>', {
+      remediation: 'Example: qa config set testing.api in-scope',
+    });
+  }
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runConfigSet(context, { key, value });
+  printResult(context.io, json, 'config-set', result, formatConfigSetResult(result));
   return EXIT_SUCCESS;
 }
 
@@ -191,6 +263,10 @@ function formatInitResult(result: InitResult): readonly string[] {
     return [`${result.qaDir} already initialized; nothing to do.`];
   }
   return [`Initialized ${result.qaDir}`, ...result.created.map((file) => `  wrote ${file}`)];
+}
+
+function formatConfigSetResult(result: ConfigSetResult): readonly string[] {
+  return [`Set ${result.key} = ${result.value}`];
 }
 
 function formatDoctorReport(report: DoctorReport): readonly string[] {
