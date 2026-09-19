@@ -55,6 +55,14 @@ the answers as flags, as above, skips the interactive prompts; change a decision
 `qa config set testing.<type> <value>`. `qa doctor` checks Node, installed browsers, identities and
 environment reachability.
 
+![qa explore --verify catching a stale selector, from a real run against examples/demo-app](docs/public/media/qa-explore-demo.svg)
+
+Recorded from a real run against [`examples/demo-app`](examples/demo-app): `qa init`, then `qa config
+add` for an environment and identity, then `qa explore` building a 78-element selector registry, then
+a teammate renaming a `data-testid` on the live page, then `qa explore --verify` catching it and
+exiting non-zero. Waiting time between commands is sped up; every command and every line of output is
+real.
+
 Add an environment and an identity — validated against the schema, no hand-editing `.qa/config.yaml` — then explore it:
 
 ```sh
