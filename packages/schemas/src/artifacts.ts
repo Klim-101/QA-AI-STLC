@@ -14,6 +14,7 @@ import { RouteMapSchema } from './route-map.js';
 import { RunResultSchema } from './run-result.js';
 import { ScopeSchema } from './scope.js';
 import { SelectorRegistrySchema } from './selector-registry.js';
+import { PipelineStateSchema } from './state.js';
 import { TestCaseSchema } from './test-case.js';
 
 // One entry per artifact kind under `.qa/` (development plan section 3.2). This is the single
@@ -34,5 +35,6 @@ export const artifactSchemas = {
   'api-surface': ApiSurfaceSchema,
   'approval-ledger': ApprovalLedgerSchema,
   manifest: ManifestSchema,
+  state: PipelineStateSchema,
 } as const;
 export type ArtifactKind = keyof typeof artifactSchemas;

@@ -20,3 +20,7 @@ export * from './evidence-store.js';
 export * from './ports/browser-launcher.js';
 export * from './auth.js';
 export * from './auth-session-store.js';
+export * from './phases.js';
+export * from './approval-ledger-store.js';
+export * from './state-store.js';
+export * from './gate.js';

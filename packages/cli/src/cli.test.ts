@@ -693,4 +693,141 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(stderr.join('\n')).toContain('config.yaml');
   });
+
+  it('runs "approve" and prints a human-readable confirmation', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
+    });
+
+    const exitCode = await runCli(
+      ['approve', 'scope', '--artifact', 'artifacts/scope.json', '--approved-by', 'operator'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Approved "scope": satisfied.');
+    expect(deps.stdout).toContain('Current phase: cases.');
+  });
+
+  it('runs "approve" and prints machine-readable JSON with --json', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
+    });
+
+    const exitCode = await runCli(
+      ['approve', 'scope', '--artifact', 'artifacts/scope.json', '--approved-by', 'operator', '--json'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({
+      command: 'approve',
+      data: { gate: 'scope', state: { currentPhase: 'cases' } },
+    });
+  });
+
+  it('forwards --note to runApprove', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
+    });
+
+    const exitCode = await runCli(
+      [
+        'approve',
+        'scope',
+        '--artifact',
+        'artifacts/scope.json',
+        '--approved-by',
+        'operator',
+        '--note',
+        'looks complete',
+        '--json',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({ command: 'approve', data: { gate: 'scope' } });
+  });
+
+  it('reports a coded error when "approve" is missing required flags', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['approve', 'scope'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa approve');
+  });
+
+  it('reports a coded error when "approve" targets an unknown gate', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(
+      ['approve', 'run', '--artifact', 'artifacts/run.json', '--approved-by', 'operator'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('is not a known gate');
+  });
+
+  it('defaults the project root to the current working directory for "approve"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(
+      ['approve', 'scope', '--artifact', 'artifacts/scope.json', '--approved-by', 'operator'],
+      { io, fs: createFakeFileSystem(), env: {} },
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('artifacts/scope.json');
+  });
+
+  it('runs "validate" and reports every gate open on a fresh project', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('[open] scope');
+    expect(deps.stdout).toContain('[open] cases');
+    expect(deps.stdout).toContain('Current phase: scope.');
+  });
+
+  it('runs "validate" and prints machine-readable JSON with --json', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['validate', '--json'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({ command: 'validate', data: { reopened: [] } });
+  });
+
+  it('reports a reopened gate and exits with a failure code once an approved artifact changes', async () => {
+    const fs = createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' });
+    const deps = dependencies({ fs });
+    await runCli(
+      ['approve', 'scope', '--artifact', 'artifacts/scope.json', '--approved-by', 'operator'],
+      deps,
+    );
+    deps.stdout.length = 0;
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json'), '{"requirements":[]}');
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout).toContain('[open] scope (reopened since last approval)');
+  });
+
+  it('defaults the project root to the current working directory for "validate"', async () => {
+    const { io, stdout } = captureIO();
+
+    const exitCode = await runCli(['validate'], { io, fs: createFakeFileSystem(), env: {} });
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(stdout).toContain('[open] scope');
+  });
 });

@@ -22,6 +22,7 @@ describe('artifactSchemas', () => {
         'run-result',
         'scope',
         'selector-registry',
+        'state',
         'test-case',
       ].sort(),
     );

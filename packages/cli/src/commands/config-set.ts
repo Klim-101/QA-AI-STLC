@@ -22,9 +22,10 @@ const TESTING_KEY = /^testing\.(e2e|api|a11y|security)$/;
 /**
  * `qa config set testing.<type> <in-scope|out-of-scope|undecided>` (development plan section
  * 2.7): changes one testing type's scope decision after `qa init`'s survey. Reopening the gates
- * that decision affects is left to the state machine (P2-01), which does not exist yet; this
- * command only changes and re-validates `config.yaml`. Only `testing.<type>` keys are supported
- * today; anything else is a coded error naming what is supported instead of a silent no-op.
+ * that decision affects is scope-awareness the state machine (`GateStateMachine`, P2-01) does not
+ * implement yet (tracked as P2-16); this command only changes and re-validates `config.yaml`.
+ * Only `testing.<type>` keys are supported today; anything else is a coded error naming what is
+ * supported instead of a silent no-op.
  * Preserves the rest of `config.yaml` — including comments and formatting — by editing the parsed
  * YAML document in place rather than re-rendering it from scratch.
  */
