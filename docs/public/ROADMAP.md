@@ -89,8 +89,6 @@ The same framework inside Codex.
 - Root cause analysis for every accepted defect, with facts separated from hypotheses and its own review gate
 - On-demand security audit, outside the regular pipeline: non-destructive black-box checks, plus code-assisted checks when you point the framework at the application's source
 
-## Not planned
-
 ## Phase 7 — Release 1.0
 
 - `qa upgrade` for schema migrations and regeneration that preserves manual edits
