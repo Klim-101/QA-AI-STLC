@@ -257,6 +257,7 @@ headed browser for a human to click through, which nothing can drive over MCP's 
 ## Documentation
 
 - [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
+- [Architecture diagram](docs/public/architecture-diagram.md): how the agent host, the engine and the pipeline state fit together.
 - [Architecture decision records](docs/adr/README.md): the significant, hard-to-reverse decisions behind the design, and why.
 
 ## Contributing
