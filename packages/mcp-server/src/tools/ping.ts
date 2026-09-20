@@ -12,9 +12,9 @@ const OutputSchema = z.object({
 });
 
 /**
- * A health check owned by the server itself, not an engine operation (those are P2-05's tools):
- * proves the process is up and the tool-call round trip works, without touching `.qa/` or the
- * engine at all.
+ * A health check owned by the server itself, not an engine operation (those are P2-05's other
+ * tools): proves the process is up and the tool-call round trip works, without touching `.qa/` or
+ * the engine at all.
  */
 export const pingTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = {
   name: 'qa.ping',

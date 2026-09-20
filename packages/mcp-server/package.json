@@ -21,11 +21,11 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "pretypecheck": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "pretypecheck": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/explorer --workspace @qa-ai-stlc/test-utils",
     "typecheck": "tsc --noEmit -p .",
-    "pretest": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "pretest": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/explorer --workspace @qa-ai-stlc/test-utils",
     "test": "vitest run",
-    "pretest:coverage": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "pretest:coverage": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/explorer --workspace @qa-ai-stlc/test-utils",
     "test:coverage": "vitest run --coverage",
     "build": "tsc -b tsconfig.build.json",
     "clean": "node ../../scripts/clean-dir.mjs dist"
@@ -33,6 +33,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
     "@qa-ai-stlc/core": "0.8.0",
+    "@qa-ai-stlc/explorer": "0.6.5",
     "@qa-ai-stlc/schemas": "0.8.0",
     "zod": "4.6.5"
   },

@@ -6,4 +6,3 @@ export * from './cli-io.js';
 export * from './command-context.js';
 export * from './exit-codes.js';
 export * from './commands/init.js';
-export * from './commands/doctor.js';

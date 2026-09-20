@@ -2,14 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  ApprovalLedgerStore,
-  GateStateMachine,
-  PHASES,
-  PipelineStateStore,
-  QaStore,
-  findUnlinkedRequirementIds,
-} from '@qa-ai-stlc/core';
-import {
   SCHEMA_VERSION,
   ScopeSchema,
   TestCaseSchema,
@@ -17,7 +9,13 @@ import {
   type PipelineState,
   type Scope,
 } from '@qa-ai-stlc/schemas';
-import type { CommandContext } from '../command-context.js';
+import { ApprovalLedgerStore } from '../approval-ledger-store.js';
+import type { EngineContext } from '../engine-context.js';
+import { GateStateMachine } from '../gate.js';
+import { PHASES } from '../phases.js';
+import { QaStore } from '../qa-store.js';
+import { findUnlinkedRequirementIds } from '../requirement-linking.js';
+import { PipelineStateStore } from '../state-store.js';
 
 const SCOPE_PATH = 'artifacts/scope.json';
 const CASES_DIR = 'artifacts/cases';
@@ -41,14 +39,14 @@ export interface ValidateReport {
 }
 
 /**
- * `qa validate` (P2-01, ADR-003; P2-03 traceability): recomputes every gate's status from the
- * approval ledger and each approved artifact's current content, persists the refreshed
- * `state.json`, and separately re-checks every registered test case's requirement links against
- * the current scope artifact — `qa cases add` (P2-03) checks this once at registration time, this
- * catches a link broken later by editing `scope.json`. The CLI's exit code is nonzero for a
- * reopened gate or any unlinked case, never for a phase simply not yet approved.
+ * `qa validate` / MCP `qa_validate` (P2-01, P2-05, ADR-003; P2-03 traceability): recomputes every
+ * gate's status from the approval ledger and each approved artifact's current content, persists
+ * the refreshed `state.json`, and separately re-checks every registered test case's requirement
+ * links against the current scope artifact — `qa cases add` (P2-03) checks this once at
+ * registration time, this catches a link broken later by editing `scope.json`. Callers treat a
+ * reopened gate or any unlinked case as failure, never a phase simply not yet approved.
  */
-export async function runValidate(context: CommandContext): Promise<ValidateReport> {
+export async function runValidate(context: EngineContext): Promise<ValidateReport> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const ledger = new ApprovalLedgerStore({ store });
   const gates = new GateStateMachine({
@@ -75,7 +73,7 @@ export async function runValidate(context: CommandContext): Promise<ValidateRepo
   return { state, reopened, unlinkedCases };
 }
 
-async function findUnlinkedCases(context: CommandContext, store: QaStore): Promise<readonly UnlinkedCase[]> {
+async function findUnlinkedCases(context: EngineContext, store: QaStore): Promise<readonly UnlinkedCase[]> {
   const casesDirAbsolute = store.resolve(CASES_DIR);
   const caseFiles = await context.fs.listFiles(casesDirAbsolute);
   if (caseFiles.length === 0) {

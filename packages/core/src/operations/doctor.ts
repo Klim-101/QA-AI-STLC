@@ -1,9 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Config } from '@qa-ai-stlc/schemas';
 import {
-  QaError,
-  QaStore,
   SUPPORTED_BROWSERS,
   checkApiContractReadable,
   checkBaseUrlReachable,
@@ -12,11 +11,12 @@ import {
   checkNodeVersion,
   checkSourcePathReadable,
   installBrowsers,
-  loadConfig,
   type DoctorCheckResult,
-} from '@qa-ai-stlc/core';
-import type { Config } from '@qa-ai-stlc/schemas';
-import type { CommandContext } from '../command-context.js';
+} from '../browser-doctor.js';
+import { loadConfig } from '../config-loader.js';
+import type { EngineContext } from '../engine-context.js';
+import { QaError } from '../errors.js';
+import { QaStore } from '../qa-store.js';
 
 export interface DoctorOptions {
   readonly fix?: boolean;
@@ -28,11 +28,12 @@ export interface DoctorReport {
 }
 
 /**
- * `qa doctor`: Node version, browser binaries, and, once a `config.yaml` exists, every
- * identity's secret and every environment's reachability (ADR-004). `--fix` installs missing
- * browsers through Playwright's own installer before reporting their final state.
+ * `qa doctor` / MCP `qa_doctor` (P2-05): Node version, browser binaries, and, once a
+ * `config.yaml` exists, every identity's secret and every environment's reachability (ADR-004).
+ * `--fix` installs missing browsers through Playwright's own installer before reporting their
+ * final state.
  */
-export async function runDoctor(context: CommandContext, options: DoctorOptions = {}): Promise<DoctorReport> {
+export async function runDoctor(context: EngineContext, options: DoctorOptions = {}): Promise<DoctorReport> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   let checks: DoctorCheckResult[] = [checkNodeVersion()];
 
@@ -50,7 +51,7 @@ export async function runDoctor(context: CommandContext, options: DoctorOptions 
 }
 
 async function fixMissingBrowsers(
-  context: CommandContext,
+  context: EngineContext,
   checks: readonly DoctorCheckResult[],
 ): Promise<DoctorCheckResult[]> {
   const missing = SUPPORTED_BROWSERS.filter((browser) =>
@@ -73,7 +74,7 @@ async function fixMissingBrowsers(
 }
 
 async function runConfigChecks(
-  context: CommandContext,
+  context: EngineContext,
   store: QaStore,
 ): Promise<readonly DoctorCheckResult[]> {
   let config: Config;

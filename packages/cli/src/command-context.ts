@@ -10,6 +10,7 @@ import {
   systemClock,
   type BrowserLauncher,
   type Clock,
+  type EngineContext,
   type FileSystem,
   type HttpClient,
   type Logger,
@@ -18,21 +19,13 @@ import {
 import type { CliIO } from './cli-io.js';
 
 /**
- * Everything a command needs, injected so commands are testable without real I/O, a real clock
- * or a real child process (AGENTS.md 5.3). `runCli` builds one context per invocation from the
- * real Node adapters; tests build one from fakes.
+ * Everything a command needs: an `EngineContext` (packages/core) plus the CLI-only concerns of
+ * printing output and the `--json` flag. `runCli` builds one context per invocation from the real
+ * Node adapters; tests build one from fakes.
  */
-export interface CommandContext {
-  readonly projectRoot: string;
+export interface CommandContext extends EngineContext {
   readonly io: CliIO;
   readonly json: boolean;
-  readonly fs: FileSystem;
-  readonly clock: Clock;
-  readonly logger: Logger;
-  readonly processRunner: ProcessRunner;
-  readonly httpClient: HttpClient;
-  readonly browserLauncher: BrowserLauncher;
-  readonly env: Readonly<Record<string, string | undefined>>;
 }
 
 export interface CreateCommandContextOptions {

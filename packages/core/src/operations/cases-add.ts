@@ -2,22 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  ManifestStore,
-  QaError,
-  QaStore,
-  assertRelativePath,
-  findUnlinkedRequirementIds,
-  readJsonFile,
-  resolveRelativePath,
-} from '@qa-ai-stlc/core';
-import {
   SCHEMA_VERSION,
   ScopeSchema,
   TestCaseSchema,
   type RelativePath,
   type Scope,
 } from '@qa-ai-stlc/schemas';
-import type { CommandContext } from '../command-context.js';
+import type { EngineContext } from '../engine-context.js';
+import { QaError } from '../errors.js';
+import { readJsonFile } from '../json-file.js';
+import { ManifestStore } from '../manifest-store.js';
+import { assertRelativePath, resolveRelativePath } from '../paths.js';
+import { QaStore } from '../qa-store.js';
+import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 
@@ -32,18 +29,15 @@ export interface CasesAddResult {
 }
 
 /**
- * `qa cases add --path <path>` (development plan section 2.7 step 9, P2-03): validates a test
- * case a human or an agent wrote as JSON — the engine never authors test-case content itself
- * (ADR-001) — checks every `requirementIds` entry against the current scope artifact, and only
- * then registers it under `artifacts/cases/<id>.json`. A case linking to a requirement id that
- * does not exist in `artifacts/scope.json` is rejected here, before it is ever written; `qa
- * validate` re-checks every already-registered case the same way, so a link broken later by
- * editing `scope.json` is caught too.
+ * `qa cases add --path <path>` / MCP `qa_cases_add` (development plan section 2.7 step 9, P2-03,
+ * P2-05): validates a test case a human or an agent wrote as JSON — the engine never authors
+ * test-case content itself (ADR-001) — checks every `requirementIds` entry against the current
+ * scope artifact, and only then registers it under `artifacts/cases/<id>.json`. A case linking to
+ * a requirement id that does not exist in `artifacts/scope.json` is rejected here, before it is
+ * ever written; `qa validate` re-checks every already-registered case the same way, so a link
+ * broken later by editing `scope.json` is caught too.
  */
-export async function runCasesAdd(
-  context: CommandContext,
-  options: CasesAddOptions,
-): Promise<CasesAddResult> {
+export async function runCasesAdd(context: EngineContext, options: CasesAddOptions): Promise<CasesAddResult> {
   if (options.path === undefined) {
     throw new QaError('CASES_ADD_USAGE', 'Usage: qa cases add --path <path>', {
       remediation: 'Example: qa cases add --path cases/login.json',

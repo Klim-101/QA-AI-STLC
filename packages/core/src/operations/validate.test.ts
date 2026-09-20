@@ -3,24 +3,32 @@
 
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createCommandContext, type CommandContext } from '../command-context.js';
+import type { EngineContext } from '../engine-context.js';
+import { noopLogger } from '../ports/logger.js';
+import { systemClock } from '../ports/clock.js';
+import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
 import { createFakeFileSystem } from '../test-support/fake-file-system.js';
+import { createFakeHttpClient } from '../test-support/fake-http-client.js';
+import { createFakeProcessRunner } from '../test-support/fake-process-runner.js';
 import { runApprove } from './approve.js';
 import { runValidate } from './validate.js';
 
-const noopIo = { stdout: () => undefined, stderr: () => undefined };
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
-function fakeContext(files: Readonly<Record<string, string>> = {}): CommandContext {
-  return createCommandContext({
+function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContext {
+  return {
     projectRoot: PROJECT_ROOT,
-    io: noopIo,
     fs: createFakeFileSystem(
       Object.fromEntries(Object.entries(files).map(([path, content]) => [join(QA_DIR, path), content])),
     ),
+    clock: systemClock,
+    logger: noopLogger,
+    processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+    httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+    browserLauncher: createFakeBrowserLauncher(),
     env: {},
-  });
+  };
 }
 
 describe('runValidate', () => {
