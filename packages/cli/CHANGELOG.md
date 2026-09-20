@@ -1,5 +1,17 @@
 # @qa-ai-stlc/cli
 
+## 0.4.1
+
+### Patch Changes
+
+- a6629ed: Fix `qa explore --pick` launching its browser headless, so the window a human is supposed to click
+  elements in never actually appeared and the command hung until pick mode's 30-minute timeout.
+  `BrowserLauncher.launch()` now takes an optional `{ headless }`; pick mode passes `headless: false`,
+  every other caller (crawling, scripted login) is unaffected and still launches headless.
+- Updated dependencies [a6629ed]
+  - @qa-ai-stlc/core@0.5.1
+  - @qa-ai-stlc/explorer@0.6.2
+
 ## 0.4.0
 
 ### Minor Changes
