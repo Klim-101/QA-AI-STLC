@@ -33,6 +33,20 @@ describe('TestCaseSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a case with no linked requirement at all', () => {
+    const result = TestCaseSchema.safeParse({
+      id: 'case-4',
+      requirementIds: [],
+      testType: 'e2e',
+      title: 'Unlinked case',
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-16T12:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects "security" as a test type, since the audit has no cases of its own', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-3',

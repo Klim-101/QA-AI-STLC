@@ -21,7 +21,10 @@ export type TestCaseStatus = z.infer<typeof TestCaseStatusSchema>;
 export const TestCaseSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   id: IdentifierSchema,
-  requirementIds: z.array(IdentifierSchema),
+  // Traceability (development plan section 2.7 step 9, P2-03): every case links to at least one
+  // requirement. `qa validate` separately checks that each id actually resolves in the scope
+  // artifact — this only rules out a case with no link at all.
+  requirementIds: z.array(IdentifierSchema).min(1),
   testType: TestTypeSchema,
   title: z.string().min(1),
   description: z.string().optional(),

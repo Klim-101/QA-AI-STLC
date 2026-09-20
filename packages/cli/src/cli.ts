@@ -7,6 +7,7 @@ import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
 import { runApprove, type ApproveResult } from './commands/approve.js';
+import { runCasesAdd, type CasesAddResult } from './commands/cases.js';
 import {
   runConfigAddEnvironment,
   runConfigAddIdentity,
@@ -36,8 +37,9 @@ Commands:
   config set    Change one testing.<type> scope decision after init
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
+  cases add     Validate and register a test case: "cases add --path <path>"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
-  validate      Recompute every gate's status; nonzero exit if an approved artifact changed since
+  validate      Recompute every gate's status and every case's requirement links; nonzero exit on a reopened gate or an unlinked case
 
 Global options:
   --json         Print machine-readable JSON instead of human text
@@ -74,6 +76,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchConfig(rest, dependencies);
       case 'scope':
         return await dispatchScope(rest, dependencies);
+      case 'cases':
+        return await dispatchCases(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -403,6 +407,33 @@ async function dispatchScope(rest: readonly string[], dependencies: RunCliDepend
   return EXIT_SUCCESS;
 }
 
+async function dispatchCases(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand === 'add') {
+    return await dispatchCasesAdd(subRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa cases" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchCasesAdd(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runCasesAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'cases-add', result, formatCasesAddResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -451,7 +482,7 @@ async function dispatchValidate(rest: readonly string[], dependencies: RunCliDep
   });
   const report = await runValidate(context);
   printResult(context.io, json, 'validate', report, formatValidateReport(report));
-  return report.reopened.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+  return report.reopened.length > 0 || report.unlinkedCases.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 function printResult(
@@ -528,6 +559,10 @@ function formatScopeResult(result: ScopeResult): readonly string[] {
   ];
 }
 
+function formatCasesAddResult(result: CasesAddResult): readonly string[] {
+  return [`Registered ${result.casePath}: linked to ${result.requirementIds.join(', ')}.`];
+}
+
 function formatApproveResult(result: ApproveResult): readonly string[] {
   return [
     `Approved "${result.gate}": ${result.state.gates[result.gate].status}.`,
@@ -542,5 +577,13 @@ function formatValidateReport(report: ValidateReport): readonly string[] {
     return `[${status}] ${phase}${reopened}`;
   });
   lines.push(`Current phase: ${report.state.currentPhase}.`);
+  if (report.unlinkedCases.length === 0) {
+    lines.push('No unlinked cases.');
+  } else {
+    lines.push(`${String(report.unlinkedCases.length)} unlinked case(s):`);
+    for (const unlinkedCase of report.unlinkedCases) {
+      lines.push(`  ${unlinkedCase.casePath}: ${unlinkedCase.unlinkedRequirementIds.join(', ')}`);
+    }
+  }
   return lines;
 }

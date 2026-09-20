@@ -12,11 +12,14 @@ environment <name> --base-url <url> --allowlist <a,b,c>` and `qa config add iden
 schema-validated entry instead of hand-editing `config.yaml`. `qa scope --from file --path <path>`
 or `qa scope --from text --content <text> --label <label>` extracts requirements (one per
 level-2 Markdown heading) into `artifacts/scope.json`, upserting by requirement id on a repeated
-call. `qa approve <gate> --artifact <path> --approved-by <name> [--note <text>]` hash-binds an
-approval to a pipeline gate (`scope`, `cases`, approved in order); `qa validate` recomputes every
-gate's status from the approval ledger and exits non-zero only when an approved artifact no
-longer matches its recorded hash. Every command supports `--json` for machine-readable output and
-exits non-zero on failure.
+call. `qa cases add --path <path>` validates a test case written as JSON — it must link to at
+least one requirement, and every linked id must actually exist in `artifacts/scope.json` — and
+registers it under `artifacts/cases/<id>.json`. `qa approve <gate> --artifact <path>
+--approved-by <name> [--note <text>]` hash-binds an approval to a pipeline gate (`scope`, `cases`,
+approved in order); `qa validate` recomputes every gate's status from the approval ledger and
+re-checks every registered case's requirement links, exiting non-zero for a reopened gate or an
+unlinked case. Every command supports `--json` for machine-readable output and exits non-zero on
+failure.
 
 Part of [QA-AI-STLC](https://github.com/Klim-101/QA-AI-STLC). See the repository root for
 license, contributing and security information.

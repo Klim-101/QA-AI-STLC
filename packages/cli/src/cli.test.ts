@@ -852,6 +852,7 @@ describe('runCli', () => {
     expect(deps.stdout).toContain('[open] scope');
     expect(deps.stdout).toContain('[open] cases');
     expect(deps.stdout).toContain('Current phase: scope.');
+    expect(deps.stdout).toContain('No unlinked cases.');
   });
 
   it('runs "validate" and prints machine-readable JSON with --json', async () => {
@@ -887,5 +888,106 @@ describe('runCli', () => {
 
     expect(exitCode).toBe(EXIT_SUCCESS);
     expect(stdout).toContain('[open] scope');
+  });
+
+  it('runs "cases add" and prints a human-readable confirmation', async () => {
+    const scopeJson = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+    const caseJson = JSON.stringify({
+      id: 'case-1',
+      requirementIds: ['r1'],
+      testType: 'e2e',
+      title: 'A case',
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-20T12:00:00Z',
+    });
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+        [join(PROJECT_ROOT, 'login.json')]: caseJson,
+      }),
+    });
+
+    const exitCode = await runCli(['cases', 'add', '--path', 'login.json'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Registered artifacts/cases/case-1.json: linked to r1.');
+  });
+
+  it('reports a coded error when "cases add" is given no --path', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['cases', 'add'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa cases add');
+  });
+
+  it('reports a usage error for an unknown "cases" subcommand', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['cases', 'bogus'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa cases" subcommand "bogus"');
+  });
+
+  it('reports a usage error when "cases" is given no subcommand at all', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['cases'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa cases" subcommand ""');
+  });
+
+  it('defaults the project root to the current working directory for "cases add"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['cases', 'add', '--path', 'login.json'], {
+      io,
+      fs: createFakeFileSystem(),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('login.json');
+  });
+
+  it('"validate" fails with an unlinked-case exit code once a registered case loses its requirement', async () => {
+    const scopeJson = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+    const caseJson = JSON.stringify({
+      id: 'case-1',
+      requirementIds: ['r1'],
+      testType: 'e2e',
+      title: 'A case',
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-20T12:00:00Z',
+    });
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+      [join(PROJECT_ROOT, 'login.json')]: caseJson,
+    });
+    const deps = dependencies({ fs });
+    await runCli(['cases', 'add', '--path', 'login.json'], deps);
+    deps.stdout.length = 0;
+    await fs.writeFile(
+      join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json'),
+      JSON.stringify({ generatedAt: '2026-09-20T12:00:00Z', requirements: [] }),
+    );
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout.join('\n')).toContain('1 unlinked case(s):');
   });
 });
