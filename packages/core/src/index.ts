@@ -24,3 +24,5 @@ export * from './phases.js';
 export * from './approval-ledger-store.js';
 export * from './state-store.js';
 export * from './gate.js';
+export * from './requirement-extraction.js';
+export * from './scope-merge.js';

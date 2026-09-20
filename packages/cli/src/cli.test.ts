@@ -694,6 +694,64 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('config.yaml');
   });
 
+  it('runs "scope --from file" and prints a human-readable confirmation', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n' }),
+    });
+
+    const exitCode = await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Wrote artifacts/scope.json: 1 requirement(s) (1 added, 0 updated).');
+  });
+
+  it('runs "scope --from text" and prints machine-readable JSON with --json', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(
+      ['scope', '--from', 'text', '--content', '## Signup\nbody\n', '--label', 'operator input', '--json'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed: unknown = JSON.parse(deps.stdout[0] ?? '');
+    expect(parsed).toMatchObject({
+      command: 'scope',
+      data: { scopePath: 'artifacts/scope.json', added: 1, updated: 0, total: 1 },
+    });
+  });
+
+  it('reports a coded error when "scope" is given no --from', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['scope'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa scope');
+  });
+
+  it('reports a coded error when "scope --from" is an unknown value', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['scope', '--from', 'screenshot'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('is not a valid --from value');
+  });
+
+  it('defaults the project root to the current working directory for "scope"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], {
+      io,
+      fs: createFakeFileSystem(),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('requirements.md');
+  });
+
   it('runs "approve" and prints a human-readable confirmation', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
