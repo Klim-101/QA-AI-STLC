@@ -1,5 +1,13 @@
 # @qa-ai-stlc/explorer
 
+## 0.6.5
+
+### Patch Changes
+
+- Updated dependencies [554ec6d]
+  - @qa-ai-stlc/schemas@0.8.0
+  - @qa-ai-stlc/core@0.8.0
+
 ## 0.6.4
 
 ### Patch Changes
