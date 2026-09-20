@@ -23,14 +23,23 @@ export default defineConfig({
       // `bin/` entry points call `process.exit` (AGENTS.md 5.4) and cannot be exercised in-process
       // without killing the test runner; `runCli`, the logic they call, is fully covered instead.
       exclude: ['packages/*/src/**/*.test.ts', 'packages/*/src/bin/**'],
-      // AGENTS.md 13: enforced per package; a threshold is only ever raised as coverage
-      // improves, never lowered to make an unrelated change pass.
+      // AGENTS.md 13 / ADR-008: enforced per package, in two tiers; a threshold is only ever
+      // raised as coverage improves, never lowered to make an unrelated change pass.
       thresholds: {
+        // Tier 1 — validation, state and decision logic: a missed branch here is a silent
+        // correctness bug (a gate that does not block, a selector that resolves wrong).
         'packages/schemas/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/test-utils/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/core/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/cli/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/explorer/src/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        // Tier 2 — protocol and third-party-tool plumbing: most of the branch count is defensive
+        // handling of a third-party failure mode, not this project's own logic, and a bug here
+        // tends to fail loudly rather than silently. Starting bar, not a ceiling — still ratchets
+        // up as coverage improves, same as Tier 1 (ADR-008). Inert until packages/mcp-server and
+        // the first packages/runner-* exist (P2-04, Phase 3).
+        'packages/mcp-server/src/**': { statements: 90, branches: 80, functions: 90, lines: 90 },
+        'packages/runner-*/src/**': { statements: 90, branches: 80, functions: 90, lines: 90 },
       },
     },
   },

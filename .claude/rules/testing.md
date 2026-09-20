@@ -10,6 +10,7 @@ paths:
 
 - Vitest. Unit tests sit next to the code as `*.test.ts`; integration and end-to-end tests live in `test/` of the package.
 - Coverage is a required CI check (task P0-17), enforced per package with Vitest's `v8` provider. A pull request that drops a package's coverage below its recorded threshold fails CI; raise the threshold when coverage improves, never lower it to make a change pass. New code needs both unit tests for its logic and, where it crosses a module boundary (filesystem, browser, CLI, MCP), an integration test in `test/`.
+- Coverage thresholds are tiered by what a package is responsible for (ADR-008), not one blanket number: **Tier 1** (`schemas`, `core`, `explorer`, `cli`, `test-utils` — validation, state and decision logic) stays at 100% statements/branches/functions/lines. **Tier 2** (`mcp-server`, every `runner-*` — protocol and third-party-tool plumbing, from the package's creation) starts at 90% statements/lines/functions and 80% branches. A new package defaults to Tier 1; it qualifies for Tier 2 only when its primary responsibility is protocol or third-party-tool plumbing, not merely because it is new. Both tiers keep the same ratchet-up-only rule.
 - Test behavior through public functions, not private internals.
 - Unit tests make no network calls and do not launch browsers. Browser tests run against `examples/demo-app` only.
 - Use temporary directories for filesystem tests and clean them up. Never touch the developer's home directory or real host configuration.
