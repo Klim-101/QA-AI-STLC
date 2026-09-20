@@ -32,8 +32,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@qa-ai-stlc/core": "0.5.1",
-    "@qa-ai-stlc/schemas": "0.6.0",
+    "@qa-ai-stlc/core": "0.6.0",
+    "@qa-ai-stlc/schemas": "0.7.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
