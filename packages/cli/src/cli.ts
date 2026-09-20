@@ -17,6 +17,7 @@ import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
 import { runDoctor, type DoctorReport } from './commands/doctor.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
+import { runScope, type ScopeResult } from './commands/scope.js';
 import { runValidate, type ValidateReport } from './commands/validate.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { readPackageVersion } from './package-version.js';
@@ -34,6 +35,7 @@ Commands:
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   config set    Change one testing.<type> scope decision after init
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
+  scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status; nonzero exit if an approved artifact changed since
 
@@ -70,6 +72,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchExplore(rest, dependencies);
       case 'config':
         return await dispatchConfig(rest, dependencies);
+      case 'scope':
+        return await dispatchScope(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -368,6 +372,37 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
   return report.degraded.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
+async function dispatchScope(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    from: { type: 'string' },
+    path: { type: 'string' },
+    content: { type: 'string' },
+    label: { type: 'string' },
+  });
+  if (typeof values.from !== 'string') {
+    throw new QaError(
+      'SCOPE_USAGE',
+      'Usage: qa scope --from <file|text> [--path <path>] [--content <text>] [--label <label>]',
+      { remediation: 'Example: qa scope --from file --path docs/requirements.md' },
+    );
+  }
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runScope(context, {
+    from: values.from,
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+    ...(typeof values.content === 'string' ? { content: values.content } : {}),
+    ...(typeof values.label === 'string' ? { label: values.label } : {}),
+  });
+  printResult(context.io, json, 'scope', result, formatScopeResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -484,6 +519,12 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
       `${String(report.added)} added, ${String(report.removed)} removed, ${String(report.degraded.length)} degraded).`,
     `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
     `${String(report.blockedRequestCount)} non-GET request(s) blocked by safe mode.`,
+  ];
+}
+
+function formatScopeResult(result: ScopeResult): readonly string[] {
+  return [
+    `Wrote ${result.scopePath}: ${String(result.total)} requirement(s) (${String(result.added)} added, ${String(result.updated)} updated).`,
   ];
 }
 
