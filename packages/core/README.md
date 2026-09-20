@@ -3,7 +3,10 @@
 The deterministic engine underneath the `qa` CLI and the MCP server. This package owns the
 `.qa/` store: reading and validating `config.yaml`, hashing every registered artifact into
 `manifest.json`, and normalizing project-relative paths so a hash or a reference recorded on one
-OS still resolves on another.
+OS still resolves on another. `GateStateMachine` is the pipeline's hash-bound approval gate
+(ADR-003): an artifact's content is hashed into `artifacts/approval-ledger.json` at approval time,
+and every gate's live status in `state.json` is recomputed from that ledger, never trusted as a
+cached field, so editing an approved artifact reopens its gate automatically.
 
 Filesystem access, wall-clock time and logging are injected through small ports (`FileSystem`,
 `Clock`, `Logger`) rather than called directly, so the engine's logic is testable without real

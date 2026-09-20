@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
-import { QaError } from '@qa-ai-stlc/core';
+import { PHASES, QaError } from '@qa-ai-stlc/core';
 import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
+import { runApprove, type ApproveResult } from './commands/approve.js';
 import {
   runConfigAddEnvironment,
   runConfigAddIdentity,
@@ -16,6 +17,7 @@ import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
 import { runDoctor, type DoctorReport } from './commands/doctor.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
+import { runValidate, type ValidateReport } from './commands/validate.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { readPackageVersion } from './package-version.js';
 
@@ -32,6 +34,8 @@ Commands:
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   config set    Change one testing.<type> scope decision after init
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
+  approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
+  validate      Recompute every gate's status; nonzero exit if an approved artifact changed since
 
 Global options:
   --json         Print machine-readable JSON instead of human text
@@ -66,6 +70,10 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchExplore(rest, dependencies);
       case 'config':
         return await dispatchConfig(rest, dependencies);
+      case 'approve':
+        return await dispatchApprove(rest, dependencies);
+      case 'validate':
+        return await dispatchValidate(rest, dependencies);
       default:
         io.stderr(`Unknown command "${command}".\n\n${USAGE}`);
         return EXIT_USAGE;
@@ -360,6 +368,57 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
   return report.degraded.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
+async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      artifact: { type: 'string' },
+      'approved-by': { type: 'string' },
+      note: { type: 'string' },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [gate] = positionals;
+  if (
+    gate === undefined ||
+    typeof values.artifact !== 'string' ||
+    typeof values['approved-by'] !== 'string'
+  ) {
+    throw new QaError('APPROVE_USAGE', 'Usage: qa approve <gate> --artifact <path> --approved-by <name>', {
+      remediation: 'Example: qa approve scope --artifact artifacts/scope.json --approved-by operator',
+    });
+  }
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runApprove(context, {
+    gate,
+    artifactPath: values.artifact,
+    approvedBy: values['approved-by'],
+    ...(typeof values.note === 'string' ? { note: values.note } : {}),
+  });
+  printResult(context.io, json, 'approve', result, formatApproveResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchValidate(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, { json: { type: 'boolean', default: false } });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const report = await runValidate(context);
+  printResult(context.io, json, 'validate', report, formatValidateReport(report));
+  return report.reopened.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
 function printResult(
   io: CliIO,
   json: boolean,
@@ -426,4 +485,21 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
     `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
     `${String(report.blockedRequestCount)} non-GET request(s) blocked by safe mode.`,
   ];
+}
+
+function formatApproveResult(result: ApproveResult): readonly string[] {
+  return [
+    `Approved "${result.gate}": ${result.state.gates[result.gate].status}.`,
+    `Current phase: ${result.state.currentPhase}.`,
+  ];
+}
+
+function formatValidateReport(report: ValidateReport): readonly string[] {
+  const lines = PHASES.map((phase) => {
+    const status = report.state.gates[phase].status;
+    const reopened = report.reopened.includes(phase) ? ' (reopened since last approval)' : '';
+    return `[${status}] ${phase}${reopened}`;
+  });
+  lines.push(`Current phase: ${report.state.currentPhase}.`);
+  return lines;
 }
