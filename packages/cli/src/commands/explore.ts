@@ -219,7 +219,8 @@ async function runPickModeSession(
   const policy = resolvePolicy(config, options.policy);
   const storageState = await resolveStorageState(context.browserLauncher, identity);
 
-  const browser = await context.browserLauncher.launch();
+  // Headed: a human clicks the elements in this window, unlike every other launch() call here.
+  const browser = await context.browserLauncher.launch({ headless: false });
   try {
     const browserContext = await browser.newContext(storageState === undefined ? {} : { storageState });
     const page = await browserContext.newPage();

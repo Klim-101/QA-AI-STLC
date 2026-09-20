@@ -289,6 +289,26 @@ describe('runExplore', () => {
     expect(registry.elements[0]?.pageUrl).toBe('https://staging.example.com/login');
   });
 
+  it('launches pick mode headed, so a human can actually see the window to click in', async () => {
+    const context = await fakeContext({
+      pickModeState: { done: true, captures: [] },
+    });
+    const launcher = context.browserLauncher as ReturnType<typeof createFakeExploreBrowserLauncher>;
+
+    await runExplore(context, { pick: 'https://staging.example.com/login' });
+
+    expect(launcher.launchCalls).toContainEqual({ headless: false });
+  });
+
+  it('launches a crawl headless, unlike pick mode', async () => {
+    const context = await fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
+    const launcher = context.browserLauncher as ReturnType<typeof createFakeExploreBrowserLauncher>;
+
+    await runExplore(context);
+
+    expect(launcher.launchCalls).not.toContainEqual({ headless: false });
+  });
+
   it('throws EXPLORE_NO_REGISTRY when --verify is given but no registry has been built yet', async () => {
     const context = await fakeContext();
 

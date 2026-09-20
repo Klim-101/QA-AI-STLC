@@ -17,7 +17,15 @@ describe('playwrightBrowserLauncher', () => {
     const result = await playwrightBrowserLauncher.launch();
 
     expect(result).toBe('launched-browser');
-    expect(launch).toHaveBeenCalledWith();
+    expect(launch).toHaveBeenCalledWith({});
+  });
+
+  it('passes headless: false through to chromium.launch(), for pick mode', async () => {
+    const { playwrightBrowserLauncher } = await import('./browser-launcher.js');
+
+    await playwrightBrowserLauncher.launch({ headless: false });
+
+    expect(launch).toHaveBeenCalledWith({ headless: false });
   });
 
   it('delegates connectOverCdp() to chromium.connectOverCDP() with the given endpoint', async () => {

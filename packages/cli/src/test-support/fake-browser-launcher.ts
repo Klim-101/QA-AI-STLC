@@ -6,6 +6,7 @@ import type {
   AuthBrowserContext,
   AuthPage,
   BrowserLauncher,
+  LaunchOptions,
   PageLocator,
   PageResponse,
   StorageState,
@@ -74,6 +75,8 @@ export interface FakeExploreBrowserLauncherOptions extends FakeExplorePageOption
 export interface FakeExploreBrowserLauncher extends BrowserLauncher {
   readonly page: AuthPage;
   readonly closedBrowsers: { count: number };
+  /** Every `options` a caller passed to `launch()`, in call order — asserts headed vs headless. */
+  readonly launchCalls: LaunchOptions[];
 }
 
 /** A fake `BrowserLauncher` for `qa explore` command tests (AGENTS.md 5.3, 13). */
@@ -82,6 +85,7 @@ export function createFakeExploreBrowserLauncher(
 ): FakeExploreBrowserLauncher {
   const page = createFakeExplorePage(options);
   const closedBrowsers = { count: 0 };
+  const launchCalls: LaunchOptions[] = [];
 
   const context: AuthBrowserContext = {
     newPage: () => Promise.resolve(page),
@@ -92,7 +96,9 @@ export function createFakeExploreBrowserLauncher(
   return {
     page,
     closedBrowsers,
-    launch: () => {
+    launchCalls,
+    launch: (launchOptions = {}) => {
+      launchCalls.push(launchOptions);
       const browser: AuthBrowser = {
         newContext: () => Promise.resolve(context),
         contexts: () => [context],
