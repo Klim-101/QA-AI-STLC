@@ -84,13 +84,21 @@ export interface AuthBrowser {
   close(): Promise<void>;
 }
 
+export interface LaunchOptions {
+  /**
+   * Pick mode needs a visible window for a human to click (development plan section 6.1); every
+   * other caller launches headless. Omitted, Playwright's own default (`true`) applies.
+   */
+  readonly headless?: boolean;
+}
+
 /** Injected so authentication is testable without actually launching or attaching to a browser. */
 export interface BrowserLauncher {
-  launch(): Promise<AuthBrowser>;
+  launch(options?: LaunchOptions): Promise<AuthBrowser>;
   connectOverCdp(endpointUrl: string): Promise<AuthBrowser>;
 }
 
 export const playwrightBrowserLauncher: BrowserLauncher = {
-  launch: () => chromium.launch(),
+  launch: (options) => chromium.launch(options?.headless === undefined ? {} : { headless: options.headless }),
   connectOverCdp: (endpointUrl) => chromium.connectOverCDP(endpointUrl),
 };
