@@ -1,0 +1,42 @@
+{
+  "name": "@qa-ai-stlc/mcp-server",
+  "version": "0.0.0",
+  "description": "Local stdio MCP server over the core engine API: a tool registry with Zod input/output schemas and coded errors. Calls no model itself.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/Klim-101/QA-AI-STLC/tree/main/packages/mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Klim-101/QA-AI-STLC.git",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": "https://github.com/Klim-101/QA-AI-STLC/issues",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "qa-mcp-server": "./dist/bin/mcp-server.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "pretypecheck": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "typecheck": "tsc --noEmit -p .",
+    "pretest": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "test": "vitest run",
+    "pretest:coverage": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/test-utils",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "node ../../scripts/clean-dir.mjs dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@qa-ai-stlc/core": "0.6.0",
+    "@qa-ai-stlc/schemas": "0.7.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@qa-ai-stlc/test-utils": "0.0.0"
+  }
+}
