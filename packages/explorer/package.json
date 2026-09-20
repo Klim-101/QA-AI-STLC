@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/explorer",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "The crawler: route discovery in safe mode, redacted request logging, and the route map every later explorer phase builds on.",
   "type": "module",
   "license": "Apache-2.0",
@@ -28,7 +28,7 @@
     "clean": "node ../../scripts/clean-dir.mjs dist"
   },
   "dependencies": {
-    "@qa-ai-stlc/core": "0.6.0",
+    "@qa-ai-stlc/core": "0.7.0",
     "@qa-ai-stlc/schemas": "0.7.0"
   },
   "devDependencies": {

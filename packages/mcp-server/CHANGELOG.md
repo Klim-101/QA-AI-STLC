@@ -1,5 +1,12 @@
 # @qa-ai-stlc/mcp-server
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [859a980]
+  - @qa-ai-stlc/core@0.7.0
+
 ## 0.1.0
 
 ### Minor Changes
