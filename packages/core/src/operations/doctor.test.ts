@@ -2,28 +2,47 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { resolveBrowserExecutablePath, SUPPORTED_BROWSERS, type FileSystem } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
-import { createCommandContext, type CommandContext } from '../command-context.js';
+import { resolveBrowserExecutablePath, SUPPORTED_BROWSERS } from '../browser-doctor.js';
+import type { EngineContext } from '../engine-context.js';
+import type { FileSystem } from '../ports/file-system.js';
+import { noopLogger } from '../ports/logger.js';
+import { systemClock } from '../ports/clock.js';
+import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
 import { createFakeFileSystem } from '../test-support/fake-file-system.js';
 import { createFakeHttpClient } from '../test-support/fake-http-client.js';
 import { createFakeProcessRunner } from '../test-support/fake-process-runner.js';
-import { runInit } from './init.js';
 import { runDoctor } from './doctor.js';
 
-const noopIo = { stdout: () => undefined, stderr: () => undefined };
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
-function fakeContext(overrides: Partial<Parameters<typeof createCommandContext>[0]> = {}): CommandContext {
-  return createCommandContext({
+function fakeContext(overrides: Partial<EngineContext> = {}): EngineContext {
+  return {
     projectRoot: PROJECT_ROOT,
-    io: noopIo,
     fs: createFakeFileSystem(),
+    clock: systemClock,
+    logger: noopLogger,
+    processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+    httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+    browserLauncher: createFakeBrowserLauncher(),
     env: {},
     ...overrides,
-  });
+  };
 }
+
+const CONFIG_YAML = [
+  'schemaVersion: 1',
+  'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+  'environments:',
+  '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
+  'identities:',
+  '  admin: { auth: cdp-attach, secret: QA_ADMIN_PASSWORD }',
+  'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+  'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+  'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+  '',
+].join('\n');
 
 describe('runDoctor', () => {
   it('reports config missing with a remediation when no config.yaml exists', async () => {
@@ -46,9 +65,7 @@ describe('runDoctor', () => {
   });
 
   it('installs missing browsers and rechecks them when fix is set', async () => {
-    const context = fakeContext({
-      processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
-    });
+    const context = fakeContext();
 
     const report = await runDoctor(context, { fix: true });
 
@@ -59,27 +76,9 @@ describe('runDoctor', () => {
 
   it('checks identities and environment reachability once a config exists', async () => {
     const fs = createFakeFileSystem();
-    const context = fakeContext({
-      fs,
-      env: { QA_ADMIN_PASSWORD: 'set' },
-      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
-    });
-    await runInit(context, { deferScope: true });
-    await fs.writeFile(
-      join(QA_DIR, 'config.yaml'),
-      [
-        'schemaVersion: 1',
-        'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
-        'environments:',
-        '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
-        'identities:',
-        '  admin: { auth: cdp-attach, secret: QA_ADMIN_PASSWORD }',
-        'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
-        'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
-        'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
-        '',
-      ].join('\n'),
-    );
+    const context = fakeContext({ fs, env: { QA_ADMIN_PASSWORD: 'set' } });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), CONFIG_YAML);
 
     const report = await runDoctor(context);
 

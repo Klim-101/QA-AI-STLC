@@ -2,12 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { parseArgs, type ParseArgsConfig } from 'node:util';
-import { PHASES, QaError } from '@qa-ai-stlc/core';
+import {
+  PHASES,
+  QaError,
+  runApprove,
+  runCasesAdd,
+  runDoctor,
+  runScope,
+  runValidate,
+  type ApproveResult,
+  type CasesAddResult,
+  type DoctorReport,
+  type ScopeResult,
+  type ValidateReport,
+} from '@qa-ai-stlc/core';
 import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
-import { runApprove, type ApproveResult } from './commands/approve.js';
-import { runCasesAdd, type CasesAddResult } from './commands/cases.js';
 import {
   runConfigAddEnvironment,
   runConfigAddIdentity,
@@ -15,11 +26,8 @@ import {
   type ConfigAddIdentityResult,
 } from './commands/config-add.js';
 import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
-import { runDoctor, type DoctorReport } from './commands/doctor.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
-import { runScope, type ScopeResult } from './commands/scope.js';
-import { runValidate, type ValidateReport } from './commands/validate.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { readPackageVersion } from './package-version.js';
 

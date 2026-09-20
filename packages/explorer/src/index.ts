@@ -15,6 +15,7 @@ export * from './generate-locator-module.js';
 export * from './identity.js';
 export * from './naming.js';
 export * from './normalize.js';
+export * from './operations/explore.js';
 export * from './page-elements.js';
 export * from './pick-mode.js';
 export * from './request-log.js';

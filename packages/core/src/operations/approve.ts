@@ -1,17 +1,15 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  ApprovalLedgerStore,
-  GateStateMachine,
-  PHASES,
-  PipelineStateStore,
-  QaError,
-  QaStore,
-} from '@qa-ai-stlc/core';
 import { PhaseNameSchema, RelativePathSchema, type PhaseName, type PipelineState } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
-import type { CommandContext } from '../command-context.js';
+import type { EngineContext } from '../engine-context.js';
+import { QaError } from '../errors.js';
+import { ApprovalLedgerStore } from '../approval-ledger-store.js';
+import { GateStateMachine } from '../gate.js';
+import { PHASES } from '../phases.js';
+import { QaStore } from '../qa-store.js';
+import { PipelineStateStore } from '../state-store.js';
 
 export interface ApproveOptions {
   readonly gate: string;
@@ -26,13 +24,13 @@ export interface ApproveResult {
 }
 
 /**
- * `qa approve <gate> --artifact <path> --approved-by <name>` (P2-01, ADR-003): hashes the
- * artifact's current content and records the approval, advancing the pipeline to the next phase
- * when `gate` is the current one. Validates `gate` and `--artifact` against their schemas here so
- * `GateStateMachine` (packages/core) never sees a malformed value; phase-order and
- * missing-artifact errors come from there unchanged.
+ * `qa approve <gate>` / MCP `qa_approve` (P2-01, P2-05, ADR-003): hashes the artifact's current
+ * content and records the approval, advancing the pipeline to the next phase when `gate` is the
+ * current one. Validates `gate` and the artifact path against their schemas here so
+ * `GateStateMachine` never sees a malformed value; phase-order and missing-artifact errors come
+ * from there unchanged.
  */
-export async function runApprove(context: CommandContext, options: ApproveOptions): Promise<ApproveResult> {
+export async function runApprove(context: EngineContext, options: ApproveOptions): Promise<ApproveResult> {
   const gate = PhaseNameSchema.safeParse(options.gate);
   if (!gate.success) {
     throw new QaError('APPROVE_GATE_UNKNOWN', `"${options.gate}" is not a known gate`, {

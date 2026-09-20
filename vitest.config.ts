@@ -36,8 +36,8 @@ export default defineConfig({
         // Tier 2 — protocol and third-party-tool plumbing: most of the branch count is defensive
         // handling of a third-party failure mode, not this project's own logic, and a bug here
         // tends to fail loudly rather than silently. Starting bar, not a ceiling — still ratchets
-        // up as coverage improves, same as Tier 1 (ADR-008). Inert until packages/mcp-server and
-        // the first packages/runner-* exist (P2-04, Phase 3).
+        // up as coverage improves, same as Tier 1 (ADR-008). Inert until the first
+        // packages/runner-* exists (Phase 3).
         'packages/mcp-server/src/**': { statements: 90, branches: 80, functions: 90, lines: 90 },
         'packages/runner-*/src/**': { statements: 90, branches: 80, functions: 90, lines: 90 },
       },

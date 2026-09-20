@@ -2,22 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  ManifestStore,
-  QaError,
-  QaStore,
-  assertRelativePath,
-  extractRequirements,
-  mergeRequirements,
-  resolveRelativePath,
-} from '@qa-ai-stlc/core';
-import {
   SCHEMA_VERSION,
   ScopeSchema,
   type RelativePath,
   type RequirementSource,
   type Scope,
 } from '@qa-ai-stlc/schemas';
-import type { CommandContext } from '../command-context.js';
+import type { EngineContext } from '../engine-context.js';
+import { QaError } from '../errors.js';
+import { ManifestStore } from '../manifest-store.js';
+import { assertRelativePath, resolveRelativePath } from '../paths.js';
+import { QaStore } from '../qa-store.js';
+import { extractRequirements } from '../requirement-extraction.js';
+import { mergeRequirements } from '../scope-merge.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 
@@ -36,13 +33,13 @@ export interface ScopeResult {
 }
 
 /**
- * `qa scope --from file --path <path>` or `qa scope --from text --content <text> --label <label>`
- * (development plan section 2.4, 2.7 step 4): deterministically extracts requirements from a
- * local source — the framework never fetches requirements from a tracker (AGENTS.md 2.4) — and
- * upserts them into `artifacts/scope.json` by id, so a repeated call updates rather than
- * duplicates. The scope gate itself (`qa approve scope`, P2-01) is a separate, later step.
+ * `qa scope` / MCP `qa_scope` (development plan section 2.4, 2.7 step 4; P2-05): deterministically
+ * extracts requirements from a local source — the framework never fetches requirements from a
+ * tracker (AGENTS.md 2.4) — and upserts them into `artifacts/scope.json` by id, so a repeated call
+ * updates rather than duplicates. The scope gate itself (`qa approve scope`, P2-01) is a separate,
+ * later step.
  */
-export async function runScope(context: CommandContext, options: ScopeOptions): Promise<ScopeResult> {
+export async function runScope(context: EngineContext, options: ScopeOptions): Promise<ScopeResult> {
   const { content, source } = await resolveSource(context, options);
   const incoming = extractRequirements(content, source);
 
@@ -67,7 +64,7 @@ export async function runScope(context: CommandContext, options: ScopeOptions): 
   };
 }
 
-async function loadScope(store: QaStore, context: CommandContext): Promise<Scope> {
+async function loadScope(store: QaStore, context: EngineContext): Promise<Scope> {
   const exists = await store.pathExists(SCOPE_PATH);
   if (!exists) {
     return {
@@ -80,7 +77,7 @@ async function loadScope(store: QaStore, context: CommandContext): Promise<Scope
 }
 
 async function resolveSource(
-  context: CommandContext,
+  context: EngineContext,
   options: ScopeOptions,
 ): Promise<{ content: string; source: RequirementSource }> {
   if (options.from === 'file') {
@@ -95,7 +92,7 @@ async function resolveSource(
 }
 
 async function resolveFileSource(
-  context: CommandContext,
+  context: EngineContext,
   options: ScopeOptions,
 ): Promise<{ content: string; source: RequirementSource }> {
   if (options.path === undefined) {
