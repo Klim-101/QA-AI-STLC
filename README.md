@@ -2,7 +2,14 @@
 
 Open-source, model-agnostic QA framework that runs inside the agent host you already use: Claude Code or Codex.
 
-> **Status: pre-alpha.** The engine packages (`schemas`, `core`, `explorer`, `cli`) are published to npm and covered by tests. `qa explore` runs end to end — crawl, static source analysis, locator synthesis, selector registry, stale-selector detection — against a real running application (see the example below). There is no agent-host plugin or MCP server yet — see the [roadmap](docs/public/ROADMAP.md) for what that leaves planned.
+> **Status: pre-alpha.** The engine packages (`schemas`, `core`, `explorer`, `cli`, `mcp-server`) are
+> published to npm and covered by tests. `qa explore` runs end to end — crawl, static source
+> analysis, locator synthesis, selector registry, stale-selector detection — against a real running
+> application (see the example below). Requirements, test cases and hash-bound approval gates
+> (`qa scope`, `qa cases add`, `qa approve`, `qa validate`) work end to end too, with the same core
+> logic exposed as MCP tools (`qa-mcp-server`) for any MCP-capable agent host. There is no
+> Claude Code or Codex plugin yet — see the [roadmap](docs/public/ROADMAP.md) for what that leaves
+> planned.
 
 ## Why
 
@@ -14,11 +21,14 @@ QA-AI-STLC turns that into a deterministic pipeline instead of a conversation. T
 
 - **Asks what is in scope** for the project: Web E2E, API, accessibility and security testing are each decided by you, and the pipeline enforces the answer.
 - **Explores your application** and builds a stable selector registry and an API-surface map before any test is written.
-- **Designs test cases** with the agent in your host, behind approval gates you control.
+- **Extracts requirements** from a local Markdown source and keeps them in `artifacts/scope.json`, never from a tracker or wiki.
+- **Designs test cases** with the agent in your host, each one required to link back to a real requirement — a link to something that doesn't exist is rejected, not silently accepted.
+- **Gates every phase behind a hash-bound approval**: an artifact's exact content, not just its existence, is what gets approved, so editing it afterward reopens the gate automatically.
 - **Generates Playwright tests**, for the UI and for the API from your OpenAPI contract, that are verified by execution before they are kept and run in CI without any model.
 - **Records evidence** (screenshots, traces, redacted network data) that only the engine can create, so results cannot be invented.
 - **Prepares defect drafts** in a tracker-neutral format for you to file, and a root cause analysis for every defect you accept.
 - **Runs a security audit on demand**: non-destructive checks against the running application, and code-assisted checks when you point it at the source.
+- **Exposes every one of the above as an MCP tool** (`qa-mcp-server`, local, stdio, no Docker, no hosted service) so any MCP-capable agent host can drive the exact same engine logic the CLI does.
 
 A deterministic TypeScript engine does the work that must be reliable. A thin layer of skills lets the agent in your host drive it.
 
@@ -190,6 +200,59 @@ labelled as not crawler-discovered:
 ```json
 { "elementId": "element-1", "source": "manual", "pii": false, "dynamicText": false }
 ```
+
+## Requirements, test cases and gates
+
+Independent of the registry above, extract requirements from a local Markdown file — one
+`## Heading` per requirement — and register test cases against them:
+
+```sh
+npx @qa-ai-stlc/cli scope --from file --path requirements.md
+npx @qa-ai-stlc/cli cases add --path cases/login.json
+npx @qa-ai-stlc/cli approve scope --artifact artifacts/scope.json --approved-by operator
+npx @qa-ai-stlc/cli validate
+```
+
+![qa validate catching a gate reopened by a hand-edited artifact and a test case whose requirement disappeared, from a real run](docs/public/media/qa-pipeline-demo.svg)
+
+Recorded from a real run: `qa scope` extracts two requirements from a Markdown file; `qa cases add`
+registers a case linked to a real requirement, then rejects a second case whose `requirementIds`
+names a requirement that was never scoped in; `qa approve scope` hash-binds the approval to
+`scope.json`'s exact content; `qa validate` reports a clean pipeline — then, after a teammate edits
+`scope.json` by hand to remove the requirement the first case relied on, `qa validate` catches both
+the reopened gate and the now-unlinked case in the same run. Waiting time between commands is sped
+up; every command and every line of output is real.
+
+A case is rejected up front if any `requirementIds` entry does not resolve in `artifacts/scope.json`:
+
+```
+error: Case "reset-password-case" links to requirement(s) not in artifacts/scope.json: reset-password
+Run "qa scope" to register the requirement first, or fix the case's requirementIds.
+```
+
+`qa approve <gate> --artifact <path> --approved-by <name>` hashes the artifact's exact content into
+an append-only ledger (ADR-003). `qa validate` recomputes every gate from that ledger — never from a
+cached status field — so an edit after approval reopens the gate automatically, and re-sweeps every
+registered case's requirement links on every call, catching a link broken later by editing
+`scope.json`, not just one broken at `cases add` time:
+
+```
+[open] scope (reopened since last approval)
+[open] cases
+Current phase: scope.
+1 unlinked case(s):
+  artifacts/cases/login-case.json: login
+```
+
+### Local MCP server
+
+`npx @qa-ai-stlc/mcp-server` (bin: `qa-mcp-server`) starts a local server over stdio — the same
+process model any MCP-capable agent host already uses for a local tool, no Docker, no port, no
+process that outlives the session. It exposes one MCP tool per engine operation above (`qa.doctor`,
+`qa.explore`, `qa.scope`, `qa.cases_add`, `qa.approve`, `qa.validate`), each calling the exact same
+`packages/core`/`packages/explorer` function its CLI command calls, so a result from one is a result
+from the other. Manual pick-mode capture (`qa explore --pick <url>`) stays CLI-only: it opens a
+headed browser for a human to click through, which nothing can drive over MCP's stdio transport.
 
 ## Documentation
 
