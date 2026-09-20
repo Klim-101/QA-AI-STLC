@@ -70,4 +70,62 @@ describe('runValidate', () => {
     expect(report.state.gates.scope.status).toBe('satisfied');
     expect(report.reopened).toEqual([]);
   });
+
+  it('reports no unlinked cases when none are registered', async () => {
+    const context = fakeContext();
+
+    const report = await runValidate(context);
+
+    expect(report.unlinkedCases).toEqual([]);
+  });
+
+  it('reports no unlinked cases when every requirement id resolves', async () => {
+    const context = fakeContext({
+      'artifacts/scope.json': JSON.stringify({
+        generatedAt: '2026-09-20T12:00:00Z',
+        requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+      }),
+      'artifacts/cases/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unlinkedCases).toEqual([]);
+  });
+
+  it('reports a case whose requirement id does not resolve in the scope artifact', async () => {
+    const context = fakeContext({
+      'artifacts/scope.json': '{"generatedAt":"2026-09-20T12:00:00Z","requirements":[]}',
+      'artifacts/cases/case-1.json': JSON.stringify(testCase({ id: 'case-1', requirementIds: ['missing'] })),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unlinkedCases).toEqual([
+      { casePath: 'artifacts/cases/case-1.json', id: 'case-1', unlinkedRequirementIds: ['missing'] },
+    ]);
+  });
+
+  it('treats every requirement id as unlinked when there is no scope artifact at all', async () => {
+    const context = fakeContext({
+      'artifacts/cases/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unlinkedCases).toHaveLength(1);
+  });
 });
+
+function testCase(overrides: { id?: string; requirementIds: string[] }): Record<string, unknown> {
+  return {
+    id: overrides.id ?? 'case-1',
+    requirementIds: overrides.requirementIds,
+    testType: 'e2e',
+    title: 'A case',
+    steps: [{ description: 'Do something' }],
+    expectedResult: 'Something happens',
+    status: 'draft',
+    createdAt: '2026-09-20T12:00:00Z',
+  };
+}

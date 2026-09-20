@@ -26,3 +26,4 @@ export * from './state-store.js';
 export * from './gate.js';
 export * from './requirement-extraction.js';
 export * from './scope-merge.js';
+export * from './requirement-linking.js';
