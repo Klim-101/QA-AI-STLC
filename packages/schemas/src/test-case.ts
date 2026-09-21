@@ -18,6 +18,15 @@ export type TestCaseStep = z.infer<typeof TestCaseStepSchema>;
 export const TestCaseStatusSchema = z.enum(['draft', 'approved', 'rejected']);
 export type TestCaseStatus = z.infer<typeof TestCaseStatusSchema>;
 
+// ISO/IEC/IEEE 29119- and ISTQB-aligned regression tier (P2-17): one tier per case, not a
+// multi-tag set, ordered from the narrowest run to the widest. `qa-regression` (P4-09) selects
+// cases by a tier threshold, so the declaration order here is load-bearing, not just documentation
+// — `REGRESSION_TIERS`'s index is that ordering, mirroring how `PHASES` (packages/core) keeps a
+// pipeline order alongside its schema's enum.
+export const REGRESSION_TIERS = ['smoke', 'critical-path', 'regression', 'extended'] as const;
+export const RegressionTierSchema = z.enum(REGRESSION_TIERS);
+export type RegressionTier = z.infer<typeof RegressionTierSchema>;
+
 export const TestCaseSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   id: IdentifierSchema,
@@ -28,8 +37,13 @@ export const TestCaseSchema = z.object({
   testType: TestTypeSchema,
   title: z.string().min(1),
   description: z.string().optional(),
+  // Optional (P2-17): a case written before `qa-design-cases` (P2-09) existed, or a hand-written
+  // one, has neither. `qa-design-cases` sets both on every case it writes; nothing here forces an
+  // older case to gain them retroactively.
+  preconditions: z.array(z.string().min(1)).optional(),
   steps: z.array(TestCaseStepSchema).min(1),
   expectedResult: z.string().min(1),
+  regressionTier: RegressionTierSchema.optional(),
   status: TestCaseStatusSchema,
   createdAt: IsoDateTimeSchema,
 });

@@ -17,17 +17,27 @@ agents/
 ├── skills/
 │   └── <skill-name>/
 │       ├── SKILL.md        # required: frontmatter + short body, ~200 lines
-│       └── references/     # optional: detail loaded on demand, no line limit
+│       └── references/     # optional: detail specific to this skill, no line limit
 │           └── *.md
 ├── hub/
 │   └── HUB.md              # the hub agent's responsibilities and dispatch contract
-└── phase-prompts/
-    └── <phase>.md          # one short prompt per PHASES entry (packages/core/src/phases.ts)
+├── phase-prompts/
+│   └── <phase>.md          # one short prompt per PHASES entry (packages/core/src/phases.ts)
+└── references/
+    └── *.md                # background shared by more than one skill (see below)
 ```
 
 `<skill-name>` and `<phase>` are kebab-case (AGENTS.md 7.1). A skill directory holds exactly one
-`SKILL.md`; everything else it needs lives under its own `references/`, never shared across
-skills, so a skill stays relocatable and a reviewer can see its whole footprint in one directory.
+`SKILL.md`; detail specific to that one skill lives under its own `references/`, so a skill stays
+relocatable and a reviewer can see its whole footprint in one directory.
+
+Detail more than one skill needs — domain background, not tool mechanics — lives instead under the
+top-level `agents/references/`, so it is written once and pointed to by name rather than copied
+into every skill that needs it (P2-17's `testing-standards.md` is the first example: test-design
+technique names, the `TestCaseSchema`/`DefectDraftSchema` field conventions, and the regression-tier
+definitions that `qa-design-cases`, `qa-execute` and `qa-generate-tests` all rely on). A skill still
+lists it under its own `references:` frontmatter entry so the file-existence check in
+[Frontmatter](#frontmatter) covers it the same way as a skill-local file.
 
 ## `SKILL.md` format
 
@@ -151,3 +161,7 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 - `agents/hub/HUB.md` is the real hub definition.
 - `agents/phase-prompts/scope.md` and `agents/phase-prompts/cases.md` are the real phase prompts
   for the two phases the state machine currently implements.
+- `agents/references/testing-standards.md` (P2-17) is the first shared reference: test-design
+  technique names, `TestCaseSchema`/`DefectDraftSchema` field conventions, and the regression-tier
+  definitions. No skill points to it by its `references:` frontmatter entry yet, because no skill
+  exists yet (P2-09 is the first one that will).
