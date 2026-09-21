@@ -146,6 +146,50 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('rejects a hand-edited scope artifact on the next MCP mutation and reports it from qa.validate (P2-07)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+
+      // Simulates an operator or a bug editing the artifact directly, bypassing every engine tool.
+      await writeFile(
+        join(projectRoot, '.qa', 'artifacts', 'scope.json'),
+        JSON.stringify({ generatedAt: '2026-09-20T12:00:00Z', requirements: [] }),
+        'utf-8',
+      );
+
+      const scopeError = await scopeTool
+        .handler({ from: 'text', content: '## Signup\nbody\n', label: 'operator' })
+        .catch((caught: unknown) => caught);
+
+      await writeFile(
+        join(projectRoot, 'case.json'),
+        JSON.stringify({
+          id: 'case-1',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'A case',
+          steps: [{ description: 'Do something' }],
+          expectedResult: 'Something happens',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      const casesAddError = await casesAddTool
+        .handler({ path: 'case.json' })
+        .catch((caught: unknown) => caught);
+
+      const validateResult = await validateTool.handler({});
+      process.chdir(originalCwd);
+
+      expect(scopeError).toMatchObject({ code: 'ARTIFACT_HASH_MISMATCH' });
+      expect(casesAddError).toMatchObject({ code: 'ARTIFACT_HASH_MISMATCH' });
+      expect(validateResult.tamperedArtifacts).toEqual(['artifacts/scope.json']);
+    });
+  });
+
   it('qa.cases_add rejects a case linking to a requirement missing from the scope artifact', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);

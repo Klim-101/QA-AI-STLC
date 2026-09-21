@@ -490,7 +490,9 @@ async function dispatchValidate(rest: readonly string[], dependencies: RunCliDep
   });
   const report = await runValidate(context);
   printResult(context.io, json, 'validate', report, formatValidateReport(report));
-  return report.reopened.length > 0 || report.unlinkedCases.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+  const hasFailure =
+    report.reopened.length > 0 || report.unlinkedCases.length > 0 || report.tamperedArtifacts.length > 0;
+  return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 function printResult(
@@ -591,6 +593,14 @@ function formatValidateReport(report: ValidateReport): readonly string[] {
     lines.push(`${String(report.unlinkedCases.length)} unlinked case(s):`);
     for (const unlinkedCase of report.unlinkedCases) {
       lines.push(`  ${unlinkedCase.casePath}: ${unlinkedCase.unlinkedRequirementIds.join(', ')}`);
+    }
+  }
+  if (report.tamperedArtifacts.length === 0) {
+    lines.push('No tampered artifacts.');
+  } else {
+    lines.push(`${String(report.tamperedArtifacts.length)} tampered artifact(s):`);
+    for (const artifactPath of report.tamperedArtifacts) {
+      lines.push(`  ${artifactPath}`);
     }
   }
   return lines;

@@ -19,21 +19,24 @@ const OutputSchema = z.object({
   state: PipelineStateSchema,
   reopened: z.array(PhaseNameSchema),
   unlinkedCases: z.array(UnlinkedCaseSchema),
+  tamperedArtifacts: z.array(z.string()),
 });
 
 /**
- * `qa.validate` (P2-05, ADR-003; P2-03 traceability): the same `runValidate` core call `qa
- * validate` uses — recomputes every gate's status against the approval ledger and the current
- * artifact content, and re-checks every registered test case's requirement links against the
- * current scope artifact. A non-empty `reopened` or `unlinkedCases` means the pipeline needs
- * attention, not a phase simply never approved yet.
+ * `qa.validate` (P2-05, ADR-003; P2-03 traceability; P2-07 `.qa/` integrity): the same
+ * `runValidate` core call `qa validate` uses — recomputes every gate's status against the
+ * approval ledger and the current artifact content, re-checks every registered test case's
+ * requirement links against the current scope artifact, and re-hashes every artifact the
+ * manifest has ever registered. A non-empty `reopened`, `unlinkedCases` or `tamperedArtifacts`
+ * means the pipeline needs attention, not a phase simply never approved yet.
  */
 export const validateTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = {
   name: 'qa.validate',
   description:
-    "Recomputes every pipeline gate's status and re-checks every registered test case's " +
-    'requirement links against the current scope artifact. Call after editing an approved ' +
-    'artifact or a test case to see whether a gate reopened or a link broke.',
+    "Recomputes every pipeline gate's status, re-checks every registered test case's " +
+    'requirement links against the current scope artifact, and re-hashes every manifest-' +
+    'registered artifact. Call after editing an approved artifact or a test case to see ' +
+    'whether a gate reopened, a link broke, or a file was changed outside the engine.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   async handler() {
@@ -46,6 +49,7 @@ export const validateTool: ToolDefinition<typeof InputSchema, typeof OutputSchem
         id: unlinkedCase.id,
         unlinkedRequirementIds: [...unlinkedCase.unlinkedRequirementIds],
       })),
+      tamperedArtifacts: [...report.tamperedArtifacts],
     };
   },
 };

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
+import { hashText } from '../hash.js';
 import { noopLogger } from '../ports/logger.js';
 import { systemClock } from '../ports/clock.js';
 import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
@@ -36,6 +37,16 @@ function scopeJson(): string {
   });
 }
 
+/** A `.qa/manifest.json` registering `artifacts/scope.json`, as a real prior `qa scope` call would. */
+function manifestRegisteringScope(scopeContent: string): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    artifacts: {
+      'artifacts/scope.json': { sha256: hashText(scopeContent), registeredAt: '2026-09-20T12:00:00Z' },
+    },
+  });
+}
+
 function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContext {
   return {
     projectRoot: PROJECT_ROOT,
@@ -53,6 +64,7 @@ describe('runCasesAdd', () => {
   it('registers a case whose requirement id resolves in the scope artifact', async () => {
     const context = fakeContext({
       [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
       [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ id: 'case-1', requirementIds: ['r1'] }),
     });
 
@@ -72,6 +84,7 @@ describe('runCasesAdd', () => {
   it('registers the case artifact in the manifest', async () => {
     const context = fakeContext({
       [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
       [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ requirementIds: ['r1'] }),
     });
 
@@ -86,6 +99,7 @@ describe('runCasesAdd', () => {
   it('rejects a case linking to a requirement not in the scope artifact', async () => {
     const context = fakeContext({
       [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
       [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ requirementIds: ['missing'] }),
     });
 
@@ -101,6 +115,31 @@ describe('runCasesAdd', () => {
     });
 
     await expect(runCasesAdd(context, { path: 'cases/login.json' })).rejects.toThrow(QaError);
+  });
+
+  it('rejects a hand-edited scope artifact that no longer matches the manifest (P2-07)', async () => {
+    const context = fakeContext({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope('{"tampered":true}'),
+      [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ requirementIds: ['r1'] }),
+    });
+
+    const error = await runCasesAdd(context, { path: 'cases/login.json' }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('ARTIFACT_HASH_MISMATCH');
+  });
+
+  it('rejects a scope artifact that exists on disk but was never registered in the manifest', async () => {
+    const context = fakeContext({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ requirementIds: ['r1'] }),
+    });
+
+    const error = await runCasesAdd(context, { path: 'cases/login.json' }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('ARTIFACT_UNREGISTERED');
   });
 
   it('rejects a case file that fails schema validation', async () => {
