@@ -8,7 +8,7 @@ terminology and structure are defined once and referenced by name — `qa-design
 
 This is background knowledge for a skill's own reasoning, not a set of rules the engine enforces —
 where a rule below is checkable, the engine already checks it (`TestCaseSchema`, `DefectDraftSchema`
-in `packages/schemas`; AGENTS.md 12.1). A skill uses this file to write *good content* into fields
+in `packages/schemas`; AGENTS.md 12.1). A skill uses this file to write _good content_ into fields
 the schema already requires or accepts, not to invent new obligations.
 
 ## Test-design techniques
@@ -27,7 +27,7 @@ Pick a technique for the input or behavior being tested, don't apply all of them
 - **Exploratory testing** — unscripted investigation guided by a charter (what to explore, why,
   what to look for) when the risk is unknown enough that a scripted case would miss it; the
   engine's `qa.browser_*` tools (ADR-005) still own every action and screenshot, so an exploratory
-  session is exploratory in *design*, not in evidence discipline.
+  session is exploratory in _design_, not in evidence discipline.
 
 ## Case structure (`TestCaseSchema`)
 
@@ -48,8 +48,8 @@ filling it well, not a restatement of the Zod contract:
   - `critical-path` — the primary user journeys the product cannot ship without; runs frequently.
   - `regression` — broader coverage of previously working behavior; runs before a release.
   - `extended` — edge cases, rare combinations, low-traffic paths; runs on a slower cadence.
-  `qa-regression` (P4-09) selects a run by threshold against this order (`REGRESSION_TIERS`), so a
-  case one tier too high or too low changes what runs, not just how it reads.
+    `qa-regression` (P4-09) selects a run by threshold against this order (`REGRESSION_TIERS`), so a
+    case one tier too high or too low changes what runs, not just how it reads.
 
 ## Defect-report structure (`DefectDraftSchema`)
 
@@ -61,7 +61,7 @@ its content still follows the same discipline a tracker issue would need:
   expected-vs-actual contrast is a symptom report, not a defect report.
 - **`environment`** — enough to reproduce: build, browser/OS, identity, data state. Omitting this
   is the single most common reason a real defect report goes stale before anyone acts on it.
-- **`severityProposal`** (`DefectSeverityProposalSchema`) — the *impact* of the defect if
+- **`severityProposal`** (`DefectSeverityProposalSchema`) — the _impact_ of the defect if
   unfixed (`blocker` down to `trivial`), proposed by whichever skill files the draft. This is a
   proposal, not a decision: severity and priority (how urgently it gets fixed, which depends on
   release plans and business context the engine has no visibility into) are the operator's call at
