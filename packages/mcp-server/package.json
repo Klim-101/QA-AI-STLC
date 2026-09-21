@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/mcp-server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Local stdio MCP server over the core engine API: a tool registry with Zod input/output schemas and coded errors. Calls no model itself.",
   "type": "module",
   "license": "Apache-2.0",
@@ -32,8 +32,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@qa-ai-stlc/core": "0.10.0",
-    "@qa-ai-stlc/explorer": "0.7.1",
+    "@qa-ai-stlc/core": "0.11.0",
+    "@qa-ai-stlc/explorer": "0.7.2",
     "@qa-ai-stlc/schemas": "0.9.0",
     "zod": "4.6.5"
   },
