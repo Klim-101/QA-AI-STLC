@@ -11,9 +11,30 @@ export const EvidenceKindSchema = z.enum([
   'network-har',
   'console-log',
   'video',
+  // One discrete thing the engine did in a browser — a navigation, a click, a fill (ADR-005).
+  // Its content is a `BrowserAction` document rather than a captured media file.
+  'action',
   'other',
 ]);
 export type EvidenceKind = z.infer<typeof EvidenceKindSchema>;
+
+export const BrowserActionTypeSchema = z.enum(['open', 'navigate', 'click', 'fill', 'snapshot', 'close']);
+export type BrowserActionType = z.infer<typeof BrowserActionTypeSchema>;
+
+// The body of an `action` evidence record (ADR-005): what the engine did, where, and when. A
+// filled value is described only by its length — the value itself is never persisted, whether or
+// not the secret scanner would have recognized it (AGENTS.md 5.8, 12.4).
+export const BrowserActionSchema = z.object({
+  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+  type: BrowserActionTypeSchema,
+  sessionId: IdentifierSchema,
+  url: z.string().min(1).optional(),
+  selector: z.string().min(1).optional(),
+  valueLength: z.number().int().nonnegative().optional(),
+  httpStatus: z.number().int().positive().optional(),
+  at: IsoDateTimeSchema,
+});
+export type BrowserAction = z.infer<typeof BrowserActionSchema>;
 
 // Evidence is created and hashed by the engine only (AGENTS.md 2.5, 12.5); an agent can reference
 // a file here but cannot register one that the engine did not itself write and scan.

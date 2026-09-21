@@ -23,6 +23,7 @@ const DEFAULT_FILE_EXTENSIONS: Readonly<Record<EvidenceKind, string>> = {
   'network-har': 'har',
   'console-log': 'log',
   video: 'webm',
+  action: 'json',
   other: 'bin',
 };
 

@@ -50,4 +50,12 @@ describe('createLocatorMethods', () => {
     });
     expect(createLocatorMethods({ viewportSize: null }).viewportSize()).toBeNull();
   });
+
+  it('defaults url() and title(), honors configured values, and returns screenshot bytes', async () => {
+    expect(createLocatorMethods().url()).toBe('about:blank');
+    expect(await createLocatorMethods().title()).toBe('');
+    expect(createLocatorMethods({ url: 'https://example.com/' }).url()).toBe('https://example.com/');
+    expect(await createLocatorMethods({ title: 'Home' }).title()).toBe('Home');
+    expect((await createLocatorMethods().screenshot()).byteLength).toBeGreaterThan(0);
+  });
 });

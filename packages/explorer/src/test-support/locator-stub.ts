@@ -14,6 +14,9 @@ type LocatorMethods = Pick<
   | 'reload'
   | 'setViewportSize'
   | 'viewportSize'
+  | 'url'
+  | 'title'
+  | 'screenshot'
 >;
 
 export interface LocatorStubOptions {
@@ -27,10 +30,16 @@ export interface LocatorStubOptions {
   readonly reloadResponse?: PageResponse | null;
   /** Returned by `viewportSize()`; defaults to a 1280x720 desktop size. */
   readonly viewportSize?: ViewportSize | null;
+  /** Returned by `url()`; defaults to `about:blank`. */
+  readonly url?: string;
+  /** Returned by `title()`; defaults to an empty title. */
+  readonly title?: string;
 }
 
 const DEFAULT_RESPONSE: PageResponse = { status: () => 200 };
 const DEFAULT_VIEWPORT_SIZE: ViewportSize = { width: 1280, height: 720 };
+// Not a real PNG: no explorer code path decodes a screenshot, it only has to be bytes.
+const PLACEHOLDER_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
 
 /**
  * The `getByRole`/`getByTestId`/.../`reload`/`setViewportSize` members `AuthPage` requires for
@@ -62,5 +71,8 @@ export function createLocatorMethods(options: LocatorStubOptions = {}): LocatorM
     reload: () => Promise.resolve(reloadResponse),
     setViewportSize: () => Promise.resolve(),
     viewportSize: () => ('viewportSize' in options ? (options.viewportSize ?? null) : DEFAULT_VIEWPORT_SIZE),
+    url: () => options.url ?? 'about:blank',
+    title: () => Promise.resolve(options.title ?? ''),
+    screenshot: () => Promise.resolve(PLACEHOLDER_SCREENSHOT_BYTES),
   };
 }

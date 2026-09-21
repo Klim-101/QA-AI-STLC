@@ -11,6 +11,7 @@ describe('artifactSchemas', () => {
       [
         'api-surface',
         'approval-ledger',
+        'browser-action',
         'config',
         'defect-draft',
         'evidence',

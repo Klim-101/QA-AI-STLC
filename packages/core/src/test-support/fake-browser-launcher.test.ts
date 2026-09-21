@@ -161,6 +161,37 @@ describe('createFakeBrowserLauncher', () => {
     expect(await page.locator('#save').count()).toBe(1);
   });
 
+  it('reports about:blank until a goto, then the URL it was sent to', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    expect(page.url()).toBe('about:blank');
+    await page.goto('https://example.com/a');
+    expect(page.url()).toBe('https://example.com/a');
+
+    const seededLauncher = createFakeBrowserLauncher({ initialUrl: 'https://example.com/start' });
+    const seededPage = await (await (await seededLauncher.launch()).newContext()).newPage();
+    expect(seededPage.url()).toBe('https://example.com/start');
+  });
+
+  it('defaults title() to empty and screenshot() to placeholder bytes, recording both', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    expect(await page.title()).toBe('');
+    expect(await page.screenshot()).toEqual(new TextEncoder().encode('fake-screenshot'));
+    expect(launcher.pageCalls.map((call) => call.method)).toEqual(['title', 'screenshot']);
+  });
+
+  it('returns the configured title and screenshot bytes', async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const launcher = createFakeBrowserLauncher({ title: 'Home', screenshotBytes: bytes });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    expect(await page.title()).toBe('Home');
+    expect(await page.screenshot({ fullPage: true })).toEqual(bytes);
+  });
+
   it('records the options passed to newContext(), defaulting to an empty object', async () => {
     const launcher = createFakeBrowserLauncher();
     const browser = await launcher.launch();

@@ -1,0 +1,44 @@
+// Copyright The QA-AI-STLC Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import { describe, expect, it } from 'vitest';
+import { createBrowserSafeModeRouteHandler, type BlockedRequest } from './browser-safe-mode.js';
+import type { PageRoute } from './ports/browser-launcher.js';
+
+function createRoute(method: string, url: string): PageRoute & { readonly calls: string[] } {
+  const calls: string[] = [];
+  return {
+    calls,
+    request: () => ({ method: () => method, url: () => url }),
+    abort: () => {
+      calls.push('abort');
+      return Promise.resolve();
+    },
+    continue: () => {
+      calls.push('continue');
+      return Promise.resolve();
+    },
+  };
+}
+
+describe('createBrowserSafeModeRouteHandler', () => {
+  it('lets a GET request through without reporting it', async () => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute('GET', 'https://staging.example.test/');
+
+    await createBrowserSafeModeRouteHandler((request) => blocked.push(request))(route);
+
+    expect(route.calls).toEqual(['continue']);
+    expect(blocked).toEqual([]);
+  });
+
+  it('aborts every other method and reports it once', async () => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute('POST', 'https://staging.example.test/orders');
+
+    await createBrowserSafeModeRouteHandler((request) => blocked.push(request))(route);
+
+    expect(route.calls).toEqual(['abort']);
+    expect(blocked).toEqual([{ method: 'POST', url: 'https://staging.example.test/orders' }]);
+  });
+});

@@ -14,6 +14,8 @@ import type {
 
 const EMPTY_STORAGE_STATE: StorageState = { cookies: [], origins: [] };
 const DEFAULT_RESPONSE: PageResponse = { status: () => 200 };
+// Not a real PNG: no code path under test decodes a screenshot, it only has to be bytes.
+const PLACEHOLDER_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
 
 export interface FakeExplorePageOptions {
   /** Maps a normalized URL to the `<a href>` targets `extractLinks()` should see on it. */
@@ -65,6 +67,9 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Aut
     reload: () => Promise.resolve(DEFAULT_RESPONSE),
     setViewportSize: () => Promise.resolve(),
     viewportSize: () => null,
+    url: () => currentUrl ?? 'about:blank',
+    title: () => Promise.resolve(''),
+    screenshot: () => Promise.resolve(PLACEHOLDER_SCREENSHOT_BYTES),
   };
 }
 
