@@ -10,6 +10,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
+import { toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
@@ -44,7 +45,8 @@ export async function runScope(context: EngineContext, options: ScopeOptions): P
   const incoming = extractRequirements(content, source);
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const existing = await loadScope(store, context);
+  const manifestStore = new ManifestStore({ store, clock: context.clock });
+  const existing = await loadScope(manifestStore, context);
   const merge = mergeRequirements(existing.requirements, incoming);
 
   const scope: Scope = {
@@ -52,9 +54,9 @@ export async function runScope(context: EngineContext, options: ScopeOptions): P
     generatedAt: context.clock.now().toISOString(),
     requirements: [...merge.requirements],
   };
-  const serialized = JSON.stringify(scope);
-  await store.writeJson(SCOPE_PATH, scope);
-  await new ManifestStore({ store, clock: context.clock }).register(SCOPE_PATH, serialized);
+  const serialized = toCanonicalJson(scope);
+  await store.writeText(SCOPE_PATH, serialized);
+  await manifestStore.register(SCOPE_PATH, serialized);
 
   return {
     scopePath: SCOPE_PATH,
@@ -64,16 +66,20 @@ export async function runScope(context: EngineContext, options: ScopeOptions): P
   };
 }
 
-async function loadScope(store: QaStore, context: EngineContext): Promise<Scope> {
-  const exists = await store.pathExists(SCOPE_PATH);
-  if (!exists) {
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      generatedAt: context.clock.now().toISOString(),
-      requirements: [],
-    };
+/**
+ * Verifies `artifacts/scope.json` against the manifest before trusting it as a merge base, so a
+ * hand-edited scope cannot be silently upserted into (P2-07, `.qa/` integrity).
+ */
+async function loadScope(manifestStore: ManifestStore, context: EngineContext): Promise<Scope> {
+  const scope = await manifestStore.readVerified(SCOPE_PATH, ScopeSchema);
+  if (scope !== undefined) {
+    return scope;
   }
-  return store.readJson(SCOPE_PATH, ScopeSchema);
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    generatedAt: context.clock.now().toISOString(),
+    requirements: [],
+  };
 }
 
 async function resolveSource(

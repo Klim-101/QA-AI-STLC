@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { QaError, SUPPORTED_BROWSERS, resolveBrowserExecutablePath, type FileSystem } from '@qa-ai-stlc/core';
+import {
+  QaError,
+  SUPPORTED_BROWSERS,
+  hashText,
+  resolveBrowserExecutablePath,
+  type FileSystem,
+} from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
 import { runCli, type RunCliDependencies } from './cli.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
@@ -26,6 +32,19 @@ function dependencies(
 ): RunCliDependencies & { stdout: string[]; stderr: string[] } {
   const { io, stdout, stderr } = captureIO();
   return { io, projectRoot: PROJECT_ROOT, fs: createFakeFileSystem(), env: {}, stdout, stderr, ...overrides };
+}
+
+/** A `.qa/manifest.json` registering each of `contentByPath`'s entries under its own hash (P2-07). */
+function manifestRegistering(contentByPath: Readonly<Record<string, string>>): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    artifacts: Object.fromEntries(
+      Object.entries(contentByPath).map(([path, content]) => [
+        path,
+        { sha256: hashText(content), registeredAt: '2026-09-20T12:00:00Z' },
+      ]),
+    ),
+  });
 }
 
 describe('runCli', () => {
@@ -881,6 +900,27 @@ describe('runCli', () => {
     expect(deps.stdout).toContain('[open] scope (reopened since last approval)');
   });
 
+  it('reports a tampered artifact and exits with a failure code (P2-07)', async () => {
+    const scopeJson = JSON.stringify({ generatedAt: '2026-09-20T12:00:00Z', requirements: [] });
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+      [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+        'artifacts/scope.json': scopeJson,
+      }),
+    });
+    await fs.writeFile(
+      join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json'),
+      JSON.stringify({ generatedAt: '2026-09-20T12:00:00Z', requirements: [{ id: 'hand-edited' }] }),
+    );
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout).toContain('1 tampered artifact(s):');
+    expect(deps.stdout).toContain('  artifacts/scope.json');
+  });
+
   it('defaults the project root to the current working directory for "validate"', async () => {
     const { io, stdout } = captureIO();
 
@@ -908,6 +948,9 @@ describe('runCli', () => {
     const deps = dependencies({
       fs: createFakeFileSystem({
         [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+          'artifacts/scope.json': scopeJson,
+        }),
         [join(PROJECT_ROOT, 'login.json')]: caseJson,
       }),
     });
@@ -975,6 +1018,9 @@ describe('runCli', () => {
     });
     const fs = createFakeFileSystem({
       [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+      [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+        'artifacts/scope.json': scopeJson,
+      }),
       [join(PROJECT_ROOT, 'login.json')]: caseJson,
     });
     const deps = dependencies({ fs });

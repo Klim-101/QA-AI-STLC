@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { z } from 'zod';
 import { ManifestSchema, SCHEMA_VERSION, type Manifest, type RelativePath } from '@qa-ai-stlc/schemas';
 import { QaError } from './errors.js';
 import { hashContent } from './hash.js';
@@ -75,5 +76,24 @@ export class ManifestStore {
         remediation: 'The file changed outside the engine; regenerate or re-register it through the engine.',
       });
     }
+  }
+
+  /**
+   * Reads and schema-validates `relativePath` only after confirming its content matches the
+   * manifest, so a mutation that loads an existing artifact before writing a new version can
+   * never build on a hand-edited file. Returns `undefined` when the artifact does not exist yet,
+   * distinct from `assertRegistered`'s throw for a path that exists but was never registered.
+   */
+  async readVerified<Schema extends z.ZodType>(
+    relativePath: RelativePath,
+    schema: Schema,
+  ): Promise<z.infer<Schema> | undefined> {
+    const exists = await this.store.pathExists(relativePath);
+    if (!exists) {
+      return undefined;
+    }
+    const content = await this.store.readText(relativePath);
+    await this.assertRegistered(relativePath, content);
+    return this.store.readJson(relativePath, schema);
   }
 }

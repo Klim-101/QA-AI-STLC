@@ -7,11 +7,13 @@ import {
   TestCaseSchema,
   type PhaseName,
   type PipelineState,
+  type RelativePath,
   type Scope,
 } from '@qa-ai-stlc/schemas';
 import { ApprovalLedgerStore } from '../approval-ledger-store.js';
 import type { EngineContext } from '../engine-context.js';
 import { GateStateMachine } from '../gate.js';
+import { ManifestStore } from '../manifest-store.js';
 import { PHASES } from '../phases.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
@@ -36,6 +38,12 @@ export interface ValidateReport {
   readonly reopened: readonly PhaseName[];
   /** Every registered test case with at least one `requirementIds` entry not in the scope artifact. */
   readonly unlinkedCases: readonly UnlinkedCase[];
+  /**
+   * Every path in `manifest.json` whose file is missing or no longer matches its registered hash
+   * (P2-07, `.qa/` integrity) — a hand-edited or deleted artifact, distinct from the approval-bound
+   * tampering `reopened` already reports.
+   */
+  readonly tamperedArtifacts: readonly RelativePath[];
 }
 
 /**
@@ -69,8 +77,36 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
   }
 
   const unlinkedCases = await findUnlinkedCases(context, store);
+  const tamperedArtifacts = await findTamperedArtifacts(context, store);
 
-  return { state, reopened, unlinkedCases };
+  return { state, reopened, unlinkedCases, tamperedArtifacts };
+}
+
+/**
+ * Verifies every path the manifest has ever registered against the file on disk today, so
+ * tampering outside `scope`/`cases add`/`approve` — artifacts nothing has re-read since — is
+ * still caught the next time `qa validate` runs.
+ */
+async function findTamperedArtifacts(
+  context: EngineContext,
+  store: QaStore,
+): Promise<readonly RelativePath[]> {
+  const manifestStore = new ManifestStore({ store, clock: context.clock });
+  const manifest = await manifestStore.load();
+  const tampered: RelativePath[] = [];
+  for (const relativePath of Object.keys(manifest.artifacts).sort()) {
+    const exists = await context.fs.pathExists(store.resolve(relativePath));
+    if (!exists) {
+      tampered.push(relativePath);
+      continue;
+    }
+    const content = await store.readText(relativePath);
+    const matches = await manifestStore.verify(relativePath, content);
+    if (!matches) {
+      tampered.push(relativePath);
+    }
+  }
+  return tampered;
 }
 
 async function findUnlinkedCases(context: EngineContext, store: QaStore): Promise<readonly UnlinkedCase[]> {

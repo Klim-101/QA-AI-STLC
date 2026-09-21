@@ -4,6 +4,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { EngineContext } from '../engine-context.js';
+import { hashText } from '../hash.js';
 import { noopLogger } from '../ports/logger.js';
 import { systemClock } from '../ports/clock.js';
 import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
@@ -123,7 +124,60 @@ describe('runValidate', () => {
 
     expect(report.unlinkedCases).toHaveLength(1);
   });
+
+  it('reports no tampered artifacts on a fresh project with no manifest', async () => {
+    const context = fakeContext();
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual([]);
+  });
+
+  it('reports no tampered artifacts when every manifest entry matches its file', async () => {
+    const context = fakeContext({
+      'artifacts/scope.json': '{"requirements":[]}',
+      'manifest.json': manifestJson({ 'artifacts/scope.json': '{"requirements":[]}' }),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual([]);
+  });
+
+  it('reports a manifest entry whose file no longer matches its registered hash (P2-07)', async () => {
+    const context = fakeContext({
+      'artifacts/scope.json': '{"requirements":["hand-edited"]}',
+      'manifest.json': manifestJson({ 'artifacts/scope.json': '{"requirements":[]}' }),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual(['artifacts/scope.json']);
+  });
+
+  it('reports a manifest entry whose file was deleted', async () => {
+    const context = fakeContext({
+      'manifest.json': manifestJson({ 'artifacts/scope.json': '{"requirements":[]}' }),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual(['artifacts/scope.json']);
+  });
 });
+
+/** A `.qa/manifest.json` registering each of `contentByPath`'s entries under its own hash. */
+function manifestJson(contentByPath: Readonly<Record<string, string>>): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    artifacts: Object.fromEntries(
+      Object.entries(contentByPath).map(([path, content]) => [
+        path,
+        { sha256: hashText(content), registeredAt: '2026-09-20T12:00:00Z' },
+      ]),
+    ),
+  });
+}
 
 function testCase(overrides: { id?: string; requirementIds: string[] }): Record<string, unknown> {
   return {

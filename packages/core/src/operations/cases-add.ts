@@ -10,13 +10,14 @@ import {
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
-import { readJsonFile } from '../json-file.js';
+import { readJsonFile, toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
+const DEFAULT_SCOPE_GENERATED_AT = new Date(0).toISOString();
 
 export interface CasesAddOptions {
   readonly path?: string;
@@ -54,7 +55,8 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   const testCase = await readJsonFile(context.fs, absolutePath, TestCaseSchema);
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const scope = await loadScope(store);
+  const manifestStore = new ManifestStore({ store, clock: context.clock });
+  const scope = await loadScope(manifestStore);
   const unlinked = findUnlinkedRequirementIds(testCase.requirementIds, scope);
   if (unlinked.length > 0) {
     throw new QaError(
@@ -65,17 +67,21 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   }
 
   const casePath: RelativePath = `artifacts/cases/${testCase.id}.json`;
-  const serialized = JSON.stringify(testCase);
-  await store.writeJson(casePath, testCase);
-  await new ManifestStore({ store, clock: context.clock }).register(casePath, serialized);
+  const serialized = toCanonicalJson(testCase);
+  await store.writeText(casePath, serialized);
+  await manifestStore.register(casePath, serialized);
 
   return { casePath, id: testCase.id, requirementIds: testCase.requirementIds };
 }
 
-async function loadScope(store: QaStore): Promise<Scope> {
-  const exists = await store.pathExists(SCOPE_PATH);
-  if (!exists) {
-    return { schemaVersion: SCHEMA_VERSION, generatedAt: new Date(0).toISOString(), requirements: [] };
+/**
+ * Verifies `artifacts/scope.json` against the manifest before trusting it for requirement links,
+ * so a case cannot be registered against a hand-edited scope (P2-07, `.qa/` integrity).
+ */
+async function loadScope(manifestStore: ManifestStore): Promise<Scope> {
+  const scope = await manifestStore.readVerified(SCOPE_PATH, ScopeSchema);
+  if (scope !== undefined) {
+    return scope;
   }
-  return store.readJson(SCOPE_PATH, ScopeSchema);
+  return { schemaVersion: SCHEMA_VERSION, generatedAt: DEFAULT_SCOPE_GENERATED_AT, requirements: [] };
 }
