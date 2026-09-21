@@ -21,7 +21,7 @@
     "build": "node scripts/run-workspaces.mjs build",
     "typecheck": "node scripts/run-workspaces.mjs typecheck",
     "prelint": "npm run build",
-    "lint": "node scripts/check-llm-denylist.mjs && eslint . && prettier --check .",
+    "lint": "node scripts/check-llm-denylist.mjs && node scripts/lint-agents.mjs && eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
     "generate": "node scripts/generate-claude-rules.mjs",
     "lint:generated": "node scripts/generate-claude-rules.mjs --check",
