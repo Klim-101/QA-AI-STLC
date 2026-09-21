@@ -31,7 +31,9 @@ export interface FakePageCall {
     | 'getByText'
     | 'locator'
     | 'reload'
-    | 'setViewportSize';
+    | 'setViewportSize'
+    | 'screenshot'
+    | 'title';
   readonly args: readonly unknown[];
 }
 
@@ -54,6 +56,12 @@ export interface FakeBrowserLauncherOptions {
   readonly locatorCounts?: readonly number[];
   /** Returned by `page.viewportSize()`; defaults to a 1280x720 desktop size. */
   readonly viewportSize?: ViewportSize | null;
+  /** The URL `page.url()` reports before any navigation; defaults to `about:blank`. */
+  readonly initialUrl?: string;
+  /** Returned by `page.title()`; defaults to an empty title. */
+  readonly title?: string;
+  /** The PNG bytes `page.screenshot()` resolves with; defaults to a short placeholder. */
+  readonly screenshotBytes?: Uint8Array;
 }
 
 export interface FakeBrowserLauncher extends BrowserLauncher {
@@ -64,8 +72,11 @@ export interface FakeBrowserLauncher extends BrowserLauncher {
 
 const DEFAULT_GOTO_RESPONSE: PageResponse = { status: () => 200 };
 const DEFAULT_VIEWPORT_SIZE: ViewportSize = { width: 1280, height: 720 };
+// Not a real PNG: nothing under test decodes it, and a byte string keeps the fixture readable.
+const DEFAULT_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
 
 function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptions): AuthPage {
+  let currentUrl = options.initialUrl ?? 'about:blank';
   // `??` would also replace an explicitly configured `null` (a deliberately failed navigation),
   // so presence is checked instead of nullishness.
   const gotoResponse = 'gotoResponse' in options ? options.gotoResponse : DEFAULT_GOTO_RESPONSE;
@@ -87,6 +98,7 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
   return {
     goto: (...args) => {
       calls.push({ method: 'goto', args });
+      currentUrl = args[0];
       return Promise.resolve(gotoResponse);
     },
     fill: (...args) => {
@@ -128,6 +140,15 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
       return Promise.resolve();
     },
     viewportSize: () => ('viewportSize' in options ? (options.viewportSize ?? null) : DEFAULT_VIEWPORT_SIZE),
+    url: () => currentUrl,
+    title: (...args) => {
+      calls.push({ method: 'title', args });
+      return Promise.resolve(options.title ?? '');
+    },
+    screenshot: (...args) => {
+      calls.push({ method: 'screenshot', args });
+      return Promise.resolve(options.screenshotBytes ?? DEFAULT_SCREENSHOT_BYTES);
+    },
   };
 }
 

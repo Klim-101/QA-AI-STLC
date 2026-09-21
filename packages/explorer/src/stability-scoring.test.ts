@@ -59,6 +59,9 @@ function trackedFakePage(options: LocatorStubOptions = {}): TrackedFakePage {
       return stub.setViewportSize(size);
     },
     viewportSize: stub.viewportSize,
+    url: stub.url,
+    title: stub.title,
+    screenshot: stub.screenshot,
   };
   return { page, locatorCalls, reloadCalls, viewportCalls };
 }

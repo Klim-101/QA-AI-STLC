@@ -102,6 +102,7 @@ flowchart LR
         approve["runApprove"]
         validate["runValidate"]
         explore["runExplore"]
+        browser["runBrowserOpen / Navigate /<br/>Click / Fill / Snapshot / Close"]
     end
 
     cliDoctor["qa doctor"] --> doctor
@@ -118,7 +119,14 @@ flowchart LR
     mcpExplore["qa.explore"] --> explore
 
     pick["qa explore --pick &lt;url&gt;<br/>CLI-only: a human clicks a<br/>headed browser window"] -. "shares only the registry-write tail" .-> explore
+
+    mcpBrowser["qa.browser_open / _navigate /<br/>_click / _fill / _snapshot / _close<br/>MCP-only: ADR-005"] --> browser
+    browser --> evidence["EvidenceStore<br/>hashed, registered in manifest.json"]
 ```
+
+The `browser.*` tools have no CLI counterpart on purpose: an exploratory session is a sequence of
+calls an agent makes, and ADR-005 exists so that sequence is the only way an agent reaches a
+browser at all.
 
 `report` and a standalone "registry query" have no CLI command yet, so they have no MCP tool yet
 either — planned, not silently dropped.

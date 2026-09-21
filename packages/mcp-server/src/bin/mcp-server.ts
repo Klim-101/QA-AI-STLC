@@ -5,7 +5,25 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readPackageVersion } from '../package-version.js';
 import { createQaMcpServer } from '../server.js';
-import { BUILTIN_TOOLS } from '../tools/index.js';
+import { createBrowserToolDependencies } from '../tools/browser-dependencies.js';
+import { createBuiltinTools } from '../tools/index.js';
 
-const server = createQaMcpServer({ version: readPackageVersion(), tools: BUILTIN_TOOLS });
+// One session store for the process: the browser tools close over it so an exploratory session
+// survives across the separate MCP requests that drive it (ADR-005).
+const browserTools = createBrowserToolDependencies();
+
+const server = createQaMcpServer({
+  version: readPackageVersion(),
+  tools: createBuiltinTools(browserTools),
+});
+
+// Without this, killing the host would leave any browser this process launched running.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => {
+    void browserTools.sessions.closeAll().finally(() => {
+      process.exit(0);
+    });
+  });
+}
+
 await server.connect(new StdioServerTransport());

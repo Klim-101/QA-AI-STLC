@@ -40,6 +40,10 @@ export interface ViewportSize {
   readonly height: number;
 }
 
+export interface ScreenshotOptions {
+  readonly fullPage?: boolean;
+}
+
 /**
  * The narrow slice of Playwright's `Page` API authentication and crawling need. A real Playwright
  * `Page` satisfies this structurally; unit tests supply a small fake instead (AGENTS.md 5.3, 13).
@@ -64,6 +68,11 @@ export interface AuthPage {
   reload(): Promise<PageResponse | null>;
   setViewportSize(size: ViewportSize): Promise<void>;
   viewportSize(): ViewportSize | null;
+  /** The page's current URL, after any redirect or client-side navigation. */
+  url(): string;
+  title(): Promise<string>;
+  /** The page rendered as PNG bytes, registered as `screenshot` evidence (ADR-005). */
+  screenshot(options?: ScreenshotOptions): Promise<Uint8Array>;
 }
 
 export interface AuthBrowserContext {

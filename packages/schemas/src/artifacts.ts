@@ -5,7 +5,7 @@ import { ApiSurfaceSchema } from './api-surface.js';
 import { ApprovalLedgerSchema } from './approval-ledger.js';
 import { ConfigSchema } from './config.js';
 import { DefectDraftSchema } from './defect.js';
-import { EvidenceSchema } from './evidence.js';
+import { BrowserActionSchema, EvidenceSchema } from './evidence.js';
 import { ManifestSchema } from './manifest.js';
 import { MissingTestIdReportSchema } from './missing-test-id-report.js';
 import { PageModelSetSchema } from './page-model.js';
@@ -28,6 +28,7 @@ export const artifactSchemas = {
   'test-case': TestCaseSchema,
   'run-result': RunResultSchema,
   evidence: EvidenceSchema,
+  'browser-action': BrowserActionSchema,
   'defect-draft': DefectDraftSchema,
   rca: RcaSchema,
   'selector-registry': SelectorRegistrySchema,

@@ -35,6 +35,9 @@ function fakePage(overrides: Partial<AuthPage> = {}): AuthPage {
     reload: () => Promise.resolve(null),
     setViewportSize: () => Promise.resolve(),
     viewportSize: () => null,
+    url: () => 'about:blank',
+    title: () => Promise.resolve(''),
+    screenshot: () => Promise.resolve(new Uint8Array()),
     ...overrides,
   };
 }

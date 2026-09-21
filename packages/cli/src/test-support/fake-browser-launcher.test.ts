@@ -122,4 +122,15 @@ describe('createFakeExploreBrowserLauncher', () => {
 
     await expect(page.evaluate(() => 'ignored')).resolves.toEqual(['https://example.com/other']);
   });
+
+  it('reports the current URL, an empty title and screenshot bytes', async () => {
+    const launcher = createFakeExploreBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    expect(page.url()).toBe('about:blank');
+    await page.goto('https://example.com/');
+    expect(page.url()).toBe('https://example.com/');
+    expect(await page.title()).toBe('');
+    expect((await page.screenshot()).byteLength).toBeGreaterThan(0);
+  });
 });

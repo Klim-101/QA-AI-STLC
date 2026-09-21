@@ -1,0 +1,25 @@
+// Copyright The QA-AI-STLC Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import type { EngineContext } from '../engine-context.js';
+import { systemClock } from '../ports/clock.js';
+import { noopLogger } from '../ports/logger.js';
+import { createFakeBrowserLauncher } from './fake-browser-launcher.js';
+import { createFakeFileSystem } from './fake-file-system.js';
+import { createFakeHttpClient } from './fake-http-client.js';
+import { createFakeProcessRunner } from './fake-process-runner.js';
+
+/** An `EngineContext` wired entirely to fakes, for operation tests (AGENTS.md 5.3, 13). */
+export function createFakeEngineContext(overrides: Partial<EngineContext> = {}): EngineContext {
+  return {
+    projectRoot: 'project',
+    fs: createFakeFileSystem(),
+    clock: systemClock,
+    logger: noopLogger,
+    processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+    httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+    browserLauncher: createFakeBrowserLauncher(),
+    env: {},
+    ...overrides,
+  };
+}
