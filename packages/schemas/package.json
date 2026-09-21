@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/schemas",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Zod schemas for every QA-AI-STLC artifact: the versioned contract between agents and the engine.",
   "type": "module",
   "license": "Apache-2.0",
