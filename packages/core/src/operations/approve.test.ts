@@ -143,4 +143,21 @@ describe('runApprove', () => {
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('ARTIFACT_UNREGISTERED');
   });
+
+  it('rejects approving the scope gate with an unrelated registered artifact (regression, #305)', async () => {
+    const unrelatedJson = '{"anything":true}';
+    const context = fakeContext({
+      'artifacts/unrelated.json': unrelatedJson,
+      'manifest.json': manifestJson({ 'artifacts/unrelated.json': unrelatedJson }),
+    });
+
+    const error = await runApprove(context, {
+      gate: 'scope',
+      artifactPath: 'artifacts/unrelated.json',
+      approvedBy: 'operator',
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('GATE_ARTIFACT_PATH_MISMATCH');
+  });
 });

@@ -33,6 +33,31 @@ export interface ApproveGateOptions {
   readonly note?: string;
 }
 
+type CanonicalArtifactBinding =
+  | { readonly kind: 'exact'; readonly path: RelativePath }
+  | { readonly kind: 'prefix'; readonly prefix: RelativePath };
+
+/**
+ * What "the artifact for this gate" means (#305): `scope` is always the single scope artifact;
+ * `cases` has no single file yet (each case is its own `artifacts/cases/<feature>/<id>.json`,
+ * P2-20), so any path under that directory counts. Either way, approving one gate can never bind
+ * to an artifact that belongs to a different gate.
+ */
+const CANONICAL_ARTIFACT_BINDINGS: Record<PhaseName, CanonicalArtifactBinding> = {
+  scope: { kind: 'exact', path: 'artifacts/scope.json' },
+  cases: { kind: 'prefix', prefix: 'artifacts/cases/' },
+};
+
+function matchesCanonicalArtifactPath(gate: PhaseName, artifactPath: RelativePath): boolean {
+  const binding = CANONICAL_ARTIFACT_BINDINGS[gate];
+  return binding.kind === 'exact' ? artifactPath === binding.path : artifactPath.startsWith(binding.prefix);
+}
+
+function describeCanonicalArtifactPath(gate: PhaseName): string {
+  const binding = CANONICAL_ARTIFACT_BINDINGS[gate];
+  return binding.kind === 'exact' ? binding.path : `${binding.prefix}*`;
+}
+
 /**
  * The v0 pipeline state machine (development plan section 2.7, 8; ADR-003): `scope` then `cases`,
  * approved in order, each gate bound to the SHA-256 of the exact artifact content it approves.
@@ -40,7 +65,8 @@ export interface ApproveGateOptions {
  * artifacts it references, never trusted as a cached status on its own — editing an approved
  * artifact reopens its gate the next time `approve()` or `validate()` runs, with no separate
  * tamper check required. `approve()` only ever binds to an artifact the engine itself registered
- * in the manifest (#278) — a path that merely exists cannot be approved.
+ * in the manifest (#278) — a path that merely exists cannot be approved — and only to the
+ * artifact that actually belongs to the gate being approved (#305), not any other registered path.
  */
 export class GateStateMachine {
   private readonly store: QaStore;
@@ -72,6 +98,14 @@ export class GateStateMachine {
         'GATE_OUT_OF_ORDER',
         `Cannot approve "${options.gate}" before "${state.currentPhase}" is satisfied`,
         { remediation: `Approve phases in order: ${PHASES.join(' -> ')}.` },
+      );
+    }
+
+    if (!matchesCanonicalArtifactPath(options.gate, options.artifactPath)) {
+      throw new QaError(
+        'GATE_ARTIFACT_PATH_MISMATCH',
+        `"${options.artifactPath}" is not the artifact for the "${options.gate}" gate`,
+        { remediation: `Approve "${options.gate}" with an artifact at ${describeCanonicalArtifactPath(options.gate)}.` },
       );
     }
 
