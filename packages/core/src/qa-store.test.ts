@@ -69,6 +69,15 @@ describe('QaStore', () => {
     expect(fs.getRawFile(store.resolve('evidence/run-1/step.png'))).toEqual(bytes);
   });
 
+  it("reads back raw bytes unchanged, without readText's lossy UTF-8 decode", async () => {
+    const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 1, 2, 3]);
+
+    await store.writeBytes('evidence/run-1/step.png', bytes);
+
+    expect(await store.readBytes('evidence/run-1/step.png')).toEqual(bytes);
+  });
+
   it('defaults to the real Node filesystem when none is provided', () => {
     const store = new QaStore({ projectRoot: join('project') });
     expect(store.qaDir).toBe(join('project', '.qa'));

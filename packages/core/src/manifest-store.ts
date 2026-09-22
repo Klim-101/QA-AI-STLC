@@ -4,7 +4,7 @@
 import type { z } from 'zod';
 import { ManifestSchema, SCHEMA_VERSION, type Manifest, type RelativePath } from '@qa-ai-stlc/schemas';
 import { QaError } from './errors.js';
-import { hashContent } from './hash.js';
+import { hashBytes, hashContent, hashText } from './hash.js';
 import { systemClock, type Clock } from './ports/clock.js';
 import type { QaStore } from './qa-store.js';
 
@@ -60,6 +60,26 @@ export class ManifestStore {
     const manifest = await this.load();
     const entry = manifest.artifacts[relativePath];
     return entry?.sha256 === hashContent(content);
+  }
+
+  /**
+   * Like `verify`, but for a caller that does not know ahead of time whether `relativePath` was
+   * registered as text or binary (`findTamperedArtifacts` walks every manifest entry generically).
+   * The manifest does not record which hasher an entry used, so this checks `rawBytes` against
+   * both a binary hash and a text hash of its UTF-8 decoding — a real binary file's bytes almost
+   * never survive a UTF-8 round trip unchanged, so this is strictly more correct than assuming
+   * text, never less correct than checking only one encoding.
+   */
+  async verifyContent(relativePath: RelativePath, rawBytes: Uint8Array): Promise<boolean> {
+    const manifest = await this.load();
+    const entry = manifest.artifacts[relativePath];
+    if (entry === undefined) {
+      return false;
+    }
+    if (entry.sha256 === hashBytes(rawBytes)) {
+      return true;
+    }
+    return entry.sha256 === hashText(Buffer.from(rawBytes).toString('utf-8'));
   }
 
   /** Throws a coded `QaError` when `relativePath` is unregistered or its content was tampered with. */

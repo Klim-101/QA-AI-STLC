@@ -39,6 +39,15 @@ export function createFakeFileSystem(initialFiles: Readonly<Record<string, strin
       }
       return Promise.resolve(typeof content === 'string' ? content : Buffer.from(content).toString('utf-8'));
     },
+    readBytes: (absolutePath) => {
+      const content = files.get(absolutePath);
+      if (content === undefined) {
+        const error = new Error(`ENOENT: no such file, open '${absolutePath}'`) as NodeJS.ErrnoException;
+        error.code = 'ENOENT';
+        return Promise.reject(error);
+      }
+      return Promise.resolve(typeof content === 'string' ? Buffer.from(content, 'utf-8') : content);
+    },
     writeFile: (absolutePath, content) => {
       files.set(absolutePath, content);
       return Promise.resolve();

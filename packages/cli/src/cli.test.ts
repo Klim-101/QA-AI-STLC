@@ -183,6 +183,7 @@ describe('runCli', () => {
   it('reports a QaError with its remediation and exits with a failure code', async () => {
     const throwingFs: FileSystem = {
       readFile: () => Promise.reject(new Error('unused')),
+      readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
       mkdir: () =>
         Promise.reject(
@@ -203,6 +204,7 @@ describe('runCli', () => {
   it('reports a QaError without a remediation', async () => {
     const throwingFs: FileSystem = {
       readFile: () => Promise.reject(new Error('unused')),
+      readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
       mkdir: () => Promise.reject(new QaError('MKDIR_FAILED', 'could not create .qa/')),
       pathExists: () => Promise.resolve(false),
@@ -219,6 +221,7 @@ describe('runCli', () => {
   it('reports a non-Error throw as a generic failure', async () => {
     const throwingFs: FileSystem = {
       readFile: () => Promise.reject(new Error('unused')),
+      readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
       // Deliberately not an Error: proves `reportError` also handles a non-Error throw, which
       // TypeScript permits even though this project's own code never throws one.
@@ -238,6 +241,7 @@ describe('runCli', () => {
   it('reports a plain Error as a generic failure', async () => {
     const throwingFs: FileSystem = {
       readFile: () => Promise.reject(new Error('unused')),
+      readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
       mkdir: () => Promise.reject(new Error('disk full')),
       pathExists: () => Promise.resolve(false),

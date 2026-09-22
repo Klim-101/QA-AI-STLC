@@ -4,9 +4,12 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { EngineContext } from '../engine-context.js';
+import { EvidenceStore } from '../evidence-store.js';
 import { hashText } from '../hash.js';
+import { ManifestStore } from '../manifest-store.js';
 import { noopLogger } from '../ports/logger.js';
 import { systemClock } from '../ports/clock.js';
+import { QaStore } from '../qa-store.js';
 import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
 import { createFakeFileSystem } from '../test-support/fake-file-system.js';
 import { createFakeHttpClient } from '../test-support/fake-http-client.js';
@@ -221,6 +224,37 @@ describe('runValidate', () => {
     const report = await runValidate(context);
 
     expect(report.tamperedArtifacts).toEqual(['artifacts/scope.json']);
+  });
+
+  it('reports no tampered artifacts for binary evidence registered through EvidenceStore (regression, #277)', async () => {
+    const fs = createFakeFileSystem();
+    const store = new QaStore({ projectRoot: PROJECT_ROOT, fs });
+    const manifest = new ManifestStore({ store });
+    const evidenceStore = new EvidenceStore({ store, manifest });
+
+    const pngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 1, 2, 3]);
+    const registration = await evidenceStore.register({
+      id: 'shot-1',
+      runId: 'run-1',
+      kind: 'screenshot',
+      content: pngBytes,
+    });
+    expect(registration.status).toBe('registered');
+
+    const context: EngineContext = {
+      projectRoot: PROJECT_ROOT,
+      fs,
+      clock: systemClock,
+      logger: noopLogger,
+      processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+      browserLauncher: createFakeBrowserLauncher(),
+      env: {},
+    };
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual([]);
   });
 
   it('reports a manifest entry whose file was deleted', async () => {
