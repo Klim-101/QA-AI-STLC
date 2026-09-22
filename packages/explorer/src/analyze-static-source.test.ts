@@ -146,6 +146,52 @@ describe('analyzeStaticSource', () => {
     expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'submit', fragile: false }]);
   });
 
+  it('finds a testId past an inline arrow-function handler containing => (regression, #281)', () => {
+    const { elements } = analyzeStaticSource({
+      files: [
+        file(
+          'src/components/SaveButton.tsx',
+          '<button onClick={() => save()} data-testid="save">Save</button>',
+        ),
+      ],
+      clock: FIXED_CLOCK,
+    });
+
+    expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
+  });
+
+  it('finds a testId past a nested-brace handler containing multiple => (regression, #281)', () => {
+    const { elements } = analyzeStaticSource({
+      files: [
+        file(
+          'src/components/SaveButton.tsx',
+          '<button onClick={() => { items.forEach((item) => save(item)); }} data-testid="save">Save</button>',
+        ),
+      ],
+      clock: FIXED_CLOCK,
+    });
+
+    expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
+  });
+
+  it('finds a testId past a quoted attribute value containing an escaped quote', () => {
+    const { elements } = analyzeStaticSource({
+      files: [file('src/App.tsx', String.raw`<button title="a \" b" data-testid="save">Save</button>`)],
+      clock: FIXED_CLOCK,
+    });
+
+    expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
+  });
+
+  it('finds a testId past a quoted attribute value containing a literal >', () => {
+    const { elements } = analyzeStaticSource({
+      files: [file('src/App.tsx', '<button title="a > b" data-testid="save">Save</button>')],
+      clock: FIXED_CLOCK,
+    });
+
+    expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
+  });
+
   it('returns no elements for a file with no recognizable tags', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/util.ts', 'export function add(a: number, b: number) { return a + b; }')],
