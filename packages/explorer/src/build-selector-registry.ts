@@ -5,6 +5,7 @@ import { hashText, systemClock, type BrowserLauncher, type Clock, type ViewportS
 import {
   SCHEMA_VERSION,
   type InteractiveElement,
+  type LocatorCandidate,
   type PageModelSet,
   type SelectorElement,
   type SelectorRegistry,
@@ -12,7 +13,7 @@ import {
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { createElementNamer } from './naming.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
-import { scoreLocatorStability } from './stability-scoring.js';
+import { scorePageCandidates, type CandidateStabilityScore } from './stability-scoring.js';
 import { synthesizeLocatorCandidates, type LocatorPolicy } from './synthesize-locators.js';
 
 export interface BuildSelectorRegistryOptions {
@@ -88,12 +89,37 @@ export function createElementIdAssigner(): (url: string, element: InteractiveEle
   };
 }
 
+// Promotes whichever synthesized candidate actually scored highest to primary (`locatorCandidates[0]`,
+// what `generate-locator-module.ts` uses unconditionally) instead of trusting policy order alone
+// (#283): a lower-priority candidate that survives reload/viewport checks better than the
+// policy-picked one is otherwise never surfaced. A tie keeps the first candidate to reach the top
+// score, which is the earliest one in policy order among the tied candidates.
+function selectPrimaryCandidate(scoredCandidates: readonly CandidateStabilityScore[]): {
+  primaryCandidates: LocatorCandidate[];
+  stabilityScore: number;
+} {
+  let winner: CandidateStabilityScore | undefined;
+  for (const scored of scoredCandidates) {
+    if (winner === undefined || scored.stabilityScore > winner.stabilityScore) {
+      winner = scored;
+    }
+  }
+  if (winner === undefined) {
+    return { primaryCandidates: [], stabilityScore: 0 };
+  }
+  const rest = scoredCandidates
+    .filter((scored) => scored.candidate !== winner.candidate)
+    .map((scored) => scored.candidate);
+  return { primaryCandidates: [winner.candidate, ...rest], stabilityScore: winner.stabilityScore };
+}
+
 /**
  * Builds a `SelectorRegistry` from a `PageModelSet` produced by `analyzePages()` (development
  * plan section 6.3 steps 4-6): synthesizes locator candidates for every interactive element under
- * the configured policy, scores the first (primary) candidate's stability in a fresh live pass
- * over the same URLs, and assigns each element a stable id. Every entry's `source` is `'crawl'` -
- * the only source this pipeline produces (`static`/`manual` come from other tasks).
+ * the configured policy, scores every candidate's stability in one batched live pass over the
+ * same URLs (`scorePageCandidates`, #283) and promotes whichever one scored highest to primary,
+ * and assigns each element a stable id. Every entry's `source` is `'crawl'` - the only source this
+ * pipeline produces (`static`/`manual` come from other tasks).
  */
 export async function buildSelectorRegistry(
   options: BuildSelectorRegistryOptions,
@@ -121,23 +147,24 @@ export async function buildSelectorRegistry(
 
     for (const pageModel of options.pageModelSet.pages) {
       await page.goto(pageModel.url);
-      for (const interactiveElement of pageModel.interactiveElements) {
-        const candidates = synthesizeLocatorCandidates(interactiveElement, policy);
-        const primary = candidates[0];
-        const stabilityScore =
-          primary === undefined
-            ? 0
-            : await scoreLocatorStability(
-                page,
-                primary,
-                options.viewports === undefined ? {} : { viewports: options.viewports },
-              );
+
+      const scored = await scorePageCandidates(
+        page,
+        pageModel.interactiveElements.map((interactiveElement) => ({
+          interactiveElement,
+          candidates: synthesizeLocatorCandidates(interactiveElement, policy),
+        })),
+        options.viewports === undefined ? {} : { viewports: options.viewports },
+      );
+
+      for (const { interactiveElement, scoredCandidates } of scored) {
+        const { primaryCandidates, stabilityScore } = selectPrimaryCandidate(scoredCandidates);
 
         elements.push({
           elementId: assignElementId(pageModel.url, interactiveElement),
           name: nameFor(elementNameForId(interactiveElement), interactiveElement.kind),
           kind: interactiveElement.kind,
-          locatorCandidates: candidates,
+          locatorCandidates: primaryCandidates,
           stabilityScore,
           lastVerifiedAt: generatedAt,
           pii: false,

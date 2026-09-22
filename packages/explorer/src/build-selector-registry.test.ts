@@ -155,6 +155,31 @@ describe('buildSelectorRegistry', () => {
     );
   });
 
+  it('promotes whichever candidate scored highest to primary, overriding policy order (regression, #283)', async () => {
+    const url = 'https://staging.example.com/save';
+    const model = pageModelSet([
+      pageModel(url, [element({ role: 'button', label: 'Save', testId: 'save-button' })]),
+    ]);
+    // strict-no-css candidate order: role, testId, label. The role candidate is made non-unique
+    // now (scores 0); testId survives every check (scores 1); label survives only the viewport
+    // check (scores 0.5) -- testId should win despite ranking second in policy order.
+    const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [0, 1, 1, 1, 0, 1, 1] });
+
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      browserLauncher,
+      policy: 'strict-no-css',
+      viewports: [{ width: 1280, height: 720 }],
+    });
+
+    expect(registry.elements[0]?.locatorCandidates[0]).toEqual({
+      strategy: 'testId',
+      value: 'save-button',
+      fragile: false,
+    });
+    expect(registry.elements[0]?.stabilityScore).toBe(1);
+  });
+
   it('authenticates first and reuses the resulting session when an identity is given', async () => {
     const storageState = { cookies: [], origins: [] };
     const url = 'https://staging.example.com/login';
