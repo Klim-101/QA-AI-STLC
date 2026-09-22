@@ -73,11 +73,13 @@ export interface ValidateReport {
  */
 export async function runValidate(context: EngineContext): Promise<ValidateReport> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const ledger = new ApprovalLedgerStore({ store });
+  const manifest = new ManifestStore({ store, clock: context.clock });
+  const ledger = new ApprovalLedgerStore({ store, manifest });
   const gates = new GateStateMachine({
     store,
     stateStore: new PipelineStateStore({ store }),
     ledger,
+    manifest,
     clock: context.clock,
   });
 
@@ -94,7 +96,7 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
   }
 
   const { unlinkedCases, unresolvedTestData } = await findCaseLinkIssues(context, store);
-  const tamperedArtifacts = await findTamperedArtifacts(context, store);
+  const tamperedArtifacts = await findTamperedArtifacts(context, store, manifest);
 
   return { state, reopened, unlinkedCases, unresolvedTestData, tamperedArtifacts };
 }
@@ -107,8 +109,8 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
 async function findTamperedArtifacts(
   context: EngineContext,
   store: QaStore,
+  manifestStore: ManifestStore,
 ): Promise<readonly RelativePath[]> {
-  const manifestStore = new ManifestStore({ store, clock: context.clock });
   const manifest = await manifestStore.load();
   const tampered: RelativePath[] = [];
   for (const relativePath of Object.keys(manifest.artifacts).sort()) {

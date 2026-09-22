@@ -12,6 +12,7 @@ import {
 import type { ApprovalLedgerStore } from './approval-ledger-store.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
+import type { ManifestStore } from './manifest-store.js';
 import { PHASES } from './phases.js';
 import { systemClock, type Clock } from './ports/clock.js';
 import type { QaStore } from './qa-store.js';
@@ -21,6 +22,7 @@ export interface GateStateMachineOptions {
   readonly store: QaStore;
   readonly stateStore: PipelineStateStore;
   readonly ledger: ApprovalLedgerStore;
+  readonly manifest: ManifestStore;
   readonly clock?: Clock;
 }
 
@@ -37,18 +39,21 @@ export interface ApproveGateOptions {
  * `state.json` (`PipelineStateStore`) is always recomputed from the approval ledger and the
  * artifacts it references, never trusted as a cached status on its own — editing an approved
  * artifact reopens its gate the next time `approve()` or `validate()` runs, with no separate
- * tamper check required.
+ * tamper check required. `approve()` only ever binds to an artifact the engine itself registered
+ * in the manifest (#278) — a path that merely exists cannot be approved.
  */
 export class GateStateMachine {
   private readonly store: QaStore;
   private readonly stateStore: PipelineStateStore;
   private readonly ledger: ApprovalLedgerStore;
+  private readonly manifest: ManifestStore;
   private readonly clock: Clock;
 
   constructor(options: GateStateMachineOptions) {
     this.store = options.store;
     this.stateStore = options.stateStore;
     this.ledger = options.ledger;
+    this.manifest = options.manifest;
     this.clock = options.clock ?? systemClock;
   }
 
@@ -81,6 +86,10 @@ export class GateStateMachine {
       );
     }
     const content = await this.store.readText(options.artifactPath);
+    // A gate binds to what the engine actually wrote, not to whatever file happens to sit at this
+    // path (#278) — an unregistered or hand-edited artifact throws ARTIFACT_UNREGISTERED /
+    // ARTIFACT_HASH_MISMATCH here instead of being approved.
+    await this.manifest.assertRegistered(options.artifactPath, content);
 
     const approval: Approval = {
       gate: options.gate,

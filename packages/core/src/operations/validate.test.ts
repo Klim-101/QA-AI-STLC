@@ -55,7 +55,10 @@ describe('runValidate', () => {
   });
 
   it('reports a satisfied gate as reopened once its approved artifact changes', async () => {
-    const context = fakeContext({ 'artifacts/scope.json': '{"requirements":[]}' });
+    const context = fakeContext({
+      'artifacts/scope.json': '{"requirements":[]}',
+      'manifest.json': manifestJson({ 'artifacts/scope.json': '{"requirements":[]}' }),
+    });
     await runApprove(context, {
       gate: 'scope',
       artifactPath: 'artifacts/scope.json',
@@ -70,7 +73,10 @@ describe('runValidate', () => {
   });
 
   it('reports a satisfied gate that still matches as satisfied, not reopened', async () => {
-    const context = fakeContext({ 'artifacts/scope.json': '{"requirements":[]}' });
+    const context = fakeContext({
+      'artifacts/scope.json': '{"requirements":[]}',
+      'manifest.json': manifestJson({ 'artifacts/scope.json': '{"requirements":[]}' }),
+    });
     await runApprove(context, {
       gate: 'scope',
       artifactPath: 'artifacts/scope.json',
@@ -255,6 +261,37 @@ describe('runValidate', () => {
     const report = await runValidate(context);
 
     expect(report.tamperedArtifacts).toEqual([]);
+  });
+
+  it('reports the approval ledger itself as tampered when hand-edited (regression, #278)', async () => {
+    const scopeJson = '{"requirements":[]}';
+    const context = fakeContext({
+      'artifacts/scope.json': scopeJson,
+      'manifest.json': manifestJson({ 'artifacts/scope.json': scopeJson }),
+    });
+    await runApprove(context, {
+      gate: 'scope',
+      artifactPath: 'artifacts/scope.json',
+      approvedBy: 'operator',
+    });
+
+    // Forges the ledger to claim a different artifact hash was approved, without going through
+    // approve() again -- the attack #278 describes. manifest.json is left untouched, since an
+    // attacker who also fixes it up has defeated the manifest as a root of trust entirely, which
+    // is a different, unsolved problem this fix does not claim to close.
+    const ledgerPath = join(QA_DIR, 'artifacts/approval-ledger.json');
+    const forgedLedger = JSON.parse(await context.fs.readFile(ledgerPath)) as {
+      approvals: { artifactSha256: string }[];
+    };
+    const forgedApproval = forgedLedger.approvals[0];
+    if (forgedApproval !== undefined) {
+      forgedApproval.artifactSha256 = 'f'.repeat(64);
+    }
+    await context.fs.writeFile(ledgerPath, JSON.stringify(forgedLedger, null, 2) + '\n');
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toContain('artifacts/approval-ledger.json');
   });
 
   it('reports a manifest entry whose file was deleted', async () => {

@@ -7,6 +7,7 @@ import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
 import { ApprovalLedgerStore } from '../approval-ledger-store.js';
 import { GateStateMachine } from '../gate.js';
+import { ManifestStore } from '../manifest-store.js';
 import { PHASES } from '../phases.js';
 import { QaStore } from '../qa-store.js';
 import { PipelineStateStore } from '../state-store.js';
@@ -47,10 +48,12 @@ export async function runApprove(context: EngineContext, options: ApproveOptions
   }
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  const manifest = new ManifestStore({ store, clock: context.clock });
   const gates = new GateStateMachine({
     store,
     stateStore: new PipelineStateStore({ store }),
-    ledger: new ApprovalLedgerStore({ store }),
+    ledger: new ApprovalLedgerStore({ store, manifest }),
+    manifest,
     clock: context.clock,
   });
 

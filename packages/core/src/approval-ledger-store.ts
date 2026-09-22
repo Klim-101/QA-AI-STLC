@@ -8,24 +8,32 @@ import {
   type ApprovalLedger,
   type RelativePath,
 } from '@qa-ai-stlc/schemas';
+import { toCanonicalJson } from './json-file.js';
+import type { ManifestStore } from './manifest-store.js';
 import type { QaStore } from './qa-store.js';
 
 const APPROVAL_LEDGER_PATH: RelativePath = 'artifacts/approval-ledger.json';
 
 export interface ApprovalLedgerStoreOptions {
   readonly store: QaStore;
+  readonly manifest: ManifestStore;
 }
 
 /**
  * `.qa/artifacts/approval-ledger.json`: an append-only record of every gate approval (ADR-003).
  * Never rewrites or removes an entry — re-approving a gate appends a new one instead of replacing
  * the old, so the ledger stays a full audit trail, not just a snapshot of the latest decision.
+ * Registered in the manifest on every `append()` (#278) so a hand-edit to this file — for example
+ * rewriting an approval's `artifactSha256` to match a separately tampered artifact — is itself
+ * caught by `qa validate`'s tamper check, the same as any other engine-produced artifact.
  */
 export class ApprovalLedgerStore {
   private readonly store: QaStore;
+  private readonly manifest: ManifestStore;
 
   constructor(options: ApprovalLedgerStoreOptions) {
     this.store = options.store;
+    this.manifest = options.manifest;
   }
 
   async load(): Promise<ApprovalLedger> {
@@ -39,7 +47,9 @@ export class ApprovalLedgerStore {
   async append(approval: Approval): Promise<void> {
     const ledger = await this.load();
     const next: ApprovalLedger = { ...ledger, approvals: [...ledger.approvals, approval] };
-    await this.store.writeJson(APPROVAL_LEDGER_PATH, next);
+    const serialized = toCanonicalJson(next);
+    await this.store.writeText(APPROVAL_LEDGER_PATH, serialized);
+    await this.manifest.register(APPROVAL_LEDGER_PATH, serialized);
   }
 
   /** The most recently appended approval for `gate`, if any. */
