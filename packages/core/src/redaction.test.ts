@@ -106,7 +106,14 @@ describe('redactHar', () => {
 
   it('redacts a password field in a URL-encoded request body (regression, #285)', () => {
     const input = har([
-      { request: { postData: { mimeType: 'application/x-www-form-urlencoded', text: 'username=alice&password=hunter2' } } },
+      {
+        request: {
+          postData: {
+            mimeType: 'application/x-www-form-urlencoded',
+            text: 'username=alice&password=hunter2',
+          },
+        },
+      },
     ]);
 
     const result = redactHar(input);
@@ -119,7 +126,11 @@ describe('redactHar', () => {
 
   it('redacts a sensitive field in a JSON request body', () => {
     const input = har([
-      { request: { postData: { mimeType: 'application/json', text: '{"username":"alice","password":"hunter2"}' } } },
+      {
+        request: {
+          postData: { mimeType: 'application/json', text: '{"username":"alice","password":"hunter2"}' },
+        },
+      },
     ]);
 
     const result = redactHar(input);
