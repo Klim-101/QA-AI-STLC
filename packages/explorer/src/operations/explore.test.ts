@@ -331,6 +331,23 @@ describe('runExplore', () => {
     expect(report.degraded.map((element) => element.elementId).sort()).toEqual(['el-1', 'el-2']);
   });
 
+  it('runs --verify under safe mode and reports non-GET subrequests it blocked (regression, #280)', async () => {
+    const context = fakeContext(
+      {
+        locatorCount: 1,
+        subRequestsByUrl: {
+          [START_URL]: [{ method: 'POST', url: 'https://staging.example.com/analytics' }],
+        },
+      },
+      undefined,
+      { [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()) },
+    );
+
+    const report = await runExplore(context, { verify: true });
+
+    expect(report.blockedRequestCount).toBe(1);
+  });
+
   it('skips a deprecated element, one with no pageUrl and one with no locator candidate when verifying', async () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it
     const { pageUrl, ...elementWithoutPageUrl } = storedElement();

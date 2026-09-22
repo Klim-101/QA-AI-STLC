@@ -33,6 +33,7 @@ import { crawl } from '../crawl.js';
 import { generateLocatorModule } from '../generate-locator-module.js';
 import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
 import { readPackageVersion } from '../package-version.js';
+import { createSafeModeRouteHandler } from '../safe-mode.js';
 import { scoreLocatorStability } from '../stability-scoring.js';
 import type { DegradedSelectorElement } from '../build-selector-registry.js';
 
@@ -237,10 +238,17 @@ async function runVerify(
   }
 
   const degraded: DegradedSelectorElement[] = [];
+  let blockedRequestCount = 0;
   const browser = await context.browserLauncher.launch();
   try {
     const browserContext = await browser.newContext(storageState === undefined ? {} : { storageState });
     const page = await browserContext.newPage();
+    await page.route(
+      '**/*',
+      createSafeModeRouteHandler(() => {
+        blockedRequestCount += 1;
+      }),
+    );
     for (const [pageUrl, elements] of elementsByPageUrl) {
       await page.goto(pageUrl);
       for (const element of elements) {
@@ -271,7 +279,7 @@ async function runVerify(
     removed: 0,
     degraded,
     missingLocatorCount,
-    blockedRequestCount: 0,
+    blockedRequestCount,
   };
 }
 
