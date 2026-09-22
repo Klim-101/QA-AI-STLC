@@ -148,6 +148,51 @@ describe('runValidate', () => {
     expect(report.unlinkedCases).toHaveLength(1);
   });
 
+  it('reports no unresolved test data when a case declares no testDataRefs', async () => {
+    const context = fakeContext({
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unresolvedTestData).toEqual([]);
+  });
+
+  it('reports no unresolved test data when every testDataRefs entry resolves', async () => {
+    const context = fakeContext({
+      'artifacts/test-data/checkout/valid-card.json': JSON.stringify({
+        id: 'valid-card',
+        feature: 'checkout',
+        values: { cardNumber: '4111111111111111' },
+      }),
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(
+        testCase({ requirementIds: ['r1'], testDataRefs: ['valid-card'] }),
+      ),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unresolvedTestData).toEqual([]);
+  });
+
+  it('reports a case whose testDataRefs entry does not resolve to a registered test-data set', async () => {
+    const context = fakeContext({
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(
+        testCase({ id: 'case-1', requirementIds: ['r1'], testDataRefs: ['missing-card'] }),
+      ),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unresolvedTestData).toEqual([
+      {
+        casePath: 'artifacts/cases/checkout/case-1.json',
+        id: 'case-1',
+        unresolvedTestDataRefs: ['missing-card'],
+      },
+    ]);
+  });
+
   it('reports no tampered artifacts on a fresh project with no manifest', async () => {
     const context = fakeContext();
 
@@ -206,6 +251,7 @@ function testCase(overrides: {
   id?: string;
   feature?: string;
   requirementIds: string[];
+  testDataRefs?: string[];
 }): Record<string, unknown> {
   return {
     id: overrides.id ?? 'case-1',
@@ -217,5 +263,6 @@ function testCase(overrides: {
     expectedResult: 'Something happens',
     status: 'draft',
     createdAt: '2026-09-20T12:00:00Z',
+    ...(overrides.testDataRefs !== undefined ? { testDataRefs: overrides.testDataRefs } : {}),
   };
 }

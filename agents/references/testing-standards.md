@@ -39,6 +39,7 @@ filling it well, not a restatement of the Zod contract:
   or a requirement id. `qa cases add` files the case under `artifacts/cases/<feature>/<id>.json`
   (P2-20), so an existing feature's name is reused rather than a near-duplicate coined — check the
   registry before inventing a new one.
+- **`testDataRefs`** — ids of reusable `TestDataSchema` sets (P2-22, `artifacts/test-data/<feature>/<id>.json`) this case's steps or preconditions draw values from, written as `{{key}}` placeholders resolving against the referenced set's `values`. Optional; only add a ref when a value is actually shared with another case — a one-off value stays inline. `qa validate` rejects a ref that does not resolve.
 - **`preconditions`** — state that must hold before step one, stated as facts, not instructions
   ("the user is logged in as `viewer`", not "log in as `viewer`"). Omit it when a case has no
   precondition beyond "the application is reachable" — it is optional for exactly that reason.

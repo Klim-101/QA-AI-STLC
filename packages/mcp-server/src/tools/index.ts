@@ -14,6 +14,7 @@ import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
 import { pingTool } from './ping.js';
 import { scopeTool } from './scope.js';
+import { testDataAddTool } from './test-data-add.js';
 import { validateTool } from './validate.js';
 import type { ToolDefinition } from '../tool.js';
 
@@ -24,6 +25,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   exploreTool,
   scopeTool,
   casesAddTool,
+  testDataAddTool,
   approveTool,
   validateTool,
 ];

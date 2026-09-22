@@ -5,6 +5,8 @@ import {
   SCHEMA_VERSION,
   ScopeSchema,
   TestCaseSchema,
+  TestDataSchema,
+  type Identifier,
   type PhaseName,
   type PipelineState,
   type RelativePath,
@@ -18,14 +20,22 @@ import { PHASES } from '../phases.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 import { PipelineStateStore } from '../state-store.js';
+import { findUnresolvedTestDataRefs } from '../test-data-linking.js';
 
 const SCOPE_PATH = 'artifacts/scope.json';
 const CASES_DIR = 'artifacts/cases';
+const TEST_DATA_DIR = 'artifacts/test-data';
 
 export interface UnlinkedCase {
   readonly casePath: string;
   readonly id: string;
   readonly unlinkedRequirementIds: readonly string[];
+}
+
+export interface UnresolvedTestDataCase {
+  readonly casePath: string;
+  readonly id: string;
+  readonly unresolvedTestDataRefs: readonly string[];
 }
 
 export interface ValidateReport {
@@ -38,6 +48,13 @@ export interface ValidateReport {
   readonly reopened: readonly PhaseName[];
   /** Every registered test case with at least one `requirementIds` entry not in the scope artifact. */
   readonly unlinkedCases: readonly UnlinkedCase[];
+  /**
+   * Every registered test case with at least one `testDataRefs` (P2-22) entry not in a registered
+   * `TestDataSchema` set — `qa cases add` cannot check this at registration time the way it checks
+   * `requirementIds`, since a case may be registered before or after the test-data sets it
+   * references.
+   */
+  readonly unresolvedTestData: readonly UnresolvedTestDataCase[];
   /**
    * Every path in `manifest.json` whose file is missing or no longer matches its registered hash
    * (P2-07, `.qa/` integrity) — a hand-edited or deleted artifact, distinct from the approval-bound
@@ -76,10 +93,10 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
     }
   }
 
-  const unlinkedCases = await findUnlinkedCases(context, store);
+  const { unlinkedCases, unresolvedTestData } = await findCaseLinkIssues(context, store);
   const tamperedArtifacts = await findTamperedArtifacts(context, store);
 
-  return { state, reopened, unlinkedCases, tamperedArtifacts };
+  return { state, reopened, unlinkedCases, unresolvedTestData, tamperedArtifacts };
 }
 
 /**
@@ -109,15 +126,22 @@ async function findTamperedArtifacts(
   return tampered;
 }
 
-async function findUnlinkedCases(context: EngineContext, store: QaStore): Promise<readonly UnlinkedCase[]> {
+interface CaseLinkIssues {
+  readonly unlinkedCases: readonly UnlinkedCase[];
+  readonly unresolvedTestData: readonly UnresolvedTestDataCase[];
+}
+
+async function findCaseLinkIssues(context: EngineContext, store: QaStore): Promise<CaseLinkIssues> {
   const casesDirAbsolute = store.resolve(CASES_DIR);
   const caseFiles = await context.fs.listFiles(casesDirAbsolute);
   if (caseFiles.length === 0) {
-    return [];
+    return { unlinkedCases: [], unresolvedTestData: [] };
   }
 
   const scope = await loadScope(store);
+  const knownTestDataIds = await loadKnownTestDataIds(context, store);
   const unlinkedCases: UnlinkedCase[] = [];
+  const unresolvedTestData: UnresolvedTestDataCase[] = [];
   for (const absolutePath of [...caseFiles].sort()) {
     const relativePath = store.toRelativePath(absolutePath);
     const testCase = await store.readJson(relativePath, TestCaseSchema);
@@ -125,8 +149,12 @@ async function findUnlinkedCases(context: EngineContext, store: QaStore): Promis
     if (unlinkedRequirementIds.length > 0) {
       unlinkedCases.push({ casePath: relativePath, id: testCase.id, unlinkedRequirementIds });
     }
+    const unresolvedTestDataRefs = findUnresolvedTestDataRefs(testCase.testDataRefs, knownTestDataIds);
+    if (unresolvedTestDataRefs.length > 0) {
+      unresolvedTestData.push({ casePath: relativePath, id: testCase.id, unresolvedTestDataRefs });
+    }
   }
-  return unlinkedCases;
+  return { unlinkedCases, unresolvedTestData };
 }
 
 async function loadScope(store: QaStore): Promise<Scope> {
@@ -135,4 +163,19 @@ async function loadScope(store: QaStore): Promise<Scope> {
     return { schemaVersion: SCHEMA_VERSION, generatedAt: new Date(0).toISOString(), requirements: [] };
   }
   return store.readJson(SCOPE_PATH, ScopeSchema);
+}
+
+async function loadKnownTestDataIds(
+  context: EngineContext,
+  store: QaStore,
+): Promise<ReadonlySet<Identifier>> {
+  const testDataDirAbsolute = store.resolve(TEST_DATA_DIR);
+  const testDataFiles = await context.fs.listFiles(testDataDirAbsolute);
+  const ids = new Set<Identifier>();
+  for (const absolutePath of testDataFiles) {
+    const relativePath = store.toRelativePath(absolutePath);
+    const testData = await store.readJson(relativePath, TestDataSchema);
+    ids.add(testData.id);
+  }
+  return ids;
 }
