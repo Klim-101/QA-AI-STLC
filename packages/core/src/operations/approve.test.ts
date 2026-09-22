@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
+import { hashText } from '../hash.js';
 import { noopLogger } from '../ports/logger.js';
 import { systemClock } from '../ports/clock.js';
 import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
@@ -31,9 +32,31 @@ function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContex
   };
 }
 
+/** A `.qa/manifest.json` registering each of `contentByPath`'s entries under its own hash (P2-07). */
+function manifestJson(contentByPath: Readonly<Record<string, string>>): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    artifacts: Object.fromEntries(
+      Object.entries(contentByPath).map(([path, content]) => [
+        path,
+        { sha256: hashText(content), registeredAt: '2026-09-20T12:00:00Z' },
+      ]),
+    ),
+  });
+}
+
+/** A registered scope artifact plus the manifest entry that registers it, the way `qa scope`
+ * leaves a project (needed since #278: `runApprove` only accepts a manifest-registered artifact). */
+function fakeContextWithRegisteredScope(scopeJson = '{"requirements":[]}'): EngineContext {
+  return fakeContext({
+    'artifacts/scope.json': scopeJson,
+    'manifest.json': manifestJson({ 'artifacts/scope.json': scopeJson }),
+  });
+}
+
 describe('runApprove', () => {
   it('approves the scope gate and advances the pipeline to cases', async () => {
-    const context = fakeContext({ 'artifacts/scope.json': '{"requirements":[]}' });
+    const context = fakeContextWithRegisteredScope();
 
     const result = await runApprove(context, {
       gate: 'scope',
@@ -47,7 +70,7 @@ describe('runApprove', () => {
   });
 
   it('records an optional note on the approval', async () => {
-    const context = fakeContext({ 'artifacts/scope.json': '{"requirements":[]}' });
+    const context = fakeContextWithRegisteredScope();
 
     await runApprove(context, {
       gate: 'scope',
@@ -79,7 +102,11 @@ describe('runApprove', () => {
   });
 
   it('rejects approving a later phase before an earlier one is satisfied', async () => {
-    const context = fakeContext({ 'artifacts/cases.json': '{"cases":[]}' });
+    const casesJson = '{"cases":[]}';
+    const context = fakeContext({
+      'artifacts/cases.json': casesJson,
+      'manifest.json': manifestJson({ 'artifacts/cases.json': casesJson }),
+    });
 
     const error = await runApprove(context, {
       gate: 'cases',
@@ -101,5 +128,19 @@ describe('runApprove', () => {
         approvedBy: 'operator',
       }),
     ).rejects.toThrow(QaError);
+  });
+
+  it('rejects approving an artifact that exists but was never registered in the manifest (regression, #278)', async () => {
+    // Written directly, the way a hand-placed or agent-bypassed file would be -- no manifest.json.
+    const context = fakeContext({ 'artifacts/scope.json': '{"requirements":[]}' });
+
+    const error = await runApprove(context, {
+      gate: 'scope',
+      artifactPath: 'artifacts/scope.json',
+      approvedBy: 'operator',
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('ARTIFACT_UNREGISTERED');
   });
 });

@@ -777,7 +777,10 @@ describe('runCli', () => {
 
   it('runs "approve" and prints a human-readable confirmation', async () => {
     const deps = dependencies({
-      fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}',
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({ 'artifacts/scope.json': '{}' }),
+      }),
     });
 
     const exitCode = await runCli(
@@ -792,7 +795,10 @@ describe('runCli', () => {
 
   it('runs "approve" and prints machine-readable JSON with --json', async () => {
     const deps = dependencies({
-      fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}',
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({ 'artifacts/scope.json': '{}' }),
+      }),
     });
 
     const exitCode = await runCli(
@@ -810,7 +816,10 @@ describe('runCli', () => {
 
   it('forwards --note to runApprove', async () => {
     const deps = dependencies({
-      fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' }),
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}',
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({ 'artifacts/scope.json': '{}' }),
+      }),
     });
 
     const exitCode = await runCli(
@@ -889,7 +898,10 @@ describe('runCli', () => {
   });
 
   it('reports a reopened gate and exits with a failure code once an approved artifact changes', async () => {
-    const fs = createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}' });
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: '{}',
+      [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({ 'artifacts/scope.json': '{}' }),
+    });
     const deps = dependencies({ fs });
     await runCli(
       ['approve', 'scope', '--artifact', 'artifacts/scope.json', '--approved-by', 'operator'],
