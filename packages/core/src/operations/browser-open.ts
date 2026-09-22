@@ -85,7 +85,9 @@ export async function runBrowserOpen(
     const page = await browserContext.newPage();
     await page.route(
       ALL_REQUESTS_PATTERN,
-      createBrowserSafeModeRouteHandler((request) => blockedRequests.push(request)),
+      createBrowserSafeModeRouteHandler(environment.config.allowlist, (request) =>
+        blockedRequests.push(request),
+      ),
     );
     session = context.sessions.open({
       browser,
