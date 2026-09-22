@@ -9,10 +9,14 @@ import { ManifestStore } from './manifest-store.js';
 import { QaStore } from './qa-store.js';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
-function createLedgerStore(): { manifest: ManifestStore; ledgerStore: ApprovalLedgerStore } {
+function createLedgerStore(): {
+  store: QaStore;
+  manifest: ManifestStore;
+  ledgerStore: ApprovalLedgerStore;
+} {
   const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
   const manifest = new ManifestStore({ store });
-  return { manifest, ledgerStore: new ApprovalLedgerStore({ store, manifest }) };
+  return { store, manifest, ledgerStore: new ApprovalLedgerStore({ store, manifest }) };
 }
 
 function approval(overrides: Partial<Approval> = {}): Approval {
@@ -69,6 +73,17 @@ describe('ApprovalLedgerStore', () => {
     const { ledgerStore } = createLedgerStore();
     await ledgerStore.append(approval({ gate: 'cases', artifactPath: 'artifacts/cases.json' }));
 
+    expect(await ledgerStore.latestForGate('scope')).toBeUndefined();
+  });
+
+  it('ignores a hand-written ledger that was never registered, even with no prior approvals (regression, #304)', async () => {
+    const { store, ledgerStore } = createLedgerStore();
+    await store.writeJson('artifacts/approval-ledger.json', {
+      schemaVersion: 1,
+      approvals: [approval({ approvedBy: 'attacker' })],
+    });
+
+    expect(await ledgerStore.load()).toEqual({ schemaVersion: 1, approvals: [] });
     expect(await ledgerStore.latestForGate('scope')).toBeUndefined();
   });
 
