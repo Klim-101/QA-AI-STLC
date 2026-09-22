@@ -4,7 +4,7 @@
 import type { AuthPage, PageLocator, ViewportSize } from '@qa-ai-stlc/core';
 import type { LocatorCandidate } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
-import { resolveCandidateLocator, scoreLocatorStability } from './stability-scoring.js';
+import { resolveCandidateLocator, scoreLocatorStability, scorePageCandidates } from './stability-scoring.js';
 import { createLocatorMethods, type LocatorStubOptions } from './test-support/locator-stub.js';
 
 interface LocatorCall {
@@ -202,6 +202,96 @@ describe('scoreLocatorStability', () => {
     const score = await scoreLocatorStability(page, CSS_CANDIDATE);
 
     expect(score).toBe(1);
+    expect(viewportCalls).toHaveLength(4);
+  });
+});
+
+const TEST_ID_CANDIDATE: LocatorCandidate = { strategy: 'testId', value: 'save', fragile: false };
+const ONE_VIEWPORT = [{ width: 1280, height: 720 }];
+
+describe('scorePageCandidates', () => {
+  it('reloads and resizes exactly once for the whole page, not once per element (regression, #283)', async () => {
+    const { page, reloadCalls, viewportCalls } = trackedFakePage({ locatorCounts: [1] });
+
+    await scorePageCandidates(
+      page,
+      [{ candidates: [CSS_CANDIDATE] }, { candidates: [TEST_ID_CANDIDATE] }, { candidates: [CSS_CANDIDATE] }],
+      { viewports: ONE_VIEWPORT },
+    );
+
+    expect(reloadCalls.count).toBe(1);
+    expect(viewportCalls).toEqual([...ONE_VIEWPORT, { width: 1280, height: 720 }]); // resize, then restore
+  });
+
+  it('scores every candidate for one element, not only the first (regression, #283)', async () => {
+    const { page } = trackedFakePage({ locatorCounts: [1] });
+
+    const [scored] = await scorePageCandidates(page, [{ candidates: [CSS_CANDIDATE, TEST_ID_CANDIDATE] }], {
+      viewports: ONE_VIEWPORT,
+    });
+
+    expect(scored?.scoredCandidates).toEqual([
+      { candidate: CSS_CANDIDATE, stabilityScore: 1 },
+      { candidate: TEST_ID_CANDIDATE, stabilityScore: 1 },
+    ]);
+  });
+
+  it('scores 0 for a candidate not unique now, without spending a survival check on it', async () => {
+    const { page } = trackedFakePage({ locatorCounts: [0, 1] });
+
+    const [scored] = await scorePageCandidates(page, [{ candidates: [CSS_CANDIDATE, TEST_ID_CANDIDATE] }], {
+      viewports: ONE_VIEWPORT,
+    });
+
+    expect(scored?.scoredCandidates).toEqual([
+      { candidate: CSS_CANDIDATE, stabilityScore: 0 },
+      { candidate: TEST_ID_CANDIDATE, stabilityScore: 1 },
+    ]);
+  });
+
+  it('scores a fraction when a candidate survives reload but not the viewport check', async () => {
+    const { page } = trackedFakePage({ locatorCounts: [1, 1, 0] });
+
+    const [scored] = await scorePageCandidates(page, [{ candidates: [CSS_CANDIDATE] }], {
+      viewports: ONE_VIEWPORT,
+    });
+
+    expect(scored?.scoredCandidates).toEqual([{ candidate: CSS_CANDIDATE, stabilityScore: 0.5 }]);
+  });
+
+  it('carries through every other field of the input item alongside its scored candidates', async () => {
+    const { page } = trackedFakePage({ locatorCounts: [1] });
+
+    const [scored] = await scorePageCandidates(
+      page,
+      [{ candidates: [CSS_CANDIDATE], elementName: 'save-button' }],
+      { viewports: ONE_VIEWPORT },
+    );
+
+    expect(scored?.elementName).toBe('save-button');
+  });
+
+  it('returns an empty score list for an element with no candidates', async () => {
+    const { page } = trackedFakePage({ locatorCounts: [1] });
+
+    const [scored] = await scorePageCandidates(page, [{ candidates: [] }], { viewports: ONE_VIEWPORT });
+
+    expect(scored?.scoredCandidates).toEqual([]);
+  });
+
+  it('does not restore the viewport when the page reports none', async () => {
+    const { page, viewportCalls } = trackedFakePage({ locatorCounts: [1], viewportSize: null });
+
+    await scorePageCandidates(page, [{ candidates: [CSS_CANDIDATE] }], { viewports: ONE_VIEWPORT });
+
+    expect(viewportCalls).toEqual(ONE_VIEWPORT);
+  });
+
+  it('uses the default desktop/tablet/mobile viewports when none are configured', async () => {
+    const { page, viewportCalls } = trackedFakePage({ locatorCounts: [1] });
+
+    await scorePageCandidates(page, [{ candidates: [CSS_CANDIDATE] }]);
+
     expect(viewportCalls).toHaveLength(4);
   });
 });

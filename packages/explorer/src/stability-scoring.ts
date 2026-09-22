@@ -114,3 +114,80 @@ export async function scoreLocatorStability(
 
   return survivedChecks / (1 + viewports.length);
 }
+
+export interface CandidateStabilityScore {
+  readonly candidate: LocatorCandidate;
+  readonly stabilityScore: number;
+}
+
+export interface PageScoringItem {
+  readonly candidates: readonly LocatorCandidate[];
+}
+
+interface CandidateProgress {
+  readonly candidate: LocatorCandidate;
+  uniqueNow: boolean;
+  survivedChecks: number;
+}
+
+async function checkSurvival(
+  page: AuthPage,
+  groups: readonly { readonly progress: readonly CandidateProgress[] }[],
+): Promise<void> {
+  for (const group of groups) {
+    for (const state of group.progress) {
+      if (!state.uniqueNow) {
+        continue;
+      }
+      if (await isUniqueMatch(page, state.candidate)) {
+        state.survivedChecks += 1;
+      }
+    }
+  }
+}
+
+/**
+ * Batches `scoreLocatorStability`'s three checks (unique now, survives one shared reload,
+ * survives each shared viewport resize) across every candidate of every element on the current
+ * live page, instead of reloading and resizing once per element (#283: a 200-element page
+ * previously meant 200 reloads to score one page). Scores every synthesized candidate, not only
+ * the policy-picked primary, so a caller can promote whichever candidate actually proved most
+ * stable rather than trusting policy order alone.
+ */
+export async function scorePageCandidates<T extends PageScoringItem>(
+  page: AuthPage,
+  items: readonly T[],
+  options: StabilityScoringOptions = {},
+): Promise<(T & { readonly scoredCandidates: readonly CandidateStabilityScore[] })[]> {
+  const viewports = options.viewports ?? DEFAULT_VIEWPORTS;
+  const originalViewport = page.viewportSize();
+
+  const groups: { readonly item: T; readonly progress: CandidateProgress[] }[] = [];
+  for (const item of items) {
+    const progress: CandidateProgress[] = [];
+    for (const candidate of item.candidates) {
+      progress.push({ candidate, uniqueNow: await isUniqueMatch(page, candidate), survivedChecks: 0 });
+    }
+    groups.push({ item, progress });
+  }
+
+  await page.reload();
+  await checkSurvival(page, groups);
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await checkSurvival(page, groups);
+  }
+
+  if (originalViewport !== null) {
+    await page.setViewportSize(originalViewport);
+  }
+
+  return groups.map(({ item, progress }) => ({
+    ...item,
+    scoredCandidates: progress.map((state) => ({
+      candidate: state.candidate,
+      stabilityScore: state.uniqueNow ? state.survivedChecks / (1 + viewports.length) : 0,
+    })),
+  }));
+}
