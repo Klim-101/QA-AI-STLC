@@ -348,6 +348,23 @@ describe('runExplore', () => {
     expect(report.blockedRequestCount).toBe(1);
   });
 
+  it('runs --verify under safe mode and blocks a GET subrequest off the domain allowlist (regression, #306)', async () => {
+    const context = fakeContext(
+      {
+        locatorCount: 1,
+        subRequestsByUrl: {
+          [START_URL]: [{ method: 'GET', url: 'https://evil.example.com/tracker.js' }],
+        },
+      },
+      undefined,
+      { [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()) },
+    );
+
+    const report = await runExplore(context, { verify: true });
+
+    expect(report.blockedRequestCount).toBe(1);
+  });
+
   it('skips a deprecated element, one with no pageUrl and one with no locator candidate when verifying', async () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it
     const { pageUrl, ...elementWithoutPageUrl } = storedElement();

@@ -172,11 +172,13 @@ async function runCrawlAndBuild(
   const urls = crawlResult.routeMap.routes.map((route) => route.url);
   const { pageModelSet, blockedRequestCount: analyzeBlocked } = await analyzePages({
     urls,
+    allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
     ...(identity !== undefined ? { identity } : {}),
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
     pageModelSet,
+    allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
     ...(identity !== undefined ? { identity } : {}),
     policy,
@@ -216,6 +218,7 @@ async function runVerify(
     });
   }
   const stored = await store.readJson(REGISTRY_PATH, SelectorRegistrySchema);
+  const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
   const storageState = await resolveStorageState(context.browserLauncher, identity);
 
@@ -245,7 +248,7 @@ async function runVerify(
     const page = await browserContext.newPage();
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(() => {
+      createSafeModeRouteHandler(environment.config.allowlist, () => {
         blockedRequestCount += 1;
       }),
     );

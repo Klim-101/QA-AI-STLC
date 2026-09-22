@@ -21,12 +21,14 @@ function createFakeRoute(method: string, url: string) {
   return { route, calls };
 }
 
+const ALLOWLIST = ['example.com'];
+
 describe('createSafeModeRouteHandler', () => {
-  it('continues a GET request without calling onBlocked', async () => {
+  it('continues an allowlisted GET request without calling onBlocked', async () => {
     const onBlocked = vi.fn();
     const { route, calls } = createFakeRoute('GET', 'https://example.com/');
 
-    await createSafeModeRouteHandler(onBlocked)(route);
+    await createSafeModeRouteHandler(ALLOWLIST, onBlocked)(route);
 
     expect(calls).toEqual(['continue']);
     expect(onBlocked).not.toHaveBeenCalled();
@@ -36,12 +38,26 @@ describe('createSafeModeRouteHandler', () => {
     const onBlocked = vi.fn();
     const { route, calls } = createFakeRoute('POST', 'https://example.com/tasks');
 
-    await createSafeModeRouteHandler(onBlocked)(route);
+    await createSafeModeRouteHandler(ALLOWLIST, onBlocked)(route);
 
     expect(calls).toEqual(['abort']);
     expect(onBlocked).toHaveBeenCalledWith({
       method: 'POST',
       url: 'https://example.com/tasks',
+      blocked: true,
+    });
+  });
+
+  it('aborts a GET request off the domain allowlist and reports it (regression, #306)', async () => {
+    const onBlocked = vi.fn();
+    const { route, calls } = createFakeRoute('GET', 'https://evil.test/phishing');
+
+    await createSafeModeRouteHandler(ALLOWLIST, onBlocked)(route);
+
+    expect(calls).toEqual(['abort']);
+    expect(onBlocked).toHaveBeenCalledWith({
+      method: 'GET',
+      url: 'https://evil.test/phishing',
       blocked: true,
     });
   });

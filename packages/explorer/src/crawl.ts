@@ -59,7 +59,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
     let blockedRequestCount = 0;
     await page.route(
       '**/*',
-      createSafeModeRouteHandler((entry) => {
+      createSafeModeRouteHandler(options.allowlist, (entry) => {
         blockedRequestCount += 1;
         logEntries.push(entry);
       }),
