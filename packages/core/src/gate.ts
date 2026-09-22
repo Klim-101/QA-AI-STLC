@@ -105,7 +105,9 @@ export class GateStateMachine {
       throw new QaError(
         'GATE_ARTIFACT_PATH_MISMATCH',
         `"${options.artifactPath}" is not the artifact for the "${options.gate}" gate`,
-        { remediation: `Approve "${options.gate}" with an artifact at ${describeCanonicalArtifactPath(options.gate)}.` },
+        {
+          remediation: `Approve "${options.gate}" with an artifact at ${describeCanonicalArtifactPath(options.gate)}.`,
+        },
       );
     }
 
