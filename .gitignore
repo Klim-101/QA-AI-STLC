@@ -13,6 +13,8 @@ coverage/
 .claude/settings.local.json
 .qa/evidence/
 .qa/runs/
+# Live session cookies/tokens (AuthSessionStore) -- never registered as evidence, never committed.
+.qa/auth/
 .env
 .env.*
 !.env.example
