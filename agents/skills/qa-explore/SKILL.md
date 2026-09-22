@@ -65,7 +65,7 @@ Before the first `qa.explore` call, ask the operator explicitly rather than assu
 ## What this skill does not do
 
 - **Manual pick mode is CLI-only.** `qa explore --pick <url>` opens a headed browser for the
-  *operator* to click through — it cannot run over MCP's stdio transport (AGENTS.md 12.4). If the
+  _operator_ to click through — it cannot run over MCP's stdio transport (AGENTS.md 12.4). If the
   registry is missing a locator this skill cannot resolve by crawling, tell the operator to run pick
   mode themselves; do not attempt it as a spoke task.
 - It does not write test cases or dispatch execution — that is `qa-design-cases` and later skills.
