@@ -10,6 +10,7 @@ import { casesAddTool } from '../src/tools/cases-add.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { scopeTool } from '../src/tools/scope.js';
+import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
 
 // Every engine tool builds its `EngineContext` from `process.cwd()` (engine-context.ts), matching
@@ -145,6 +146,29 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           unlinkedRequirementIds: ['removed-later'],
         },
       ]);
+    });
+  });
+
+  it('qa.test_data_add registers a reusable test-data set under its feature folder', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeFile(
+        join(projectRoot, 'card.json'),
+        JSON.stringify({
+          id: 'valid-checkout-card',
+          feature: 'checkout',
+          values: { cardNumber: '4111111111111111', expiry: '12/30' },
+        }),
+        'utf-8',
+      );
+
+      const result = await testDataAddTool.handler({ path: 'card.json' });
+      process.chdir(originalCwd);
+
+      expect(result).toEqual({
+        testDataPath: 'artifacts/test-data/checkout/valid-checkout-card.json',
+        id: 'valid-checkout-card',
+      });
     });
   });
 

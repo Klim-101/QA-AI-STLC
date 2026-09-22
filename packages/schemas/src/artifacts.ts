@@ -16,6 +16,7 @@ import { ScopeSchema } from './scope.js';
 import { SelectorRegistrySchema } from './selector-registry.js';
 import { PipelineStateSchema } from './state.js';
 import { TestCaseSchema } from './test-case.js';
+import { TestDataSchema } from './test-data.js';
 
 // One entry per artifact kind under `.qa/` (development plan section 3.2). This is the single
 // source `scripts/generate-json-schema.mjs` walks to emit `dist/json-schema/<name>.json`; adding
@@ -26,6 +27,7 @@ export const artifactSchemas = {
   'route-map': RouteMapSchema,
   'page-models': PageModelSetSchema,
   'test-case': TestCaseSchema,
+  'test-data': TestDataSchema,
   'run-result': RunResultSchema,
   evidence: EvidenceSchema,
   'browser-action': BrowserActionSchema,

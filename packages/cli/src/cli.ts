@@ -9,11 +9,13 @@ import {
   runCasesAdd,
   runDoctor,
   runScope,
+  runTestDataAdd,
   runValidate,
   type ApproveResult,
   type CasesAddResult,
   type DoctorReport,
   type ScopeResult,
+  type TestDataAddResult,
   type ValidateReport,
 } from '@qa-ai-stlc/core';
 import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
@@ -46,6 +48,7 @@ Commands:
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
   cases add     Validate and register a test case: "cases add --path <path>"
+  test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links; nonzero exit on a reopened gate or an unlinked case
 
@@ -86,6 +89,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchScope(rest, dependencies);
       case 'cases':
         return await dispatchCases(rest, dependencies);
+      case 'test-data':
+        return await dispatchTestData(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -442,6 +447,36 @@ async function dispatchCasesAdd(rest: readonly string[], dependencies: RunCliDep
   return EXIT_SUCCESS;
 }
 
+async function dispatchTestData(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand === 'add') {
+    return await dispatchTestDataAdd(subRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa test-data" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchTestDataAdd(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runTestDataAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'test-data-add', result, formatTestDataAddResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -491,7 +526,10 @@ async function dispatchValidate(rest: readonly string[], dependencies: RunCliDep
   const report = await runValidate(context);
   printResult(context.io, json, 'validate', report, formatValidateReport(report));
   const hasFailure =
-    report.reopened.length > 0 || report.unlinkedCases.length > 0 || report.tamperedArtifacts.length > 0;
+    report.reopened.length > 0 ||
+    report.unlinkedCases.length > 0 ||
+    report.unresolvedTestData.length > 0 ||
+    report.tamperedArtifacts.length > 0;
   return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
@@ -573,6 +611,10 @@ function formatCasesAddResult(result: CasesAddResult): readonly string[] {
   return [`Registered ${result.casePath}: linked to ${result.requirementIds.join(', ')}.`];
 }
 
+function formatTestDataAddResult(result: TestDataAddResult): readonly string[] {
+  return [`Registered ${result.testDataPath}.`];
+}
+
 function formatApproveResult(result: ApproveResult): readonly string[] {
   return [
     `Approved "${result.gate}": ${result.state.gates[result.gate].status}.`,
@@ -593,6 +635,14 @@ function formatValidateReport(report: ValidateReport): readonly string[] {
     lines.push(`${String(report.unlinkedCases.length)} unlinked case(s):`);
     for (const unlinkedCase of report.unlinkedCases) {
       lines.push(`  ${unlinkedCase.casePath}: ${unlinkedCase.unlinkedRequirementIds.join(', ')}`);
+    }
+  }
+  if (report.unresolvedTestData.length === 0) {
+    lines.push('No unresolved test data.');
+  } else {
+    lines.push(`${String(report.unresolvedTestData.length)} case(s) with unresolved test data:`);
+    for (const unresolved of report.unresolvedTestData) {
+      lines.push(`  ${unresolved.casePath}: ${unresolved.unresolvedTestDataRefs.join(', ')}`);
     }
   }
   if (report.tamperedArtifacts.length === 0) {

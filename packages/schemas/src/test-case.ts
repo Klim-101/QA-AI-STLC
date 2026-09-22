@@ -48,6 +48,10 @@ export const TestCaseSchema = z.object({
   steps: z.array(TestCaseStepSchema).min(1),
   expectedResult: z.string().min(1),
   regressionTier: RegressionTierSchema.optional(),
+  // Reusable test-data sets this case's steps/preconditions reference by id (P2-22), instead of
+  // inlining values another case could share. Optional: a case with no data dependency has none.
+  // `qa validate` rejects an id here that does not resolve to a registered `TestDataSchema` set.
+  testDataRefs: z.array(IdentifierSchema).optional(),
   status: TestCaseStatusSchema,
   createdAt: IsoDateTimeSchema,
 });

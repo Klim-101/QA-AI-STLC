@@ -962,6 +962,64 @@ describe('runCli', () => {
     expect(deps.stdout).toContain('Registered artifacts/cases/checkout/case-1.json: linked to r1.');
   });
 
+  it('runs "test-data add" and prints a human-readable confirmation', async () => {
+    const testDataJson = JSON.stringify({
+      id: 'valid-card',
+      feature: 'checkout',
+      values: { cardNumber: '4111111111111111' },
+    });
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, 'card.json')]: testDataJson,
+      }),
+    });
+
+    const exitCode = await runCli(['test-data', 'add', '--path', 'card.json'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Registered artifacts/test-data/checkout/valid-card.json.');
+  });
+
+  it('reports a usage error for an unknown "test-data" subcommand', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['test-data', 'bogus'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa test-data" subcommand "bogus"');
+  });
+
+  it('reports a usage error when "test-data" is given no subcommand at all', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['test-data'], deps);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa test-data" subcommand ""');
+  });
+
+  it('reports a coded error when "test-data add" is given no --path', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['test-data', 'add'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa test-data add');
+  });
+
+  it('defaults the project root to the current working directory for "test-data add"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['test-data', 'add', '--path', 'card.json'], {
+      io,
+      fs: createFakeFileSystem(),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('card.json');
+  });
+
   it('reports a coded error when "cases add" is given no --path', async () => {
     const deps = dependencies();
 
@@ -1037,5 +1095,38 @@ describe('runCli', () => {
 
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stdout.join('\n')).toContain('1 unlinked case(s):');
+  });
+
+  it('"validate" fails with an exit code once a case references an unregistered test-data set', async () => {
+    const scopeJson = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+    const caseJson = JSON.stringify({
+      id: 'case-1',
+      feature: 'checkout',
+      requirementIds: ['r1'],
+      testType: 'e2e',
+      title: 'A case',
+      testDataRefs: ['missing-card'],
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-20T12:00:00Z',
+    });
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+          'artifacts/scope.json': scopeJson,
+        }),
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'cases', 'checkout', 'case-1.json')]: caseJson,
+      }),
+    });
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout.join('\n')).toContain('1 case(s) with unresolved test data:');
   });
 });

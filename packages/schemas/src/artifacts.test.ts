@@ -25,6 +25,7 @@ describe('artifactSchemas', () => {
         'selector-registry',
         'state',
         'test-case',
+        'test-data',
       ].sort(),
     );
   });
