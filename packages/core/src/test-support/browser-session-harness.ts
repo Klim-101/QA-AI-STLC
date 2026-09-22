@@ -10,7 +10,7 @@ import {
   type FakeBrowserLauncherOptions,
 } from './fake-browser-launcher.js';
 import { createFakeEngineContext } from './fake-engine-context.js';
-import { createFakeFileSystem, type FakeFileSystem } from './fake-file-system.js';
+import { createFakeFileSystem, type FakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createSequentialIdGenerator } from './fake-id-generator.js';
 
 export const BROWSER_TEST_PROJECT_ROOT = 'project';

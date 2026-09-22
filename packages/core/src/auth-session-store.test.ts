@@ -7,7 +7,7 @@ import { AuthSessionStore } from './auth-session-store.js';
 import { ManifestStore } from './manifest-store.js';
 import type { StorageState } from './ports/browser-launcher.js';
 import { QaStore } from './qa-store.js';
-import { createFakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 const SESSION: StorageState = {
   cookies: [

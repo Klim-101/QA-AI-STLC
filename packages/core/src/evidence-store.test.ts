@@ -9,7 +9,7 @@ import { hashBytes, hashText } from './hash.js';
 import type { Clock } from './ports/clock.js';
 import { ManifestStore } from './manifest-store.js';
 import { QaStore } from './qa-store.js';
-import { createFakeFileSystem, type FakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem, type FakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 const FIXED_TIME = new Date('2026-09-16T12:00:00.000Z');
 const fixedClock: Clock = { now: () => FIXED_TIME };

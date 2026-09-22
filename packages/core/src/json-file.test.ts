@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { QaError } from './errors.js';
 import { readJsonFile, toCanonicalJson, writeJsonFile } from './json-file.js';
-import { createFakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 const PointSchema = z.object({ x: z.number(), y: z.number() });
 

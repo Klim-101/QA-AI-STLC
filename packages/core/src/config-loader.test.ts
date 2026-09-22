@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config-loader.js';
 import { QaError } from './errors.js';
 import { QaStore } from './qa-store.js';
-import { createFakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 const VALID_CONFIG_YAML = `
 testing:

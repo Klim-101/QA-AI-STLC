@@ -6,7 +6,7 @@ import type { Approval } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { ApprovalLedgerStore } from './approval-ledger-store.js';
 import { QaStore } from './qa-store.js';
-import { createFakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 function createLedgerStore(): ApprovalLedgerStore {
   const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
+    "./fake-file-system": "./dist/fake-file-system.js",
     "./golden-file": "./dist/golden-file.js",
     "./temp-dir": "./dist/temp-dir.js"
   },

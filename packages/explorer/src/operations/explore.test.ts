@@ -9,7 +9,7 @@ import {
   createFakeExploreBrowserLauncher,
   type FakeExploreBrowserLauncherOptions,
 } from '../test-support/fake-explore-browser-launcher.js';
-import { createFakeFileSystem } from '../test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '../test-support/fake-http-client.js';
 import { createFakeProcessRunner } from '../test-support/fake-process-runner.js';
 import { runExplore } from './explore.js';
