@@ -5,8 +5,16 @@ import { z } from 'zod';
 import { IsoDateTimeSchema, RelativePathSchema, Sha256HexSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
+// Which hasher (`hashText`/`hashBytes`, `packages/core/src/hash.ts`) produced `sha256`, recorded
+// so a later verification checks the artifact the same way it was registered instead of guessing
+// (#303): `hashText` normalizes CRLF to LF, so trying both encodings against an unknown-mode
+// artifact lets a CRLF-only edit to byte-registered content pass as unchanged.
+export const ManifestEntryModeSchema = z.enum(['text', 'bytes']);
+export type ManifestEntryMode = z.infer<typeof ManifestEntryModeSchema>;
+
 export const ManifestEntrySchema = z.object({
   sha256: Sha256HexSchema,
+  mode: ManifestEntryModeSchema,
   registeredAt: IsoDateTimeSchema,
 });
 export type ManifestEntry = z.infer<typeof ManifestEntrySchema>;

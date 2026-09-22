@@ -8,7 +8,11 @@ describe('ManifestSchema', () => {
   it('accepts artifacts keyed by project-relative path', () => {
     const result = ManifestSchema.safeParse({
       artifacts: {
-        'artifacts/scope.json': { sha256: 'd'.repeat(64), registeredAt: '2026-09-16T12:00:00Z' },
+        'artifacts/scope.json': {
+          sha256: 'd'.repeat(64),
+          mode: 'text',
+          registeredAt: '2026-09-16T12:00:00Z',
+        },
       },
     });
     expect(result.success).toBe(true);
@@ -17,7 +21,29 @@ describe('ManifestSchema', () => {
   it('rejects an entry with a malformed hash', () => {
     const result = ManifestSchema.safeParse({
       artifacts: {
-        'artifacts/scope.json': { sha256: 'not-a-hash', registeredAt: '2026-09-16T12:00:00Z' },
+        'artifacts/scope.json': { sha256: 'not-a-hash', mode: 'text', registeredAt: '2026-09-16T12:00:00Z' },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an entry with an unknown mode (regression, #303)', () => {
+    const result = ManifestSchema.safeParse({
+      artifacts: {
+        'artifacts/scope.json': {
+          sha256: 'd'.repeat(64),
+          mode: 'base64',
+          registeredAt: '2026-09-16T12:00:00Z',
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an entry with no mode', () => {
+    const result = ManifestSchema.safeParse({
+      artifacts: {
+        'artifacts/scope.json': { sha256: 'd'.repeat(64), registeredAt: '2026-09-16T12:00:00Z' },
       },
     });
     expect(result.success).toBe(false);
