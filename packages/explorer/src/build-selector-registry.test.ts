@@ -19,6 +19,8 @@ import {
 } from './build-selector-registry.js';
 import { createFakeCrawlBrowserLauncher } from './test-support/fake-browser-launcher.js';
 
+const ALLOWLIST = ['staging.example.com'];
+
 function element(overrides: Partial<InteractiveElement> = {}): InteractiveElement {
   return { kind: 'button', tagName: 'button', nthOfType: 1, ...overrides };
 }
@@ -89,8 +91,12 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const first = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
-    const second = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const first = await buildSelectorRegistry({ pageModelSet: model, allowlist: ALLOWLIST, browserLauncher });
+    const second = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(first.registry.elements[0]?.elementId).toBe(second.registry.elements[0]?.elementId);
   });
@@ -102,7 +108,11 @@ describe('buildSelectorRegistry', () => {
     ]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.elementId).not.toBe(registry.elements[1]?.elementId);
   });
@@ -116,6 +126,7 @@ describe('buildSelectorRegistry', () => {
 
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
+      allowlist: ALLOWLIST,
       browserLauncher,
       policy: 'testid-first',
     });
@@ -135,6 +146,7 @@ describe('buildSelectorRegistry', () => {
 
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
+      allowlist: ALLOWLIST,
       browserLauncher,
       policy: 'strict-no-css',
     });
@@ -148,7 +160,11 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]).toEqual(expect.objectContaining({ source: 'crawl' }));
   });
@@ -158,7 +174,11 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]).not.toHaveProperty('pii');
     expect(registry.elements[0]).not.toHaveProperty('dynamicText');
@@ -176,6 +196,7 @@ describe('buildSelectorRegistry', () => {
 
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
+      allowlist: ALLOWLIST,
       browserLauncher,
       policy: 'strict-no-css',
       viewports: [{ width: 1280, height: 720 }],
@@ -197,6 +218,7 @@ describe('buildSelectorRegistry', () => {
 
     await buildSelectorRegistry({
       pageModelSet: model,
+      allowlist: ALLOWLIST,
       browserLauncher,
       identity: {
         config: { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' },
@@ -215,6 +237,7 @@ describe('buildSelectorRegistry', () => {
 
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
+      allowlist: ALLOWLIST,
       browserLauncher,
       viewports: [{ width: 1024, height: 768 }],
     });
@@ -227,7 +250,11 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.name).toBe('logIn');
   });
@@ -239,7 +266,11 @@ describe('buildSelectorRegistry', () => {
     ]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.name).toBe('submit');
     expect(registry.elements[1]?.name).toBe('submit2');
@@ -250,7 +281,11 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ kind: 'button', accessibleName: '→' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.name).toBe('button');
   });
@@ -260,7 +295,11 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ accessibleName: '2fa code' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.name).toBe('element2faCode');
   });
@@ -272,7 +311,11 @@ describe('buildSelectorRegistry', () => {
     ]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.name).toBe('deleteElement');
     expect(registry.elements[1]?.name).toBe('div1');
@@ -285,7 +328,11 @@ describe('buildSelectorRegistry', () => {
       subRequestsByUrl: { [url]: [{ method: 'POST', url: 'https://staging.example.com/analytics' }] },
     });
 
-    const { blockedRequestCount } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { blockedRequestCount } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(blockedRequestCount).toBe(1);
   });
@@ -300,8 +347,16 @@ describe('buildSelectorRegistry', () => {
     ]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const first = await buildSelectorRegistry({ pageModelSet: before, browserLauncher });
-    const second = await buildSelectorRegistry({ pageModelSet: after, browserLauncher });
+    const first = await buildSelectorRegistry({
+      pageModelSet: before,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
+    const second = await buildSelectorRegistry({
+      pageModelSet: after,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(first.registry.elements[0]?.elementId).toBe(second.registry.elements[0]?.elementId);
   });
@@ -316,7 +371,11 @@ describe('buildSelectorRegistry', () => {
     ]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      browserLauncher,
+    });
 
     expect(registry.elements[0]?.elementId).not.toBe(registry.elements[1]?.elementId);
   });

@@ -10,6 +10,8 @@ import { createSafeModeRouteHandler } from './safe-mode.js';
 
 export interface AnalyzePagesOptions {
   readonly urls: readonly string[];
+  /** Hostnames safe mode may navigate to while analyzing (#306); a redirect off this list is blocked. */
+  readonly allowlist: readonly string[];
   readonly browserLauncher: BrowserLauncher;
   /** Signs in before analyzing, reusing `authenticate()` (P1-05). Omit to analyze anonymously. */
   readonly identity?: ExplorerIdentity;
@@ -40,7 +42,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
     let blockedRequestCount = 0;
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(() => {
+      createSafeModeRouteHandler(options.allowlist, () => {
         blockedRequestCount += 1;
       }),
     );

@@ -159,6 +159,28 @@ describe('crawl', () => {
     expect(har.log.entries.some((entry) => entry.blocked && entry.request.method === 'POST')).toBe(true);
   });
 
+  it('blocks a GET subrequest off the domain allowlist even though it is not a queued link (regression, #306)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      subRequestsByUrl: {
+        'https://staging.example.com/': [{ method: 'GET', url: 'https://evil.example.com/tracker.js' }],
+      },
+    });
+
+    const result = await crawl({
+      startUrl: 'https://staging.example.com/',
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+    });
+
+    expect(result.blockedRequestCount).toBe(1);
+    const har = JSON.parse(result.requestLogHar) as {
+      log: { entries: { blocked: boolean; request: { url: string } }[] };
+    };
+    expect(
+      har.log.entries.some((entry) => entry.blocked && entry.request.url.includes('evil.example.com')),
+    ).toBe(true);
+  });
+
   it('crawls anonymously with an empty newContext() call when no identity is given', async () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 

@@ -105,6 +105,7 @@ describe('analyzePages (demo app)', () => {
   it('produces a structured page model for the login page, tasks list and new-task form', async () => {
     const result = await analyzePages({
       urls: [`${BASE_URL}/login`, `${BASE_URL}/tasks/new`],
+      allowlist: ['localhost'],
       browserLauncher: playwrightBrowserLauncher,
       identity: {
         config: {
@@ -134,6 +135,7 @@ describe('analyzePages (demo app)', () => {
   it('extracts real label associations and degrades gracefully to css when they are missing', async () => {
     const result = await analyzePages({
       urls: [`${BASE_URL}/login`],
+      allowlist: ['localhost'],
       browserLauncher: playwrightBrowserLauncher,
     });
 
@@ -211,11 +213,20 @@ describe('buildSelectorRegistry (demo app)', () => {
   it('produces a stable registry with no diff between two runs against an unchanged page', async () => {
     const { pageModelSet } = await analyzePages({
       urls: [`${BASE_URL}/login`],
+      allowlist: ['localhost'],
       browserLauncher: playwrightBrowserLauncher,
     });
 
-    const first = await buildSelectorRegistry({ pageModelSet, browserLauncher: playwrightBrowserLauncher });
-    const second = await buildSelectorRegistry({ pageModelSet, browserLauncher: playwrightBrowserLauncher });
+    const first = await buildSelectorRegistry({
+      pageModelSet,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+    });
+    const second = await buildSelectorRegistry({
+      pageModelSet,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+    });
 
     expect(first.registry.elements.length).toBeGreaterThan(0);
     expect(first.registry.elements.every((selectorElement) => selectorElement.stabilityScore === 1)).toBe(
