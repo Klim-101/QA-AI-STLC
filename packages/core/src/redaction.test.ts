@@ -103,4 +103,154 @@ describe('redactHar', () => {
     expect(result.redacted).toBe(true);
     expect(parseHar(result.content).log.entries[0]).toEqual({ request: undefined, response: undefined });
   });
+
+  it('redacts a password field in a URL-encoded request body (regression, #285)', () => {
+    const input = har([
+      { request: { postData: { mimeType: 'application/x-www-form-urlencoded', text: 'username=alice&password=hunter2' } } },
+    ]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { text?: string } } }[] };
+    };
+    expect(parsed.log.entries[0]?.request?.postData?.text).toBe('username=alice&password=[REDACTED]');
+  });
+
+  it('redacts a sensitive field in a JSON request body', () => {
+    const input = har([
+      { request: { postData: { mimeType: 'application/json', text: '{"username":"alice","password":"hunter2"}' } } },
+    ]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { text?: string } } }[] };
+    };
+    expect(JSON.parse(parsed.log.entries[0]?.request?.postData?.text ?? '{}')).toEqual({
+      username: 'alice',
+      password: '[REDACTED]',
+    });
+  });
+
+  it('redacts a sensitive field in a nested JSON response body', () => {
+    const input = har([
+      { response: { content: { mimeType: 'application/json', text: '{"user":{"apiKey":"abc123"}}' } } },
+    ]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { response?: { content?: { text?: string } } }[] };
+    };
+    expect(JSON.parse(parsed.log.entries[0]?.response?.content?.text ?? '{}')).toEqual({
+      user: { apiKey: '[REDACTED]' },
+    });
+  });
+
+  it('redacts a sensitive field inside an array in a JSON body', () => {
+    const input = har([
+      {
+        request: {
+          postData: {
+            mimeType: 'application/json',
+            text: '{"users":[{"name":"alice","password":"hunter2"},{"name":"bob","password":"hunter3"}]}',
+          },
+        },
+      },
+    ]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { text?: string } } }[] };
+    };
+    expect(JSON.parse(parsed.log.entries[0]?.request?.postData?.text ?? '{}')).toEqual({
+      users: [
+        { name: 'alice', password: '[REDACTED]' },
+        { name: 'bob', password: '[REDACTED]' },
+      ],
+    });
+  });
+
+  it('redacts a sensitive value in structured postData.params and leaves other params untouched', () => {
+    const input = har([
+      {
+        request: {
+          postData: {
+            params: [
+              { name: 'username', value: 'alice' },
+              { name: 'password', value: 'hunter2' },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { params?: { name: string; value: string }[] } } }[] };
+    };
+    expect(parsed.log.entries[0]?.request?.postData?.params).toEqual([
+      { name: 'username', value: 'alice' },
+      { name: 'password', value: '[REDACTED]' },
+    ]);
+  });
+
+  it('leaves a param with no name untouched', () => {
+    const input = har([{ request: { postData: { params: [{ value: 'anything' }] } } }]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { params?: { value: string }[] } } }[] };
+    };
+    expect(parsed.log.entries[0]?.request?.postData?.params?.[0]?.value).toBe('anything');
+  });
+
+  it('leaves a response content object with no text field untouched', () => {
+    const input = har([{ response: { content: { mimeType: 'image/png' } } }]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { response?: { content?: { mimeType?: string } } }[] };
+    };
+    expect(parsed.log.entries[0]?.response?.content?.mimeType).toBe('image/png');
+  });
+
+  it('leaves a non-JSON, non-form body untouched', () => {
+    const input = har([{ request: { postData: { text: 'plain text with no credentials' } } }]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { text?: string } } }[] };
+    };
+    expect(parsed.log.entries[0]?.request?.postData?.text).toBe('plain text with no credentials');
+  });
+
+  it('leaves a request with postData but no text or params untouched', () => {
+    const input = har([{ request: { postData: { mimeType: 'application/octet-stream' } } }]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: { postData?: { mimeType?: string } } }[] };
+    };
+    expect(parsed.log.entries[0]?.request?.postData?.mimeType).toBe('application/octet-stream');
+  });
+
+  it('leaves an entry with no postData/content untouched', () => {
+    const input = har([{ request: {}, response: {} }]);
+
+    const result = redactHar(input);
+
+    const parsed = JSON.parse(result.content) as {
+      log: { entries: { request?: object; response?: object }[] };
+    };
+    expect(parsed.log.entries[0]?.request).toEqual({});
+    expect(parsed.log.entries[0]?.response).toEqual({});
+  });
 });

@@ -169,6 +169,36 @@ describe('EvidenceStore', () => {
     expect(written).not.toContain('clean-token-value');
   });
 
+  it('redacts a login form password in a network-har request body (regression, #285)', async () => {
+    const { evidenceStore, store } = createEvidenceStore();
+    const harContent = JSON.stringify({
+      log: {
+        entries: [
+          {
+            request: {
+              postData: {
+                mimeType: 'application/x-www-form-urlencoded',
+                text: 'username=alice&password=hunter2',
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    const registration = await evidenceStore.register({
+      id: 'evidence-1',
+      runId: 'run-1',
+      kind: 'network-har',
+      content: harContent,
+    });
+
+    const evidence = expectRegistered(registration);
+    expect(evidence.redacted).toBe(true);
+    const written = await store.readText(evidence.path);
+    expect(written).not.toContain('hunter2');
+  });
+
   it('still quarantines network-har content that keeps a secret shape after redaction', async () => {
     const { evidenceStore } = createEvidenceStore();
     const harContent = JSON.stringify({
