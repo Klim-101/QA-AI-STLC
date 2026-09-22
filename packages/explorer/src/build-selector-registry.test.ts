@@ -12,6 +12,8 @@ import type {
 import { describe, expect, it } from 'vitest';
 import {
   buildSelectorRegistry,
+  computeElementId,
+  createElementIdAssigner,
   diffSelectorRegistry,
   mergeSelectorRegistry,
 } from './build-selector-registry.js';
@@ -36,6 +38,50 @@ function pageModel(url: string, interactiveElements: readonly InteractiveElement
 function pageModelSet(pages: readonly PageModel[]): PageModelSet {
   return { schemaVersion: SCHEMA_VERSION, generatedAt: '2026-09-17T00:00:00Z', pages: [...pages] };
 }
+
+describe('computeElementId', () => {
+  it('prefers testId over accessibleName when computing identity (regression, #282)', () => {
+    const url = 'https://staging.example.com/cart';
+    const withLowCount = element({ testId: 'cart-button', accessibleName: 'Cart (3)' });
+    const withHighCount = element({ testId: 'cart-button', accessibleName: 'Cart (5)' });
+
+    expect(computeElementId(url, withLowCount)).toBe(computeElementId(url, withHighCount));
+  });
+
+  it('folds the occurrence index into the id so it never matches index 0 by accident', () => {
+    const url = 'https://staging.example.com/items';
+    const target = element({ accessibleName: 'Delete' });
+
+    expect(computeElementId(url, target, 1)).not.toBe(computeElementId(url, target, 0));
+  });
+});
+
+describe('createElementIdAssigner', () => {
+  it('assigns the same id to the same element every time it is asked', () => {
+    const assign = createElementIdAssigner();
+    const url = 'https://staging.example.com/login';
+    const target = element({ accessibleName: 'Log in' });
+
+    expect(assign(url, target)).toBe(computeElementId(url, target, 0));
+  });
+
+  it('assigns an incrementing occurrence index to repeated identical elements', () => {
+    const assign = createElementIdAssigner();
+    const url = 'https://staging.example.com/items';
+    const first = element({ accessibleName: 'Delete' });
+    const second = element({ accessibleName: 'Delete' });
+
+    expect(assign(url, first)).toBe(computeElementId(url, first, 0));
+    expect(assign(url, second)).toBe(computeElementId(url, second, 1));
+  });
+
+  it('keeps two different instances from sharing occurrence state', () => {
+    const url = 'https://staging.example.com/items';
+    const target = element({ accessibleName: 'Delete' });
+
+    expect(createElementIdAssigner()(url, target)).toBe(createElementIdAssigner()(url, target));
+  });
+});
 
 describe('buildSelectorRegistry', () => {
   it('assigns the same elementId across two runs against the same page model', async () => {
@@ -208,6 +254,37 @@ describe('buildSelectorRegistry', () => {
     const { blockedRequestCount } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
 
     expect(blockedRequestCount).toBe(1);
+  });
+
+  it('keeps the elementId stable when only the accessible name changes (regression, #282)', async () => {
+    const url = 'https://staging.example.com/cart';
+    const before = pageModelSet([
+      pageModel(url, [element({ testId: 'cart-button', accessibleName: 'Cart (3)' })]),
+    ]);
+    const after = pageModelSet([
+      pageModel(url, [element({ testId: 'cart-button', accessibleName: 'Cart (5)' })]),
+    ]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    const first = await buildSelectorRegistry({ pageModelSet: before, browserLauncher });
+    const second = await buildSelectorRegistry({ pageModelSet: after, browserLauncher });
+
+    expect(first.registry.elements[0]?.elementId).toBe(second.registry.elements[0]?.elementId);
+  });
+
+  it('assigns distinct elementIds to two elements sharing the same name on one page (regression, #282)', async () => {
+    const url = 'https://staging.example.com/items';
+    const model = pageModelSet([
+      pageModel(url, [
+        element({ accessibleName: 'Delete', nthOfType: 1 }),
+        element({ accessibleName: 'Delete', nthOfType: 2 }),
+      ]),
+    ]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+
+    expect(registry.elements[0]?.elementId).not.toBe(registry.elements[1]?.elementId);
   });
 });
 

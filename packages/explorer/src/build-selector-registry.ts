@@ -32,10 +32,9 @@ export interface BuildSelectorRegistryResult {
 }
 
 // The element's best available human-meaningful name, in the same signal-quality order
-// synthesizeLocatorCandidates already uses: the id changes only when every one of those signals
-// changes too, not on a DOM reorder alone. A position-based fallback is last resort, matching the
-// CSS candidate's own fallback (development plan section 6.3.4). Exported for pick mode (P1-14),
-// which assigns a `source: 'manual'` element the same elementId a crawl would have found for it.
+// synthesizeLocatorCandidates already uses: chosen for how well it reads as an identifier, not
+// for how stable it is across crawls. Exported for pick mode (P1-14), which uses it as the
+// default text a human can rename before it becomes a locator module export.
 export function elementNameForId(element: InteractiveElement): string {
   return (
     element.accessibleName ??
@@ -46,8 +45,47 @@ export function elementNameForId(element: InteractiveElement): string {
   );
 }
 
-export function computeElementId(url: string, element: InteractiveElement): string {
-  return hashText(`${url} ${element.kind} ${elementNameForId(element)}`);
+// The signal `computeElementId` hashes, in stability order rather than `elementNameForId`'s
+// locator-quality order (#282): `testId` ranks first because it is the one signal actually
+// designed to stay constant across crawls, unlike `accessibleName`/`label`, which legitimately
+// change with live page content (a "Cart (3)" button's accessible name changes the moment the
+// badge count does).
+function elementIdentitySignal(element: InteractiveElement): string {
+  return (
+    element.testId ??
+    element.accessibleName ??
+    element.label ??
+    element.placeholder ??
+    `${element.tagName}:${String(element.nthOfType)}`
+  );
+}
+
+/**
+ * A stable id for `element` as found on `url`. `occurrenceIndex` disambiguates two elements that
+ * resolve to the same identity signal on the same page (#282, e.g. two "Delete" buttons in a
+ * list): pass the number of elements with the same `(url, kind, signal)` already assigned an id
+ * before this one, 0 for the first. `createElementIdAssigner()` tracks this automatically across
+ * a batch of elements; call this directly only to recompute a specific element's id in isolation.
+ */
+export function computeElementId(url: string, element: InteractiveElement, occurrenceIndex = 0): string {
+  const disambiguator = occurrenceIndex === 0 ? '' : ` #${String(occurrenceIndex)}`;
+  return hashText(`${url} ${element.kind} ${elementIdentitySignal(element)}${disambiguator}`);
+}
+
+/**
+ * Assigns every element from one crawl or pick-mode capture batch a stable id via
+ * `computeElementId`, tracking how many elements sharing the same `(url, kind, signal)` were
+ * already assigned one so duplicates (#282, e.g. two same-named buttons on one page) never
+ * collide. Create one instance per batch; instances never share state.
+ */
+export function createElementIdAssigner(): (url: string, element: InteractiveElement) => string {
+  const seenCounts = new Map<string, number>();
+  return (url, element) => {
+    const key = `${url}\u0000${element.kind}\u0000${elementIdentitySignal(element)}`;
+    const occurrenceIndex = seenCounts.get(key) ?? 0;
+    seenCounts.set(key, occurrenceIndex + 1);
+    return computeElementId(url, element, occurrenceIndex);
+  };
 }
 
 /**
@@ -79,6 +117,7 @@ export async function buildSelectorRegistry(
     const generatedAt = clock.now().toISOString();
     const elements: SelectorElement[] = [];
     const nameFor = createElementNamer();
+    const assignElementId = createElementIdAssigner();
 
     for (const pageModel of options.pageModelSet.pages) {
       await page.goto(pageModel.url);
@@ -95,7 +134,7 @@ export async function buildSelectorRegistry(
               );
 
         elements.push({
-          elementId: computeElementId(pageModel.url, interactiveElement),
+          elementId: assignElementId(pageModel.url, interactiveElement),
           name: nameFor(elementNameForId(interactiveElement), interactiveElement.kind),
           kind: interactiveElement.kind,
           locatorCandidates: candidates,

@@ -3,7 +3,7 @@
 
 import { QaError, type AuthPage, type ViewportSize } from '@qa-ai-stlc/core';
 import type { InteractiveElement, LocatorCandidate, SelectorElement } from '@qa-ai-stlc/schemas';
-import { computeElementId, elementNameForId } from './build-selector-registry.js';
+import { createElementIdAssigner, elementNameForId } from './build-selector-registry.js';
 import { createElementNamer } from './naming.js';
 import { scoreLocatorStability } from './stability-scoring.js';
 import { synthesizeLocatorCandidates, type LocatorPolicy } from './synthesize-locators.js';
@@ -312,6 +312,7 @@ export async function capturePickModeElements(
 ): Promise<PickModeElement[]> {
   const policy = options.policy ?? 'playwright-default';
   const elements: PickModeElement[] = [];
+  const assignElementId = createElementIdAssigner();
 
   for (const capture of captures) {
     const interactiveElement = toInteractiveElement(capture);
@@ -328,7 +329,7 @@ export async function capturePickModeElements(
 
     elements.push({
       pickId: capture.pickId,
-      elementId: computeElementId(url, interactiveElement),
+      elementId: assignElementId(url, interactiveElement),
       kind: interactiveElement.kind,
       defaultNameText: elementNameForId(interactiveElement),
       locatorCandidates: candidates,
