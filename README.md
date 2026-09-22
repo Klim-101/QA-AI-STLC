@@ -7,9 +7,13 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 > analysis, locator synthesis, selector registry, stale-selector detection — against a real running
 > application (see the example below). Requirements, test cases and hash-bound approval gates
 > (`qa scope`, `qa cases add`, `qa approve`, `qa validate`) work end to end too, with the same core
-> logic exposed as MCP tools (`qa-mcp-server`) for any MCP-capable agent host. There is no
-> Claude Code or Codex plugin yet — see the [roadmap](docs/public/ROADMAP.md) for what that leaves
-> planned.
+> logic exposed as MCP tools (`qa-mcp-server`) for any MCP-capable agent host. Every test case now
+> carries an explicit `feature` (its artifact lives under that feature's own folder) and can
+> reference a reusable, non-secret test-data set instead of inlining repeated values. The agent
+> layer (`qa-start`, `qa-explore`, `qa-design-cases`) and a generated Claude Code plugin
+> (`adapters/claude-plugin/`, see [below](#claude-code-plugin)) both exist; installing that plugin
+> from a marketplace and the plugin/engine version handshake are still planned — see the
+> [roadmap](docs/public/ROADMAP.md).
 
 ## Why
 
@@ -22,7 +26,7 @@ QA-AI-STLC turns that into a deterministic pipeline instead of a conversation. T
 - **Asks what is in scope** for the project: Web E2E, API, accessibility and security testing are each decided by you, and the pipeline enforces the answer.
 - **Explores your application** and builds a stable selector registry and an API-surface map before any test is written.
 - **Extracts requirements** from a local Markdown source and keeps them in `artifacts/scope.json`, never from a tracker or wiki.
-- **Designs test cases** with the agent in your host, each one required to link back to a real requirement — a link to something that doesn't exist is rejected, not silently accepted.
+- **Designs test cases** with the agent in your host, each one required to link back to a real requirement — a link to something that doesn't exist is rejected, not silently accepted. Every case declares a `feature` (its own artifact folder) and can reference a reusable, non-secret test-data set instead of duplicating values across cases.
 - **Gates every phase behind a hash-bound approval**: an artifact's exact content, not just its existence, is what gets approved, so editing it afterward reopens the gate automatically.
 - **Generates Playwright tests**, for the UI and for the API from your OpenAPI contract, that are verified by execution before they are kept and run in CI without any model.
 - **Records evidence** (screenshots, traces, redacted network data) that only the engine can create, so results cannot be invented.
@@ -34,11 +38,11 @@ A deterministic TypeScript engine does the work that must be reliable. A thin la
 
 ## Supported hosts
 
-| Host                          | Status                                     |
-| ----------------------------- | ------------------------------------------ |
-| Claude Code (CLI and desktop) | Planned first                              |
-| Codex (CLI and desktop)       | Planned                                    |
-| Other MCP-capable hosts       | Engine usable through the local MCP server |
+| Host                          | Status                                                             |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Claude Code (CLI and desktop) | Plugin generated from source; marketplace install not verified yet |
+| Codex (CLI and desktop)       | Planned                                                            |
+| Other MCP-capable hosts       | Engine usable through the local MCP server                         |
 
 ## Responsibility boundary
 
@@ -253,6 +257,28 @@ process that outlives the session. It exposes one MCP tool per engine operation 
 `packages/core`/`packages/explorer` function its CLI command calls, so a result from one is a result
 from the other. Manual pick-mode capture (`qa explore --pick <url>`) stays CLI-only: it opens a
 headed browser for a human to click through, which nothing can drive over MCP's stdio transport.
+
+## Claude Code plugin
+
+`npm run generate` produces `adapters/claude-plugin/` from two hand-edited sources — `agents/`
+(the skills, hub definition, phase prompts and shared references every host generates from) and
+`plugin.config.ts` (static metadata: name, description, license) — plus `packages/mcp-server`'s own
+`package.json` version, so the plugin's version and the pinned MCP server it launches can never
+drift apart. `npm run lint:generated` (`--check` mode) diffs every generated file against its
+source and fails on anything hand-edited directly under `adapters/claude-plugin/`, the same
+contract already enforced for `.claude/rules/`.
+
+![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
+
+This is a diagram of the generator's data flow, not a recorded run — there is no interactive
+Claude Code session to record yet, since installing the plugin from a marketplace and the
+plugin/engine version handshake (ADR-007) are still planned. What the generator already produces
+today: a `.claude-plugin/plugin.json` manifest, the three skills currently shipped
+(`qa-start`, `qa-explore`, `qa-design-cases`) under `skills/`, a
+`PreToolUse` hook (`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of
+that protection, on top of the engine's own manifest and hash checks — and an `.mcp.json` that
+launches `qa-mcp-server` via `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. Subagent generation
+is not part of this yet: it is added once Phase 4 defines real spoke files to generate from.
 
 ## Documentation
 

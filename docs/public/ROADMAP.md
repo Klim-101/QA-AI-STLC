@@ -50,7 +50,8 @@ The agent can drive the engine inside Claude Code.
 
 - Local MCP server with typed tools
 - Browser tools that register every action as evidence
-- Scope and test case design with approval gates bound to artifact hashes, one case set per in-scope testing type; every case classified by regression tier
+- Scope and test case design with approval gates bound to artifact hashes, one case set per in-scope testing type; every case classified by regression tier and filed under its own feature
+- Reusable, non-secret test-data sets a case references by id instead of inlining repeated values
 - Claude Code plugin generated from one canonical source
 
 ## Phase 3 — Runner and generation
@@ -82,6 +83,7 @@ The same framework inside Codex.
 
 ## Phase 6 — API, accessibility, defects, RCA and security
 
+- Discovers realistic, non-secret test-data values from the live app and its API surface, instead of an operator hand-writing every set
 - API-surface discovery from real traffic, OpenAPI diff and draft synthesis
 - API tests generated from your OpenAPI contract as Playwright request specs, verified by execution like the UI tests
 - Accessibility runner (axe-core)

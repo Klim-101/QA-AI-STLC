@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 300" width="980" height="300" role="img"
+     aria-labelledby="title desc">
+  <title id="title">How the Claude Code plugin is generated</title>
+  <desc id="desc">
+    agents/ (skills, hub, phase prompts, references) and plugin.config.ts flow into
+    scripts/generate-claude-plugin.mjs, which writes adapters/claude-plugin/ (plugin.json, skills/,
+    hooks/, .mcp.json) for Claude Code to install. lint:generated fails the build on any manual
+    edit to the generated tree.
+  </desc>
+  <style>
+    :root { color-scheme: light dark; }
+    .bg { fill: #ffffff; }
+    .box { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.5; }
+    .box-out { fill: #eef2ff; stroke: #6366f1; stroke-width: 1.5; }
+    .label { font: 600 15px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2328; }
+    .sub { font: 400 12px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #57606a; }
+    .arrow { stroke: #57606a; stroke-width: 1.75; fill: none; marker-end: url(#arrowhead); }
+    .arrowhead-fill { fill: #57606a; }
+    .caption { font: 400 12.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #57606a; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .box { fill: #161b22; stroke: #30363d; }
+      .box-out { fill: #1a1f3d; stroke: #818cf8; }
+      .label { fill: #e6edf3; }
+      .sub, .caption { fill: #8b949e; }
+      .arrow { stroke: #8b949e; }
+      .arrowhead-fill { fill: #8b949e; }
+    }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" class="arrowhead-fill" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="980" height="300" />
+
+  <!-- Source: agents/ -->
+  <rect class="box" x="20" y="60" width="210" height="140" rx="8" />
+  <text class="label" x="35" y="85">agents/</text>
+  <text class="sub" x="35" y="108">skills/*/SKILL.md</text>
+  <text class="sub" x="35" y="128">hub/HUB.md</text>
+  <text class="sub" x="35" y="148">phase-prompts/*.md</text>
+  <text class="sub" x="35" y="168">references/*.md</text>
+  <text class="sub" x="35" y="188">(hand-edited)</text>
+
+  <!-- Source: plugin.config.ts -->
+  <rect class="box" x="20" y="215" width="210" height="55" rx="8" />
+  <text class="label" x="35" y="240">plugin.config.ts</text>
+  <text class="sub" x="35" y="258">name, description, license…</text>
+
+  <!-- Generator -->
+  <rect class="box-out" x="290" y="105" width="230" height="110" rx="8" />
+  <text class="label" x="305" y="135">generate-claude-plugin.mjs</text>
+  <text class="sub" x="305" y="158">version from</text>
+  <text class="sub" x="305" y="175">mcp-server/package.json</text>
+  <text class="sub" x="305" y="197">npm run generate</text>
+
+  <!-- Output: adapters/claude-plugin/ -->
+  <rect class="box" x="580" y="40" width="230" height="180" rx="8" />
+  <text class="label" x="595" y="65">adapters/claude-plugin/</text>
+  <text class="sub" x="595" y="88">.claude-plugin/plugin.json</text>
+  <text class="sub" x="595" y="106">skills/, hub/, phase-prompts/</text>
+  <text class="sub" x="595" y="124">references/</text>
+  <text class="sub" x="595" y="142">hooks/hooks.json</text>
+  <text class="sub" x="595" y="160">(blocks Write/Edit under .qa/**)</text>
+  <text class="sub" x="595" y="182">.mcp.json (pinned engine version)</text>
+  <text class="sub" x="595" y="202">(generated — never hand-edited)</text>
+
+  <!-- Destination: Claude Code -->
+  <rect class="box" x="860" y="105" width="100" height="90" rx="8" />
+  <text class="label" x="875" y="135">Claude</text>
+  <text class="label" x="875" y="153">Code</text>
+  <text class="sub" x="875" y="175">host</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M230,120 C260,120 260,150 290,150" />
+  <path class="arrow" d="M230,242 C265,242 265,175 290,175" />
+  <path class="arrow" d="M520,160 C550,160 550,130 580,130" />
+  <path class="arrow" d="M810,140 C830,140 840,145 860,148" />
+
+  <text class="caption" x="20" y="290">lint:generated diffs every file above against its source and fails on any manual edit to adapters/claude-plugin/.</text>
+</svg>
