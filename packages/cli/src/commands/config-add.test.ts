@@ -6,7 +6,7 @@ import { QaError } from '@qa-ai-stlc/core';
 import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import { createCommandContext, type CommandContext } from '../command-context.js';
-import { createFakeFileSystem } from '../test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { runConfigAddEnvironment, runConfigAddIdentity } from './config-add.js';
 
 const noopIo = { stdout: () => undefined, stderr: () => undefined };

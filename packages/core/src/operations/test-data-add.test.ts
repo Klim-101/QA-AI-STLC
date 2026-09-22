@@ -8,7 +8,7 @@ import { QaError } from '../errors.js';
 import { noopLogger } from '../ports/logger.js';
 import { systemClock } from '../ports/clock.js';
 import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
-import { createFakeFileSystem } from '../test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '../test-support/fake-http-client.js';
 import { createFakeProcessRunner } from '../test-support/fake-process-runner.js';
 import { runTestDataAdd } from './test-data-add.js';

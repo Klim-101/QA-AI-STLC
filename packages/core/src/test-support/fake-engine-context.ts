@@ -5,7 +5,7 @@ import type { EngineContext } from '../engine-context.js';
 import { systemClock } from '../ports/clock.js';
 import { noopLogger } from '../ports/logger.js';
 import { createFakeBrowserLauncher } from './fake-browser-launcher.js';
-import { createFakeFileSystem } from './fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from './fake-http-client.js';
 import { createFakeProcessRunner } from './fake-process-runner.js';
 

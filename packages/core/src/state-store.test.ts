@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PipelineStateStore } from './state-store.js';
 import { QaStore } from './qa-store.js';
-import { createFakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 function createStateStore(): PipelineStateStore {
   const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });

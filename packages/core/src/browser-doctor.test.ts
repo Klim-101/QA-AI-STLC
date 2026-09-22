@@ -15,7 +15,7 @@ import {
 } from './browser-doctor.js';
 import type { HttpClient } from './ports/http-client.js';
 import type { ProcessRunner } from './ports/process-runner.js';
-import { createFakeFileSystem } from './test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 describe('resolveBrowserExecutablePath', () => {
   it('resolves a path for every supported browser', () => {

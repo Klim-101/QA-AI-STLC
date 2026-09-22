@@ -6,7 +6,7 @@ import { QaError } from '@qa-ai-stlc/core';
 import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import { createCommandContext } from '../command-context.js';
-import { createFakeFileSystem } from '../test-support/fake-file-system.js';
+import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { runInit } from './init.js';
 
 const PROJECT_ROOT = join('project');
