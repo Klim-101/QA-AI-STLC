@@ -100,6 +100,25 @@ describe('SelectorRegistrySchema', () => {
     expect(withName.data?.elements[0]?.name).toBe('submitButton');
   });
 
+  it('accepts an element with no pii/dynamicText, since no detection exists yet (regression, #284)', () => {
+    const result = SelectorRegistrySchema.safeParse({
+      generatedAt: '2026-09-16T12:00:00Z',
+      elements: [
+        {
+          elementId: 'checkout-submit-button',
+          kind: 'button',
+          locatorCandidates: [],
+          stabilityScore: 0,
+          lastVerifiedAt: '2026-09-16T12:00:00Z',
+          source: 'crawl',
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.elements[0]?.pii).toBeUndefined();
+    expect(result.data?.elements[0]?.dynamicText).toBeUndefined();
+  });
+
   it('accepts a static element with a source file location and rejects a non-project-relative path', () => {
     const element = {
       elementId: 'login-submit',

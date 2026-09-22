@@ -167,8 +167,6 @@ export async function buildSelectorRegistry(
           locatorCandidates: primaryCandidates,
           stabilityScore,
           lastVerifiedAt: generatedAt,
-          pii: false,
-          dynamicText: false,
           source: 'crawl',
           pageUrl: pageModel.url,
         });

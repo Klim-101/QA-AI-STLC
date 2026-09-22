@@ -199,8 +199,6 @@ export function analyzeStaticSource(options: AnalyzeStaticSourceOptions): Analyz
       locatorCandidates: candidatesFor(finding),
       stabilityScore: 0,
       lastVerifiedAt,
-      pii: false,
-      dynamicText: false,
       source: 'static' as const,
       sourceLocation: { filePath: finding.filePath, line: finding.line },
     })),

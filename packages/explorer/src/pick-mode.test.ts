@@ -261,10 +261,15 @@ describe('finalizeManualSelectorEntries', () => {
         elementId: 'element-1',
         source: 'manual',
         lastVerifiedAt: '2026-09-18T00:00:00Z',
-        pii: false,
-        dynamicText: false,
       }),
     );
+  });
+
+  it('leaves pii/dynamicText unset rather than asserting a check that never ran (regression, #284)', () => {
+    const [entry] = finalizeManualSelectorEntries([pickModeElement()], new Map(), '2026-09-18T00:00:00Z');
+
+    expect(entry).not.toHaveProperty('pii');
+    expect(entry).not.toHaveProperty('dynamicText');
   });
 
   it('uses the confirmed name override instead of the default name text when given', () => {
