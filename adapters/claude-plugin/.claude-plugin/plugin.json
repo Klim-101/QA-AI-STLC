@@ -1,0 +1,11 @@
+{
+  "name": "qa-ai-stlc",
+  "displayName": "QA-AI-STLC",
+  "version": "0.4.0",
+  "description": "Open-source, model-agnostic QA framework: explorer, test design, execution and reporting.",
+  "author": { "name": "The QA-AI-STLC Authors" },
+  "homepage": "https://github.com/Klim-101/QA-AI-STLC",
+  "repository": "https://github.com/Klim-101/QA-AI-STLC",
+  "license": "Apache-2.0",
+  "keywords": ["qa", "testing", "playwright", "mcp", "e2e"]
+}
