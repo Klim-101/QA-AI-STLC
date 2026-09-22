@@ -3,15 +3,19 @@
 
 // Generates the installable Claude Code plugin (`adapters/claude-plugin/`, P2-11) from `agents/`
 // (skills, hub, phase prompts, references), the hook script under `scripts/claude-plugin/`, and
-// `plugin.config.ts`. `agents/` and `plugin.config.ts` stay the only hand-edited sources; `--check`
-// verifies the generated tree still matches them and flags any file that does not belong there
-// (a manual edit), the same contract `generate-claude-rules.mjs` already applies to `.claude/rules`.
-// Run with `node --experimental-strip-types` (see package.json) so `plugin.config.ts` can be
-// imported directly, the same way `vitest.config.ts` is loaded without a separate build step.
+// `plugin.config.ts`. It also generates a `claude plugin eval` suite under `evals/` from each
+// skill's `triggers`/`nonTriggers` frontmatter (P2-10) — a local, hand-run check; CI wiring is a
+// separate task (P2-23), since each eval run is a real, billed model call. `agents/` and
+// `plugin.config.ts` stay the only hand-edited sources; `--check` verifies the generated tree
+// still matches them and flags any file that does not belong there (a manual edit), the same
+// contract `generate-claude-rules.mjs` already applies to `.claude/rules`. Run with
+// `node --experimental-strip-types` (see package.json) so `plugin.config.ts` can be imported
+// directly, the same way `vitest.config.ts` is loaded without a separate build step.
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { format, resolveConfig } from 'prettier';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 const repoRoot = join(import.meta.dirname, '..');
 const outDir = join(repoRoot, 'adapters', 'claude-plugin');
@@ -52,6 +56,47 @@ async function renderJson(value, outPath) {
   return format(JSON.stringify(value), { ...config, filepath: outPath });
 }
 
+/** Reads `name`, `triggers` and `nonTriggers` out of a `SKILL.md`'s YAML frontmatter block. */
+function parseSkillFrontmatter(skillMdPath) {
+  const content = readFileSync(skillMdPath, 'utf8');
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(content);
+  if (!match) {
+    throw new Error(`${skillMdPath} has no YAML frontmatter block.`);
+  }
+  const frontmatter = parseYaml(match[1]);
+  const { name, triggers, nonTriggers } = frontmatter;
+  if (typeof name !== 'string' || !Array.isArray(triggers) || !Array.isArray(nonTriggers)) {
+    throw new Error(`${skillMdPath}'s frontmatter is missing name, triggers or nonTriggers.`);
+  }
+  return { name, triggers, nonTriggers };
+}
+
+/**
+ * One `claude plugin eval` case per trigger/nonTrigger phrase (P2-10): a trigger case asserts the
+ * `Skill` tool fires with this skill's name (the grader's default `min: 1`); a nonTrigger case
+ * asserts it does not (`min: 0, max: 0`). `allowed_tools: [Skill]` and a small `max_turns` price
+ * out only the triggering decision itself, not the skill's full instructions actually running —
+ * this plugin's `.mcp.json` server is never started for these cases.
+ */
+function buildEvalCase(skillName, phrase, kind, index, files) {
+  const caseDir = `evals/${skillName}-${kind}-${index}`;
+  files.set(`${caseDir}/prompt.md`, {
+    content: `---\n${stringifyYaml({ runs: 1, max_turns: 3, allowed_tools: ['Skill'] })}---\n\n${phrase}\n`,
+  });
+
+  // A plugin's skill is addressable as `<plugin>:<skill>` once installed, so the match tolerates
+  // an optional plugin-name prefix in the tool call's JSON input.
+  const skillInputMatch = `"skill"\\s*:\\s*"(?:[\\w-]+:)?${skillName}"`;
+  const graderFrontmatter =
+    kind === 'trigger'
+      ? { type: 'tool_used', tool: 'Skill', input_match: skillInputMatch }
+      : { type: 'tool_used', tool: 'Skill', input_match: skillInputMatch, min: 0, max: 0 };
+  const graderName = kind === 'trigger' ? 'skill-fired.md' : 'skill-not-fired.md';
+  files.set(`${caseDir}/graders/${graderName}`, {
+    content: `---\n${stringifyYaml(graderFrontmatter)}---\n`,
+  });
+}
+
 async function buildFiles() {
   const files = new Map();
 
@@ -60,7 +105,14 @@ async function buildFiles() {
     if (skillName === '_example') {
       continue;
     }
-    copyDirectory(join(agentsDir, 'skills', skillName), join('skills', skillName), files);
+    const skillDir = join(agentsDir, 'skills', skillName);
+    copyDirectory(skillDir, join('skills', skillName), files);
+
+    const { name, triggers, nonTriggers } = parseSkillFrontmatter(join(skillDir, 'SKILL.md'));
+    triggers.forEach((phrase, index) => buildEvalCase(name, phrase, 'trigger', index + 1, files));
+    nonTriggers.forEach((phrase, index) => {
+      buildEvalCase(name, phrase, 'nontrigger', index + 1, files);
+    });
   }
   copyDirectory(join(agentsDir, 'hub'), 'hub', files);
   copyDirectory(join(agentsDir, 'phase-prompts'), 'phase-prompts', files);

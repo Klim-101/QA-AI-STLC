@@ -68,10 +68,10 @@ references:
 - `description` is the single field a host uses to decide whether to load the skill. It states
   _when_ to use the skill with concrete trigger phrases (AGENTS.md 12.2), never a summary of what
   the skill does.
-- `triggers` / `nonTriggers` are example phrases for the triggering-eval harness (P2-10). They are
-  data for that future eval runner, not documentation for a human reader — keep them short and
-  realistic rather than exhaustive. A skill with no plausible non-trigger example is a sign its
-  `description` is too broad.
+- `triggers` / `nonTriggers` are example phrases for the triggering-eval harness (P2-10, see
+  [Triggering eval harness](#triggering-eval-harness)). They are data for that eval suite, not
+  documentation for a human reader — keep them short and realistic rather than exhaustive. A skill
+  with no plausible non-trigger example is a sign its `description` is too broad.
 - `references` lists the files under `references/` the body links to, so a lint or an eval can
   confirm every reference actually exists without parsing prose links.
 
@@ -138,6 +138,26 @@ is doing during that phase and which `qa.*` tools it calls to do it. This is a d
 for the hub, not skill content — a phase prompt names the tools and the gate; the skill that
 actually carries out the phase's work is a separate, longer file under `skills/`.
 
+## Triggering eval harness
+
+`scripts/generate-claude-plugin.mjs` (P2-11) also generates a `claude plugin eval` suite under
+`adapters/claude-plugin/evals/`, one case per `triggers`/`nonTriggers` entry in every `SKILL.md`:
+a trigger case (`<skill>-trigger-<n>`) asserts the `Skill` tool fires with that skill's name; a
+nonTrigger case (`<skill>-nontrigger-<n>`) asserts it does not. Each case restricts the model to
+the `Skill` tool and a handful of turns, so it prices out only the triggering decision, never a
+skill's full instructions actually running — the plugin's MCP server is never started for these.
+
+Run it locally after changing any `description`, `triggers` or `nonTriggers`:
+
+```sh
+npm run generate
+claude plugin eval adapters/claude-plugin
+```
+
+Every run is a real, billed model call against whichever account runs it — there is no way around
+that, since it is literally what skill selection is. For that reason this harness is a local,
+hand-run check for now; CI wiring is a separate task (P2-23) with its own cost/cadence decision.
+
 ## Lint for size
 
 `scripts/lint-agents.mjs` enforces the `SKILL.md` line cap:
@@ -165,3 +185,6 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
   technique names, `TestCaseSchema`/`DefectDraftSchema` field conventions, and the regression-tier
   definitions. No skill points to it by its `references:` frontmatter entry yet, because no skill
   exists yet (P2-09 is the first one that will).
+- `qa-start`, `qa-explore` and `qa-design-cases` (P2-09) are the real, shipped skills today.
+- The triggering eval suite (P2-10) is generated from those three skills' `triggers`/`nonTriggers`
+  under `adapters/claude-plugin/evals/`; see [Triggering eval harness](#triggering-eval-harness).
