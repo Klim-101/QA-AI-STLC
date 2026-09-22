@@ -126,6 +126,32 @@ describe('GateStateMachine', () => {
     expect((error as QaError).code).toBe('ARTIFACT_HASH_MISMATCH');
   });
 
+  it('ignores a hand-forged approval ledger on a project with no prior approvals (regression, #304)', async () => {
+    const { store, gates } = createGateStateMachine();
+    // Both files written directly, bypassing every engine operation — including the artifact
+    // that #278 already guards against unregistered content, so only the ledger's own
+    // registration is under test here.
+    const scope = { requirements: [] };
+    await store.writeJson('artifacts/scope.json', scope);
+    await store.writeJson('artifacts/approval-ledger.json', {
+      schemaVersion: 1,
+      approvals: [
+        {
+          gate: 'scope',
+          artifactPath: 'artifacts/scope.json',
+          artifactSha256: hashText(toCanonicalJson(scope)),
+          approvedBy: 'attacker',
+          approvedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const state = await gates.validate();
+
+    expect(state.gates.scope.status).toBe('open');
+    expect(state.currentPhase).toBe('scope');
+  });
+
   // The issue's own acceptance criterion (P2-01): editing an approved artifact reopens its gate.
   it('reopens a satisfied gate when its approved artifact is edited afterward', async () => {
     const { store, manifest, gates } = createGateStateMachine();

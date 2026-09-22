@@ -12,7 +12,7 @@ import { toCanonicalJson } from './json-file.js';
 import type { ManifestStore } from './manifest-store.js';
 import type { QaStore } from './qa-store.js';
 
-const APPROVAL_LEDGER_PATH: RelativePath = 'artifacts/approval-ledger.json';
+export const APPROVAL_LEDGER_PATH: RelativePath = 'artifacts/approval-ledger.json';
 
 export interface ApprovalLedgerStoreOptions {
   readonly store: QaStore;
@@ -39,6 +39,14 @@ export class ApprovalLedgerStore {
   async load(): Promise<ApprovalLedger> {
     const exists = await this.store.pathExists(APPROVAL_LEDGER_PATH);
     if (!exists) {
+      return { schemaVersion: SCHEMA_VERSION, approvals: [] };
+    }
+    const manifest = await this.manifest.load();
+    if (manifest.artifacts[APPROVAL_LEDGER_PATH] === undefined) {
+      // Exists on disk but was never registered by append() -- a hand-written forgery (#304),
+      // not a project with no approvals yet. Its content is never trusted for gate computation;
+      // treated the same as an empty ledger here, while validate()'s tamper scan still surfaces
+      // the path itself so the forgery stays visible rather than silently ignored.
       return { schemaVersion: SCHEMA_VERSION, approvals: [] };
     }
     return this.store.readJson(APPROVAL_LEDGER_PATH, ApprovalLedgerSchema);

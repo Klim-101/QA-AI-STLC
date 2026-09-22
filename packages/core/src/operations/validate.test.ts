@@ -331,6 +331,32 @@ describe('runValidate', () => {
     expect(report.tamperedArtifacts).toContain('artifacts/approval-ledger.json');
   });
 
+  it('reports a hand-written approval ledger that was never registered as tampered, without falsely satisfying its gate (regression, #304)', async () => {
+    const scopeJson = '{"requirements":[]}';
+    const context = fakeContext({
+      'artifacts/scope.json': scopeJson,
+      'manifest.json': manifestJson({ 'artifacts/scope.json': scopeJson }),
+      'artifacts/approval-ledger.json': JSON.stringify({
+        schemaVersion: 1,
+        approvals: [
+          {
+            gate: 'scope',
+            artifactPath: 'artifacts/scope.json',
+            artifactSha256: hashText(scopeJson),
+            approvedBy: 'attacker',
+            approvedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.state.gates.scope.status).toBe('open');
+    expect(report.state.currentPhase).toBe('scope');
+    expect(report.tamperedArtifacts).toContain('artifacts/approval-ledger.json');
+  });
+
   it('reports a manifest entry whose file was deleted', async () => {
     const context = fakeContext({
       'manifest.json': manifestJson({ 'artifacts/scope.json': '{"requirements":[]}' }),

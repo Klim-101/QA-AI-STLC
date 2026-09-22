@@ -12,7 +12,7 @@ import {
   type RelativePath,
   type Scope,
 } from '@qa-ai-stlc/schemas';
-import { ApprovalLedgerStore } from '../approval-ledger-store.js';
+import { ApprovalLedgerStore, APPROVAL_LEDGER_PATH } from '../approval-ledger-store.js';
 import type { EngineContext } from '../engine-context.js';
 import { GateStateMachine } from '../gate.js';
 import { ManifestStore } from '../manifest-store.js';
@@ -104,7 +104,10 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
 /**
  * Verifies every path the manifest has ever registered against the file on disk today, so
  * tampering outside `scope`/`cases add`/`approve` — artifacts nothing has re-read since — is
- * still caught the next time `qa validate` runs.
+ * still caught the next time `qa validate` runs. Also flags the approval ledger specifically
+ * (#304) when it exists on disk but was never registered at all: `findTamperedArtifacts` only
+ * walks manifest entries, so a ledger `append()` has never touched would otherwise never appear
+ * here even though `ApprovalLedgerStore.load()` already refuses to trust its content.
  */
 async function findTamperedArtifacts(
   context: EngineContext,
@@ -125,7 +128,15 @@ async function findTamperedArtifacts(
       tampered.push(relativePath);
     }
   }
-  return tampered;
+
+  if (manifest.artifacts[APPROVAL_LEDGER_PATH] === undefined) {
+    const ledgerExists = await context.fs.pathExists(store.resolve(APPROVAL_LEDGER_PATH));
+    if (ledgerExists) {
+      tampered.push(APPROVAL_LEDGER_PATH);
+    }
+  }
+
+  return tampered.sort();
 }
 
 interface CaseLinkIssues {
