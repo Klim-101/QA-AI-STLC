@@ -9,6 +9,8 @@ import type {
   LaunchOptions,
   PageLocator,
   PageResponse,
+  PageRoute,
+  RouteHandler,
   StorageState,
 } from '@qa-ai-stlc/core';
 
@@ -16,6 +18,19 @@ const EMPTY_STORAGE_STATE: StorageState = { cookies: [], origins: [] };
 const DEFAULT_RESPONSE: PageResponse = { status: () => 200 };
 // Not a real PNG: no code path under test decodes a screenshot, it only has to be bytes.
 const PLACEHOLDER_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
+
+export interface FakeSubRequest {
+  readonly method: string;
+  readonly url: string;
+}
+
+function createFakeRoute(method: string, url: string): PageRoute {
+  return {
+    request: () => ({ method: () => method, url: () => url }),
+    abort: () => Promise.resolve(),
+    continue: () => Promise.resolve(),
+  };
+}
 
 export interface FakeExplorePageOptions {
   /** Maps a normalized URL to the `<a href>` targets `extractLinks()` should see on it. */
@@ -26,6 +41,8 @@ export interface FakeExplorePageOptions {
   readonly locatorCount?: number;
   /** The overlay state `readPickModeState()` sees on every poll, once pick mode is injected. */
   readonly pickModeState?: { readonly done: boolean; readonly captures: readonly unknown[] };
+  /** Simulates the subrequests a real page fires through the registered route handler on visit. */
+  readonly subRequestsByUrl?: Readonly<Record<string, readonly FakeSubRequest[]>>;
 }
 
 /**
@@ -37,17 +54,26 @@ export interface FakeExplorePageOptions {
  */
 export function createFakeExplorePage(options: FakeExplorePageOptions = {}): AuthPage {
   let currentUrl: string | undefined;
+  const routeHandlers: RouteHandler[] = [];
   const locatorMethod = (): PageLocator => ({ count: () => Promise.resolve(options.locatorCount ?? 1) });
 
   return {
-    goto: (url) => {
+    goto: async (url) => {
       currentUrl = url;
-      return Promise.resolve(DEFAULT_RESPONSE);
+      for (const subRequest of options.subRequestsByUrl?.[url] ?? []) {
+        for (const handler of routeHandlers) {
+          await handler(createFakeRoute(subRequest.method, subRequest.url));
+        }
+      }
+      return DEFAULT_RESPONSE;
     },
     fill: () => Promise.resolve(),
     click: () => Promise.resolve(),
     waitForLoadState: () => Promise.resolve(),
-    route: () => Promise.resolve(),
+    route: (_pattern, handler) => {
+      routeHandlers.push(handler);
+      return Promise.resolve();
+    },
     evaluate: () => {
       if (options.pickModeState !== undefined) {
         return Promise.resolve(options.pickModeState);

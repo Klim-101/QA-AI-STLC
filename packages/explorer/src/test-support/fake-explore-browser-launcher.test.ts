@@ -133,6 +133,30 @@ describe('createFakeExploreBrowserLauncher', () => {
     await expect(page.evaluate(() => 'ignored')).resolves.toEqual(['https://example.com/other']);
   });
 
+  it('replays configured subrequests through every registered route handler on goto()', async () => {
+    const launcher = createFakeExploreBrowserLauncher({
+      subRequestsByUrl: {
+        'https://example.com/': [
+          { method: 'GET', url: 'https://example.com/style.css' },
+          { method: 'POST', url: 'https://example.com/analytics' },
+        ],
+      },
+    });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    const seen: { method: string; url: string }[] = [];
+    await page.route('**/*', (route) => {
+      seen.push({ method: route.request().method(), url: route.request().url() });
+      return route.request().method() === 'GET' ? route.continue() : route.abort();
+    });
+
+    await page.goto('https://example.com/');
+
+    expect(seen).toEqual([
+      { method: 'GET', url: 'https://example.com/style.css' },
+      { method: 'POST', url: 'https://example.com/analytics' },
+    ]);
+  });
+
   it('reports the current URL, an empty title and screenshot bytes', async () => {
     const launcher = createFakeExploreBrowserLauncher();
     const page = await (await (await launcher.launch()).newContext()).newPage();
