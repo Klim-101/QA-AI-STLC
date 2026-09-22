@@ -17,9 +17,10 @@ import { runCasesAdd } from './cases-add.js';
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
-function testCaseJson(overrides: { id?: string; requirementIds: string[] }): string {
+function testCaseJson(overrides: { id?: string; feature?: string; requirementIds: string[] }): string {
   return JSON.stringify({
     id: overrides.id ?? 'case-1',
+    feature: overrides.feature ?? 'checkout',
     requirementIds: overrides.requirementIds,
     testType: 'e2e',
     title: 'A case',
@@ -71,12 +72,12 @@ describe('runCasesAdd', () => {
     const result = await runCasesAdd(context, { path: 'cases/login.json' });
 
     expect(result).toEqual({
-      casePath: 'artifacts/cases/case-1.json',
+      casePath: 'artifacts/cases/checkout/case-1.json',
       id: 'case-1',
       requirementIds: ['r1'],
     });
     const written = JSON.parse(
-      await context.fs.readFile(join(QA_DIR, 'artifacts', 'cases', 'case-1.json')),
+      await context.fs.readFile(join(QA_DIR, 'artifacts', 'cases', 'checkout', 'case-1.json')),
     ) as { id: string };
     expect(written.id).toBe('case-1');
   });
@@ -93,7 +94,7 @@ describe('runCasesAdd', () => {
     const manifest = JSON.parse(await context.fs.readFile(join(QA_DIR, 'manifest.json'))) as {
       artifacts: Record<string, unknown>;
     };
-    expect(manifest.artifacts).toHaveProperty('artifacts/cases/case-1.json');
+    expect(manifest.artifacts).toHaveProperty('artifacts/cases/checkout/case-1.json');
   });
 
   it('rejects a case linking to a requirement not in the scope artifact', async () => {

@@ -937,6 +937,7 @@ describe('runCli', () => {
     });
     const caseJson = JSON.stringify({
       id: 'case-1',
+      feature: 'checkout',
       requirementIds: ['r1'],
       testType: 'e2e',
       title: 'A case',
@@ -958,7 +959,7 @@ describe('runCli', () => {
     const exitCode = await runCli(['cases', 'add', '--path', 'login.json'], deps);
 
     expect(exitCode).toBe(EXIT_SUCCESS);
-    expect(deps.stdout).toContain('Registered artifacts/cases/case-1.json: linked to r1.');
+    expect(deps.stdout).toContain('Registered artifacts/cases/checkout/case-1.json: linked to r1.');
   });
 
   it('reports a coded error when "cases add" is given no --path', async () => {
@@ -1008,6 +1009,7 @@ describe('runCli', () => {
     });
     const caseJson = JSON.stringify({
       id: 'case-1',
+      feature: 'checkout',
       requirementIds: ['r1'],
       testType: 'e2e',
       title: 'A case',

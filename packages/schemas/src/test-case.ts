@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
-import { IdentifierSchema, IsoDateTimeSchema } from './primitives.js';
+import { FeatureIdSchema, IdentifierSchema, IsoDateTimeSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
 // Matches the testing scope's four decidable types (development plan section 2.7); security has
@@ -30,6 +30,10 @@ export type RegressionTier = z.infer<typeof RegressionTierSchema>;
 export const TestCaseSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   id: IdentifierSchema,
+  // The tested feature this case belongs to (P2-20): an explicit, operator-chosen name, never
+  // inferred from the title or a requirement id. `qa cases add` registers the case under
+  // `artifacts/cases/<feature>/<id>.json`, so every case in a project must declare one.
+  feature: FeatureIdSchema,
   // Traceability (development plan section 2.7 step 9, P2-03): every case links to at least one
   // requirement. `qa validate` separately checks that each id actually resolves in the scope
   // artifact — this only rules out a case with no link at all.
