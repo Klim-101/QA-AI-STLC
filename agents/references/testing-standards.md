@@ -34,6 +34,11 @@ Pick a technique for the input or behavior being tested, don't apply all of them
 Every field below exists in `packages/schemas/src/test-case.ts`; this section is guidance on
 filling it well, not a restatement of the Zod contract:
 
+- **`feature`** — the tested feature this case belongs to, kebab-case (`FeatureIdSchema`,
+  `packages/schemas`), chosen explicitly by whoever writes the case, never inferred from the title
+  or a requirement id. `qa cases add` files the case under `artifacts/cases/<feature>/<id>.json`
+  (P2-20), so an existing feature's name is reused rather than a near-duplicate coined — check the
+  registry before inventing a new one.
 - **`preconditions`** — state that must hold before step one, stated as facts, not instructions
   ("the user is logged in as `viewer`", not "log in as `viewer`"). Omit it when a case has no
   precondition beyond "the application is reachable" — it is optional for exactly that reason.

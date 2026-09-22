@@ -77,6 +77,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         join(projectRoot, 'login-case.json'),
         JSON.stringify({
           id: 'login-case',
+          feature: 'login',
           requirementIds: ['login'],
           testType: 'e2e',
           title: 'Log in with valid credentials',
@@ -90,7 +91,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       const casesResult = await casesAddTool.handler({ path: 'login-case.json' });
       expect(casesResult).toEqual({
-        casePath: 'artifacts/cases/login-case.json',
+        casePath: 'artifacts/cases/login/login-case.json',
         id: 'login-case',
         requirementIds: ['login'],
       });
@@ -118,11 +119,12 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       // Written directly, bypassing qa.cases_add's own check, to prove qa.validate re-sweeps
       // every already-registered case rather than trusting the check done at registration time.
-      await mkdir(join(projectRoot, '.qa', 'artifacts', 'cases'), { recursive: true });
+      await mkdir(join(projectRoot, '.qa', 'artifacts', 'cases', 'login'), { recursive: true });
       await writeFile(
-        join(projectRoot, '.qa', 'artifacts', 'cases', 'stale-case.json'),
+        join(projectRoot, '.qa', 'artifacts', 'cases', 'login', 'stale-case.json'),
         JSON.stringify({
           id: 'stale-case',
+          feature: 'login',
           requirementIds: ['removed-later'],
           testType: 'e2e',
           title: 'A case whose requirement no longer exists',
@@ -138,7 +140,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(revalidateResult.unlinkedCases).toEqual([
         {
-          casePath: 'artifacts/cases/stale-case.json',
+          casePath: 'artifacts/cases/login/stale-case.json',
           id: 'stale-case',
           unlinkedRequirementIds: ['removed-later'],
         },
@@ -167,6 +169,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         join(projectRoot, 'case.json'),
         JSON.stringify({
           id: 'case-1',
+          feature: 'checkout',
           requirementIds: ['login'],
           testType: 'e2e',
           title: 'A case',
@@ -198,6 +201,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         join(projectRoot, 'bad-case.json'),
         JSON.stringify({
           id: 'bad-case',
+          feature: 'checkout',
           requirementIds: ['does-not-exist'],
           testType: 'e2e',
           title: 'A case',

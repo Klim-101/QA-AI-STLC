@@ -33,6 +33,14 @@ export type IsoDateTime = z.infer<typeof IsoDateTimeSchema>;
 export const IdentifierSchema = z.string().min(1);
 export type Identifier = z.infer<typeof IdentifierSchema>;
 
+// An explicit, operator-chosen name for a tested feature (P2-20) — the folder a test case's
+// artifact lives under (`artifacts/cases/<feature>/<id>.json`), never inferred from a case's title
+// or requirement id. Kebab-case keeps it a safe, predictable path segment on every OS.
+export const FeatureIdSchema = z
+  .string()
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'must be kebab-case: lowercase letters, digits and single hyphens');
+export type FeatureId = z.infer<typeof FeatureIdSchema>;
+
 // A place in source the engine found something without a live page to point at instead: a
 // `source: 'static'` selector element (selector-registry.ts) or a statically-extracted route
 // (route-map.ts).

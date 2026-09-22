@@ -8,6 +8,7 @@ describe('TestCaseSchema', () => {
   it('accepts an approved e2e case', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-1',
+      feature: 'checkout',
       requirementIds: ['req-1'],
       testType: 'e2e',
       title: 'User can complete checkout with valid card details',
@@ -22,6 +23,7 @@ describe('TestCaseSchema', () => {
   it('accepts a case with no preconditions or regressionTier (P2-17, both optional)', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-legacy',
+      feature: 'checkout',
       requirementIds: ['req-1'],
       testType: 'e2e',
       title: 'A case written before qa-design-cases existed',
@@ -37,6 +39,7 @@ describe('TestCaseSchema', () => {
     for (const tier of REGRESSION_TIERS) {
       const result = TestCaseSchema.safeParse({
         id: `case-${tier}`,
+        feature: 'checkout',
         requirementIds: ['req-1'],
         testType: 'e2e',
         title: 'A case with preconditions and a regression tier',
@@ -54,10 +57,40 @@ describe('TestCaseSchema', () => {
   it('rejects an empty precondition string', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-empty-precondition',
+      feature: 'checkout',
       requirementIds: ['req-1'],
       testType: 'e2e',
       title: 'A case with a blank precondition',
       preconditions: [''],
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-16T12:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a case with no feature at all (P2-20)', () => {
+    const result = TestCaseSchema.safeParse({
+      id: 'case-no-feature',
+      requirementIds: ['req-1'],
+      testType: 'e2e',
+      title: 'A case missing its feature',
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-16T12:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a feature that is not kebab-case', () => {
+    const result = TestCaseSchema.safeParse({
+      id: 'case-bad-feature',
+      feature: 'Checkout Flow',
+      requirementIds: ['req-1'],
+      testType: 'e2e',
+      title: 'A case with a badly-formed feature',
       steps: [{ description: 'Do something' }],
       expectedResult: 'Something happens',
       status: 'draft',
@@ -74,6 +107,7 @@ describe('TestCaseSchema', () => {
   it('rejects a case with zero steps', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-2',
+      feature: 'checkout',
       requirementIds: [],
       testType: 'api',
       title: 'Empty case',
@@ -88,6 +122,7 @@ describe('TestCaseSchema', () => {
   it('rejects a case with no linked requirement at all', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-4',
+      feature: 'checkout',
       requirementIds: [],
       testType: 'e2e',
       title: 'Unlinked case',
@@ -102,6 +137,7 @@ describe('TestCaseSchema', () => {
   it('rejects "security" as a test type, since the audit has no cases of its own', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-3',
+      feature: 'checkout',
       requirementIds: [],
       testType: 'security',
       title: 'Invalid',

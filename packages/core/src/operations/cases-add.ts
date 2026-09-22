@@ -33,10 +33,11 @@ export interface CasesAddResult {
  * `qa cases add --path <path>` / MCP `qa_cases_add` (development plan section 2.7 step 9, P2-03,
  * P2-05): validates a test case a human or an agent wrote as JSON — the engine never authors
  * test-case content itself (ADR-001) — checks every `requirementIds` entry against the current
- * scope artifact, and only then registers it under `artifacts/cases/<id>.json`. A case linking to
- * a requirement id that does not exist in `artifacts/scope.json` is rejected here, before it is
- * ever written; `qa validate` re-checks every already-registered case the same way, so a link
- * broken later by editing `scope.json` is caught too.
+ * scope artifact, and only then registers it under `artifacts/cases/<feature>/<id>.json` (P2-20)
+ * using the case's own `feature` field. A case linking to a requirement id that does not exist in
+ * `artifacts/scope.json` is rejected here, before it is ever written; `qa validate` re-checks every
+ * already-registered case the same way, so a link broken later by editing `scope.json` is caught
+ * too.
  */
 export async function runCasesAdd(context: EngineContext, options: CasesAddOptions): Promise<CasesAddResult> {
   if (options.path === undefined) {
@@ -66,7 +67,7 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
     );
   }
 
-  const casePath: RelativePath = `artifacts/cases/${testCase.id}.json`;
+  const casePath: RelativePath = `artifacts/cases/${testCase.feature}/${testCase.id}.json`;
   const serialized = toCanonicalJson(testCase);
   await store.writeText(casePath, serialized);
   await manifestStore.register(casePath, serialized);

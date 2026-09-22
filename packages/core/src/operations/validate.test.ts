@@ -94,7 +94,7 @@ describe('runValidate', () => {
         generatedAt: '2026-09-20T12:00:00Z',
         requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
       }),
-      'artifacts/cases/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
     });
 
     const report = await runValidate(context);
@@ -105,19 +105,42 @@ describe('runValidate', () => {
   it('reports a case whose requirement id does not resolve in the scope artifact', async () => {
     const context = fakeContext({
       'artifacts/scope.json': '{"generatedAt":"2026-09-20T12:00:00Z","requirements":[]}',
-      'artifacts/cases/case-1.json': JSON.stringify(testCase({ id: 'case-1', requirementIds: ['missing'] })),
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(
+        testCase({ id: 'case-1', requirementIds: ['missing'] }),
+      ),
     });
 
     const report = await runValidate(context);
 
     expect(report.unlinkedCases).toEqual([
-      { casePath: 'artifacts/cases/case-1.json', id: 'case-1', unlinkedRequirementIds: ['missing'] },
+      { casePath: 'artifacts/cases/checkout/case-1.json', id: 'case-1', unlinkedRequirementIds: ['missing'] },
+    ]);
+  });
+
+  it('resolves a case nested under its feature folder the same as any other (P2-20)', async () => {
+    const context = fakeContext({
+      'artifacts/scope.json': JSON.stringify({
+        generatedAt: '2026-09-20T12:00:00Z',
+        requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+      }),
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(
+        testCase({ id: 'case-1', feature: 'checkout', requirementIds: ['r1'] }),
+      ),
+      'artifacts/cases/login/case-2.json': JSON.stringify(
+        testCase({ id: 'case-2', feature: 'login', requirementIds: ['missing'] }),
+      ),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unlinkedCases).toEqual([
+      { casePath: 'artifacts/cases/login/case-2.json', id: 'case-2', unlinkedRequirementIds: ['missing'] },
     ]);
   });
 
   it('treats every requirement id as unlinked when there is no scope artifact at all', async () => {
     const context = fakeContext({
-      'artifacts/cases/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
     });
 
     const report = await runValidate(context);
@@ -179,9 +202,14 @@ function manifestJson(contentByPath: Readonly<Record<string, string>>): string {
   });
 }
 
-function testCase(overrides: { id?: string; requirementIds: string[] }): Record<string, unknown> {
+function testCase(overrides: {
+  id?: string;
+  feature?: string;
+  requirementIds: string[];
+}): Record<string, unknown> {
   return {
     id: overrides.id ?? 'case-1',
+    feature: overrides.feature ?? 'checkout',
     requirementIds: overrides.requirementIds,
     testType: 'e2e',
     title: 'A case',
