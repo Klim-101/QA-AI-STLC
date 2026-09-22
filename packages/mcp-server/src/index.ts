@@ -8,3 +8,4 @@ export * from './server.js';
 export * from './package-version.js';
 export * from './tools/index.js';
 export * from './tools/browser-dependencies.js';
+export * from './version-handshake.js';

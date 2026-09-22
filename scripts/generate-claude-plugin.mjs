@@ -98,6 +98,10 @@ async function buildFiles() {
           [pluginConfig.name]: {
             command: 'npx',
             args: ['-y', `${pluginConfig.mcpPackage}@${engineVersion}`],
+            // Read by the version handshake (ADR-007) at server start so a stale npx cache or a
+            // hand-edited .mcp.json produces a coded error instead of silently running a
+            // different engine version than this plugin was generated against.
+            env: { QA_EXPECTED_ENGINE_VERSION: engineVersion },
           },
         },
       },
