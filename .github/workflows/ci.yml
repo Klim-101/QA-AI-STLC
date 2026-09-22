@@ -46,6 +46,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Verifies .claude/rules and adapters/claude-plugin still match agents/ and AGENTS.md — the
+      # only enforcement of "generated from one canonical source, never hand-edited" (section 3).
+      - name: Lint generated files
+        run: npm run lint:generated
+
       - name: Typecheck
         run: npm run typecheck
 
