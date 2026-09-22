@@ -39,7 +39,7 @@ function manifestJson(contentByPath: Readonly<Record<string, string>>): string {
     artifacts: Object.fromEntries(
       Object.entries(contentByPath).map(([path, content]) => [
         path,
-        { sha256: hashText(content), registeredAt: '2026-09-20T12:00:00Z' },
+        { sha256: hashText(content), mode: 'text', registeredAt: '2026-09-20T12:00:00Z' },
       ]),
     ),
   });

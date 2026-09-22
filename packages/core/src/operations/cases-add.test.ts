@@ -43,7 +43,11 @@ function manifestRegisteringScope(scopeContent: string): string {
   return JSON.stringify({
     schemaVersion: 1,
     artifacts: {
-      'artifacts/scope.json': { sha256: hashText(scopeContent), registeredAt: '2026-09-20T12:00:00Z' },
+      'artifacts/scope.json': {
+        sha256: hashText(scopeContent),
+        mode: 'text',
+        registeredAt: '2026-09-20T12:00:00Z',
+      },
     },
   });
 }

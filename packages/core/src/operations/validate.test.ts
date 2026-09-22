@@ -263,6 +263,43 @@ describe('runValidate', () => {
     expect(report.tamperedArtifacts).toEqual([]);
   });
 
+  it('reports binary evidence tampered by a CRLF-only edit (regression, #303)', async () => {
+    const fs = createFakeFileSystem();
+    const store = new QaStore({ projectRoot: PROJECT_ROOT, fs });
+    const manifest = new ManifestStore({ store });
+    const evidenceStore = new EvidenceStore({ store, manifest });
+
+    const original = new TextEncoder().encode('line1\nline2\n');
+    const registration = await evidenceStore.register({
+      id: 'log-1',
+      runId: 'run-1',
+      kind: 'other',
+      content: original,
+    });
+    if (registration.status !== 'registered') {
+      throw new Error(`expected a registered result, got ${registration.status}`);
+    }
+
+    // A CRLF-only edit, made directly to the file the same way a hand-edit would be: registering
+    // by mode: 'bytes' (#303) means this is caught, unlike the try-both hashing it replaces.
+    await fs.writeFile(join(QA_DIR, registration.evidence.path), 'line1\r\nline2\r\n');
+
+    const context: EngineContext = {
+      projectRoot: PROJECT_ROOT,
+      fs,
+      clock: systemClock,
+      logger: noopLogger,
+      processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+      browserLauncher: createFakeBrowserLauncher(),
+      env: {},
+    };
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual([registration.evidence.path]);
+  });
+
   it('reports the approval ledger itself as tampered when hand-edited (regression, #278)', async () => {
     const scopeJson = '{"requirements":[]}';
     const context = fakeContext({
@@ -312,7 +349,7 @@ function manifestJson(contentByPath: Readonly<Record<string, string>>): string {
     artifacts: Object.fromEntries(
       Object.entries(contentByPath).map(([path, content]) => [
         path,
-        { sha256: hashText(content), registeredAt: '2026-09-20T12:00:00Z' },
+        { sha256: hashText(content), mode: 'text', registeredAt: '2026-09-20T12:00:00Z' },
       ]),
     ),
   });

@@ -42,6 +42,7 @@ describe('ManifestStore', () => {
     const manifest = await manifestStore.load();
     expect(manifest.artifacts['artifacts/scope.json']).toEqual({
       sha256: hashText('content'),
+      mode: 'text',
       registeredAt: FIXED_TIME.toISOString(),
     });
   });
@@ -103,6 +104,7 @@ describe('ManifestStore', () => {
 
     const manifest = await manifestStore.load();
     expect(manifest.artifacts['evidence/run-1/step.png']?.sha256).toBe(hashBytes(bytes));
+    expect(manifest.artifacts['evidence/run-1/step.png']?.mode).toBe('bytes');
     expect(await manifestStore.verify('evidence/run-1/step.png', bytes)).toBe(true);
     expect(await manifestStore.verify('evidence/run-1/step.png', new Uint8Array([9]))).toBe(false);
   });
@@ -125,6 +127,18 @@ describe('ManifestStore', () => {
 
     expect(await manifestStore.verifyContent('a.json', Buffer.from('original', 'utf-8'))).toBe(true);
     expect(await manifestStore.verifyContent('a.json', Buffer.from('tampered', 'utf-8'))).toBe(false);
+  });
+
+  it('verifyContent rejects a CRLF-only edit to bytes-registered content (regression, #303)', async () => {
+    const manifestStore = createManifestStore();
+    const original = new TextEncoder().encode('line1\nline2\n');
+    await manifestStore.register('evidence/run-1/log.bin', original);
+
+    // Inserting \r before every \n would pass a text-hash comparison (hashText normalizes
+    // CRLF to LF), which is exactly the bypass #303 fixed: verifyContent must check a
+    // bytes-registered entry only against hashBytes, never fall back to a normalized text hash.
+    const tampered = new TextEncoder().encode('line1\r\nline2\r\n');
+    expect(await manifestStore.verifyContent('evidence/run-1/log.bin', tampered)).toBe(false);
   });
 
   it('verifyContent is false for a path never registered', async () => {

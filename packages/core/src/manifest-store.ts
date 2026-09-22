@@ -42,14 +42,19 @@ export class ManifestStore {
     await this.store.writeJson(MANIFEST_PATH, manifest);
   }
 
-  /** Hashes `content` and records it as the current registered version of `relativePath`. */
+  /** Hashes `content` and records it, and which hasher produced that hash, as the current
+   * registered version of `relativePath`. */
   async register(relativePath: RelativePath, content: string | Uint8Array): Promise<void> {
     const manifest = await this.load();
     const nextManifest: Manifest = {
       ...manifest,
       artifacts: {
         ...manifest.artifacts,
-        [relativePath]: { sha256: hashContent(content), registeredAt: this.clock.now().toISOString() },
+        [relativePath]: {
+          sha256: hashContent(content),
+          mode: typeof content === 'string' ? 'text' : 'bytes',
+          registeredAt: this.clock.now().toISOString(),
+        },
       },
     };
     await this.save(nextManifest);
@@ -65,10 +70,9 @@ export class ManifestStore {
   /**
    * Like `verify`, but for a caller that does not know ahead of time whether `relativePath` was
    * registered as text or binary (`findTamperedArtifacts` walks every manifest entry generically).
-   * The manifest does not record which hasher an entry used, so this checks `rawBytes` against
-   * both a binary hash and a text hash of its UTF-8 decoding — a real binary file's bytes almost
-   * never survive a UTF-8 round trip unchanged, so this is strictly more correct than assuming
-   * text, never less correct than checking only one encoding.
+   * Hashes `rawBytes` the same way the entry's own recorded `mode` (#303) says it was registered,
+   * rather than guessing: checking a byte-registered entry against a normalized text hash too
+   * would let a CRLF-only edit (`hashText` normalizes CRLF to LF) pass as unchanged.
    */
   async verifyContent(relativePath: RelativePath, rawBytes: Uint8Array): Promise<boolean> {
     const manifest = await this.load();
@@ -76,8 +80,8 @@ export class ManifestStore {
     if (entry === undefined) {
       return false;
     }
-    if (entry.sha256 === hashBytes(rawBytes)) {
-      return true;
+    if (entry.mode === 'bytes') {
+      return entry.sha256 === hashBytes(rawBytes);
     }
     return entry.sha256 === hashText(Buffer.from(rawBytes).toString('utf-8'));
   }
