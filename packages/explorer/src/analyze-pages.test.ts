@@ -8,6 +8,7 @@ import { createFakeCrawlBrowserLauncher } from './test-support/fake-browser-laun
 
 const EMPTY_ELEMENTS = { interactiveElements: [], forms: [], tables: [], dialogs: [] };
 const ALLOWLIST = ['staging.example.com'];
+const BASE_URL = 'https://staging.example.com/';
 
 describe('analyzePages', () => {
   it('produces one page model per URL, in order', async () => {
@@ -25,6 +26,7 @@ describe('analyzePages', () => {
     const result = await analyzePages({
       urls: ['https://staging.example.com/', 'https://staging.example.com/tasks'],
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -42,7 +44,12 @@ describe('analyzePages', () => {
       elementsByUrl: { 'https://staging.example.com/': EMPTY_ELEMENTS },
     });
 
-    await analyzePages({ urls: ['https://staging.example.com/'], allowlist: ALLOWLIST, browserLauncher });
+    await analyzePages({
+      urls: ['https://staging.example.com/'],
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+    });
 
     expect(browserLauncher.newContextCalls).toEqual([{}]);
   });
@@ -59,6 +66,7 @@ describe('analyzePages', () => {
     await analyzePages({
       urls: ['https://staging.example.com/'],
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
       identity: { config: identityConfig, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
     });
@@ -78,6 +86,7 @@ describe('analyzePages', () => {
     const result = await analyzePages({
       urls: ['https://staging.example.com/'],
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 

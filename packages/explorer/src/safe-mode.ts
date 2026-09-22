@@ -11,17 +11,20 @@ import type { RequestLogEntry } from './request-log.js';
  * sees every request the page makes regardless of what triggered it — a real navigation or
  * redirect can take the page off the allowlist even though `crawl()`'s own link-following already
  * filters which links it queues (#306, the same gap #279 closed for a live browser session).
- * `onBlocked` is called once per aborted request, for callers that need to count or log it.
+ * `baseUrl` is the environment's configured URL: an allowed request must also share its scheme
+ * and effective port, not just its hostname. `onBlocked` is called once per aborted request, for
+ * callers that need to count or log it.
  */
 export function createSafeModeRouteHandler(
   allowlist: readonly string[],
+  baseUrl: string,
   onBlocked: (entry: RequestLogEntry) => void,
 ): RouteHandler {
   return (route) => {
     const request = route.request();
     const method = request.method();
     const url = request.url();
-    if (method === 'GET' && isUrlAllowed(url, allowlist)) {
+    if (method === 'GET' && isUrlAllowed(url, allowlist, baseUrl)) {
       return route.continue();
     }
     onBlocked({ method, url, blocked: true });

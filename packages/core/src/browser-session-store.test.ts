@@ -56,7 +56,12 @@ async function storeWithSession(options: { readonly clock?: Clock; readonly idle
     idGenerator: createSequentialIdGenerator('x'),
     ...options,
   });
-  const session = store.open({ ...parts, allowlist: ['staging.example.test'], blockedRequests: [] });
+  const session = store.open({
+    ...parts,
+    allowlist: ['staging.example.test'],
+    baseUrl: 'https://staging.example.test/',
+    blockedRequests: [],
+  });
   return { store, session, parts };
 }
 
@@ -136,7 +141,12 @@ describe('BrowserSessionStore', () => {
   it('still closes the browser when closing its context fails', async () => {
     const parts = await fakeBrowserParts(() => Promise.reject(new Error('context already gone')));
     const store = new BrowserSessionStore({ idGenerator: createSequentialIdGenerator('x') });
-    const session = store.open({ ...parts, allowlist: [], blockedRequests: [] });
+    const session = store.open({
+      ...parts,
+      allowlist: [],
+      baseUrl: 'https://staging.example.test/',
+      blockedRequests: [],
+    });
 
     await expect(store.close(session.sessionId)).rejects.toThrow('context already gone');
 
@@ -147,8 +157,8 @@ describe('BrowserSessionStore', () => {
     const first = await fakeBrowserParts();
     const second = await fakeBrowserParts();
     const store = new BrowserSessionStore();
-    store.open({ ...first, allowlist: [], blockedRequests: [] });
-    store.open({ ...second, allowlist: [], blockedRequests: [] });
+    store.open({ ...first, allowlist: [], baseUrl: 'https://staging.example.test/', blockedRequests: [] });
+    store.open({ ...second, allowlist: [], baseUrl: 'https://staging.example.test/', blockedRequests: [] });
 
     await store.closeAll();
 
@@ -160,7 +170,12 @@ describe('BrowserSessionStore', () => {
   it('defaults to a five-minute idle timeout and a real clock', async () => {
     const parts = await fakeBrowserParts();
     const store = new BrowserSessionStore();
-    const session = store.open({ ...parts, allowlist: [], blockedRequests: [] });
+    const session = store.open({
+      ...parts,
+      allowlist: [],
+      baseUrl: 'https://staging.example.test/',
+      blockedRequests: [],
+    });
 
     await expect(store.get(session.sessionId)).resolves.toMatchObject({ sessionId: session.sessionId });
     expect(DEFAULT_SESSION_IDLE_TIMEOUT_MS).toBe(300_000);

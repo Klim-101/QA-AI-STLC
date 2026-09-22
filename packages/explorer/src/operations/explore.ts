@@ -173,12 +173,14 @@ async function runCrawlAndBuild(
   const { pageModelSet, blockedRequestCount: analyzeBlocked } = await analyzePages({
     urls,
     allowlist: environment.config.allowlist,
+    baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
     ...(identity !== undefined ? { identity } : {}),
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
     pageModelSet,
     allowlist: environment.config.allowlist,
+    baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
     ...(identity !== undefined ? { identity } : {}),
     policy,
@@ -248,7 +250,7 @@ async function runVerify(
     const page = await browserContext.newPage();
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(environment.config.allowlist, () => {
+      createSafeModeRouteHandler(environment.config.allowlist, environment.config.baseUrl, () => {
         blockedRequestCount += 1;
       }),
     );

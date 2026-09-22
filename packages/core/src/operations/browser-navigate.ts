@@ -30,7 +30,7 @@ export async function runBrowserNavigate(
   options: BrowserNavigateOptions,
 ): Promise<BrowserNavigateResult> {
   const session = await context.sessions.get(options.sessionId);
-  assertUrlAllowed(options.url, session.allowlist);
+  assertUrlAllowed(options.url, session.allowlist, session.baseUrl);
 
   const evidenceStore = createBrowserEvidenceStore(context.engine);
   const response = await session.page.goto(options.url);
