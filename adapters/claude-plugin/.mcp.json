@@ -1,0 +1,1 @@
+{ "mcpServers": { "qa-ai-stlc": { "command": "npx", "args": ["-y", "@qa-ai-stlc/mcp-server@0.4.0"] } } }
