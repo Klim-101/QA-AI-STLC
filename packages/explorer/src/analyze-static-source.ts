@@ -82,12 +82,43 @@ function splitTag(tagText: string): { tagName: string; attrs: string } {
   return { tagName: tagText.slice(0, nameEnd).toLowerCase(), attrs: tagText.slice(nameEnd) };
 }
 
+// Finds the `>` that closes the tag opened at `tagStart`, skipping any `>` that appears inside a
+// quoted attribute value (`title="a > b"`) or inside a `{...}` JSX/Vue/Angular expression
+// container (`onClick={() => save()}`) — an inline arrow handler's own `=>` is the single most
+// common way a bare `indexOf('>', tagStart)` truncates a tag before its real end (#281). Brace
+// depth is tracked outside quotes only, since a quoted value's own `{`/`}` characters are text,
+// not an expression boundary.
+function findTagEnd(content: string, tagStart: number): number {
+  let quote: '"' | "'" | undefined;
+  let braceDepth = 0;
+  for (let index = tagStart + 1; index < content.length; index += 1) {
+    const char = content[index];
+    if (quote !== undefined) {
+      if (char === '\\') {
+        index += 1; // an escaped character can never end the quote, even if it is the quote mark
+      } else if (char === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '{') {
+      braceDepth += 1;
+    } else if (char === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+    } else if (char === '>' && braceDepth === 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 // A lexical scan of the raw text for `<tag ...>`, JSX/Vue/Angular alike (React's JSX, Vue's SFC
 // template block and Angular's component template all put literal HTML-shaped attributes on an
-// opening tag the same way), not a per-framework parser. It stops at the first `>` even inside a
-// quoted attribute value, and can match a `<` that starts a string or comment rather than a real
-// tag — an accepted, documented false-positive risk in exchange for needing no `@babel/parser`,
-// `vue/compiler-sfc` or `@angular/compiler` dependency.
+// opening tag the same way), not a per-framework parser. It can still match a `<` that starts a
+// string or comment rather than a real tag — an accepted, documented false-positive risk in
+// exchange for needing no `@babel/parser`, `vue/compiler-sfc` or `@angular/compiler` dependency.
 function findStaticElements(file: StaticSourceFile): StaticFinding[] {
   const findings: StaticFinding[] = [];
   let cursor = 0;
@@ -96,7 +127,7 @@ function findStaticElements(file: StaticSourceFile): StaticFinding[] {
     if (tagStart === -1) {
       break;
     }
-    const tagEnd = file.content.indexOf('>', tagStart);
+    const tagEnd = findTagEnd(file.content, tagStart);
     if (tagEnd === -1) {
       break;
     }
