@@ -62,12 +62,12 @@ describe('GateStateMachine', () => {
   it('advances through every phase and stays at the last one once all gates are satisfied', async () => {
     const { store, manifest, gates } = createGateStateMachine();
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
-    await writeAndRegister(store, manifest, 'artifacts/cases.json', { cases: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', { id: 'case-1' });
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const state = await gates.approve({
       gate: 'cases',
-      artifactPath: 'artifacts/cases.json',
+      artifactPath: 'artifacts/cases/checkout/case-1.json',
       approvedBy: 'operator',
     });
 
@@ -124,6 +124,47 @@ describe('GateStateMachine', () => {
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('ARTIFACT_HASH_MISMATCH');
+  });
+
+  it('rejects approving a gate with a registered artifact that belongs to a different gate (regression, #305)', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    // Registered, but through no operation of the "scope" gate — the issue's own repro.
+    await writeAndRegister(store, manifest, 'artifacts/unrelated.json', { anything: true });
+
+    const error = await gates
+      .approve({ gate: 'scope', artifactPath: 'artifacts/unrelated.json', approvedBy: 'operator' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('GATE_ARTIFACT_PATH_MISMATCH');
+  });
+
+  it('rejects approving the cases gate with the scope artifact, even though both are registered (regression, #305)', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const error = await gates
+      .approve({ gate: 'cases', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('GATE_ARTIFACT_PATH_MISMATCH');
+  });
+
+  it('accepts any registered artifact under artifacts/cases/ for the cases gate', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', { id: 'case-1' });
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const state = await gates.approve({
+      gate: 'cases',
+      artifactPath: 'artifacts/cases/checkout/case-1.json',
+      approvedBy: 'operator',
+    });
+
+    expect(state.gates.cases.status).toBe('satisfied');
   });
 
   it('ignores a hand-forged approval ledger on a project with no prior approvals (regression, #304)', async () => {
