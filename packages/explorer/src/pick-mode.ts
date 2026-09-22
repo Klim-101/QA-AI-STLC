@@ -362,8 +362,6 @@ export function finalizeManualSelectorEntries(
     locatorCandidates: [...element.locatorCandidates],
     stabilityScore: element.stabilityScore,
     lastVerifiedAt: generatedAt,
-    pii: false,
-    dynamicText: false,
     source: 'manual',
     pageUrl: element.pageUrl,
   }));

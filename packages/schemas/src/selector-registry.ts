@@ -29,6 +29,10 @@ export type SelectorElementSource = z.infer<typeof SelectorElementSourceSchema>;
 // The live page a `crawl`/`manual` element was found on, so `qa explore --verify` (P1-15) knows
 // where to navigate to re-check its stored candidates against the current DOM. A `static` entry
 // has no live page (it never opened a browser) and never sets this.
+// `pii`/`dynamicText` are omitted, not `false`, until real detection exists (#284): no producer in
+// this package can actually tell whether an element's text is PII or dynamic today, so asserting
+// `false` would claim a check that never ran (AGENTS.md 12.5, honest statuses). A consumer must
+// treat a missing value as "not evaluated", never as a passed check.
 export const SelectorElementSchema = z.object({
   elementId: IdentifierSchema,
   name: z.string().min(1).optional(),
@@ -37,8 +41,8 @@ export const SelectorElementSchema = z.object({
   locatorCandidates: z.array(LocatorCandidateSchema),
   stabilityScore: z.number().min(0).max(1),
   lastVerifiedAt: IsoDateTimeSchema,
-  pii: z.boolean(),
-  dynamicText: z.boolean(),
+  pii: z.boolean().optional(),
+  dynamicText: z.boolean().optional(),
   source: SelectorElementSourceSchema,
   sourceLocation: SourceLocationSchema.optional(),
   pageUrl: z.string().min(1).optional(),

@@ -26,10 +26,18 @@ describe('analyzeStaticSource', () => {
         locatorCandidates: [{ strategy: 'testId', value: 'login-button', fragile: false }],
         stabilityScore: 0,
         lastVerifiedAt: '2026-09-18T00:00:00.000Z',
-        pii: false,
-        dynamicText: false,
       }),
     ]);
+  });
+
+  it('leaves pii/dynamicText unset rather than asserting a check that never ran (regression, #284)', () => {
+    const { elements } = analyzeStaticSource({
+      files: [file('src/App.tsx', '<button data-testid="submit"></button>')],
+      clock: FIXED_CLOCK,
+    });
+
+    expect(elements[0]).not.toHaveProperty('pii');
+    expect(elements[0]).not.toHaveProperty('dynamicText');
   });
 
   it('extracts a role+aria-label pair as a role locator candidate', () => {

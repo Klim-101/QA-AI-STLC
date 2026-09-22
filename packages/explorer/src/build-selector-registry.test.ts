@@ -143,16 +143,25 @@ describe('buildSelectorRegistry', () => {
     expect(registry.elements[0]?.stabilityScore).toBe(0);
   });
 
-  it('sets source to crawl and pii/dynamicText to false for every element', async () => {
+  it('sets source to crawl for every element', async () => {
     const url = 'https://staging.example.com/login';
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
 
-    expect(registry.elements[0]).toEqual(
-      expect.objectContaining({ source: 'crawl', pii: false, dynamicText: false }),
-    );
+    expect(registry.elements[0]).toEqual(expect.objectContaining({ source: 'crawl' }));
+  });
+
+  it('leaves pii/dynamicText unset rather than asserting a check that never ran (regression, #284)', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    const { registry } = await buildSelectorRegistry({ pageModelSet: model, browserLauncher });
+
+    expect(registry.elements[0]).not.toHaveProperty('pii');
+    expect(registry.elements[0]).not.toHaveProperty('dynamicText');
   });
 
   it('promotes whichever candidate scored highest to primary, overriding policy order (regression, #283)', async () => {
