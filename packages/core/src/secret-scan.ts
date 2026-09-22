@@ -17,8 +17,20 @@ const SECRET_PATTERNS: readonly { readonly pattern: string; readonly regex: RegE
   { pattern: 'slack-token', regex: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/ },
   { pattern: 'jwt', regex: /\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/ },
   { pattern: 'bearer-token', regex: /\bBearer\s+[A-Za-z0-9\-._~+/]{16,}=*/i },
-  { pattern: 'password-assignment', regex: /["']?password["']?\s*[:=]\s*["'][^"'\s]{4,}["']/i },
-  { pattern: 'api-key-assignment', regex: /["']?api[_-]?key["']?\s*[:=]\s*["'][A-Za-z0-9_-]{16,}["']/i },
+  // The value alternative with no surrounding quotes catches an unquoted URL-encoded form field
+  // (`password=hunter2`), a completely normal HAR request-body shape, not an edge case (#285) --
+  // delimited by `&`, whitespace or end of string the way `application/x-www-form-urlencoded`
+  // itself delimits pairs. `[`/`]` are excluded from the unquoted value too, so this never
+  // re-matches `redaction.ts`'s own `[REDACTED]` placeholder after content has already been
+  // through that pass.
+  {
+    pattern: 'password-assignment',
+    regex: /["']?password["']?\s*[:=]\s*(?:["'][^"'\s]{4,}["']|[^"'&\s[\]]{4,})/i,
+  },
+  {
+    pattern: 'api-key-assignment',
+    regex: /["']?api[_-]?key["']?\s*[:=]\s*(?:["'][A-Za-z0-9_-]{16,}["']|[A-Za-z0-9_-]{16,})/i,
+  },
 ];
 
 /** Scans text for well-known secret shapes before it is registered as evidence (AGENTS.md 12.5). */

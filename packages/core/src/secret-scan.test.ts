@@ -48,4 +48,12 @@ describe('scanForSecrets', () => {
     expect(matches).toEqual(expect.arrayContaining(['aws-access-key-id', 'password-assignment']));
     expect(matches).toHaveLength(2);
   });
+
+  it('detects an unquoted password in a URL-encoded form body (regression, #285)', () => {
+    expect(scanForSecrets('username=alice&password=hunter2')).toEqual([{ pattern: 'password-assignment' }]);
+  });
+
+  it('detects an unquoted apiKey in a URL-encoded form body (regression, #285)', () => {
+    expect(scanForSecrets('apiKey=example-not-a-real-key-000')).toEqual([{ pattern: 'api-key-assignment' }]);
+  });
 });
