@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { isUrlAllowed } from './browser-allowlist.js';
 import type { RouteHandler } from './ports/browser-launcher.js';
 
 export interface BlockedRequest {
@@ -11,18 +12,25 @@ export interface BlockedRequest {
 /**
  * Safe mode for an agent-driven session (AGENTS.md 12.4, ADR-005): every non-GET request is
  * aborted before it leaves the browser, so an exploratory click can never submit a form or
- * mutate the application under test. `onBlocked` is called once per aborted request so a session
- * can report what it stopped.
+ * mutate the application under test. Every GET is also checked against the session's domain
+ * allowlist here, since this handler sees every request the page makes regardless of what
+ * triggered it (a typed navigation, a redirect, or a click on an in-page link) -- `qa.browser_navigate`
+ * checking the allowlist on its own input is not enough to bound where a click can take the
+ * session (#279). `onBlocked` is called once per aborted request so a session can report what
+ * it stopped.
  */
 export function createBrowserSafeModeRouteHandler(
+  allowlist: readonly string[],
   onBlocked: (request: BlockedRequest) => void,
 ): RouteHandler {
   return (route) => {
     const request = route.request();
-    if (request.method() === 'GET') {
+    const method = request.method();
+    const url = request.url();
+    if (method === 'GET' && isUrlAllowed(url, allowlist)) {
       return route.continue();
     }
-    onBlocked({ method: request.method(), url: request.url() });
+    onBlocked({ method, url });
     return route.abort();
   };
 }

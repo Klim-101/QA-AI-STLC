@@ -21,12 +21,14 @@ function createRoute(method: string, url: string): PageRoute & { readonly calls:
   };
 }
 
+const ALLOWLIST = ['staging.example.test'];
+
 describe('createBrowserSafeModeRouteHandler', () => {
-  it('lets a GET request through without reporting it', async () => {
+  it('lets an allowlisted GET request through without reporting it', async () => {
     const blocked: BlockedRequest[] = [];
     const route = createRoute('GET', 'https://staging.example.test/');
 
-    await createBrowserSafeModeRouteHandler((request) => blocked.push(request))(route);
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, (request) => blocked.push(request))(route);
 
     expect(route.calls).toEqual(['continue']);
     expect(blocked).toEqual([]);
@@ -36,9 +38,19 @@ describe('createBrowserSafeModeRouteHandler', () => {
     const blocked: BlockedRequest[] = [];
     const route = createRoute('POST', 'https://staging.example.test/orders');
 
-    await createBrowserSafeModeRouteHandler((request) => blocked.push(request))(route);
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, (request) => blocked.push(request))(route);
 
     expect(route.calls).toEqual(['abort']);
     expect(blocked).toEqual([{ method: 'POST', url: 'https://staging.example.test/orders' }]);
+  });
+
+  it('aborts a GET request off the domain allowlist and reports it (regression, #279)', async () => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute('GET', 'https://evil.test/phishing');
+
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, (request) => blocked.push(request))(route);
+
+    expect(route.calls).toEqual(['abort']);
+    expect(blocked).toEqual([{ method: 'GET', url: 'https://evil.test/phishing' }]);
   });
 });
