@@ -75,6 +75,11 @@ export class QaStore {
     return this.fs.readFile(this.resolve(relativePath));
   }
 
+  /** Reads a file's raw bytes, with no encoding assumed (unlike `readText`'s UTF-8 decode). */
+  async readBytes(relativePath: RelativePath): Promise<Uint8Array> {
+    return this.fs.readBytes(this.resolve(relativePath));
+  }
+
   async writeText(relativePath: RelativePath, content: string): Promise<void> {
     await this.writeBytes(relativePath, content);
   }

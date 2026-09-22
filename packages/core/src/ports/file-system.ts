@@ -11,6 +11,9 @@ import { join } from 'node:path';
  */
 export interface FileSystem {
   readFile(absolutePath: string): Promise<string>;
+  /** Reads a file's raw bytes, with no encoding assumed — the only safe way to read back an
+   * artifact whose original content type (text or binary) is not known ahead of time. */
+  readBytes(absolutePath: string): Promise<Uint8Array>;
   writeFile(absolutePath: string, content: string | Uint8Array): Promise<void>;
   mkdir(absolutePath: string): Promise<void>;
   pathExists(absolutePath: string): Promise<boolean>;
@@ -20,6 +23,7 @@ export interface FileSystem {
 
 export const nodeFileSystem: FileSystem = {
   readFile: (absolutePath) => readFile(absolutePath, 'utf-8'),
+  readBytes: (absolutePath) => readFile(absolutePath),
   writeFile: (absolutePath, content) =>
     typeof content === 'string'
       ? writeFile(absolutePath, content, 'utf-8')

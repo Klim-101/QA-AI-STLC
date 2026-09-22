@@ -12,6 +12,27 @@ describe('createFakeFileSystem', () => {
     expect(await fs.readFile('/a.bin')).toBe('hi');
   });
 
+  it('readBytes returns raw bytes for content written as bytes, unchanged', async () => {
+    const fs = createFakeFileSystem();
+    const bytes = new Uint8Array([137, 80, 78, 71]);
+    await fs.writeFile('/a.bin', bytes);
+
+    expect(await fs.readBytes('/a.bin')).toEqual(bytes);
+  });
+
+  it('readBytes UTF-8-encodes content written as text', async () => {
+    const fs = createFakeFileSystem();
+    await fs.writeFile('/a.txt', 'hi');
+
+    expect(new Uint8Array(await fs.readBytes('/a.txt'))).toEqual(new Uint8Array([104, 105]));
+  });
+
+  it('readBytes rejects a missing path with ENOENT', async () => {
+    const fs = createFakeFileSystem();
+
+    await expect(fs.readBytes('/missing')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('getRawFile returns exactly what was written, bytes or text', async () => {
     const fs = createFakeFileSystem();
     const bytes = new Uint8Array([1, 2, 3]);

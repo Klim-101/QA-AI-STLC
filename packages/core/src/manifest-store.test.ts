@@ -107,6 +107,32 @@ describe('ManifestStore', () => {
     expect(await manifestStore.verify('evidence/run-1/step.png', new Uint8Array([9]))).toBe(false);
   });
 
+  it('verifyContent matches a bytes-registered artifact read back as raw bytes (regression, #277)', async () => {
+    const manifestStore = createManifestStore();
+    // Bytes that are not valid UTF-8 on their own, the way a real PNG's bytes are: registering
+    // this with `register()` (bytes hasher) and then checking it the way `readText`+`hashText`
+    // used to (a lossy UTF-8 decode) would never match, which is exactly bug #277.
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 1, 2, 3]);
+    await manifestStore.register('evidence/run-1/step.png', bytes);
+
+    expect(await manifestStore.verifyContent('evidence/run-1/step.png', bytes)).toBe(true);
+    expect(await manifestStore.verifyContent('evidence/run-1/step.png', new Uint8Array([9]))).toBe(false);
+  });
+
+  it('verifyContent matches a text-registered artifact read back as raw bytes', async () => {
+    const manifestStore = createManifestStore();
+    await manifestStore.register('a.json', 'original');
+
+    expect(await manifestStore.verifyContent('a.json', Buffer.from('original', 'utf-8'))).toBe(true);
+    expect(await manifestStore.verifyContent('a.json', Buffer.from('tampered', 'utf-8'))).toBe(false);
+  });
+
+  it('verifyContent is false for a path never registered', async () => {
+    const manifestStore = createManifestStore();
+
+    expect(await manifestStore.verifyContent('missing.json', new Uint8Array([1]))).toBe(false);
+  });
+
   it('defaults to the system clock when none is provided', async () => {
     const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
     const manifestStore = new ManifestStore({ store });

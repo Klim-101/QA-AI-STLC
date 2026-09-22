@@ -100,6 +100,7 @@ describe('runDoctor', () => {
   it('rethrows a config load failure that is not a QaError', async () => {
     const brokenFs: FileSystem = {
       readFile: () => Promise.reject(new Error('disk exploded')),
+      readBytes: () => Promise.reject(new Error('disk exploded')),
       writeFile: () => Promise.resolve(),
       mkdir: () => Promise.resolve(),
       pathExists: (path) => Promise.resolve(path.endsWith('config.yaml')),

@@ -117,8 +117,8 @@ async function findTamperedArtifacts(
       tampered.push(relativePath);
       continue;
     }
-    const content = await store.readText(relativePath);
-    const matches = await manifestStore.verify(relativePath, content);
+    const rawBytes = await store.readBytes(relativePath);
+    const matches = await manifestStore.verifyContent(relativePath, rawBytes);
     if (!matches) {
       tampered.push(relativePath);
     }
