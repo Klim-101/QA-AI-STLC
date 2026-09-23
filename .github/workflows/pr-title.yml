@@ -10,8 +10,12 @@ permissions:
 jobs:
   # Dependabot always capitalizes its generated summary ("Bump the x group..."), which the
   # subjectPattern below rejects. Lowercasing it here, instead of exempting Dependabot from the
-  # check, keeps every squash commit title compliant without a special case in the check itself:
-  # this job's edit re-triggers the workflow on the corrected title, which then passes normally.
+  # check, keeps every squash commit title compliant without a special case in the check itself.
+  # This edit goes through the default GITHUB_TOKEN, whose own writes never trigger a new workflow
+  # run (GitHub's loop-prevention rule) -- conventional-commit below depends on this job instead of
+  # relying on a second trigger, and amannn/action-semantic-pull-request always re-fetches the pull
+  # request via the API rather than trusting the (possibly stale) event payload, so by the time it
+  # runs the title this job just wrote is what it sees.
   normalize-dependabot-title:
     # `github.actor` is whoever caused this specific run (a maintainer re-running jobs would
     # spoof it); the pull request's own recorded author is the value that can't be forged this
@@ -38,6 +42,10 @@ jobs:
             });
 
   conventional-commit:
+    needs: normalize-dependabot-title
+    # normalize-dependabot-title's own `if` skips it for a non-Dependabot PR; a skipped dependency
+    # would otherwise skip this job too, so this check must still run on every other PR.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       # The squash commit title is taken from the pull request title, so it must follow Conventional Commits.
