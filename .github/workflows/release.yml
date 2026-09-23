@@ -43,6 +43,11 @@ jobs:
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           publish-script: npm run release
+          # Bumping `packages/mcp-server`'s version without regenerating keeps the Claude Code
+          # plugin (`adapters/claude-plugin/`) pinned to a stale version, and `lint:generated`
+          # (#308) then fails on this PR's own branch. `npm run generate` needs no build first:
+          # it reads `packages/mcp-server/package.json` directly.
+          version-script: npx changeset version && npm run generate
           commit-message: 'chore(repo): version packages'
           pr-title: 'chore(repo): version packages'
         env:
