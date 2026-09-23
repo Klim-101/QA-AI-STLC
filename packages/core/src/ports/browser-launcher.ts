@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { chromium } from 'playwright';
-import type { BrowserContext as PlaywrightBrowserContext } from 'playwright';
+import type { Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext } from 'playwright';
 
 /** Playwright's own `BrowserContext.storageState()` return shape: cookies plus per-origin storage. */
 export type StorageState = Awaited<ReturnType<PlaywrightBrowserContext['storageState']>>;
@@ -84,6 +84,8 @@ export interface AuthBrowserContext {
 export interface NewContextOptions {
   /** Reuses a session `authenticate()` already captured, instead of logging in again. */
   readonly storageState?: StorageState;
+  /** Bypasses TLS certificate validation for this context (P2-18); off by default. */
+  readonly ignoreHttpsErrors?: boolean;
 }
 
 export interface AuthBrowser {
@@ -107,7 +109,23 @@ export interface BrowserLauncher {
   connectOverCdp(endpointUrl: string): Promise<AuthBrowser>;
 }
 
+// Playwright's own `newContext()` names its TLS option `ignoreHTTPSErrors`; this project's naming
+// convention treats acronyms as words (AGENTS.md 7.1), so `AuthBrowser` exposes `ignoreHttpsErrors`
+// instead and this wrapper translates it back at the one point it actually reaches Playwright.
+function wrapBrowser(browser: PlaywrightBrowser): AuthBrowser {
+  return {
+    newContext: (options) =>
+      browser.newContext({
+        ...(options?.storageState !== undefined ? { storageState: options.storageState } : {}),
+        ...(options?.ignoreHttpsErrors !== undefined ? { ignoreHTTPSErrors: options.ignoreHttpsErrors } : {}),
+      }),
+    contexts: () => browser.contexts(),
+    close: () => browser.close(),
+  };
+}
+
 export const playwrightBrowserLauncher: BrowserLauncher = {
-  launch: (options) => chromium.launch(options?.headless === undefined ? {} : { headless: options.headless }),
-  connectOverCdp: (endpointUrl) => chromium.connectOverCDP(endpointUrl),
+  launch: async (options) =>
+    wrapBrowser(await chromium.launch(options?.headless === undefined ? {} : { headless: options.headless })),
+  connectOverCdp: async (endpointUrl) => wrapBrowser(await chromium.connectOverCDP(endpointUrl)),
 };

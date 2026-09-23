@@ -3,7 +3,7 @@
 
 import { join } from 'node:path';
 import type { Config } from '@qa-ai-stlc/schemas';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AuthBrowser } from '../ports/browser-launcher.js';
 import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
 import { resolveBrowserEnvironment, runBrowserOpen } from './browser-open.js';
@@ -164,6 +164,34 @@ describe('runBrowserOpen', () => {
 
     expect(closed).toBe(1);
     expect(harness.sessions.sessionIds).toEqual([]);
+  });
+
+  it('warns and bypasses TLS validation when the environment opts out (P2-18)', async () => {
+    const insecureConfigYaml = [
+      'schemaVersion: 1',
+      'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"], tlsInsecure: true }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+      '',
+    ].join('\n');
+    const harness = createBrowserTestHarness({ configYaml: insecureConfigYaml });
+    const warn = vi.fn();
+    const context = {
+      ...harness.context,
+      engine: { ...harness.context.engine, logger: { ...harness.context.engine.logger, warn } },
+    };
+
+    await runBrowserOpen(context);
+
+    expect(harness.launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('staging'),
+      expect.objectContaining({ code: 'ENVIRONMENT_TLS_INSECURE', environment: 'staging' }),
+    );
   });
 
   it('closes the session when its own opening could not be registered', async () => {

@@ -82,6 +82,7 @@ export interface AuthBrowserContextLike {
 
 export interface NewContextOptionsLike {
   readonly storageState?: StorageStateLike;
+  readonly ignoreHttpsErrors?: boolean;
 }
 
 export interface AuthBrowserLike {

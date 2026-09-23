@@ -32,6 +32,9 @@ export type ApiConfig = z.infer<typeof ApiConfigSchema>;
 export const EnvironmentConfigSchema = z.object({
   baseUrl: z.string().min(1),
   allowlist: z.array(z.string().min(1)).min(1),
+  // Off by default (P2-18): bypasses TLS certificate validation for this environment's HTTP and
+  // browser traffic, for reaching a server behind a self-signed or internal-CA certificate.
+  tlsInsecure: z.boolean().optional(),
 });
 export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 

@@ -74,6 +74,23 @@ describe('analyzePages', () => {
     expect(browserLauncher.newContextCalls).toEqual([{ storageState }]);
   });
 
+  it('bypasses TLS certificate validation when tlsInsecure is set (P2-18)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      ariaSnapshotByUrl: { 'https://staging.example.com/': { role: 'document' } },
+      elementsByUrl: { 'https://staging.example.com/': EMPTY_ELEMENTS },
+    });
+
+    await analyzePages({
+      urls: ['https://staging.example.com/'],
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      tlsInsecure: true,
+    });
+
+    expect(browserLauncher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+  });
+
   it('counts a non-GET subrequest safe mode blocks while analyzing a page', async () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({
       ariaSnapshotByUrl: { 'https://staging.example.com/': { role: 'document' } },

@@ -244,6 +244,22 @@ describe('buildSelectorRegistry', () => {
     expect(browserLauncher.newContextCalls).toEqual([{ storageState }]);
   });
 
+  it('bypasses TLS certificate validation when tlsInsecure is set (P2-18)', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([pageModel(url, [])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      tlsInsecure: true,
+    });
+
+    expect(browserLauncher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+  });
+
   it('scores against a custom set of viewports when configured', async () => {
     const url = 'https://staging.example.com/login';
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);

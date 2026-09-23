@@ -136,6 +136,16 @@ export function resolveIdentity(
   };
 }
 
+/** Prints the coded warning P2-18 requires whenever an environment's TLS opt-out is in effect. */
+function warnIfTlsInsecure(context: EngineContext, environmentName: string, tlsInsecure: boolean): void {
+  if (tlsInsecure) {
+    context.logger.warn(`TLS certificate validation is disabled for environment "${environmentName}"`, {
+      code: 'ENVIRONMENT_TLS_INSECURE',
+      environment: environmentName,
+    });
+  }
+}
+
 async function readStaticSourceFiles(
   fs: FileSystem,
   projectRoot: string,
@@ -161,11 +171,14 @@ async function runCrawlAndBuild(
   const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
+  const tlsInsecure = environment.config.tlsInsecure === true;
+  warnIfTlsInsecure(context, environment.name, tlsInsecure);
 
   const crawlResult = await crawl({
     startUrl: environment.config.baseUrl,
     allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
+    tlsInsecure,
     ...(identity !== undefined ? { identity } : {}),
     ...(options.maxPages !== undefined ? { maxPages: options.maxPages } : {}),
   });
@@ -175,6 +188,7 @@ async function runCrawlAndBuild(
     allowlist: environment.config.allowlist,
     baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
+    tlsInsecure,
     ...(identity !== undefined ? { identity } : {}),
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
@@ -182,6 +196,7 @@ async function runCrawlAndBuild(
     allowlist: environment.config.allowlist,
     baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
+    tlsInsecure,
     ...(identity !== undefined ? { identity } : {}),
     policy,
   });
@@ -222,7 +237,9 @@ async function runVerify(
   const stored = await store.readJson(REGISTRY_PATH, SelectorRegistrySchema);
   const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
-  const storageState = await resolveStorageState(context.browserLauncher, identity);
+  const tlsInsecure = environment.config.tlsInsecure === true;
+  warnIfTlsInsecure(context, environment.name, tlsInsecure);
+  const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
 
   const checkable = stored.elements.filter(
     (element) =>
@@ -246,7 +263,10 @@ async function runVerify(
   let blockedRequestCount = 0;
   const browser = await context.browserLauncher.launch();
   try {
-    const browserContext = await browser.newContext(storageState === undefined ? {} : { storageState });
+    const browserContext = await browser.newContext({
+      ...(storageState === undefined ? {} : { storageState }),
+      ...(tlsInsecure ? { ignoreHttpsErrors: true } : {}),
+    });
     const page = await browserContext.newPage();
     await page.route(
       '**/*',

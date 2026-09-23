@@ -15,11 +15,13 @@ export interface ExplorerIdentity {
 export async function resolveStorageState(
   browserLauncher: BrowserLauncher,
   identity: ExplorerIdentity | undefined,
+  tlsInsecure = false,
 ): Promise<StorageState | undefined> {
   if (identity === undefined) {
     return undefined;
   }
   return authenticate(browserLauncher, identity.config, identity.env, {
     ...(identity.cdpEndpointUrl !== undefined ? { cdpEndpointUrl: identity.cdpEndpointUrl } : {}),
+    ...(tlsInsecure ? { tlsInsecure: true } : {}),
   });
 }

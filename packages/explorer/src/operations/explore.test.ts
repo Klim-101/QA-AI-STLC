@@ -4,7 +4,7 @@
 import { join } from 'node:path';
 import { QaError, type EngineContext } from '@qa-ai-stlc/core';
 import { SCHEMA_VERSION, type SelectorRegistry } from '@qa-ai-stlc/schemas';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   createFakeExploreBrowserLauncher,
   type FakeExploreBrowserLauncherOptions,
@@ -285,6 +285,43 @@ describe('runExplore', () => {
     });
 
     expect(report).toEqual(expect.objectContaining({ mode: 'verify', degraded: [] }));
+  });
+
+  it('warns when the crawled environment has tlsInsecure enabled (P2-18)', async () => {
+    const warn = vi.fn();
+    const context = fakeContext(
+      { elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 },
+      {
+        environments: `environments:\n  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"], tlsInsecure: true }`,
+      },
+    );
+    context.logger.warn = warn;
+
+    await runExplore(context);
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('staging'),
+      expect.objectContaining({ code: 'ENVIRONMENT_TLS_INSECURE', environment: 'staging' }),
+    );
+  });
+
+  it('warns when the verified environment has tlsInsecure enabled (P2-18)', async () => {
+    const warn = vi.fn();
+    const context = fakeContext(
+      { locatorCount: 1 },
+      {
+        environments: `environments:\n  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"], tlsInsecure: true }`,
+      },
+      { [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()) },
+    );
+    context.logger.warn = warn;
+
+    await runExplore(context, { verify: true });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('staging'),
+      expect.objectContaining({ code: 'ENVIRONMENT_TLS_INSECURE', environment: 'staging' }),
+    );
   });
 
   it('throws EXPLORE_NO_REGISTRY when --verify is given but no registry has been built yet', async () => {

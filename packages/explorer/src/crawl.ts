@@ -23,6 +23,8 @@ export interface CrawlOptions {
   /** A safety cap on pages visited, independent of how many links are actually reachable. */
   readonly maxPages?: number;
   readonly clock?: Clock;
+  /** Bypasses TLS certificate validation for this crawl (P2-18); off by default. */
+  readonly tlsInsecure?: boolean;
 }
 
 export interface CrawlResult {
@@ -48,11 +50,18 @@ interface QueueItem {
 export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
   const clock = options.clock ?? systemClock;
   const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
-  const storageState = await resolveStorageState(options.browserLauncher, options.identity);
+  const storageState = await resolveStorageState(
+    options.browserLauncher,
+    options.identity,
+    options.tlsInsecure,
+  );
 
   const browser = await options.browserLauncher.launch();
   try {
-    const context = await browser.newContext(storageState === undefined ? {} : { storageState });
+    const context = await browser.newContext({
+      ...(storageState === undefined ? {} : { storageState }),
+      ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+    });
     const page = await context.newPage();
 
     const logEntries: RequestLogEntry[] = [];

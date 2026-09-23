@@ -47,6 +47,22 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts an environment with tlsInsecure set (P2-18)', () => {
+    const config = validConfig();
+    const result = ConfigSchema.parse({
+      ...config,
+      environments: {
+        staging: { ...config.environments.staging, tlsInsecure: true },
+      },
+    });
+    expect(result.environments.staging?.tlsInsecure).toBe(true);
+  });
+
+  it('defaults tlsInsecure to undefined, not true, when omitted', () => {
+    const result = ConfigSchema.parse(validConfig());
+    expect(result.environments.staging?.tlsInsecure).toBeUndefined();
+  });
+
   it('rejects an identity secret that is not a QA_-prefixed environment variable name', () => {
     const config = validConfig();
     config.identities.admin.secret = 'admin_password';
