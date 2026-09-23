@@ -11,9 +11,9 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 > carries an explicit `feature` (its artifact lives under that feature's own folder) and can
 > reference a reusable, non-secret test-data set instead of inlining repeated values. The agent
 > layer (`qa-start`, `qa-explore`, `qa-design-cases`) and a generated Claude Code plugin
-> (`adapters/claude-plugin/`, see [below](#claude-code-plugin)) both exist; installing that plugin
-> from a marketplace and the plugin/engine version handshake are still planned — see the
-> [roadmap](docs/public/ROADMAP.md).
+> (`adapters/claude-plugin/`, see [below](#claude-code-plugin)) both exist, including the
+> plugin/engine version handshake; installing that plugin from a marketplace is still planned —
+> see the [roadmap](docs/public/ROADMAP.md).
 
 ## Why
 
@@ -271,9 +271,11 @@ contract already enforced for `.claude/rules/`.
 ![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
 This is a diagram of the generator's data flow, not a recorded run — there is no interactive
-Claude Code session to record yet, since installing the plugin from a marketplace and the
-plugin/engine version handshake (ADR-007) are still planned. What the generator already produces
-today: a `.claude-plugin/plugin.json` manifest, the three skills currently shipped
+Claude Code session to record yet, since installing the plugin from a marketplace is still
+planned. The plugin/engine version handshake (ADR-007) itself already shipped (P2-12): the
+generated `.mcp.json` pins the `mcp-server` version it launches, and the server checks it against
+the engine's own version at startup. What the generator already produces today: a
+`.claude-plugin/plugin.json` manifest, the three skills currently shipped
 (`qa-start`, `qa-explore`, `qa-design-cases`) under `skills/`, a
 `PreToolUse` hook (`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of
 that protection, on top of the engine's own manifest and hash checks — and an `.mcp.json` that
