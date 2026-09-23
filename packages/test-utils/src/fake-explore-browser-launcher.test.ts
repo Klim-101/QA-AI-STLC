@@ -48,7 +48,7 @@ describe('createFakeExploreBrowserLauncher', () => {
 
     const response = await page.goto('https://example.com/');
 
-    expect(response.status()).toBe(200);
+    expect(response?.status()).toBe(200);
   });
 
   it('defaults every locator method to a count of 1 when none is configured', async () => {
