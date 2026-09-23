@@ -149,7 +149,12 @@ jobs:
       # behind the npm-generated `claude`/`claude.cmd` shim) never runs, and `claude` resolves to
       # nothing on disk (ENOENT) even though `npm install` itself reports success.
       - name: Install the Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code@2.1.280 --allow-scripts=@anthropic-ai/claude-code
+        # Deliberately not in any package.json -- AGENTS.md's no-LLM-SDK-dependency denylist
+        # (scripts/check-llm-denylist.mjs) scans every package.json's dependency fields, so a
+        # lockfile-tracked install here would trip it; the exact version is still pinned, and this
+        # job's own runner is a throwaway CI VM, not a machine whose supply chain persists.
+        run: | # zizmor: ignore[adhoc-packages] see above -- intentionally outside any lockfile
+          npm install -g @anthropic-ai/claude-code@2.1.280 --allow-scripts=@anthropic-ai/claude-code
 
       - name: Run the plugin-install smoke test
         run: npm run smoke:plugin-install
