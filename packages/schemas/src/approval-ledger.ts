@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
+import { TestingScopeSchema } from './config.js';
 import { IsoDateTimeSchema, RelativePathSchema, Sha256HexSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
@@ -16,6 +17,12 @@ export const ApprovalSchema = z.object({
   approvedBy: z.string().min(1),
   approvedAt: IsoDateTimeSchema,
   note: z.string().optional(),
+  // The testing scope (P2-16) in effect at approval time, recorded only for a gate whose
+  // satisfaction depends on it (the `cases` gate). A later `qa config set testing.<type>` changing
+  // this out from under the approval reopens the gate the next time it is recomputed, the same way
+  // editing the approved artifact's content does (ADR-003) — an approval with no snapshot here (a
+  // `scope` approval, or one recorded before this field existed) is never scope-checked.
+  testingScope: TestingScopeSchema.optional(),
 });
 export type Approval = z.infer<typeof ApprovalSchema>;
 

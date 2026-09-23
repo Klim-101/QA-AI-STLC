@@ -13,6 +13,24 @@ import { scopeTool } from '../src/tools/scope.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
 
+// Every type decided (P2-16 blocks qa.scope/qa.cases_add while any is "undecided"); e2e in-scope
+// since every case these tests register is testType "e2e".
+const CONFIG_YAML = [
+  'schemaVersion: 1',
+  'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+  'environments: {}',
+  'identities: {}',
+  'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+  'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+  'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+  '',
+].join('\n');
+
+async function writeConfig(projectRoot: string): Promise<void> {
+  await mkdir(join(projectRoot, '.qa'), { recursive: true });
+  await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+}
+
 // Every engine tool builds its `EngineContext` from `process.cwd()` (engine-context.ts), matching
 // how a real MCP client's process is launched with the project root as its working directory.
 // These tests run against a real temporary project directory instead of a fake `FileSystem` —
@@ -69,6 +87,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
   it('drives the whole scope -> cases_add -> approve -> validate pipeline against a real project', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
+      await writeConfig(projectRoot);
       await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
 
       const scopeResult = await scopeTool.handler({ from: 'file', path: 'requirements.md' });
@@ -175,6 +194,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
   it('rejects a hand-edited scope artifact on the next MCP mutation and reports it from qa.validate (P2-07)', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
+      await writeConfig(projectRoot);
       await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
       await scopeTool.handler({ from: 'file', path: 'requirements.md' });
 
@@ -220,6 +240,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
   it('qa.cases_add rejects a case linking to a requirement missing from the scope artifact', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
+      await writeConfig(projectRoot);
       await scopeTool.handler({ from: 'text', content: '## Known\nbody\n', label: 'operator' });
       await writeFile(
         join(projectRoot, 'bad-case.json'),

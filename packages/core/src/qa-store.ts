@@ -75,6 +75,12 @@ export class QaStore {
     return this.fs.readFile(this.resolve(relativePath));
   }
 
+  /** Every regular file's project-relative path under `relativePath`, recursively; `[]` if it does not exist. */
+  async listFiles(relativePath: RelativePath): Promise<readonly RelativePath[]> {
+    const absolutePaths = await this.fs.listFiles(this.resolve(relativePath));
+    return absolutePaths.map((absolutePath) => this.toRelativePath(absolutePath));
+  }
+
   /** Reads a file's raw bytes, with no encoding assumed (unlike `readText`'s UTF-8 decode). */
   async readBytes(relativePath: RelativePath): Promise<Uint8Array> {
     return this.fs.readBytes(this.resolve(relativePath));

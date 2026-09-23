@@ -17,6 +17,20 @@ import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 const PROJECT_ROOT = join('project');
 
+// Every type decided (P2-16 blocks "qa scope"/"qa cases add" while any is "undecided"); e2e
+// in-scope since every case fixture in this file is testType "e2e".
+const CONFIG_YAML = [
+  'schemaVersion: 1',
+  'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+  'environments: {}',
+  'identities: {}',
+  'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+  'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+  'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+  '',
+].join('\n');
+const CONFIG_PATH = join(PROJECT_ROOT, '.qa', 'config.yaml');
+
 function captureIO() {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -719,7 +733,10 @@ describe('runCli', () => {
 
   it('runs "scope --from file" and prints a human-readable confirmation', async () => {
     const deps = dependencies({
-      fs: createFakeFileSystem({ [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n' }),
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n',
+      }),
     });
 
     const exitCode = await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], deps);
@@ -729,7 +746,7 @@ describe('runCli', () => {
   });
 
   it('runs "scope --from text" and prints machine-readable JSON with --json', async () => {
-    const deps = dependencies();
+    const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
 
     const exitCode = await runCli(
       ['scope', '--from', 'text', '--content', '## Signup\nbody\n', '--label', 'operator input', '--json'],
@@ -754,7 +771,7 @@ describe('runCli', () => {
   });
 
   it('reports a coded error when "scope --from" is an unknown value', async () => {
-    const deps = dependencies();
+    const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
 
     const exitCode = await runCli(['scope', '--from', 'screenshot'], deps);
 
@@ -767,7 +784,7 @@ describe('runCli', () => {
 
     const exitCode = await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], {
       io,
-      fs: createFakeFileSystem(),
+      fs: createFakeFileSystem({ [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML }),
       env: {},
     });
 
@@ -964,6 +981,7 @@ describe('runCli', () => {
     });
     const deps = dependencies({
       fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
         [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
         [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
           'artifacts/scope.json': scopeJson,
@@ -1093,6 +1111,7 @@ describe('runCli', () => {
       createdAt: '2026-09-20T12:00:00Z',
     });
     const fs = createFakeFileSystem({
+      [CONFIG_PATH]: CONFIG_YAML,
       [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
       [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
         'artifacts/scope.json': scopeJson,

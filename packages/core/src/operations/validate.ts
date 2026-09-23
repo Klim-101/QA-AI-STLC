@@ -11,8 +11,10 @@ import {
   type PipelineState,
   type RelativePath,
   type Scope,
+  type TestCase,
 } from '@qa-ai-stlc/schemas';
 import { ApprovalLedgerStore, APPROVAL_LEDGER_PATH } from '../approval-ledger-store.js';
+import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { GateStateMachine } from '../gate.js';
 import { ManifestStore } from '../manifest-store.js';
@@ -21,6 +23,7 @@ import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 import { PipelineStateStore } from '../state-store.js';
 import { findUnresolvedTestDataRefs } from '../test-data-linking.js';
+import { checkCaseSetCompleteness, type CaseSetTypeStatus } from '../testing-scope.js';
 
 const SCOPE_PATH = 'artifacts/scope.json';
 const CASES_DIR = 'artifacts/cases';
@@ -61,6 +64,13 @@ export interface ValidateReport {
    * tampering `reopened` already reports.
    */
   readonly tamperedArtifacts: readonly RelativePath[];
+  /**
+   * "One case set per in-scope type" (P2-16), one status per case-bearing type — `undefined` on a
+   * project with no `config.yaml` yet, since there is no testing scope to check completeness
+   * against. A type recorded `not-applicable` here is reported, not silently absent: it is not
+   * `in-scope`, so it needs no case set at all, distinct from `missing` (`in-scope` with none).
+   */
+  readonly caseSetStatusByType: Readonly<Record<string, CaseSetTypeStatus>> | undefined;
 }
 
 /**
@@ -95,10 +105,11 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
     }
   }
 
-  const { unlinkedCases, unresolvedTestData } = await findCaseLinkIssues(context, store);
+  const { unlinkedCases, unresolvedTestData, cases } = await findCaseLinkIssues(context, store);
   const tamperedArtifacts = await findTamperedArtifacts(context, store, manifest);
+  const caseSetStatusByType = await computeCaseSetStatusByType(store, cases);
 
-  return { state, reopened, unlinkedCases, unresolvedTestData, tamperedArtifacts };
+  return { state, reopened, unlinkedCases, unresolvedTestData, tamperedArtifacts, caseSetStatusByType };
 }
 
 /**
@@ -142,22 +153,25 @@ async function findTamperedArtifacts(
 interface CaseLinkIssues {
   readonly unlinkedCases: readonly UnlinkedCase[];
   readonly unresolvedTestData: readonly UnresolvedTestDataCase[];
+  readonly cases: readonly TestCase[];
 }
 
 async function findCaseLinkIssues(context: EngineContext, store: QaStore): Promise<CaseLinkIssues> {
   const casesDirAbsolute = store.resolve(CASES_DIR);
   const caseFiles = await context.fs.listFiles(casesDirAbsolute);
   if (caseFiles.length === 0) {
-    return { unlinkedCases: [], unresolvedTestData: [] };
+    return { unlinkedCases: [], unresolvedTestData: [], cases: [] };
   }
 
   const scope = await loadScope(store);
   const knownTestDataIds = await loadKnownTestDataIds(context, store);
   const unlinkedCases: UnlinkedCase[] = [];
   const unresolvedTestData: UnresolvedTestDataCase[] = [];
+  const cases: TestCase[] = [];
   for (const absolutePath of [...caseFiles].sort()) {
     const relativePath = store.toRelativePath(absolutePath);
     const testCase = await store.readJson(relativePath, TestCaseSchema);
+    cases.push(testCase);
     const unlinkedRequirementIds = findUnlinkedRequirementIds(testCase.requirementIds, scope);
     if (unlinkedRequirementIds.length > 0) {
       unlinkedCases.push({ casePath: relativePath, id: testCase.id, unlinkedRequirementIds });
@@ -167,7 +181,23 @@ async function findCaseLinkIssues(context: EngineContext, store: QaStore): Promi
       unresolvedTestData.push({ casePath: relativePath, id: testCase.id, unresolvedTestDataRefs });
     }
   }
-  return { unlinkedCases, unresolvedTestData };
+  return { unlinkedCases, unresolvedTestData, cases };
+}
+
+/**
+ * `undefined` on a project with no `config.yaml` yet — nothing to check "one case set per
+ * in-scope type" (P2-16) against, distinct from a project that has decided every type.
+ */
+async function computeCaseSetStatusByType(
+  store: QaStore,
+  cases: readonly TestCase[],
+): Promise<Readonly<Record<string, CaseSetTypeStatus>> | undefined> {
+  const configExists = await store.pathExists('config.yaml');
+  if (!configExists) {
+    return undefined;
+  }
+  const config = await loadConfig(store);
+  return checkCaseSetCompleteness(config.testing, cases).statusByType;
 }
 
 async function loadScope(store: QaStore): Promise<Scope> {

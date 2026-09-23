@@ -8,6 +8,7 @@ import {
   type RequirementSource,
   type Scope,
 } from '@qa-ai-stlc/schemas';
+import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
 import { toCanonicalJson } from '../json-file.js';
@@ -16,6 +17,7 @@ import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { extractRequirements } from '../requirement-extraction.js';
 import { mergeRequirements } from '../scope-merge.js';
+import { findUndecidedTestingTypes } from '../testing-scope.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 
@@ -41,10 +43,23 @@ export interface ScopeResult {
  * later step.
  */
 export async function runScope(context: EngineContext, options: ScopeOptions): Promise<ScopeResult> {
+  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  const config = await loadConfig(store);
+  const undecided = findUndecidedTestingTypes(config.testing);
+  if (undecided.length > 0) {
+    throw new QaError(
+      'SCOPE_TESTING_UNDECIDED',
+      `Testing scope is still undecided for: ${undecided.join(', ')}`,
+      {
+        remediation:
+          'Run "qa config set testing.<type> <in-scope|out-of-scope>" for each type listed, then re-run "qa scope".',
+      },
+    );
+  }
+
   const { content, source } = await resolveSource(context, options);
   const incoming = extractRequirements(content, source);
 
-  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifestStore = new ManifestStore({ store, clock: context.clock });
   const existing = await loadScope(manifestStore, context);
   const merge = mergeRequirements(existing.requirements, incoming);

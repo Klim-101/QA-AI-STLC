@@ -32,6 +32,7 @@ export * from './requirement-extraction.js';
 export * from './scope-merge.js';
 export * from './requirement-linking.js';
 export * from './test-data-linking.js';
+export * from './testing-scope.js';
 export * from './engine-context.js';
 export * from './operations/doctor.js';
 export * from './operations/scope.js';

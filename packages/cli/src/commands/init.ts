@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, QaStore } from '@qa-ai-stlc/core';
+import { QaError, QaStore, findUndecidedTestingTypes } from '@qa-ai-stlc/core';
 import type { TestingScope, TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CommandContext } from '../command-context.js';
 import { QA_GITIGNORE, renderConfigYaml } from '../config-template.js';
@@ -39,9 +39,7 @@ function resolveTestingScope(answers: TestingScopeAnswers, deferScope: boolean):
   if (deferScope) {
     return testing;
   }
-  const undecidedTypes = (Object.keys(testing) as (keyof TestingScope)[]).filter(
-    (type) => testing[type] === 'undecided',
-  );
+  const undecidedTypes = findUndecidedTestingTypes(testing);
   if (undecidedTypes.length > 0) {
     throw new QaError(
       'INIT_SCOPE_UNDECIDED',
