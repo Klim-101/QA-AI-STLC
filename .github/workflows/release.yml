@@ -45,9 +45,11 @@ jobs:
           publish-script: npm run release
           # Bumping `packages/mcp-server`'s version without regenerating keeps the Claude Code
           # plugin (`adapters/claude-plugin/`) pinned to a stale version, and `lint:generated`
-          # (#308) then fails on this PR's own branch. `npm run generate` needs no build first:
-          # it reads `packages/mcp-server/package.json` directly.
-          version-script: npx changeset version && npm run generate
+          # (#308) then fails on this PR's own branch. `npm run generate` needs no build first: it
+          # reads `packages/mcp-server/package.json` directly. `changesets/action` execs this value
+          # with no shell, so a `&&`-chained command here silently fails (see
+          # `scripts/version-and-generate.mjs`'s own comment) -- run the wrapper script instead.
+          version-script: node scripts/version-and-generate.mjs
           commit-message: 'chore(repo): version packages'
           pr-title: 'chore(repo): version packages'
         env:
