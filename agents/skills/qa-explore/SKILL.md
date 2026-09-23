@@ -62,6 +62,13 @@ Before the first `qa.explore` call, ask the operator explicitly rather than assu
 - `blockedRequestCount` — non-GET requests safe mode blocked during the crawl. Non-zero is expected
   behavior, not a failure; mention it only if the operator asks what the crawl touched.
 
+Exploring is not itself a gated phase (`packages/core/src/phases.ts`'s `PHASES` has no `explore`
+entry), so do not stop after presenting the counts above. Read `.qa/state.json`'s `currentPhase`
+and relay that phase's own next step the same way a gate approval would
+([`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)) — for example, if `scope` is
+still open, point at [`agents/phase-prompts/scope.md`](../../phase-prompts/scope.md) rather than
+ending on the registry report alone.
+
 ## What this skill does not do
 
 - **Manual pick mode is CLI-only.** `qa explore --pick <url>` opens a headed browser for the
@@ -79,8 +86,3 @@ API-surface capture (`endpoints.json`, OpenAPI discovery/synthesis) is planned f
 skill covers the selector registry only. **When P6-01 lands, this file must be updated** to add the
 new tool call and how to read its result — P6-01's own exit criteria include updating this skill,
 so do not let this note go stale once that task is picked up.
-
-This skill also reports its own result directly to the operator rather than handing off through a
-shared "what's next" mechanism — that mechanism does not exist yet
-([P2-21](https://github.com/Klim-101/QA-AI-STLC/issues/260)). **When P2-21 lands, revisit this
-file** to route the end-of-run summary through it instead of ending here.

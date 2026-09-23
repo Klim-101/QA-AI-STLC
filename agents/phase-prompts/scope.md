@@ -21,3 +21,12 @@ approved before test case design starts.
 Never fetch requirements from an issue tracker, wiki or other external system (AGENTS.md 2.3,
 development plan section 2.4). Requirements come only from a local file or text the operator
 supplies directly.
+
+## What comes next
+
+Once `scope` is approved, the next phase is `cases`: load
+[`agents/phase-prompts/cases.md`](cases.md) and dispatch
+[`qa-design-cases`](../skills/qa-design-cases/SKILL.md) to write a case for each in-scope
+requirement. The hub announces this per
+[`agents/hub/HUB.md`](../hub/HUB.md#announcing-what-comes-next) rather than stopping at "scope
+approved."
