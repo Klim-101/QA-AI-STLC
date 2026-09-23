@@ -137,8 +137,12 @@ jobs:
         with:
           node-version-file: .node-version
 
+      # npm's install-scripts opt-in (npm >=11) skips a global package's postinstall by default;
+      # without it, @anthropic-ai/claude-code's postinstall (which places the real platform binary
+      # behind the npm-generated `claude`/`claude.cmd` shim) never runs, and `claude` resolves to
+      # nothing on disk (ENOENT) even though `npm install` itself reports success.
       - name: Install the Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code@2.1.280
+        run: npm install -g @anthropic-ai/claude-code@2.1.280 --allow-scripts=@anthropic-ai/claude-code
 
       - name: Run the plugin-install smoke test
         run: npm run smoke:plugin-install

@@ -12,11 +12,11 @@
 // `package.json` in this repository — AGENTS.md's "no LLM SDK dependency" boundary is about the
 // framework's own packages, and this script makes no model call, only exercises plugin/marketplace
 // CLI mechanics).
-import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import spawn from 'cross-spawn';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const pluginSourceDir = join(repoRoot, 'adapters', 'claude-plugin');
@@ -27,8 +27,21 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+// A globally `npm install -g`'d CLI resolves to a `.cmd` shim on Windows, which Node's own
+// `child_process` cannot spawn directly (`EINVAL`) without `shell: true` -- and `shell: true`
+// with a separate `args` array only concatenates them unescaped (Node's own DEP0190), which is
+// exactly the shell-string-building AGENTS.md 5.6 forbids. `cross-spawn` (MIT) is the standard,
+// widely-used fix: it resolves `.cmd`/`.bat` shims through `cmd.exe` with each argument correctly
+// re-escaped, with no `shell: true` and no manual string concatenation.
 function runClaude(args, options = {}) {
-  return execFileSync('claude', args, { encoding: 'utf8', ...options });
+  const result = spawn.sync('claude', args, { encoding: 'utf8', ...options });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(`"claude ${args.join(' ')}" exited with code ${String(result.status)}\n${result.stderr}`);
+  }
+  return result.stdout;
 }
 
 function assert(condition, message) {
