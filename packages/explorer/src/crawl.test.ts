@@ -192,4 +192,40 @@ describe('crawl', () => {
 
     expect(browserLauncher.newContextCalls).toEqual([{}]);
   });
+
+  it('bypasses TLS certificate validation when tlsInsecure is set (P2-18)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    await crawl({
+      startUrl: 'https://staging.example.com/',
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+      tlsInsecure: true,
+    });
+
+    expect(browserLauncher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+  });
+
+  it('bypasses TLS validation for the scripted login session too when tlsInsecure is set (P2-18)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+    const identityConfig: IdentityConfig = {
+      auth: 'storage-state',
+      secret: 'QA_ADMIN_PASSWORD',
+      loginUrl: 'https://staging.example.com/login',
+      username: 'admin@example.com',
+    };
+
+    await crawl({
+      startUrl: 'https://staging.example.com/',
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+      identity: { config: identityConfig, env: { QA_ADMIN_PASSWORD: 'secret' } },
+      tlsInsecure: true,
+    });
+
+    expect(browserLauncher.newContextCalls).toEqual([
+      { ignoreHttpsErrors: true },
+      { storageState: { cookies: [], origins: [] }, ignoreHttpsErrors: true },
+    ]);
+  });
 });

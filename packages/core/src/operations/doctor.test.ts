@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { resolveBrowserExecutablePath, SUPPORTED_BROWSERS } from '../browser-doctor.js';
 import type { EngineContext } from '../engine-context.js';
 import type { FileSystem } from '../ports/file-system.js';
@@ -95,6 +95,36 @@ describe('runDoctor', () => {
     const report = await runDoctor(context, { fix: true });
 
     expect(report.checks.some((check) => check.name === 'browser-install')).toBe(false);
+  });
+
+  it('warns and passes tlsInsecure through when an environment opts out of TLS validation (P2-18)', async () => {
+    const fs = createFakeFileSystem();
+    const get = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const warn = vi.fn();
+    const insecureConfig = CONFIG_YAML.replace(
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"], tlsInsecure: true }',
+    );
+    const context = fakeContext({
+      fs,
+      env: { QA_ADMIN_PASSWORD: 'set' },
+      httpClient: { get },
+      logger: { ...noopLogger, warn },
+    });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), insecureConfig);
+
+    const report = await runDoctor(context);
+
+    expect(report.checks.find((check) => check.name === 'environment:staging')?.status).toBe('pass');
+    expect(get).toHaveBeenCalledWith(
+      'https://staging.example.com',
+      expect.objectContaining({ tlsInsecure: true }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('staging'),
+      expect.objectContaining({ code: 'ENVIRONMENT_TLS_INSECURE', environment: 'staging' }),
+    );
   });
 
   it('rethrows a config load failure that is not a QaError', async () => {

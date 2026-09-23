@@ -108,6 +108,8 @@ export async function checkBrowserInstalled(
 export interface CheckBaseUrlOptions {
   readonly httpClient?: HttpClient;
   readonly timeoutMs?: number;
+  /** Bypasses TLS certificate validation for this check (P2-18); off by default. */
+  readonly tlsInsecure?: boolean;
 }
 
 /** Checks that the configured environment's base URL responds at all (ADR-004, section 2.7 step 2). */
@@ -122,7 +124,7 @@ export async function checkBaseUrlReachable(
     controller.abort();
   }, timeoutMs);
   try {
-    await httpClient.get(baseUrl, { signal: controller.signal });
+    await httpClient.get(baseUrl, { signal: controller.signal, tlsInsecure: options.tlsInsecure === true });
     return { name: 'base-url', status: 'pass', message: `${baseUrl} is reachable` };
   } catch {
     return {

@@ -19,6 +19,8 @@ export interface AnalyzePagesOptions {
   readonly identity?: ExplorerIdentity;
   readonly limits?: NormalizeLimits;
   readonly clock?: Clock;
+  /** Bypasses TLS certificate validation for this analysis session (P2-18); off by default. */
+  readonly tlsInsecure?: boolean;
 }
 
 export interface AnalyzePagesResult {
@@ -35,11 +37,18 @@ export interface AnalyzePagesResult {
 export async function analyzePages(options: AnalyzePagesOptions): Promise<AnalyzePagesResult> {
   const clock = options.clock ?? systemClock;
   const limits = options.limits ?? DEFAULT_NORMALIZE_LIMITS;
-  const storageState = await resolveStorageState(options.browserLauncher, options.identity);
+  const storageState = await resolveStorageState(
+    options.browserLauncher,
+    options.identity,
+    options.tlsInsecure,
+  );
 
   const browser = await options.browserLauncher.launch();
   try {
-    const context = await browser.newContext(storageState === undefined ? {} : { storageState });
+    const context = await browser.newContext({
+      ...(storageState === undefined ? {} : { storageState }),
+      ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+    });
     const page = await context.newPage();
     let blockedRequestCount = 0;
     await page.route(

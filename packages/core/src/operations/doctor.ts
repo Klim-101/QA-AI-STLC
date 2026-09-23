@@ -102,7 +102,16 @@ async function runConfigChecks(
   const identityChecks = checkIdentitiesPresent(config.identities, context.env);
   const environmentChecks = await Promise.all(
     Object.entries(config.environments).map(async ([name, environment]) => {
-      const result = await checkBaseUrlReachable(environment.baseUrl, { httpClient: context.httpClient });
+      if (environment.tlsInsecure === true) {
+        context.logger.warn(`TLS certificate validation is disabled for environment "${name}"`, {
+          code: 'ENVIRONMENT_TLS_INSECURE',
+          environment: name,
+        });
+      }
+      const result = await checkBaseUrlReachable(environment.baseUrl, {
+        httpClient: context.httpClient,
+        tlsInsecure: environment.tlsInsecure === true,
+      });
       return { ...result, name: `environment:${name}` };
     }),
   );

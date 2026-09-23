@@ -128,6 +128,43 @@ describe('runExplore', () => {
     expect(report.elementCount).toBe(0);
   });
 
+  it('bypasses TLS validation in pick mode when the named environment opts out (P2-18)', async () => {
+    const configYaml = [
+      'schemaVersion: 1',
+      'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+      `environments:\n  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"], tlsInsecure: true }`,
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+    ].join('\n');
+    const context = await fakeContext({ pickModeState: { done: true, captures: [] } }, configYaml);
+
+    const report = await runExplore(context, {
+      pick: 'https://staging.example.com/login',
+      environment: 'staging',
+    });
+
+    expect(report.elementCount).toBe(0);
+  });
+
+  it('runs pick mode without TLS bypass when no environment can be resolved (P2-18)', async () => {
+    const configYaml = [
+      'schemaVersion: 1',
+      'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+      'environments: {}',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+    ].join('\n');
+    const context = await fakeContext({ pickModeState: { done: true, captures: [] } }, configYaml);
+
+    const report = await runExplore(context, { pick: 'https://staging.example.com/login' });
+
+    expect(report.elementCount).toBe(0);
+  });
+
   it('merges pick mode onto a registry already built by a crawl', async () => {
     const context = await fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
     await runExplore(context);

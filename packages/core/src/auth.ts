@@ -36,6 +36,8 @@ export interface LoginCredentials {
   readonly usernameSelector?: string;
   readonly passwordSelector?: string;
   readonly submitSelector?: string;
+  /** Bypasses TLS certificate validation for the login session (P2-18); off by default. */
+  readonly tlsInsecure?: boolean;
 }
 
 /** Scripted login with secrets from environment variables (development plan section 6.2 step 2). */
@@ -45,7 +47,9 @@ export async function loginWithCredentials(
 ): Promise<StorageState> {
   const browser: AuthBrowser = await launcher.launch();
   try {
-    const context = await browser.newContext();
+    const context = await browser.newContext(
+      credentials.tlsInsecure === true ? { ignoreHttpsErrors: true } : {},
+    );
     const page = await context.newPage();
     await page.goto(credentials.loginUrl);
     await page.fill(credentials.usernameSelector ?? DEFAULT_USERNAME_SELECTOR, credentials.username);
@@ -61,6 +65,8 @@ export async function loginWithCredentials(
 export interface AuthenticateOptions {
   /** Required, and only used, when `identity.auth` is `"cdp-attach"`. */
   readonly cdpEndpointUrl?: string;
+  /** Bypasses TLS certificate validation for a scripted login (P2-18); off by default, ignored for `"cdp-attach"`. */
+  readonly tlsInsecure?: boolean;
 }
 
 /**
@@ -107,5 +113,6 @@ export async function authenticate(
     ...(identity.selectors?.username !== undefined ? { usernameSelector: identity.selectors.username } : {}),
     ...(identity.selectors?.password !== undefined ? { passwordSelector: identity.selectors.password } : {}),
     ...(identity.selectors?.submit !== undefined ? { submitSelector: identity.selectors.submit } : {}),
+    ...(options.tlsInsecure === true ? { tlsInsecure: true } : {}),
   });
 }

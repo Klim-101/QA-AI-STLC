@@ -120,6 +120,35 @@ describe('checkBaseUrlReachable', () => {
     expect(result.status).toBe('fail');
     expect(result.remediation).toBeDefined();
   });
+
+  it('forwards tlsInsecure to the HTTP client (P2-18)', async () => {
+    let receivedOptions: Parameters<HttpClient['get']>[1];
+    const httpClient: HttpClient = {
+      get: (_url, options) => {
+        receivedOptions = options;
+        return Promise.resolve({ ok: true, status: 200 });
+      },
+    };
+
+    await checkBaseUrlReachable('https://example.com', { httpClient, tlsInsecure: true });
+
+    expect(receivedOptions?.signal).toBeInstanceOf(AbortSignal);
+    expect(receivedOptions?.tlsInsecure).toBe(true);
+  });
+
+  it('defaults tlsInsecure to false when not given', async () => {
+    let receivedOptions: Parameters<HttpClient['get']>[1];
+    const httpClient: HttpClient = {
+      get: (_url, options) => {
+        receivedOptions = options;
+        return Promise.resolve({ ok: true, status: 200 });
+      },
+    };
+
+    await checkBaseUrlReachable('https://example.com', { httpClient });
+
+    expect(receivedOptions?.tlsInsecure).toBe(false);
+  });
 });
 
 describe('checkIdentitiesPresent', () => {

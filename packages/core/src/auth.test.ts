@@ -108,6 +108,31 @@ describe('loginWithCredentials', () => {
     ]);
   });
 
+  it('passes ignoreHttpsErrors to newContext() when tlsInsecure is set (P2-18)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+
+    await loginWithCredentials(launcher, {
+      loginUrl: 'https://example.com/login',
+      username: 'qa.admin@example.com',
+      password: 'hunter2',
+      tlsInsecure: true,
+    });
+
+    expect(launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+  });
+
+  it('omits ignoreHttpsErrors from newContext() when tlsInsecure is not set', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+
+    await loginWithCredentials(launcher, {
+      loginUrl: 'https://example.com/login',
+      username: 'qa.admin@example.com',
+      password: 'hunter2',
+    });
+
+    expect(launcher.newContextCalls).toEqual([{}]);
+  });
+
   it('always closes the browser it launched, even on failure', async () => {
     let closed = false;
     const launcher = createFakeBrowserLauncher({ storageState: SESSION });
@@ -208,6 +233,14 @@ describe('authenticate', () => {
     );
 
     expect((error as QaError).code).toBe('IDENTITY_SECRET_MISSING');
+  });
+
+  it('forwards tlsInsecure to loginWithCredentials for a storage-state identity (P2-18)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+
+    await authenticate(launcher, loginIdentity, { QA_ADMIN_PASSWORD: 'hunter2' }, { tlsInsecure: true });
+
+    expect(launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
   });
 
   it('throws LOGIN_CONFIG_INCOMPLETE for a hand-built storage-state identity missing loginUrl/username', async () => {

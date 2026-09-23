@@ -7,6 +7,7 @@ import {
   finalizeManualSelectorEntries,
   injectPickModeOverlay,
   persistExploreResult,
+  resolveEnvironment,
   resolveIdentity,
   resolvePolicy,
   resolveStorageState,
@@ -15,7 +16,7 @@ import {
   type ExploreOptions as ExploreOperationOptions,
   type ExploreReport,
 } from '@qa-ai-stlc/explorer';
-import { SelectorRegistrySchema, type SelectorElement } from '@qa-ai-stlc/schemas';
+import { SelectorRegistrySchema, type Config, type SelectorElement } from '@qa-ai-stlc/schemas';
 import type { CommandContext } from '../command-context.js';
 
 const REGISTRY_PATH = 'selectors/registry.json';
@@ -27,6 +28,19 @@ export interface ExploreOptions extends ExploreOperationOptions {
   readonly pick?: string;
 }
 
+// Pick mode navigates to an arbitrary URL, not necessarily a configured environment's baseUrl, so
+// an environment given by --environment opts pick mode into its `tlsInsecure` too, but an
+// unresolvable one (none configured, none named -- `resolveEnvironment` only ever throws a
+// QaError for those cases) leaves TLS validation on rather than failing the session over
+// something pick mode does not otherwise need.
+function resolveExploreEnvironment(config: Config, name: string | undefined): boolean {
+  try {
+    return resolveEnvironment(config, name).config.tlsInsecure === true;
+  } catch {
+    return false;
+  }
+}
+
 async function runPickModeSession(
   context: CommandContext,
   options: ExploreOptions & { readonly pick: string },
@@ -35,12 +49,16 @@ async function runPickModeSession(
   const config = await loadConfig(store);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
-  const storageState = await resolveStorageState(context.browserLauncher, identity);
+  const tlsInsecure = resolveExploreEnvironment(config, options.environment);
+  const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
 
   // Headed: a human clicks the elements in this window, unlike every other launch() call here.
   const browser = await context.browserLauncher.launch({ headless: false });
   try {
-    const browserContext = await browser.newContext(storageState === undefined ? {} : { storageState });
+    const browserContext = await browser.newContext({
+      ...(storageState === undefined ? {} : { storageState }),
+      ...(tlsInsecure ? { ignoreHttpsErrors: true } : {}),
+    });
     const page = await browserContext.newPage();
     await page.goto(options.pick);
     await injectPickModeOverlay(page);

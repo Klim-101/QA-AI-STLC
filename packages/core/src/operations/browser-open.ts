@@ -77,11 +77,23 @@ export async function runBrowserOpen(
   const environment = resolveBrowserEnvironment(config, options.environment);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
 
+  if (environment.config.tlsInsecure === true) {
+    context.engine.logger.warn(
+      `TLS certificate validation is disabled for environment "${environment.name}"`,
+      {
+        code: 'ENVIRONMENT_TLS_INSECURE',
+        environment: environment.name,
+      },
+    );
+  }
+
   const browser = await context.engine.browserLauncher.launch();
   const blockedRequests: BlockedRequest[] = [];
   let session: BrowserSession;
   try {
-    const browserContext = await browser.newContext();
+    const browserContext = await browser.newContext(
+      environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {},
+    );
     const page = await browserContext.newPage();
     await page.route(
       ALL_REQUESTS_PATTERN,

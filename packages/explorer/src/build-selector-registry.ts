@@ -28,6 +28,8 @@ export interface BuildSelectorRegistryOptions {
   readonly policy?: LocatorPolicy;
   readonly viewports?: readonly ViewportSize[];
   readonly clock?: Clock;
+  /** Bypasses TLS certificate validation for this scoring session (P2-18); off by default. */
+  readonly tlsInsecure?: boolean;
 }
 
 export interface BuildSelectorRegistryResult {
@@ -130,11 +132,18 @@ export async function buildSelectorRegistry(
 ): Promise<BuildSelectorRegistryResult> {
   const clock = options.clock ?? systemClock;
   const policy = options.policy ?? 'playwright-default';
-  const storageState = await resolveStorageState(options.browserLauncher, options.identity);
+  const storageState = await resolveStorageState(
+    options.browserLauncher,
+    options.identity,
+    options.tlsInsecure,
+  );
 
   const browser = await options.browserLauncher.launch();
   try {
-    const context = await browser.newContext(storageState === undefined ? {} : { storageState });
+    const context = await browser.newContext({
+      ...(storageState === undefined ? {} : { storageState }),
+      ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+    });
     const page = await context.newPage();
     let blockedRequestCount = 0;
     await page.route(
