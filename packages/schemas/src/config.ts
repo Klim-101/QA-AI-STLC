@@ -29,9 +29,26 @@ export const ApiConfigSchema = z.object({
 });
 export type ApiConfig = z.infer<typeof ApiConfigSchema>;
 
+// Scheme and port are checked separately, against the environment's baseUrl (packages/core's
+// browser-allowlist.ts compares URL.hostname, which is always port-stripped) -- an entry that
+// looks like a full origin (a port suffix, a scheme prefix, a path) matches nothing at runtime and
+// used to fail silently instead of being rejected here (#329).
+const HOSTNAME_PATTERN =
+  /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
 export const EnvironmentConfigSchema = z.object({
   baseUrl: z.string().min(1),
-  allowlist: z.array(z.string().min(1)).min(1),
+  allowlist: z
+    .array(
+      z
+        .string()
+        .min(1)
+        .regex(
+          HOSTNAME_PATTERN,
+          'must be a bare hostname, with no scheme, port or path -- for example "staging.example.com", not "staging.example.com:8080" or "https://staging.example.com"',
+        ),
+    )
+    .min(1),
   // Off by default (P2-18): bypasses TLS certificate validation for this environment's HTTP and
   // browser traffic, for reaching a server behind a self-signed or internal-CA certificate.
   tlsInsecure: z.boolean().optional(),
