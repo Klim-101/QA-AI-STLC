@@ -1,5 +1,92 @@
 # @qa-ai-stlc/mcp-server
 
+## 0.5.0
+
+### Minor Changes
+
+- 574705e: Add the engine/plugin version handshake (P2-12, ADR-007): the generated Claude Code plugin's
+  `.mcp.json` now pins the engine version it expects into `QA_EXPECTED_ENGINE_VERSION`. At start,
+  the MCP server compares that against its own version and, on a mismatch, exits with a coded
+  `ENGINE_VERSION_MISMATCH` error and a remediation instead of silently running a different engine
+  version than the plugin was generated against. A server started without that variable set (for
+  example directly from the CLI during development) is unaffected.
+- d1b29ee: Add reusable, non-secret test-data sets (P2-22): `TestDataSchema` (`packages/schemas`) is a named
+  set of key/value variables, and `TestCaseSchema` gains an optional `testDataRefs` array so a case's
+  steps or preconditions can reference shared values by id instead of inlining them.
+
+  `qa test-data add` / `qa.test_data_add` validates a set and registers it under
+  `artifacts/test-data/<feature>/<id>.json` (P2-20's feature-folder convention). `qa validate` now
+  also rejects a case whose `testDataRefs` entry does not resolve to a registered set, reported as a
+  new `unresolvedTestData` field on the validate report — both are additive, so nothing existing
+  changes shape.
+
+  Never holds credentials — those stay in identities / `QA_*` environment variables.
+
+### Patch Changes
+
+- adaa974: Fix `qa validate`/`qa.validate` reporting every binary evidence artifact (screenshots, traces,
+  video) as tampered, even freshly registered and untouched. `EvidenceStore` hashes binary content
+  byte-for-byte (`hashBytes`); the tamper check re-read every manifest-registered path through a
+  lossy UTF-8 text decode regardless of that, so a re-hash could never match.
+
+  `ManifestStore` gains `verifyContent(relativePath, rawBytes)`: since the manifest does not record
+  which hasher an entry used, it checks raw bytes against both a binary hash and a text hash of
+  their UTF-8 decoding, which is strictly more correct than assuming one encoding. The `FileSystem`
+  port gains a required `readBytes(absolutePath)` method (breaking for a custom implementation) so
+  the tamper check can read a file without assuming its encoding ahead of time.
+
+- e288603: Fix `qa approve`/`qa.approve` accepting any existing file as a gate's artifact, and the approval
+  ledger being unprotected against a hand-edit — together these let a gate approval be forged with
+  nothing detecting it: editing an artifact, recomputing its hash, and writing that hash into the
+  corresponding ledger entry used to pass `qa validate` as a genuinely approved gate.
+
+  `GateStateMachine.approve()` now requires the artifact to be manifest-registered — the content the
+  engine itself last wrote to that path — throwing the existing `ARTIFACT_UNREGISTERED` /
+  `ARTIFACT_HASH_MISMATCH` coded errors instead of silently approving. `ApprovalLedgerStore` now
+  registers `artifacts/approval-ledger.json` in the manifest on every append, so a hand-edit to the
+  ledger itself is caught by `qa validate`'s tamper check the same as any other artifact.
+
+  Breaking for `@qa-ai-stlc/core`: `ApprovalLedgerStoreOptions` and `GateStateMachineOptions` both
+  gain a required `manifest: ManifestStore` field.
+
+- e968493: Fix `ManifestStore.verifyContent()`'s try-both hashing (added in the #277 fix) letting a
+  CRLF-only edit to a bytes-registered artifact pass tamper detection: `hashText` normalizes CRLF to
+  LF, so `hashBytes(bytes("a\nb"))` equals `hashText("a\r\nb")` whenever the original bytes are the
+  UTF-8 encoding of LF-terminated text — trying a text hash as a fallback after a byte-hash mismatch
+  made this collision reachable by an attacker, not just theoretical.
+
+  `ManifestEntrySchema` now records `mode: 'text' | 'bytes'`, the hasher actually used at
+  registration time. `verifyContent` checks only that recorded mode instead of guessing.
+
+  Breaking for `@qa-ai-stlc/schemas`: `ManifestEntrySchema` gains a required `mode` field, so an
+  existing `.qa/manifest.json` written before this change fails validation until every project runs
+  an engine operation that re-registers its artifacts (`qa explore`, `qa scope`, etc.).
+
+- Updated dependencies [bcad827]
+- Updated dependencies [17d5441]
+- Updated dependencies [8c8971b]
+- Updated dependencies [185e50e]
+- Updated dependencies [adaa974]
+- Updated dependencies [bb0a0aa]
+- Updated dependencies [81bf690]
+- Updated dependencies [6d8ac0a]
+- Updated dependencies [e288603]
+- Updated dependencies [2334df3]
+- Updated dependencies [2235987]
+- Updated dependencies [c1f4de6]
+- Updated dependencies [e968493]
+- Updated dependencies [1f205dd]
+- Updated dependencies [c7a5c3d]
+- Updated dependencies [6c1ba4f]
+- Updated dependencies [22d0436]
+- Updated dependencies [e1f1308]
+- Updated dependencies [d1b29ee]
+- Updated dependencies [71bbbf7]
+- Updated dependencies [f44a75b]
+  - @qa-ai-stlc/schemas@1.0.0
+  - @qa-ai-stlc/core@1.0.0
+  - @qa-ai-stlc/explorer@1.0.0
+
 ## 0.4.0
 
 ### Minor Changes
