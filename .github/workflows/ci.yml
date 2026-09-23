@@ -136,6 +136,13 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .node-version
+          cache: npm
+
+      # Only the root workspace's own devDependencies are needed (the smoke test script's
+      # `cross-spawn`); no package needs building, since the script reads adapters/claude-plugin
+      # and packages/mcp-server/package.json as plain files.
+      - name: Install dependencies
+        run: npm ci
 
       # npm's install-scripts opt-in (npm >=11) skips a global package's postinstall by default;
       # without it, @anthropic-ai/claude-code's postinstall (which places the real platform binary
