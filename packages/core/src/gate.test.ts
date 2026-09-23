@@ -43,6 +43,52 @@ async function writeAndRegister(
   await manifest.register(path, serialized);
 }
 
+/** A minimal valid `config.yaml`, with `testing` set to `testingLine` (the block's inner text). */
+function configYaml(testingLine: string): string {
+  return [
+    'schemaVersion: 1',
+    `testing: { ${testingLine} }`,
+    'environments:',
+    '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+    'identities:',
+    '  admin: { auth: cdp-attach, secret: QA_ADMIN_PASSWORD }',
+    'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+    'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+    'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+    '',
+  ].join('\n');
+}
+
+// e2e in-scope, everything else out-of-scope, so a single e2e case satisfies "one case set per
+// in-scope type" (P2-16) without needing an `api` config block too.
+const CONFIG_YAML = configYaml(
+  'e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope',
+);
+
+/** Writes and registers `config.yaml`, defaulting to `testing.e2e` as the only in-scope type. */
+async function writeAndRegisterConfig(
+  store: QaStore,
+  manifest: ManifestStore,
+  yaml: string = CONFIG_YAML,
+): Promise<void> {
+  await store.writeText('config.yaml', yaml);
+  await manifest.register('config.yaml', yaml);
+}
+
+function validCase(overrides: { id?: string; feature?: string } = {}): unknown {
+  return {
+    id: overrides.id ?? 'case-1',
+    feature: overrides.feature ?? 'checkout',
+    requirementIds: ['r1'],
+    testType: 'e2e',
+    title: 'A case',
+    steps: [{ description: 'Do something' }],
+    expectedResult: 'Something happens',
+    status: 'draft',
+    createdAt: '2026-09-20T12:00:00Z',
+  };
+}
+
 describe('GateStateMachine', () => {
   it('approves the current phase and advances to the next one', async () => {
     const { store, manifest, gates } = createGateStateMachine();
@@ -61,8 +107,9 @@ describe('GateStateMachine', () => {
 
   it('advances through every phase and stays at the last one once all gates are satisfied', async () => {
     const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(store, manifest);
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
-    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', { id: 'case-1' });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const state = await gates.approve({
@@ -154,8 +201,9 @@ describe('GateStateMachine', () => {
 
   it('accepts any registered artifact under artifacts/cases/ for the cases gate', async () => {
     const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(store, manifest);
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
-    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', { id: 'case-1' });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const state = await gates.approve({
@@ -165,6 +213,125 @@ describe('GateStateMachine', () => {
     });
 
     expect(state.gates.cases.status).toBe('satisfied');
+  });
+
+  it('rejects approving cases while any testing type is still undecided (P2-16)', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(
+      store,
+      manifest,
+      configYaml('e2e: in-scope, api: undecided, a11y: out-of-scope, security: out-of-scope'),
+    );
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const error = await gates
+      .approve({
+        gate: 'cases',
+        artifactPath: 'artifacts/cases/checkout/case-1.json',
+        approvedBy: 'operator',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('APPROVE_TESTING_UNDECIDED');
+  });
+
+  it('rejects approving cases while an in-scope type has no registered case (P2-16)', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(
+      store,
+      manifest,
+      configYaml('e2e: in-scope, api: out-of-scope, a11y: in-scope, security: out-of-scope'),
+    );
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const error = await gates
+      .approve({
+        gate: 'cases',
+        artifactPath: 'artifacts/cases/checkout/case-1.json',
+        approvedBy: 'operator',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('APPROVE_CASE_SET_INCOMPLETE');
+    expect((error as QaError).message).toContain('a11y');
+  });
+
+  it('rejects approving cases while a case is registered for a non-in-scope type (P2-16)', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(
+      store,
+      manifest,
+      configYaml('e2e: out-of-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope'),
+    );
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const error = await gates
+      .approve({
+        gate: 'cases',
+        artifactPath: 'artifacts/cases/checkout/case-1.json',
+        approvedBy: 'operator',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('APPROVE_CASE_SET_INCOMPLETE');
+    expect((error as QaError).message).toContain('e2e');
+  });
+
+  // The issue's own acceptance criterion (P2-16): changing a decided type reopens the cases gate.
+  it('reopens a satisfied cases gate when its testing scope decision changes afterward', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(store, manifest);
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+    await gates.approve({
+      gate: 'cases',
+      artifactPath: 'artifacts/cases/checkout/case-1.json',
+      approvedBy: 'operator',
+    });
+
+    // Flips `a11y` from out-of-scope to in-scope, the way "qa config set testing.a11y in-scope" would.
+    const changed = configYaml('e2e: in-scope, api: out-of-scope, a11y: in-scope, security: out-of-scope');
+    await store.writeText('config.yaml', changed);
+    const state = await gates.validate();
+
+    expect(state.gates.cases.status).toBe('open');
+  });
+
+  it('does not reopen the cases gate when the testing scope decision is unchanged', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(store, manifest);
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+    await gates.approve({
+      gate: 'cases',
+      artifactPath: 'artifacts/cases/checkout/case-1.json',
+      approvedBy: 'operator',
+    });
+
+    const state = await gates.validate();
+
+    expect(state.gates.cases.status).toBe('satisfied');
+  });
+
+  it('never scope-checks a gate approved before this field existed (no testingScope snapshot)', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const state = await gates.validate();
+
+    expect(state.gates.scope.status).toBe('satisfied');
   });
 
   it('ignores a hand-forged approval ledger on a project with no prior approvals (regression, #304)', async () => {

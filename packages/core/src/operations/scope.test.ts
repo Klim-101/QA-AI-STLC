@@ -16,10 +16,24 @@ import { runScope } from './scope.js';
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
+// Every type decided (P2-16 blocks `qa scope` while any is `undecided`); no type needs to be
+// `in-scope` for these tests, so none of it needs a matching `api`/`source` config block.
+const CONFIG_YAML = [
+  'schemaVersion: 1',
+  'testing: { e2e: out-of-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+  'environments: {}',
+  'identities: {}',
+  'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+  'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+  'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+  '',
+].join('\n');
+
 function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContext {
+  const configPath = join(QA_DIR, 'config.yaml');
   return {
     projectRoot: PROJECT_ROOT,
-    fs: createFakeFileSystem(files),
+    fs: createFakeFileSystem({ [configPath]: CONFIG_YAML, ...files }),
     clock: systemClock,
     logger: noopLogger,
     processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
@@ -111,5 +125,35 @@ describe('runScope', () => {
 
     await expect(runScope(context, { from: 'text' })).rejects.toThrow(QaError);
     await expect(runScope(context, { from: 'text', content: 'x' })).rejects.toThrow(QaError);
+  });
+
+  it('rejects scoping while any testing type is still undecided (P2-16)', async () => {
+    const undecidedYaml = CONFIG_YAML.replace('api: out-of-scope', 'api: undecided');
+    const context = fakeContext({ [join(QA_DIR, 'config.yaml')]: undecidedYaml });
+
+    const error = await runScope(context, {
+      from: 'text',
+      content: '## Signup\nbody\n',
+      label: 'operator input',
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('SCOPE_TESTING_UNDECIDED');
+    expect((error as QaError).message).toContain('api');
+  });
+
+  it('rejects scoping when there is no config.yaml at all', async () => {
+    const context: EngineContext = {
+      projectRoot: PROJECT_ROOT,
+      fs: createFakeFileSystem(),
+      clock: systemClock,
+      logger: noopLogger,
+      processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+      browserLauncher: createFakeBrowserLauncher(),
+      env: {},
+    };
+
+    await expect(runScope(context, { from: 'text', content: 'x', label: 'x' })).rejects.toThrow(QaError);
   });
 });

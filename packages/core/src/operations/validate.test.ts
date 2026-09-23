@@ -366,6 +366,34 @@ describe('runValidate', () => {
 
     expect(report.tamperedArtifacts).toEqual(['artifacts/scope.json']);
   });
+
+  it('reports caseSetStatusByType as undefined when there is no config.yaml yet', async () => {
+    const context = fakeContext();
+
+    const report = await runValidate(context);
+
+    expect(report.caseSetStatusByType).toBeUndefined();
+  });
+
+  it("reports every case-bearing type's status by testing scope (P2-16)", async () => {
+    const context = fakeContext({
+      'config.yaml': [
+        'schemaVersion: 1',
+        'testing: { e2e: in-scope, api: out-of-scope, a11y: in-scope, security: out-of-scope }',
+        'environments: {}',
+        'identities: {}',
+        'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+        'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+        'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+        '',
+      ].join('\n'),
+      'artifacts/cases/checkout/case-1.json': JSON.stringify(testCase({ requirementIds: ['r1'] })),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.caseSetStatusByType).toEqual({ e2e: 'satisfied', api: 'not-applicable', a11y: 'missing' });
+  });
 });
 
 /** A `.qa/manifest.json` registering each of `contentByPath`'s entries under its own hash. */

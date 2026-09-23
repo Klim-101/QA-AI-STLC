@@ -8,6 +8,7 @@ import {
   type RelativePath,
   type Scope,
 } from '@qa-ai-stlc/schemas';
+import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
 import { readJsonFile, toCanonicalJson } from '../json-file.js';
@@ -15,6 +16,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
+import { findUndecidedTestingTypes } from '../testing-scope.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 const DEFAULT_SCOPE_GENERATED_AT = new Date(0).toISOString();
@@ -32,7 +34,9 @@ export interface CasesAddResult {
 /**
  * `qa cases add --path <path>` / MCP `qa_cases_add` (development plan section 2.7 step 9, P2-03,
  * P2-05): validates a test case a human or an agent wrote as JSON — the engine never authors
- * test-case content itself (ADR-001) — checks every `requirementIds` entry against the current
+ * test-case content itself (ADR-001) — rejects it while any testing-scope type is still
+ * `undecided` or the case's own `testType` is not `in-scope` (P2-16, never a silently-skipped
+ * case for an out-of-scope type), checks every `requirementIds` entry against the current
  * scope artifact, and only then registers it under `artifacts/cases/<feature>/<id>.json` (P2-20)
  * using the case's own `feature` field. A case linking to a requirement id that does not exist in
  * `artifacts/scope.json` is rejected here, before it is ever written; `qa validate` re-checks every
@@ -56,6 +60,28 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   const testCase = await readJsonFile(context.fs, absolutePath, TestCaseSchema);
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  const config = await loadConfig(store);
+  const undecided = findUndecidedTestingTypes(config.testing);
+  if (undecided.length > 0) {
+    throw new QaError(
+      'CASES_ADD_TESTING_UNDECIDED',
+      `Testing scope is still undecided for: ${undecided.join(', ')}`,
+      {
+        remediation:
+          'Run "qa config set testing.<type> <in-scope|out-of-scope>" for each type listed, then re-run "qa cases add".',
+      },
+    );
+  }
+  if (config.testing[testCase.testType] !== 'in-scope') {
+    throw new QaError(
+      'CASE_TYPE_OUT_OF_SCOPE',
+      `Case "${testCase.id}" is testType "${testCase.testType}", but testing.${testCase.testType} is "${config.testing[testCase.testType]}"`,
+      {
+        remediation: `Set "testing.${testCase.testType}" to "in-scope" first, or write this case for an in-scope type.`,
+      },
+    );
+  }
+
   const manifestStore = new ManifestStore({ store, clock: context.clock });
   const scope = await loadScope(manifestStore);
   const unlinked = findUnlinkedRequirementIds(testCase.requirementIds, scope);

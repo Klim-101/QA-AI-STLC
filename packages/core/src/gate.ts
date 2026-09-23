@@ -3,13 +3,16 @@
 
 import {
   SCHEMA_VERSION,
+  TestCaseSchema,
   type Approval,
   type GateState,
   type PhaseName,
   type PipelineState,
   type RelativePath,
+  type TestingScope,
 } from '@qa-ai-stlc/schemas';
 import type { ApprovalLedgerStore } from './approval-ledger-store.js';
+import { loadConfig } from './config-loader.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
 import type { ManifestStore } from './manifest-store.js';
@@ -17,6 +20,7 @@ import { PHASES } from './phases.js';
 import { systemClock, type Clock } from './ports/clock.js';
 import type { QaStore } from './qa-store.js';
 import type { PipelineStateStore } from './state-store.js';
+import { checkCaseSetCompleteness, findUndecidedTestingTypes } from './testing-scope.js';
 
 export interface GateStateMachineOptions {
   readonly store: QaStore;
@@ -31,6 +35,12 @@ export interface ApproveGateOptions {
   readonly artifactPath: RelativePath;
   readonly approvedBy: string;
   readonly note?: string;
+}
+
+const CASES_DIR: RelativePath = 'artifacts/cases/';
+
+function testingScopeMatches(a: TestingScope, b: TestingScope): boolean {
+  return a.e2e === b.e2e && a.api === b.api && a.a11y === b.a11y && a.security === b.security;
 }
 
 type CanonicalArtifactBinding =
@@ -67,6 +77,8 @@ function describeCanonicalArtifactPath(gate: PhaseName): string {
  * tamper check required. `approve()` only ever binds to an artifact the engine itself registered
  * in the manifest (#278) — a path that merely exists cannot be approved — and only to the
  * artifact that actually belongs to the gate being approved (#305), not any other registered path.
+ * A `cases` approval carrying a `testingScope` snapshot (P2-16) also reopens if the testing scope
+ * config has since changed, the same recompute-not-cache treatment as the artifact hash itself.
  */
 export class GateStateMachine {
   private readonly store: QaStore;
@@ -127,6 +139,11 @@ export class GateStateMachine {
     // ARTIFACT_HASH_MISMATCH here instead of being approved.
     await this.manifest.assertRegistered(options.artifactPath, content);
 
+    // Testing-scope awareness (P2-16, development plan section 2.7) only applies to the `cases`
+    // gate: `scope` approves regardless of which types are decided, since deciding them is what
+    // `qa scope` itself already requires before it will even write an artifact to approve.
+    const testingScope = options.gate === 'cases' ? await this.assertCaseSetReadyToApprove() : undefined;
+
     const approval: Approval = {
       gate: options.gate,
       artifactPath: options.artifactPath,
@@ -134,10 +151,63 @@ export class GateStateMachine {
       approvedBy: options.approvedBy,
       approvedAt: this.clock.now().toISOString(),
       ...(options.note !== undefined ? { note: options.note } : {}),
+      ...(testingScope !== undefined ? { testingScope } : {}),
     };
     await this.ledger.append(approval);
 
     return this.recomputeState();
+  }
+
+  /**
+   * Blocks approving `cases` while any testing-scope type is still `undecided`, or while it does
+   * not yet have "one case set per in-scope type" (P2-16, development plan section 2.7): every
+   * `in-scope` type needs at least one registered case, and no case may exist for a type that is
+   * not `in-scope` (`checkCaseSetCompleteness`'s `not-applicable` never silently passes as done).
+   * Returns the testing scope decided at this moment, to snapshot on the approval so a later
+   * `qa config set` reopens the gate the same way editing the artifact itself does.
+   */
+  private async assertCaseSetReadyToApprove(): Promise<TestingScope> {
+    const config = await loadConfig(this.store);
+    const undecided = findUndecidedTestingTypes(config.testing);
+    if (undecided.length > 0) {
+      throw new QaError(
+        'APPROVE_TESTING_UNDECIDED',
+        `Testing scope is still undecided for: ${undecided.join(', ')}`,
+        {
+          remediation: 'Run "qa config set testing.<type> <in-scope|out-of-scope>" for each type listed.',
+        },
+      );
+    }
+
+    const casePaths = await this.store.listFiles(CASES_DIR);
+    const cases = await Promise.all(casePaths.map((path) => this.store.readJson(path, TestCaseSchema)));
+    const completeness = checkCaseSetCompleteness(config.testing, cases);
+    const missingTypes = (
+      Object.keys(completeness.statusByType) as (keyof typeof completeness.statusByType)[]
+    )
+      .filter((type) => completeness.statusByType[type] === 'missing')
+      .sort();
+    if (missingTypes.length > 0 || completeness.outOfScopeTypes.length > 0) {
+      throw new QaError(
+        'APPROVE_CASE_SET_INCOMPLETE',
+        [
+          missingTypes.length > 0
+            ? `no case registered for in-scope type(s): ${missingTypes.join(', ')}`
+            : null,
+          completeness.outOfScopeTypes.length > 0
+            ? `case(s) registered for non-in-scope type(s): ${completeness.outOfScopeTypes.join(', ')}`
+            : null,
+        ]
+          .filter((line) => line !== null)
+          .join('; '),
+        {
+          remediation:
+            'Register a case for every in-scope type with "qa cases add", and remove or re-type any case whose type is not in scope.',
+        },
+      );
+    }
+
+    return config.testing;
   }
 
   /**
@@ -185,6 +255,16 @@ export class GateStateMachine {
       return { status: 'open' };
     }
     const content = await this.store.readText(approval.artifactPath);
-    return { status: hashText(content) === approval.artifactSha256 ? 'satisfied' : 'open' };
+    if (hashText(content) !== approval.artifactSha256) {
+      return { status: 'open' };
+    }
+    if (approval.testingScope === undefined) {
+      return { status: 'satisfied' };
+    }
+    // A scope decision (P2-16) changed since this gate was approved reopens it even though the
+    // approved artifact's own content never changed — `qa config set testing.<type>` has no other
+    // effect on the ledger or the artifact itself, so this is the only place that catches it.
+    const config = await loadConfig(this.store);
+    return { status: testingScopeMatches(approval.testingScope, config.testing) ? 'satisfied' : 'open' };
   }
 }

@@ -78,6 +78,26 @@ describe('QaStore', () => {
     expect(await store.readBytes('evidence/run-1/step.png')).toEqual(bytes);
   });
 
+  it('lists every file under a directory, as project-relative paths', async () => {
+    const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
+    await store.writeJson('artifacts/cases/checkout/case-1.json', { id: 'case-1' });
+    await store.writeJson('artifacts/cases/checkout/case-2.json', { id: 'case-2' });
+    await store.writeJson('artifacts/scope.json', { requirements: [] });
+
+    const files = await store.listFiles('artifacts/cases');
+
+    expect([...files].sort()).toEqual([
+      'artifacts/cases/checkout/case-1.json',
+      'artifacts/cases/checkout/case-2.json',
+    ]);
+  });
+
+  it('lists no files under a directory that does not exist', async () => {
+    const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
+
+    expect(await store.listFiles('artifacts/cases')).toEqual([]);
+  });
+
   it('defaults to the real Node filesystem when none is provided', () => {
     const store = new QaStore({ projectRoot: join('project') });
     expect(store.qaDir).toBe(join('project', '.qa'));

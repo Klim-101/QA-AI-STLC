@@ -52,10 +52,24 @@ function manifestRegisteringScope(scopeContent: string): string {
   });
 }
 
+// `e2e` in-scope (every case in this file is `testType: 'e2e'`), everything else decided so
+// P2-16's undecided check never blocks a test that is not about that check specifically.
+const CONFIG_YAML = [
+  'schemaVersion: 1',
+  'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+  'environments: {}',
+  'identities: {}',
+  'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+  'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+  'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+  '',
+].join('\n');
+
 function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContext {
+  const configPath = join(QA_DIR, 'config.yaml');
   return {
     projectRoot: PROJECT_ROOT,
-    fs: createFakeFileSystem(files),
+    fs: createFakeFileSystem({ [configPath]: CONFIG_YAML, ...files }),
     clock: systemClock,
     logger: noopLogger,
     processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
@@ -172,5 +186,36 @@ describe('runCasesAdd', () => {
     const context = fakeContext();
 
     await expect(runCasesAdd(context, { path: '../outside.json' })).rejects.toThrow(QaError);
+  });
+
+  it('rejects a case while any testing type is still undecided (P2-16)', async () => {
+    const undecidedYaml = CONFIG_YAML.replace('api: out-of-scope', 'api: undecided');
+    const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: undecidedYaml,
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
+      [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ requirementIds: ['r1'] }),
+    });
+
+    const error = await runCasesAdd(context, { path: 'cases/login.json' }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('CASES_ADD_TESTING_UNDECIDED');
+    expect((error as QaError).message).toContain('api');
+  });
+
+  it('rejects a case whose testType is not in scope (P2-16)', async () => {
+    const outOfScopeYaml = CONFIG_YAML.replace('e2e: in-scope', 'e2e: out-of-scope');
+    const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: outOfScopeYaml,
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
+      [join(PROJECT_ROOT, 'cases', 'login.json')]: testCaseJson({ requirementIds: ['r1'] }),
+    });
+
+    const error = await runCasesAdd(context, { path: 'cases/login.json' }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('CASE_TYPE_OUT_OF_SCOPE');
   });
 });
