@@ -154,6 +154,22 @@ describe('analyzeStaticSource', () => {
     expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'submit', fragile: false }]);
   });
 
+  it('keeps findings after a tag whose quote never balances before the end of file (regression, #307)', () => {
+    const { elements } = analyzeStaticSource({
+      files: [
+        file(
+          'src/App.tsx',
+          '<div data-testid="broken" onClick={x.match(/it\'s unbalanced/)}></div>' +
+            '<button data-testid="save">Save</button>',
+        ),
+      ],
+      clock: FIXED_CLOCK,
+    });
+
+    expect(elements).toHaveLength(1);
+    expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
+  });
+
   it('finds a testId past an inline arrow-function handler containing => (regression, #281)', () => {
     const { elements } = analyzeStaticSource({
       files: [
