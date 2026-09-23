@@ -1,8 +1,11 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { chromium } from 'playwright';
-import type { Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext } from 'playwright';
+import { chromium } from 'playwright-core';
+import type {
+  Browser as PlaywrightBrowser,
+  BrowserContext as PlaywrightBrowserContext,
+} from 'playwright-core';
 
 /** Playwright's own `BrowserContext.storageState()` return shape: cookies plus per-origin storage. */
 export type StorageState = Awaited<ReturnType<PlaywrightBrowserContext['storageState']>>;

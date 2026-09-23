@@ -29,12 +29,14 @@
   },
   "dependencies": {
     "@qa-ai-stlc/schemas": "1.0.0",
-    "playwright": "1.63.0",
+    "cross-spawn": "7.0.6",
+    "playwright-core": "1.63.0",
     "undici": "8.11.0",
     "yaml": "2.9.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@qa-ai-stlc/test-utils": "0.0.0"
+    "@qa-ai-stlc/test-utils": "0.0.0",
+    "@types/cross-spawn": "6.0.6"
   }
 }

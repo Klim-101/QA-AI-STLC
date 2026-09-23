@@ -1,9 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { chromium, firefox, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright-core';
 import type { ApiConfig, IdentityConfig, SourceConfig } from '@qa-ai-stlc/schemas';
 import { resolveRelativePath } from './paths.js';
 import type { FileSystem } from './ports/file-system.js';
@@ -216,19 +214,26 @@ export async function checkApiContractReadable(
   ];
 }
 
-function resolvePlaywrightCliPath(): string {
-  const require = createRequire(import.meta.url);
-  const packageJsonPath = require.resolve('playwright/package.json');
-  return join(dirname(packageJsonPath), 'cli.js');
-}
+// The full `playwright` package (its installer CLI, not just the `playwright-core` runtime this
+// module otherwise depends on) is fetched on demand via `npx` rather than kept as a direct
+// dependency (#333): every `@qa-ai-stlc/mcp-server` install otherwise paid for it on every cold
+// start, even though `qa doctor --fix` (the only caller of `installBrowsers`) is a rare, explicit
+// operator action. Pinned to the exact version `playwright-core` in this package's own
+// package.json is pinned to, so the installed browsers match the protocol version this engine was
+// built against.
+const PLAYWRIGHT_CLI_VERSION = '1.63.0';
 
 /** `qa doctor --fix`: installs the given browsers through Playwright's own installer. */
 export async function installBrowsers(
   processRunner: ProcessRunner,
   browsers: readonly SupportedBrowser[] = SUPPORTED_BROWSERS,
 ): Promise<DoctorCheckResult> {
-  const cliPath = resolvePlaywrightCliPath();
-  const result = await processRunner.run(process.execPath, [cliPath, 'install', ...browsers]);
+  const result = await processRunner.run('npx', [
+    '-y',
+    `playwright@${PLAYWRIGHT_CLI_VERSION}`,
+    'install',
+    ...browsers,
+  ]);
   return result.exitCode === 0
     ? { name: 'browser-install', status: 'pass', message: `Installed: ${browsers.join(', ')}` }
     : {

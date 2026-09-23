@@ -14,7 +14,10 @@ import { generateLocatorModule } from '../src/generate-locator-module.js';
 // from the *file being compiled*, not from the process cwd. The temp file therefore has to live
 // under this package, where that walk reaches the workspace root's hoisted node_modules and the
 // nearest package.json ("type": "module") for correct NodeNext format detection; a bare OS temp
-// directory would resolve neither.
+// directory would resolve neither. `playwright` (the full package, distinct from `core`'s own
+// `playwright-core` runtime dependency, #333) is a root devDependency for exactly this: the
+// generated `locators.ts` this test compiles imports its real published types, matching what an
+// operator's own project resolves at their own build time.
 const TSC_BIN = fileURLToPath(new URL('../../../node_modules/typescript/bin/tsc', import.meta.url));
 
 function runTsc(filePath: string): Promise<{ exitCode: number; output: string }> {

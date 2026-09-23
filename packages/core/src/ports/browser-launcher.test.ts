@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const launch = vi.fn();
 const connectOverCDP = vi.fn();
 
-vi.mock('playwright', () => ({
+vi.mock('playwright-core', () => ({
   chromium: { launch, connectOverCDP },
 }));
 
