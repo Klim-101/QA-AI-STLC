@@ -20,4 +20,10 @@ describe('nodeProcessRunner', () => {
   it('rejects when the command itself cannot be spawned', async () => {
     await expect(nodeProcessRunner.run('qa-ai-stlc-command-that-does-not-exist', [])).rejects.toThrow();
   });
+
+  it('captures stderr separately from stdout', async () => {
+    const result = await nodeProcessRunner.run(process.execPath, ['-e', 'console.error("oops")']);
+
+    expect(result).toEqual({ exitCode: 0, stdout: '', stderr: 'oops\n' });
+  });
 });

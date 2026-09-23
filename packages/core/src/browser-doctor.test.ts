@@ -291,8 +291,8 @@ describe('installBrowsers', () => {
 
     expect(result).toMatchObject({ status: 'pass' });
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.args.slice(-2)).toEqual(['install', 'chromium']);
-    expect(calls[0]?.args[0]).toMatch(/cli\.js$/);
+    expect(calls[0]?.command).toBe('npx');
+    expect(calls[0]?.args).toEqual(['-y', 'playwright@1.63.0', 'install', 'chromium']);
   });
 
   it('reports failure with stderr as remediation when the install exits nonzero', async () => {
