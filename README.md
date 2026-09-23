@@ -12,8 +12,9 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 > reference a reusable, non-secret test-data set instead of inlining repeated values. The agent
 > layer (`qa-start`, `qa-explore`, `qa-design-cases`) and a generated Claude Code plugin
 > (`adapters/claude-plugin/`, see [below](#claude-code-plugin)) both exist, including the
-> plugin/engine version handshake; installing that plugin from a marketplace is still planned —
-> see the [roadmap](docs/public/ROADMAP.md).
+> plugin/engine version handshake. Installing it from a local marketplace is verified by an
+> automated Windows/macOS CI smoke test (P2-13); publishing it to a real, discoverable marketplace
+> is still planned — see the [roadmap](docs/public/ROADMAP.md).
 
 ## Why
 
@@ -38,11 +39,11 @@ A deterministic TypeScript engine does the work that must be reliable. A thin la
 
 ## Supported hosts
 
-| Host                          | Status                                                             |
-| ----------------------------- | ------------------------------------------------------------------ |
-| Claude Code (CLI and desktop) | Plugin generated from source; marketplace install not verified yet |
-| Codex (CLI and desktop)       | Planned                                                            |
-| Other MCP-capable hosts       | Engine usable through the local MCP server                         |
+| Host                          | Status                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| Claude Code (CLI and desktop) | Plugin generated from source; local marketplace install verified on Windows and macOS |
+| Codex (CLI and desktop)       | Planned                                                                               |
+| Other MCP-capable hosts       | Engine usable through the local MCP server                                            |
 
 ## Responsibility boundary
 
@@ -271,8 +272,10 @@ contract already enforced for `.claude/rules/`.
 ![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
 This is a diagram of the generator's data flow, not a recorded run — there is no interactive
-Claude Code session to record yet, since installing the plugin from a marketplace is still
-planned. The plugin/engine version handshake (ADR-007) itself already shipped (P2-12): the
+Claude Code session to record yet, since publishing the plugin to a real, discoverable marketplace
+is still planned (installing it from a local marketplace with the framework source absent from
+disk is already verified by CI on Windows and macOS, P2-13). The plugin/engine version handshake
+(ADR-007) itself already shipped (P2-12): the
 generated `.mcp.json` pins the `mcp-server` version it launches, and the server checks it against
 the engine's own version at startup. What the generator already produces today: a
 `.claude-plugin/plugin.json` manifest, the three skills currently shipped

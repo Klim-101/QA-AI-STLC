@@ -111,6 +111,54 @@ jobs:
       - name: Build
         run: npm run build
 
+  # P2-13: proves the generated plugin (adapters/claude-plugin/) installs correctly from a local
+  # marketplace with the rest of the repository absent from disk. Windows and macOS only, per the
+  # task's own "Done when" -- ubuntu-latest already gets full coverage from the `test` job above.
+  # `@anthropic-ai/claude-code` is installed globally for this job's own use, never declared in
+  # any package.json: the framework stays model-agnostic (AGENTS.md's "no LLM SDK dependency"
+  # boundary is about the framework's own packages), and this job makes no model call -- it only
+  # exercises `claude plugin`'s marketplace/install/list/details CLI mechanics.
+  plugin-install-smoke-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # Only the root workspace's own devDependencies are needed (the smoke test script's
+      # `cross-spawn`); no package needs building, since the script reads adapters/claude-plugin
+      # and packages/mcp-server/package.json as plain files.
+      - name: Install dependencies
+        run: npm ci
+
+      # npm's install-scripts opt-in (npm >=11) skips a global package's postinstall by default;
+      # without it, @anthropic-ai/claude-code's postinstall (which places the real platform binary
+      # behind the npm-generated `claude`/`claude.cmd` shim) never runs, and `claude` resolves to
+      # nothing on disk (ENOENT) even though `npm install` itself reports success.
+      - name: Install the Claude Code CLI
+        # Deliberately not in any package.json -- AGENTS.md's no-LLM-SDK-dependency denylist
+        # (scripts/check-llm-denylist.mjs) scans every package.json's dependency fields, so a
+        # lockfile-tracked install here would trip it; the exact version is still pinned, and this
+        # job's own runner is a throwaway CI VM, not a machine whose supply chain persists.
+        run: | # zizmor: ignore[adhoc-packages] see above -- intentionally outside any lockfile
+          npm install -g @anthropic-ai/claude-code@2.1.280 --allow-scripts=@anthropic-ai/claude-code
+
+      - name: Run the plugin-install smoke test
+        run: npm run smoke:plugin-install
+
   gitleaks:
     runs-on: ubuntu-latest
     permissions:

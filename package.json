@@ -32,6 +32,7 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "node scripts/run-workspaces.mjs clean",
     "pack:check": "node scripts/pack-check.mjs",
+    "smoke:plugin-install": "node scripts/smoke-test-plugin-install.mjs",
     "release": "npm run pack:check && changeset publish",
     "demo": "npm run start --workspace @qa-ai-stlc/demo-app"
   },
@@ -40,6 +41,7 @@
     "@eslint/js": "10.0.1",
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "5.0.1",
+    "cross-spawn": "7.0.6",
     "eslint": "10.10.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.12.0",
