@@ -55,6 +55,29 @@ validation) so the retry can act on specifically what was wrong. This repeats up
 `config.yaml`'s `agents.retries`. Exhausting the budget without a valid result is reported to the
 operator as `blocked`, never silently downgraded to `skipped` or forced to a guessed `passed`.
 
+## Announcing what comes next
+
+Every gate approval ends with a next-step announcement, not just the phase's own report (P2-21):
+the operator should never be left to figure out on their own what to do after a phase closes.
+After `qa.approve` succeeds for gate `<phase>`:
+
+1. Read the resulting `PipelineState` (`qa.approve`'s own return value, or a fresh `qa.validate` if
+   the hub does not already have one) — `currentPhase` and each phase's `gates[phase].status`.
+2. Find `<phase>`'s position in `packages/core/src/phases.ts`'s `PHASES` order.
+3. If `PHASES` has a phase after `<phase>` and that phase's gate is not yet `satisfied`, tell the
+   operator its name and load [`agents/phase-prompts/<next-phase>.md`](../phase-prompts) — each
+   phase prompt states its own normal next step and which skill starts it (see
+   [`scope.md`](../phase-prompts/scope.md) and [`cases.md`](../phase-prompts/cases.md)), so the hub
+   relays that instead of guessing.
+4. If `<phase>` is the last phase `PHASES` currently defines, say so plainly: this release has
+   nothing implemented after it yet. Never invent a phase, gate or skill that does not exist just
+   to have something to announce.
+
+A skill that produces its own end-of-run report (`qa-explore`, and later spokes) relays through
+this same mechanism rather than stopping silently after presenting its own result — it checks the
+current `PipelineState` and defers to the hub's announcement instead of inventing a second,
+divergent "what's next."
+
 ## What the hub does not do
 
 - It does not re-implement a rule the engine already enforces (phase order, gate hashing, evidence

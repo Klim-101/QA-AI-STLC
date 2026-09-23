@@ -47,7 +47,10 @@ than continuing past it.
    phase (`scope`). If it exists, read `currentPhase` and continue from there. Either way, hand off
    to the matching [`agents/phase-prompts/<phase>.md`](../../phase-prompts) for what to actually
    call next — this skill's job ends at knowing which phase prompt to load, not doing that phase's
-   work itself.
+   work itself. If every phase's gate in `.qa/state.json` is already `satisfied`, do not stop with
+   just that status: relay what comes next the same way a gate approval would (P2-21) — the
+   `currentPhase`'s own phase prompt states it (see
+   [`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)).
 
 ## What this skill does not do
 
