@@ -20,6 +20,8 @@ export interface BuildSelectorRegistryOptions {
   readonly pageModelSet: PageModelSet;
   /** Hostnames safe mode may navigate to while re-scoring candidates (#306). */
   readonly allowlist: readonly string[];
+  /** The environment's configured URL; an allowed request must also share its scheme and port. */
+  readonly baseUrl: string;
   readonly browserLauncher: BrowserLauncher;
   /** Signs in before re-navigating to score candidates. Omit to score anonymously. */
   readonly identity?: ExplorerIdentity;
@@ -137,7 +139,7 @@ export async function buildSelectorRegistry(
     let blockedRequestCount = 0;
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(options.allowlist, () => {
+      createSafeModeRouteHandler(options.allowlist, options.baseUrl, () => {
         blockedRequestCount += 1;
       }),
     );

@@ -20,6 +20,7 @@ import {
 import { createFakeCrawlBrowserLauncher } from './test-support/fake-browser-launcher.js';
 
 const ALLOWLIST = ['staging.example.com'];
+const BASE_URL = 'https://staging.example.com/';
 
 function element(overrides: Partial<InteractiveElement> = {}): InteractiveElement {
   return { kind: 'button', tagName: 'button', nthOfType: 1, ...overrides };
@@ -91,10 +92,16 @@ describe('buildSelectorRegistry', () => {
     const model = pageModelSet([pageModel(url, [element({ accessibleName: 'Log in' })])]);
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
-    const first = await buildSelectorRegistry({ pageModelSet: model, allowlist: ALLOWLIST, browserLauncher });
+    const first = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+    });
     const second = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -111,6 +118,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -127,6 +135,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
       policy: 'testid-first',
     });
@@ -147,6 +156,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
       policy: 'strict-no-css',
     });
@@ -163,6 +173,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -177,6 +188,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -197,6 +209,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
       policy: 'strict-no-css',
       viewports: [{ width: 1280, height: 720 }],
@@ -219,6 +232,7 @@ describe('buildSelectorRegistry', () => {
     await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
       identity: {
         config: { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' },
@@ -238,6 +252,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
       viewports: [{ width: 1024, height: 768 }],
     });
@@ -253,6 +268,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -269,6 +285,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -284,6 +301,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -298,6 +316,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -314,6 +333,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -331,6 +351,7 @@ describe('buildSelectorRegistry', () => {
     const { blockedRequestCount } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -350,11 +371,13 @@ describe('buildSelectorRegistry', () => {
     const first = await buildSelectorRegistry({
       pageModelSet: before,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
     const second = await buildSelectorRegistry({
       pageModelSet: after,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 
@@ -374,6 +397,7 @@ describe('buildSelectorRegistry', () => {
     const { registry } = await buildSelectorRegistry({
       pageModelSet: model,
       allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
       browserLauncher,
     });
 

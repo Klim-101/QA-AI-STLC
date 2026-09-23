@@ -85,7 +85,7 @@ export async function runBrowserOpen(
     const page = await browserContext.newPage();
     await page.route(
       ALL_REQUESTS_PATTERN,
-      createBrowserSafeModeRouteHandler(environment.config.allowlist, (request) =>
+      createBrowserSafeModeRouteHandler(environment.config.allowlist, environment.config.baseUrl, (request) =>
         blockedRequests.push(request),
       ),
     );
@@ -94,6 +94,7 @@ export async function runBrowserOpen(
       context: browserContext,
       page,
       allowlist: environment.config.allowlist,
+      baseUrl: environment.config.baseUrl,
       blockedRequests,
     });
   } catch (error) {

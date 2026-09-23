@@ -106,6 +106,7 @@ describe('analyzePages (demo app)', () => {
     const result = await analyzePages({
       urls: [`${BASE_URL}/login`, `${BASE_URL}/tasks/new`],
       allowlist: ['localhost'],
+      baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
       identity: {
         config: {
@@ -136,6 +137,7 @@ describe('analyzePages (demo app)', () => {
     const result = await analyzePages({
       urls: [`${BASE_URL}/login`],
       allowlist: ['localhost'],
+      baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
     });
 
@@ -214,17 +216,20 @@ describe('buildSelectorRegistry (demo app)', () => {
     const { pageModelSet } = await analyzePages({
       urls: [`${BASE_URL}/login`],
       allowlist: ['localhost'],
+      baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
     });
 
     const first = await buildSelectorRegistry({
       pageModelSet,
       allowlist: ['localhost'],
+      baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
     });
     const second = await buildSelectorRegistry({
       pageModelSet,
       allowlist: ['localhost'],
+      baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
     });
 

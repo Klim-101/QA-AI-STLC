@@ -22,6 +22,8 @@ export interface BrowserSession {
   readonly context: AuthBrowserContext;
   readonly page: AuthPage;
   readonly allowlist: readonly string[];
+  /** The environment's configured URL (#306): every allowed host must share its scheme and port. */
+  readonly baseUrl: string;
   readonly createdAt: Date;
   readonly lastActivityAt: Date;
   /** Every non-GET request safe mode aborted during this session, in order. */
@@ -41,6 +43,7 @@ export interface OpenBrowserSessionOptions {
   readonly context: AuthBrowserContext;
   readonly page: AuthPage;
   readonly allowlist: readonly string[];
+  readonly baseUrl: string;
   /** The array safe mode's route handler pushes into, so the session can report what it blocked. */
   readonly blockedRequests: readonly BlockedRequest[];
 }
@@ -81,6 +84,7 @@ export class BrowserSessionStore {
       context: options.context,
       page: options.page,
       allowlist: [...options.allowlist],
+      baseUrl: options.baseUrl,
       createdAt: now,
       lastActivityAt: now,
       blockedRequests: options.blockedRequests,

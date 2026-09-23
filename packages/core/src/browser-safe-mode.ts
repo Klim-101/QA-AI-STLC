@@ -16,18 +16,21 @@ export interface BlockedRequest {
  * allowlist here, since this handler sees every request the page makes regardless of what
  * triggered it (a typed navigation, a redirect, or a click on an in-page link) -- `qa.browser_navigate`
  * checking the allowlist on its own input is not enough to bound where a click can take the
- * session (#279). `onBlocked` is called once per aborted request so a session can report what
- * it stopped.
+ * session (#279). The check also covers scheme and port, not just hostname (#306): `baseUrl` is
+ * the environment's configured URL, and every allowed host is expected to share its scheme and
+ * effective port. `onBlocked` is called once per aborted request so a session can report what it
+ * stopped.
  */
 export function createBrowserSafeModeRouteHandler(
   allowlist: readonly string[],
+  baseUrl: string,
   onBlocked: (request: BlockedRequest) => void,
 ): RouteHandler {
   return (route) => {
     const request = route.request();
     const method = request.method();
     const url = request.url();
-    if (method === 'GET' && isUrlAllowed(url, allowlist)) {
+    if (method === 'GET' && isUrlAllowed(url, allowlist, baseUrl)) {
       return route.continue();
     }
     onBlocked({ method, url });

@@ -22,13 +22,14 @@ function createFakeRoute(method: string, url: string) {
 }
 
 const ALLOWLIST = ['example.com'];
+const BASE_URL = 'https://example.com/';
 
 describe('createSafeModeRouteHandler', () => {
   it('continues an allowlisted GET request without calling onBlocked', async () => {
     const onBlocked = vi.fn();
     const { route, calls } = createFakeRoute('GET', 'https://example.com/');
 
-    await createSafeModeRouteHandler(ALLOWLIST, onBlocked)(route);
+    await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, onBlocked)(route);
 
     expect(calls).toEqual(['continue']);
     expect(onBlocked).not.toHaveBeenCalled();
@@ -38,7 +39,7 @@ describe('createSafeModeRouteHandler', () => {
     const onBlocked = vi.fn();
     const { route, calls } = createFakeRoute('POST', 'https://example.com/tasks');
 
-    await createSafeModeRouteHandler(ALLOWLIST, onBlocked)(route);
+    await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, onBlocked)(route);
 
     expect(calls).toEqual(['abort']);
     expect(onBlocked).toHaveBeenCalledWith({
@@ -52,12 +53,26 @@ describe('createSafeModeRouteHandler', () => {
     const onBlocked = vi.fn();
     const { route, calls } = createFakeRoute('GET', 'https://evil.test/phishing');
 
-    await createSafeModeRouteHandler(ALLOWLIST, onBlocked)(route);
+    await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, onBlocked)(route);
 
     expect(calls).toEqual(['abort']);
     expect(onBlocked).toHaveBeenCalledWith({
       method: 'GET',
       url: 'https://evil.test/phishing',
+      blocked: true,
+    });
+  });
+
+  it('aborts a GET request off the domain scheme/port and reports it (regression, #306)', async () => {
+    const onBlocked = vi.fn();
+    const { route, calls } = createFakeRoute('GET', 'http://example.com:9999/');
+
+    await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, onBlocked)(route);
+
+    expect(calls).toEqual(['abort']);
+    expect(onBlocked).toHaveBeenCalledWith({
+      method: 'GET',
+      url: 'http://example.com:9999/',
       blocked: true,
     });
   });
