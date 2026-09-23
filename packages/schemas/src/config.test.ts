@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { ConfigSchema } from './config.js';
+import { ConfigSchema, EnvironmentConfigSchema } from './config.js';
 
 function validConfig() {
   return {
@@ -99,5 +99,39 @@ describe('ConfigSchema', () => {
     delete admin.username;
     const result = ConfigSchema.safeParse(config);
     expect(result.success).toBe(true);
+  });
+});
+
+describe('EnvironmentConfigSchema', () => {
+  it('accepts a bare hostname allowlist entry', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'http://localhost:4310',
+      allowlist: ['localhost'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a multi-label bare hostname', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an allowlist entry carrying a port (#329)', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'http://localhost:4310',
+      allowlist: ['localhost:4310'],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an allowlist entry carrying a scheme', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['https://staging.example.com'],
+    });
+    expect(result.success).toBe(false);
   });
 });

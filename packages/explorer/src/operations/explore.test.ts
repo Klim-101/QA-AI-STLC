@@ -324,6 +324,38 @@ describe('runExplore', () => {
     );
   });
 
+  it('warns when the crawl visits 0 pages because baseUrl is not on the allowlist (#329)', async () => {
+    const warn = vi.fn();
+    const context = fakeContext(
+      { elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 },
+      {
+        environments: `environments:\n  staging: { baseUrl: "${START_URL}", allowlist: ["not-the-real-host.example.com"] }`,
+      },
+    );
+    context.logger.warn = warn;
+
+    const report = await runExplore(context);
+
+    expect(report).toEqual(expect.objectContaining({ elementCount: 0 }));
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('not-the-real-host.example.com'),
+      expect.objectContaining({ code: 'EXPLORE_START_URL_NOT_ALLOWED', environment: 'staging' }),
+    );
+  });
+
+  it('does not warn about the allowlist when the crawl visits at least one page', async () => {
+    const warn = vi.fn();
+    const context = fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
+    context.logger.warn = warn;
+
+    await runExplore(context);
+
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ code: 'EXPLORE_START_URL_NOT_ALLOWED' }),
+    );
+  });
+
   it('throws EXPLORE_NO_REGISTRY when --verify is given but no registry has been built yet', async () => {
     const context = fakeContext();
 

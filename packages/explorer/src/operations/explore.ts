@@ -21,6 +21,7 @@ import {
   type SelectorPolicy,
   type SelectorRegistry,
 } from '@qa-ai-stlc/schemas';
+import { isAllowedUrl } from '../allowlist.js';
 import { analyzePages } from '../analyze-pages.js';
 import { analyzeStaticSource, type StaticSourceFile } from '../analyze-static-source.js';
 import { buildMissingTestIdReport } from '../build-missing-test-id-report.js';
@@ -146,6 +147,30 @@ function warnIfTlsInsecure(context: EngineContext, environmentName: string, tlsI
   }
 }
 
+// A crawl that visits 0 pages because its own baseUrl fails the allowlist check looks identical,
+// from an empty registry, to "the app genuinely has nothing" -- a mismatched allowlist entry (a
+// typo, or one that still carries a port/scheme) used to fail this way with no diagnostic at all
+// (#329). Only the startUrl case is checked here: it is the one every crawl can hit on its very
+// first navigation, regardless of what the target application contains.
+function warnIfStartUrlNotAllowed(
+  context: EngineContext,
+  environmentName: string,
+  environment: EnvironmentConfig,
+  routeCount: number,
+): void {
+  if (routeCount === 0 && !isAllowedUrl(environment.baseUrl, environment.allowlist)) {
+    context.logger.warn(
+      `The crawl visited 0 pages because "${environment.baseUrl}" is not on environment "${environmentName}"'s allowlist (${environment.allowlist.join(', ')})`,
+      {
+        code: 'EXPLORE_START_URL_NOT_ALLOWED',
+        environment: environmentName,
+        baseUrl: environment.baseUrl,
+        allowlist: environment.allowlist,
+      },
+    );
+  }
+}
+
 async function readStaticSourceFiles(
   fs: FileSystem,
   projectRoot: string,
@@ -182,6 +207,7 @@ async function runCrawlAndBuild(
     ...(identity !== undefined ? { identity } : {}),
     ...(options.maxPages !== undefined ? { maxPages: options.maxPages } : {}),
   });
+  warnIfStartUrlNotAllowed(context, environment.name, environment.config, crawlResult.routeMap.routes.length);
   const urls = crawlResult.routeMap.routes.map((route) => route.url);
   const { pageModelSet, blockedRequestCount: analyzeBlocked } = await analyzePages({
     urls,
