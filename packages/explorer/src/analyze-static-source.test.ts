@@ -159,7 +159,7 @@ describe('analyzeStaticSource', () => {
       files: [
         file(
           'src/App.tsx',
-          "<div data-testid=\"broken\" onClick={x.match(/it's unbalanced/)}></div>" +
+          '<div data-testid="broken" onClick={x.match(/it\'s unbalanced/)}></div>' +
             '<button data-testid="save">Save</button>',
         ),
       ],
