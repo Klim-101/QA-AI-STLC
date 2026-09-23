@@ -1,5 +1,177 @@
 # @qa-ai-stlc/core
 
+## 1.0.0
+
+### Major Changes
+
+- 8c8971b: `TestCaseSchema` requires a new `feature` field (P2-20): an explicit, kebab-case, operator-chosen
+  name for the tested feature a case belongs to (`FeatureIdSchema`, `packages/schemas`), never
+  inferred from the case's title or a requirement id. This is a breaking schema change — an existing
+  case JSON file without `feature` now fails validation and must be updated before it can be
+  registered again.
+
+  `qa cases add` / `qa.cases_add` now register a case under `artifacts/cases/<feature>/<id>.json`
+  instead of the previous flat `artifacts/cases/<id>.json`, using the case's own `feature` field. `qa
+validate` already lists `artifacts/cases/` recursively, so it reads a case at any folder depth; it
+  still requires every case file, wherever it lives, to carry a valid `feature` — an existing flat
+  case file needs `feature` added before `qa validate` can read it again.
+
+- adaa974: Fix `qa validate`/`qa.validate` reporting every binary evidence artifact (screenshots, traces,
+  video) as tampered, even freshly registered and untouched. `EvidenceStore` hashes binary content
+  byte-for-byte (`hashBytes`); the tamper check re-read every manifest-registered path through a
+  lossy UTF-8 text decode regardless of that, so a re-hash could never match.
+
+  `ManifestStore` gains `verifyContent(relativePath, rawBytes)`: since the manifest does not record
+  which hasher an entry used, it checks raw bytes against both a binary hash and a text hash of
+  their UTF-8 decoding, which is strictly more correct than assuming one encoding. The `FileSystem`
+  port gains a required `readBytes(absolutePath)` method (breaking for a custom implementation) so
+  the tamper check can read a file without assuming its encoding ahead of time.
+
+- bb0a0aa: Fix the browser domain allowlist not being enforced on navigation triggered by `qa.browser_click`
+  (or any other in-page action), only on `qa.browser_navigate`'s own input. Safe mode's route
+  handler, which sees every request a session makes regardless of what triggered it, now also
+  checks each GET request's hostname against the session's allowlist and aborts it the same way it
+  already aborts non-GET requests, instead of only inspecting the HTTP method.
+
+  Breaking for `@qa-ai-stlc/core`: `createBrowserSafeModeRouteHandler` takes the session's allowlist
+  as a new required first argument.
+
+- e288603: Fix `qa approve`/`qa.approve` accepting any existing file as a gate's artifact, and the approval
+  ledger being unprotected against a hand-edit — together these let a gate approval be forged with
+  nothing detecting it: editing an artifact, recomputing its hash, and writing that hash into the
+  corresponding ledger entry used to pass `qa validate` as a genuinely approved gate.
+
+  `GateStateMachine.approve()` now requires the artifact to be manifest-registered — the content the
+  engine itself last wrote to that path — throwing the existing `ARTIFACT_UNREGISTERED` /
+  `ARTIFACT_HASH_MISMATCH` coded errors instead of silently approving. `ApprovalLedgerStore` now
+  registers `artifacts/approval-ledger.json` in the manifest on every append, so a hand-edit to the
+  ledger itself is caught by `qa validate`'s tamper check the same as any other artifact.
+
+  Breaking for `@qa-ai-stlc/core`: `ApprovalLedgerStoreOptions` and `GateStateMachineOptions` both
+  gain a required `manifest: ManifestStore` field.
+
+### Minor Changes
+
+- 17d5441: Environments can now opt in to reaching a server behind a self-signed or internal-CA TLS
+  certificate (P2-18): `environments.<name>.tlsInsecure: true` in `config.yaml` (`EnvironmentConfigSchema`,
+  `packages/schemas`) bypasses certificate validation for that environment's `qa doctor` reachability
+  check and every `qa explore`/`qa.browser_open` browser session, including scripted login. Off by
+  default — an environment without it behaves exactly as before, rejecting an untrusted certificate.
+  Enabling it prints a coded warning (`ENVIRONMENT_TLS_INSECURE`) on every run that uses it, since it
+  weakens a real security guarantee.
+- d1b29ee: Add reusable, non-secret test-data sets (P2-22): `TestDataSchema` (`packages/schemas`) is a named
+  set of key/value variables, and `TestCaseSchema` gains an optional `testDataRefs` array so a case's
+  steps or preconditions can reference shared values by id instead of inlining them.
+
+  `qa test-data add` / `qa.test_data_add` validates a set and registers it under
+  `artifacts/test-data/<feature>/<id>.json` (P2-20's feature-folder convention). `qa validate` now
+  also rejects a case whose `testDataRefs` entry does not resolve to a registered set, reported as a
+  new `unresolvedTestData` field on the validate report — both are additive, so nothing existing
+  changes shape.
+
+  Never holds credentials — those stay in identities / `QA_*` environment variables.
+
+- 71bbbf7: Scope-aware state machine (P2-16, development plan section 2.7): the pipeline now enforces the
+  testing-scope survey end to end instead of only at `qa init`.
+
+  - `qa scope` and `qa cases add` now reject with a coded error while any testing type (`e2e`,
+    `api`, `a11y`, `security`) is still `undecided` — previously only `qa init` checked this, and a
+    project that later reset a type to `undecided` (or deferred the survey with `--defer-scope`)
+    could scope and register cases anyway.
+  - `qa cases add` also rejects a case whose own `testType` is not `in-scope`, so a case for an
+    out-of-scope or undecided type is never silently registered.
+  - Approving the `cases` gate now requires "one case set per in-scope type": every `in-scope` type
+    needs at least one registered case, and no case may exist for a type that is not `in-scope`.
+  - A later `qa config set testing.<type>` that changes a decided type reopens the `cases` gate the
+    next time `qa approve`/`qa validate` runs, the same recompute-not-cache treatment `GateStateMachine`
+    already gives an edited artifact's content hash (ADR-003) — `Approval` records an optional
+    `testingScope` snapshot for this.
+  - `qa validate`'s report gains `caseSetStatusByType`, one status (`satisfied`/`missing`/
+    `not-applicable`) per case-bearing type, so an out-of-scope type's empty case set is reported as
+    `not-applicable` rather than silently absent.
+
+### Patch Changes
+
+- 185e50e: Fix `isUrlAllowed`/`assertUrlAllowed` (`@qa-ai-stlc/core`) only ever comparing a URL's hostname
+  against the domain allowlist, never its scheme or port: `http://staging.example.test:9999/` passed
+  against an allowlist of `['staging.example.test']` even when the environment's configured
+  `baseUrl` was `https://staging.example.test/` on the default port. A redirect or attacker-supplied
+  link to the same host on plain HTTP, or on an arbitrary port, was treated as in-scope by every
+  safe-mode enforcement point: `qa.browser_navigate`/`qa.browser_open` sessions, and `qa explore`'s
+  crawl, page analysis, selector-registry build and `--verify` passes.
+
+  Both functions now also require the effective scheme and port (explicit, or the scheme's default)
+  to match the environment's `baseUrl` — one environment is one scheme-and-port policy across every
+  allowed host, not just `baseUrl`'s own. `BrowserSession` now carries its `baseUrl` alongside its
+  allowlist so `qa.browser_navigate` can enforce this on a session opened earlier, and every
+  explorer entry point (`crawl`, `analyzePages`, `buildSelectorRegistry`, `qa explore --verify`)
+  threads the environment's `baseUrl` through the same way it already threads the allowlist.
+
+  Breaking for `@qa-ai-stlc/core`: `isUrlAllowed` and `assertUrlAllowed` now take a required
+  `baseUrl` parameter; `createBrowserSafeModeRouteHandler` and `OpenBrowserSessionOptions` /
+  `BrowserSession` (`baseUrl`) changed to match. Breaking for `@qa-ai-stlc/explorer`:
+  `createSafeModeRouteHandler`, `AnalyzePagesOptions` and `BuildSelectorRegistryOptions` now require
+  `baseUrl` alongside `allowlist`.
+
+- 2334df3: Fix `GateStateMachine.approve()` accepting any manifest-registered artifact for any gate:
+  `#278` required the artifact at `artifactPath` to be manifest-registered, but `artifactPath` was
+  still a free-form, caller-supplied string with no mapping from a gate name to the artifact it
+  actually expects. Approving `scope` with a completely unrelated, engine-registered artifact (for
+  example one meant for a different gate) satisfied the gate and advanced `currentPhase`.
+
+  `approve()` now checks `artifactPath` against a canonical binding per gate before accepting it:
+  `scope` binds only to `artifacts/scope.json`; `cases` binds to any path under `artifacts/cases/`,
+  since each test case is its own file rather than a single rollup artifact. A mismatch is rejected
+  with `GATE_ARTIFACT_PATH_MISMATCH` instead of silently satisfying the wrong gate.
+
+- 2235987: Fix HAR redaction skipping the request/response body, and the secret scanner's safety net missing
+  an unquoted credential in a URL-encoded form. `redactHar` only touched `headers`/`cookies`, so a
+  login form's POST body (`username=alice&password=hunter2`) could reach `.qa/evidence/` completely
+  unredacted while still reporting `redacted: true`. The scanner's `password-assignment`/
+  `api-key-assignment` patterns also required a quoted value, so `password=hunter2` (no quotes, a
+  normal URL-encoded shape) didn't trip the fallback that exists specifically to catch what
+  redaction couldn't understand.
+
+  `redactHar` now also redacts known-sensitive fields (password, token, secret, API key) in
+  `request.postData`/`response.content`, for both JSON and URL-encoded bodies. The scanner's two
+  patterns now also match an unquoted value.
+
+- c1f4de6: Fix `ApprovalLedgerStore.load()` trusting a hand-written `artifacts/approval-ledger.json` on a
+  project with no prior approvals: `append()` registers the ledger in the manifest (#278), but a
+  project where `append()` had never run had no manifest entry to compare against, so `load()`
+  returned whatever the file on disk said with no check at all. A forged ledger paired with a
+  matching hand-written artifact satisfied a gate and advanced `currentPhase` with nothing detecting
+  it — `qa validate` reported `tamperedArtifacts: []`.
+
+  `load()` now checks the manifest before trusting the ledger's content: an unregistered ledger is
+  treated the same as no approvals yet, so a forged gate can no longer report `satisfied`.
+  `qa validate` also now lists the ledger path in `tamperedArtifacts` whenever it exists on disk but
+  was never registered, so the forgery stays visible instead of silently reading as "nothing
+  approved yet".
+
+- e968493: Fix `ManifestStore.verifyContent()`'s try-both hashing (added in the #277 fix) letting a
+  CRLF-only edit to a bytes-registered artifact pass tamper detection: `hashText` normalizes CRLF to
+  LF, so `hashBytes(bytes("a\nb"))` equals `hashText("a\r\nb")` whenever the original bytes are the
+  UTF-8 encoding of LF-terminated text — trying a text hash as a fallback after a byte-hash mismatch
+  made this collision reachable by an attacker, not just theoretical.
+
+  `ManifestEntrySchema` now records `mode: 'text' | 'bytes'`, the hasher actually used at
+  registration time. `verifyContent` checks only that recorded mode instead of guessing.
+
+  Breaking for `@qa-ai-stlc/schemas`: `ManifestEntrySchema` gains a required `mode` field, so an
+  existing `.qa/manifest.json` written before this change fails validation until every project runs
+  an engine operation that re-registers its artifacts (`qa explore`, `qa scope`, etc.).
+
+- Updated dependencies [bcad827]
+- Updated dependencies [17d5441]
+- Updated dependencies [8c8971b]
+- Updated dependencies [e968493]
+- Updated dependencies [1f205dd]
+- Updated dependencies [d1b29ee]
+- Updated dependencies [71bbbf7]
+- Updated dependencies [f44a75b]
+  - @qa-ai-stlc/schemas@1.0.0
+
 ## 0.11.0
 
 ### Minor Changes

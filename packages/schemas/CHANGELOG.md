@@ -1,5 +1,103 @@
 # @qa-ai-stlc/schemas
 
+## 1.0.0
+
+### Major Changes
+
+- 8c8971b: `TestCaseSchema` requires a new `feature` field (P2-20): an explicit, kebab-case, operator-chosen
+  name for the tested feature a case belongs to (`FeatureIdSchema`, `packages/schemas`), never
+  inferred from the case's title or a requirement id. This is a breaking schema change — an existing
+  case JSON file without `feature` now fails validation and must be updated before it can be
+  registered again.
+
+  `qa cases add` / `qa.cases_add` now register a case under `artifacts/cases/<feature>/<id>.json`
+  instead of the previous flat `artifacts/cases/<id>.json`, using the case's own `feature` field. `qa
+validate` already lists `artifacts/cases/` recursively, so it reads a case at any folder depth; it
+  still requires every case file, wherever it lives, to carry a valid `feature` — an existing flat
+  case file needs `feature` added before `qa validate` can read it again.
+
+- e968493: Fix `ManifestStore.verifyContent()`'s try-both hashing (added in the #277 fix) letting a
+  CRLF-only edit to a bytes-registered artifact pass tamper detection: `hashText` normalizes CRLF to
+  LF, so `hashBytes(bytes("a\nb"))` equals `hashText("a\r\nb")` whenever the original bytes are the
+  UTF-8 encoding of LF-terminated text — trying a text hash as a fallback after a byte-hash mismatch
+  made this collision reachable by an attacker, not just theoretical.
+
+  `ManifestEntrySchema` now records `mode: 'text' | 'bytes'`, the hasher actually used at
+  registration time. `verifyContent` checks only that recorded mode instead of guessing.
+
+  Breaking for `@qa-ai-stlc/schemas`: `ManifestEntrySchema` gains a required `mode` field, so an
+  existing `.qa/manifest.json` written before this change fails validation until every project runs
+  an engine operation that re-registers its artifacts (`qa explore`, `qa scope`, etc.).
+
+### Minor Changes
+
+- bcad827: Adds `SpokeResultSchema`, the generic Zod-validated envelope every hub-and-spoke result flows
+  through (development plan section 5.1, P2-08): a `status: 'ok' | 'error'` discriminated union
+  carrying either an untyped `payload` a caller validates against its own task-specific schema, or a
+  structured `SpokeError` (a stable `code`, a `message`, and optional `issues` describing exactly
+  what a re-dispatch should fix). Also exports the supporting `SpokeErrorSchema` and
+  `SpokeValidationIssueSchema`. Per-spoke-type payload schemas are added by the tasks that implement
+  those spokes; this change adds only the shared envelope.
+- 17d5441: Environments can now opt in to reaching a server behind a self-signed or internal-CA TLS
+  certificate (P2-18): `environments.<name>.tlsInsecure: true` in `config.yaml` (`EnvironmentConfigSchema`,
+  `packages/schemas`) bypasses certificate validation for that environment's `qa doctor` reachability
+  check and every `qa explore`/`qa.browser_open` browser session, including scripted login. Off by
+  default — an environment without it behaves exactly as before, rejecting an untrusted certificate.
+  Enabling it prints a coded warning (`ENVIRONMENT_TLS_INSECURE`) on every run that uses it, since it
+  weakens a real security guarantee.
+- 1f205dd: Fix `pii`/`dynamicText` on a selector registry element being required booleans that every
+  producer (crawl, static analysis, pick mode) hardcoded to `false`, with no detection logic
+  anywhere in the repo. A required `false` read as "checked, and clean" — a claim nothing had
+  verified (AGENTS.md 12.5, honest statuses).
+
+  `SelectorElementSchema` now makes both fields optional; every producer omits them instead of
+  asserting `false`, so a consumer can tell "not yet evaluated" from an actual check that found
+  nothing. Not breaking: an existing registry with `pii: false`/`dynamicText: false` still validates
+  unchanged, and no consumer branches on either field today.
+
+- d1b29ee: Add reusable, non-secret test-data sets (P2-22): `TestDataSchema` (`packages/schemas`) is a named
+  set of key/value variables, and `TestCaseSchema` gains an optional `testDataRefs` array so a case's
+  steps or preconditions can reference shared values by id instead of inlining them.
+
+  `qa test-data add` / `qa.test_data_add` validates a set and registers it under
+  `artifacts/test-data/<feature>/<id>.json` (P2-20's feature-folder convention). `qa validate` now
+  also rejects a case whose `testDataRefs` entry does not resolve to a registered set, reported as a
+  new `unresolvedTestData` field on the validate report — both are additive, so nothing existing
+  changes shape.
+
+  Never holds credentials — those stay in identities / `QA_*` environment variables.
+
+- 71bbbf7: Scope-aware state machine (P2-16, development plan section 2.7): the pipeline now enforces the
+  testing-scope survey end to end instead of only at `qa init`.
+
+  - `qa scope` and `qa cases add` now reject with a coded error while any testing type (`e2e`,
+    `api`, `a11y`, `security`) is still `undecided` — previously only `qa init` checked this, and a
+    project that later reset a type to `undecided` (or deferred the survey with `--defer-scope`)
+    could scope and register cases anyway.
+  - `qa cases add` also rejects a case whose own `testType` is not `in-scope`, so a case for an
+    out-of-scope or undecided type is never silently registered.
+  - Approving the `cases` gate now requires "one case set per in-scope type": every `in-scope` type
+    needs at least one registered case, and no case may exist for a type that is not `in-scope`.
+  - A later `qa config set testing.<type>` that changes a decided type reopens the `cases` gate the
+    next time `qa approve`/`qa validate` runs, the same recompute-not-cache treatment `GateStateMachine`
+    already gives an edited artifact's content hash (ADR-003) — `Approval` records an optional
+    `testingScope` snapshot for this.
+  - `qa validate`'s report gains `caseSetStatusByType`, one status (`satisfied`/`missing`/
+    `not-applicable`) per case-bearing type, so an out-of-scope type's empty case set is reported as
+    `not-applicable` rather than silently absent.
+
+- f44a75b: Extend `TestCaseSchema` with two optional, ISO/IEC/IEEE 29119- and ISTQB-aligned fields (P2-17):
+  `preconditions` (an array of strings, state that must hold before the first step) and
+  `regressionTier` (`RegressionTierSchema`, one of `smoke` < `critical-path` < `regression` <
+  `extended`, ordered from narrowest to widest run via the exported `REGRESSION_TIERS` tuple).
+  `qa-design-cases` (P2-09) will set both on every case it writes; existing cases without them
+  remain valid, since neither field is required.
+
+  Adds `agents/references/testing-standards.md`, a shared reference on test-design techniques, the
+  `TestCaseSchema`/`DefectDraftSchema` field conventions, and the regression-tier definitions, so
+  `qa-design-cases`, `qa-execute` (P3-15) and `qa-generate-tests` (P3-07) can point to it instead of
+  each restating the same background.
+
 ## 0.9.0
 
 ### Minor Changes
