@@ -129,7 +129,11 @@ function findStaticElements(file: StaticSourceFile): StaticFinding[] {
     }
     const tagEnd = findTagEnd(file.content, tagStart);
     if (tagEnd === -1) {
-      break;
+      // An unclosed `<` (an unbalanced quote/brace elsewhere in the tag, or a genuinely
+      // truncated file) never closes for the rest of the content either. Resuming right after
+      // it, rather than aborting the whole file, keeps every later tag's findings intact.
+      cursor = tagStart + 1;
+      continue;
     }
     cursor = tagEnd + 1;
 
