@@ -1,5 +1,142 @@
 # @qa-ai-stlc/explorer
 
+## 1.0.0
+
+### Major Changes
+
+- 81bf690: Fix `computeElementId` prioritizing locator-quality signals (`accessibleName`, `label`) over
+  `testId` when computing an element's identity, and having no disambiguator for two distinct
+  elements that share the same signal on one page. `accessibleName`/`label` can legitimately change
+  with live page content (a "Cart (3)" button's accessible name changes the moment the badge count
+  does), so an element whose `data-testid` never changed was still getting a new `elementId` on
+  every crawl where that text differed — breaking continuity for anything keyed by `elementId`
+  across crawls (degraded-selector tracking, evidence links). Two elements sharing the same name on
+  one page (e.g. two "Delete" buttons in a list) also collided outright, since the position-based
+  fallback was only ever used when every named signal was absent, never as a tiebreaker.
+
+  `computeElementId` now prefers `testId` first, and `createElementIdAssigner()` tracks an
+  occurrence index per `(url, kind, signal)` across one crawl or pick-mode batch so same-signal
+  duplicates never collide.
+
+  Breaking: stored `elementId` values change on the next `qa explore` run for elements whose
+  identity depended on `accessibleName`/`label` ranking above `testId` — expect every such element
+  to show up once as "removed" and once as "added" in that run's diff, not as a behavior change to
+  review, since the elements themselves have not changed.
+
+### Minor Changes
+
+- 17d5441: Environments can now opt in to reaching a server behind a self-signed or internal-CA TLS
+  certificate (P2-18): `environments.<name>.tlsInsecure: true` in `config.yaml` (`EnvironmentConfigSchema`,
+  `packages/schemas`) bypasses certificate validation for that environment's `qa doctor` reachability
+  check and every `qa explore`/`qa.browser_open` browser session, including scripted login. Off by
+  default — an environment without it behaves exactly as before, rejecting an untrusted certificate.
+  Enabling it prints a coded warning (`ENVIRONMENT_TLS_INSECURE`) on every run that uses it, since it
+  weakens a real security guarantee.
+- c7a5c3d: Fix stability scoring discarding its own result and reloading the page once per element.
+  `buildSelectorRegistry` scored only the policy-picked primary candidate and then ignored the
+  score when choosing which candidate to keep, so a lower-priority candidate that would have scored
+  more stable than the policy-preferred one was never surfaced or used. Scoring also reloaded the
+  page and resized the viewport once per interactive element — 200 reloads to score one 200-element
+  page.
+
+  `scorePageCandidates` (new) batches every check (unique now, survives one shared reload, survives
+  each shared viewport resize) across every candidate of every element on a page in a single pass,
+  scoring every synthesized candidate rather than only the primary. `buildSelectorRegistry` now
+  promotes whichever candidate actually scored highest to `locatorCandidates[0]` instead of trusting
+  policy order alone.
+
+  Not breaking: `scoreLocatorStability` (single-candidate scoring, used by `qa explore --verify`) is
+  unchanged. Expect `qa explore`'s registry diff to show more `degraded`/reordered entries on the
+  next run for pages where a non-primary candidate now proves more stable than the policy-picked
+  one — a more accurate result, not a regression.
+
+### Patch Changes
+
+- 185e50e: Fix `isUrlAllowed`/`assertUrlAllowed` (`@qa-ai-stlc/core`) only ever comparing a URL's hostname
+  against the domain allowlist, never its scheme or port: `http://staging.example.test:9999/` passed
+  against an allowlist of `['staging.example.test']` even when the environment's configured
+  `baseUrl` was `https://staging.example.test/` on the default port. A redirect or attacker-supplied
+  link to the same host on plain HTTP, or on an arbitrary port, was treated as in-scope by every
+  safe-mode enforcement point: `qa.browser_navigate`/`qa.browser_open` sessions, and `qa explore`'s
+  crawl, page analysis, selector-registry build and `--verify` passes.
+
+  Both functions now also require the effective scheme and port (explicit, or the scheme's default)
+  to match the environment's `baseUrl` — one environment is one scheme-and-port policy across every
+  allowed host, not just `baseUrl`'s own. `BrowserSession` now carries its `baseUrl` alongside its
+  allowlist so `qa.browser_navigate` can enforce this on a session opened earlier, and every
+  explorer entry point (`crawl`, `analyzePages`, `buildSelectorRegistry`, `qa explore --verify`)
+  threads the environment's `baseUrl` through the same way it already threads the allowlist.
+
+  Breaking for `@qa-ai-stlc/core`: `isUrlAllowed` and `assertUrlAllowed` now take a required
+  `baseUrl` parameter; `createBrowserSafeModeRouteHandler` and `OpenBrowserSessionOptions` /
+  `BrowserSession` (`baseUrl`) changed to match. Breaking for `@qa-ai-stlc/explorer`:
+  `createSafeModeRouteHandler`, `AnalyzePagesOptions` and `BuildSelectorRegistryOptions` now require
+  `baseUrl` alongside `allowlist`.
+
+- 6d8ac0a: Fix `qa explore` (crawl, static-analysis build pass, and `--verify`) never enforcing the domain
+  allowlist inside its own safe-mode route handler: `#279` fixed this for a live
+  `qa.browser_navigate`/`qa.browser_open` session in `@qa-ai-stlc/core`, but
+  `packages/explorer/src/safe-mode.ts` was a separate, independent implementation that only checked
+  the HTTP method, not the URL. `crawl()`'s own link-following already filtered which links it
+  queued, but the route handler saw every request the page actually made — a redirect or an
+  in-page-triggered navigation off the allowlist reached the network with nothing to catch it, and
+  `qa explore --verify` (fixed by `#280` to install this handler at all, but not to make it
+  allowlist-aware) had the same gap.
+
+  `createSafeModeRouteHandler` now takes the session's allowlist and blocks a GET off it the same
+  way `@qa-ai-stlc/core`'s browser session handler does, reusing its `isUrlAllowed` check instead of
+  duplicating the logic. `crawl()`, `analyzePages()`, `buildSelectorRegistry()` and `qa explore
+--verify` all pass the environment's configured allowlist through.
+
+- 1f205dd: Fix `pii`/`dynamicText` on a selector registry element being required booleans that every
+  producer (crawl, static analysis, pick mode) hardcoded to `false`, with no detection logic
+  anywhere in the repo. A required `false` read as "checked, and clean" — a claim nothing had
+  verified (AGENTS.md 12.5, honest statuses).
+
+  `SelectorElementSchema` now makes both fields optional; every producer omits them instead of
+  asserting `false`, so a consumer can tell "not yet evaluated" from an actual check that found
+  nothing. Not breaking: an existing registry with `pii: false`/`dynamicText: false` still validates
+  unchanged, and no consumer branches on either field today.
+
+- 6c1ba4f: Fix static source analysis truncating a tag at the first `>` it finds, including one inside a
+  quoted attribute value or inside a `{...}` JSX/Vue/Angular expression container. An inline arrow
+  handler (`onClick={() => save()}`), one of the most common idioms in real frontend code, contains
+  a `>` well before the tag's real end, so any `data-testid`/`aria-label`/`role` written after it in
+  the same tag was never seen — the element was reported as missing a test id it actually has. The
+  scan now tracks quote and brace state instead of doing a bare `indexOf('>')`.
+- 22d0436: Fix `analyzeStaticSource` silently discarding every finding past a tag whose quote or `{...}`
+  brace tracking never balances before the end of the file: `#281`'s `findTagEnd` returns `-1` in
+  that case, and the caller treated `-1` the same as "no more tags in the file," aborting the whole
+  scan. A single confusing construct anywhere in a file (an apostrophe inside a regex literal, an
+  unbalanced brace inside a template literal) could silently drop a large fraction of a "missing
+  test ID" report with no error or warning.
+
+  `findStaticElements` now resumes scanning right after the unclosed `<` instead of aborting the
+  file, treating it as literal text — the same accepted false-positive/false-negative risk the
+  scanner already documents, not a new failure mode that cascades across the rest of the file.
+
+- e1f1308: Fix `qa explore --verify` navigating with no safe-mode route handler installed at all, unlike
+  every other operation that drives a browser, and unconditionally reporting `blockedRequestCount: 0`
+  in its report regardless of what actually happened. `--verify` now installs the same route handler
+  `qa explore`'s registry build uses and reports the real count of non-GET requests it blocked.
+- Updated dependencies [bcad827]
+- Updated dependencies [17d5441]
+- Updated dependencies [8c8971b]
+- Updated dependencies [185e50e]
+- Updated dependencies [adaa974]
+- Updated dependencies [bb0a0aa]
+- Updated dependencies [e288603]
+- Updated dependencies [2334df3]
+- Updated dependencies [2235987]
+- Updated dependencies [c1f4de6]
+- Updated dependencies [e968493]
+- Updated dependencies [1f205dd]
+- Updated dependencies [d1b29ee]
+- Updated dependencies [71bbbf7]
+- Updated dependencies [f44a75b]
+  - @qa-ai-stlc/schemas@1.0.0
+  - @qa-ai-stlc/core@1.0.0
+
 ## 0.7.2
 
 ### Patch Changes
