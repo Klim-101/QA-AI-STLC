@@ -111,6 +111,38 @@ jobs:
       - name: Build
         run: npm run build
 
+  # P2-13: proves the generated plugin (adapters/claude-plugin/) installs correctly from a local
+  # marketplace with the rest of the repository absent from disk. Windows and macOS only, per the
+  # task's own "Done when" -- ubuntu-latest already gets full coverage from the `test` job above.
+  # `@anthropic-ai/claude-code` is installed globally for this job's own use, never declared in
+  # any package.json: the framework stays model-agnostic (AGENTS.md's "no LLM SDK dependency"
+  # boundary is about the framework's own packages), and this job makes no model call -- it only
+  # exercises `claude plugin`'s marketplace/install/list/details CLI mechanics.
+  plugin-install-smoke-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Install the Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code@2.1.280
+
+      - name: Run the plugin-install smoke test
+        run: npm run smoke:plugin-install
+
   gitleaks:
     runs-on: ubuntu-latest
     permissions:

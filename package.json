@@ -32,6 +32,7 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "node scripts/run-workspaces.mjs clean",
     "pack:check": "node scripts/pack-check.mjs",
+    "smoke:plugin-install": "node scripts/smoke-test-plugin-install.mjs",
     "release": "npm run pack:check && changeset publish",
     "demo": "npm run start --workspace @qa-ai-stlc/demo-app"
   },
