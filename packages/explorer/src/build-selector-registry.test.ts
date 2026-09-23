@@ -17,7 +17,7 @@ import {
   diffSelectorRegistry,
   mergeSelectorRegistry,
 } from './build-selector-registry.js';
-import { createFakeCrawlBrowserLauncher } from './test-support/fake-browser-launcher.js';
+import { createFakeCrawlBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-crawl-browser-launcher';
 
 const ALLOWLIST = ['staging.example.com'];
 const BASE_URL = 'https://staging.example.com/';

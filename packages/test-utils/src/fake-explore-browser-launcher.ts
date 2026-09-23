@@ -2,20 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
-  AuthBrowser,
-  AuthBrowserContext,
-  AuthPage,
-  BrowserLauncher,
-  LaunchOptions,
-  PageLocator,
-  PageResponse,
-  PageRoute,
-  RouteHandler,
-  StorageState,
-} from '@qa-ai-stlc/core';
+  AuthBrowserContextLike,
+  AuthBrowserLike,
+  AuthPageLike,
+  BrowserLauncherLike,
+  LaunchOptionsLike,
+  PageLocatorLike,
+  PageResponseLike,
+  PageRouteLike,
+  RouteHandlerLike,
+  StorageStateLike,
+} from './fake-browser-launcher.js';
 
-const EMPTY_STORAGE_STATE: StorageState = { cookies: [], origins: [] };
-const DEFAULT_RESPONSE: PageResponse = { status: () => 200 };
+const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
+const DEFAULT_RESPONSE: PageResponseLike = { status: () => 200 };
 // Not a real PNG: no code path under test decodes a screenshot, it only has to be bytes.
 const PLACEHOLDER_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
 
@@ -24,7 +24,7 @@ export interface FakeSubRequest {
   readonly url: string;
 }
 
-function createFakeRoute(method: string, url: string): PageRoute {
+function createFakeRoute(method: string, url: string): PageRouteLike {
   return {
     request: () => ({ method: () => method, url: () => url }),
     abort: () => Promise.resolve(),
@@ -46,16 +46,17 @@ export interface FakeExplorePageOptions {
 }
 
 /**
- * A fake `AuthPage` for `runExplore` operation tests: no real browser or network call (AGENTS.md
- * 5.3, 13). Distinguishes an `extractLinks()` call from an `extractPageElements()` call by which
- * option was configured for the current URL, and a pick-mode overlay poll by `pickModeState`
- * being set — `injectPickModeOverlay()`'s own `evaluate()` call discards whatever it returns, so
- * returning the same state for it too is harmless.
+ * A fake `AuthPage` for `qa explore` command/operation tests across the monorepo (AGENTS.md 5.3,
+ * 13): no real browser or network call. Distinguishes an `extractLinks()` call from an
+ * `extractPageElements()` call by which option was configured for the current URL, and a
+ * pick-mode overlay poll by `pickModeState` being set — `injectPickModeOverlay()`'s own
+ * `evaluate()` call discards whatever it returns, so returning the same state for it too is
+ * harmless.
  */
-export function createFakeExplorePage(options: FakeExplorePageOptions = {}): AuthPage {
+export function createFakeExplorePage(options: FakeExplorePageOptions = {}): AuthPageLike {
   let currentUrl: string | undefined;
-  const routeHandlers: RouteHandler[] = [];
-  const locatorMethod = (): PageLocator => ({ count: () => Promise.resolve(options.locatorCount ?? 1) });
+  const routeHandlers: RouteHandlerLike[] = [];
+  const locatorMethod = (): PageLocatorLike => ({ count: () => Promise.resolve(options.locatorCount ?? 1) });
 
   return {
     goto: async (url) => {
@@ -100,25 +101,25 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Aut
 }
 
 export interface FakeExploreBrowserLauncherOptions extends FakeExplorePageOptions {
-  readonly authStorageState?: StorageState;
+  readonly authStorageState?: StorageStateLike;
 }
 
-export interface FakeExploreBrowserLauncher extends BrowserLauncher {
-  readonly page: AuthPage;
+export interface FakeExploreBrowserLauncher extends BrowserLauncherLike {
+  readonly page: AuthPageLike;
   readonly closedBrowsers: { count: number };
   /** Every `options` a caller passed to `launch()`, in call order — asserts headed vs headless. */
-  readonly launchCalls: LaunchOptions[];
+  readonly launchCalls: LaunchOptionsLike[];
 }
 
-/** A fake `BrowserLauncher` for `runExplore` operation tests (AGENTS.md 5.3, 13). */
+/** A fake `BrowserLauncher` for `qa explore` command/operation tests (AGENTS.md 5.3, 13). */
 export function createFakeExploreBrowserLauncher(
   options: FakeExploreBrowserLauncherOptions = {},
 ): FakeExploreBrowserLauncher {
   const page = createFakeExplorePage(options);
   const closedBrowsers = { count: 0 };
-  const launchCalls: LaunchOptions[] = [];
+  const launchCalls: LaunchOptionsLike[] = [];
 
-  const context: AuthBrowserContext = {
+  const context: AuthBrowserContextLike = {
     newPage: () => Promise.resolve(page),
     storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
     close: () => Promise.resolve(),
@@ -130,7 +131,7 @@ export function createFakeExploreBrowserLauncher(
     launchCalls,
     launch: (launchOptions = {}) => {
       launchCalls.push(launchOptions);
-      const browser: AuthBrowser = {
+      const browser: AuthBrowserLike = {
         newContext: () => Promise.resolve(context),
         contexts: () => [context],
         close: () => {
@@ -141,12 +142,12 @@ export function createFakeExploreBrowserLauncher(
       return Promise.resolve(browser);
     },
     connectOverCdp: () => {
-      const authContext: AuthBrowserContext = {
+      const authContext: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
         storageState: () => Promise.resolve(options.authStorageState ?? EMPTY_STORAGE_STATE),
         close: () => Promise.resolve(),
       };
-      const browser: AuthBrowser = {
+      const browser: AuthBrowserLike = {
         newContext: () => Promise.reject(new Error('newContext is not available on an attached browser')),
         contexts: () => [authContext],
         close: () => {

@@ -4,7 +4,7 @@
 import type { IdentityConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { crawl } from './crawl.js';
-import { createFakeCrawlBrowserLauncher } from './test-support/fake-browser-launcher.js';
+import { createFakeCrawlBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-crawl-browser-launcher';
 
 describe('crawl', () => {
   it('follows in-allowlist links and drops one outside it', async () => {

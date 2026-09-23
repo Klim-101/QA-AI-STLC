@@ -8,7 +8,7 @@ import { createCommandContext, type CommandContext } from '../command-context.js
 import {
   createFakeExploreBrowserLauncher,
   type FakeExploreBrowserLauncherOptions,
-} from '../test-support/fake-browser-launcher.js';
+} from '@qa-ai-stlc/test-utils/fake-explore-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { runInit } from './init.js';
 import { runExplore } from './explore.js';

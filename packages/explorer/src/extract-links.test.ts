@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { extractLinks } from './extract-links.js';
-import { createFakeCrawlPage } from './test-support/fake-browser-launcher.js';
+import { createFakeCrawlPage } from '@qa-ai-stlc/test-utils/fake-crawl-browser-launcher';
 
 describe('extractLinks', () => {
   it('returns the string links a page evaluates to', async () => {

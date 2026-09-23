@@ -4,12 +4,12 @@
 import { join } from 'node:path';
 import { BrowserSessionStore } from '../browser-session-store.js';
 import type { BrowserOperationContext } from '../operations/browser-context.js';
+import { createFakeEngineContext } from './fake-engine-context.js';
 import {
   createFakeBrowserLauncher,
   type FakeBrowserLauncher,
   type FakeBrowserLauncherOptions,
-} from './fake-browser-launcher.js';
-import { createFakeEngineContext } from './fake-engine-context.js';
+} from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 import { createFakeFileSystem, type FakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createSequentialIdGenerator } from './fake-id-generator.js';
 

@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { runCli, type RunCliDependencies } from './cli.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
-import { createFakeExploreBrowserLauncher } from './test-support/fake-browser-launcher.js';
+import { createFakeExploreBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-explore-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
 const PROJECT_ROOT = join('project');

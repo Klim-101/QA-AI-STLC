@@ -4,7 +4,7 @@
 import type { IdentityConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { analyzePages } from './analyze-pages.js';
-import { createFakeCrawlBrowserLauncher } from './test-support/fake-browser-launcher.js';
+import { createFakeCrawlBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-crawl-browser-launcher';
 
 const EMPTY_ELEMENTS = { interactiveElements: [], forms: [], tables: [], dialogs: [] };
 const ALLOWLIST = ['staging.example.com'];

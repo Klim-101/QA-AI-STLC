@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { BrowserSessionStore, DEFAULT_SESSION_IDLE_TIMEOUT_MS } from './browser-session-store.js';
 import type { AuthBrowser, AuthBrowserContext, AuthPage } from './ports/browser-launcher.js';
 import type { Clock } from './ports/clock.js';
-import { createFakeBrowserLauncher } from './test-support/fake-browser-launcher.js';
+import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 import { createSequentialIdGenerator } from './test-support/fake-id-generator.js';
 
 interface FakeBrowserParts {
