@@ -4,7 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
+    "./fake-browser-launcher": "./dist/fake-browser-launcher.js",
+    "./fake-crawl-browser-launcher": "./dist/fake-crawl-browser-launcher.js",
+    "./fake-explore-browser-launcher": "./dist/fake-explore-browser-launcher.js",
     "./fake-file-system": "./dist/fake-file-system.js",
+    "./fake-http-client": "./dist/fake-http-client.js",
+    "./fake-process-runner": "./dist/fake-process-runner.js",
     "./golden-file": "./dist/golden-file.js",
     "./temp-dir": "./dist/temp-dir.js"
   },

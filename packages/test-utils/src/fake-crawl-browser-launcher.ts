@@ -2,21 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
-  AuthBrowser,
-  AuthBrowserContext,
-  AuthPage,
-  BrowserLauncher,
-  NewContextOptions,
-  PageResponse,
-  PageRoute,
-  RouteHandler,
-  StorageState,
-} from '@qa-ai-stlc/core';
-import { createLocatorMethods } from './locator-stub.js';
+  AuthBrowserContextLike,
+  AuthBrowserLike,
+  AuthPageLike,
+  BrowserLauncherLike,
+  NewContextOptionsLike,
+  PageLocatorLike,
+  PageResponseLike,
+  PageRouteLike,
+  RouteHandlerLike,
+  StorageStateLike,
+} from './fake-browser-launcher.js';
 
-const EMPTY_STORAGE_STATE: StorageState = { cookies: [], origins: [] };
+const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
+const DEFAULT_RESPONSE: PageResponseLike = { status: () => 200 };
 
-function createFakeRoute(method: string, url: string): PageRoute {
+function createFakeRoute(method: string, url: string): PageRouteLike {
   return {
     request: () => ({ method: () => method, url: () => url }),
     abort: () => Promise.resolve(),
@@ -31,7 +32,7 @@ export interface FakeSubRequest {
 
 export interface FakeCrawlPageOptions {
   /** Maps a normalized URL to the response `goto()` resolves with for it; defaults to a 200. */
-  readonly responsesByUrl?: Readonly<Record<string, PageResponse | null>>;
+  readonly responsesByUrl?: Readonly<Record<string, PageResponseLike | null>>;
   /** Maps a normalized URL to the links `extractLinks()` should see on it. */
   readonly linksByUrl?: Readonly<Record<string, readonly string[]>>;
   /** Maps a normalized URL to the accessibility snapshot `ariaSnapshotJSON()` should see on it. */
@@ -39,24 +40,38 @@ export interface FakeCrawlPageOptions {
   /** Maps a normalized URL to the raw page-elements `extractPageElements()` should see on it. */
   readonly elementsByUrl?: Readonly<Record<string, unknown>>;
   /** The session `authenticate()` resolves to for a `cdp-attach` identity in these tests. */
-  readonly authStorageState?: StorageState;
+  readonly authStorageState?: StorageStateLike;
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
   readonly subRequestsByUrl?: Readonly<Record<string, readonly FakeSubRequest[]>>;
-  /** Forwarded to `createLocatorMethods()`, for tests driving `getByRole()`/`locator()` etc. */
+  /**
+   * Consumed one at a time, in order, by successive `PageLocator.count()` calls across every
+   * `getBy*`/`locator()` locator this fake page hands out; the last value repeats once exhausted.
+   * Defaults to always resolving to exactly one match.
+   */
   readonly locatorCounts?: readonly number[];
 }
 
-export interface FakeCrawlPage extends AuthPage {
+export interface FakeCrawlPage extends AuthPageLike {
   readonly gotoUrls: string[];
-  readonly routeHandlers: RouteHandler[];
+  readonly routeHandlers: RouteHandlerLike[];
 }
-
-const DEFAULT_RESPONSE: PageResponse = { status: () => 200 };
 
 export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCrawlPage {
   const gotoUrls: string[] = [];
-  const routeHandlers: RouteHandler[] = [];
+  const routeHandlers: RouteHandlerLike[] = [];
   let currentUrl: string | undefined;
+  const locatorCounts = options.locatorCounts ?? [1];
+  let locatorCallIndex = 0;
+
+  function nextLocatorCount(): number {
+    const index = Math.min(locatorCallIndex, locatorCounts.length - 1);
+    locatorCallIndex += 1;
+    return locatorCounts[index] ?? 1;
+  }
+
+  function locator(): PageLocatorLike {
+    return { count: () => Promise.resolve(nextLocatorCount()) };
+  }
 
   return {
     gotoUrls,
@@ -87,22 +102,32 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     },
     ariaSnapshotJSON: () =>
       Promise.resolve(currentUrl === undefined ? undefined : options.ariaSnapshotByUrl?.[currentUrl]),
-    ...createLocatorMethods(
-      options.locatorCounts === undefined ? {} : { locatorCounts: options.locatorCounts },
-    ),
+    getByRole: () => locator(),
+    getByTestId: () => locator(),
+    getByLabel: () => locator(),
+    getByPlaceholder: () => locator(),
+    getByText: () => locator(),
+    locator: () => locator(),
+    reload: () => Promise.resolve(DEFAULT_RESPONSE),
+    setViewportSize: () => Promise.resolve(),
+    viewportSize: () => ({ width: 1280, height: 720 }),
+    url: () => currentUrl ?? 'about:blank',
+    title: () => Promise.resolve(''),
+    // Not a real PNG: no code path under test decodes a screenshot, it only has to be bytes.
+    screenshot: () => Promise.resolve(new TextEncoder().encode('fake-screenshot')),
   };
 }
 
-export interface FakeCrawlBrowserLauncher extends BrowserLauncher {
+export interface FakeCrawlBrowserLauncher extends BrowserLauncherLike {
   readonly page: FakeCrawlPage;
-  readonly newContextCalls: NewContextOptions[];
+  readonly newContextCalls: NewContextOptionsLike[];
   readonly closedBrowsers: number;
 }
 
-/** A fake `BrowserLauncher` for crawl tests: no real browser or network call (AGENTS.md 5.3, 13). */
+/** A fake `BrowserLauncher` for crawl tests across the monorepo (AGENTS.md 5.3, 13): no real browser or network call. */
 export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {}): FakeCrawlBrowserLauncher {
   const page = createFakeCrawlPage(options);
-  const newContextCalls: NewContextOptions[] = [];
+  const newContextCalls: NewContextOptionsLike[] = [];
   let closedBrowsers = 0;
 
   return {
@@ -112,12 +137,12 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
       return closedBrowsers;
     },
     launch: () => {
-      const context: AuthBrowserContext = {
+      const context: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
         storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
         close: () => Promise.resolve(),
       };
-      const browser: AuthBrowser = {
+      const browser: AuthBrowserLike = {
         newContext: (newContextOptions = {}) => {
           newContextCalls.push(newContextOptions);
           return Promise.resolve(context);
@@ -131,12 +156,12 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
       return Promise.resolve(browser);
     },
     connectOverCdp: () => {
-      const authContext: AuthBrowserContext = {
+      const authContext: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
         storageState: () => Promise.resolve(options.authStorageState ?? EMPTY_STORAGE_STATE),
         close: () => Promise.resolve(),
       };
-      const browser: AuthBrowser = {
+      const browser: AuthBrowserLike = {
         newContext: () => Promise.reject(new Error('newContext is not available on an attached browser')),
         contexts: () => [authContext],
         close: () => {

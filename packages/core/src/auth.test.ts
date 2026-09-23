@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { attachViaCdp, authenticate, loginWithCredentials } from './auth.js';
 import { QaError } from './errors.js';
 import type { AuthBrowserContext, StorageState } from './ports/browser-launcher.js';
-import { createFakeBrowserLauncher } from './test-support/fake-browser-launcher.js';
+import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 
 const SESSION: StorageState = {
   cookies: [

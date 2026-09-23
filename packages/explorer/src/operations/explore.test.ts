@@ -8,10 +8,10 @@ import { describe, expect, it } from 'vitest';
 import {
   createFakeExploreBrowserLauncher,
   type FakeExploreBrowserLauncherOptions,
-} from '../test-support/fake-explore-browser-launcher.js';
+} from '@qa-ai-stlc/test-utils/fake-explore-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
-import { createFakeHttpClient } from '../test-support/fake-http-client.js';
-import { createFakeProcessRunner } from '../test-support/fake-process-runner.js';
+import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
+import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
 import { runExplore } from './explore.js';
 
 const PROJECT_ROOT = join('project');

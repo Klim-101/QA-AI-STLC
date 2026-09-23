@@ -10,10 +10,10 @@ import { ManifestStore } from '../manifest-store.js';
 import { noopLogger } from '../ports/logger.js';
 import { systemClock } from '../ports/clock.js';
 import { QaStore } from '../qa-store.js';
-import { createFakeBrowserLauncher } from '../test-support/fake-browser-launcher.js';
+import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
-import { createFakeHttpClient } from '../test-support/fake-http-client.js';
-import { createFakeProcessRunner } from '../test-support/fake-process-runner.js';
+import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
+import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
 import { runApprove } from './approve.js';
 import { runValidate } from './validate.js';
 

@@ -36,9 +36,19 @@ describe('createFakeExploreBrowserLauncher', () => {
     const context = await browser.newContext();
 
     expect(browser.contexts()).toEqual([context]);
+    await expect(context.storageState()).resolves.toEqual({ cookies: [], origins: [] });
     await expect(context.close()).resolves.toBeUndefined();
     await browser.close();
     expect(launcher.closedBrowsers.count).toBe(1);
+  });
+
+  it('resolves goto() to a 200 response by default', async () => {
+    const launcher = createFakeExploreBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    const response = await page.goto('https://example.com/');
+
+    expect(response?.status()).toBe(200);
   });
 
   it('defaults every locator method to a count of 1 when none is configured', async () => {

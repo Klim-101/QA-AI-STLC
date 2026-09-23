@@ -21,6 +21,28 @@ describe('createFakeBrowserLauncher', () => {
     expect(browser.contexts()).toEqual([context]);
   });
 
+  it('resolves storageState() and tracks close() on a browser obtained through launch()', async () => {
+    const storageState = { cookies: [], origins: [] };
+    const launcher = createFakeBrowserLauncher({ storageState });
+    const browser = await launcher.launch();
+    const context = await browser.newContext();
+
+    await expect(context.storageState()).resolves.toEqual(storageState);
+    await browser.close();
+    expect(launcher.closedBrowsers).toBe(1);
+  });
+
+  it('resolves fill(), click() and waitForLoadState() calls, recording each', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await expect(page.fill('input', 'x')).resolves.toBeUndefined();
+    await expect(page.click('button')).resolves.toBeUndefined();
+    await expect(page.waitForLoadState()).resolves.toBeUndefined();
+
+    expect(launcher.pageCalls.map((call) => call.method)).toEqual(['fill', 'click', 'waitForLoadState']);
+  });
+
   it('defaults connectOverCdp to no contexts when none are configured', async () => {
     const launcher = createFakeBrowserLauncher();
 
