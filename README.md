@@ -271,19 +271,76 @@ contract already enforced for `.claude/rules/`.
 
 ![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
-This is a diagram of the generator's data flow, not a recorded run — there is no interactive
-Claude Code session to record yet, since publishing the plugin to a real, discoverable marketplace
-is still planned (installing it from a local marketplace with the framework source absent from
-disk is already verified by CI on Windows and macOS, P2-13). The plugin/engine version handshake
-(ADR-007) itself already shipped (P2-12): the
-generated `.mcp.json` pins the `mcp-server` version it launches, and the server checks it against
-the engine's own version at startup. What the generator already produces today: a
-`.claude-plugin/plugin.json` manifest, the three skills currently shipped
-(`qa-start`, `qa-explore`, `qa-design-cases`) under `skills/`, a
-`PreToolUse` hook (`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of
-that protection, on top of the engine's own manifest and hash checks — and an `.mcp.json` that
-launches `qa-mcp-server` via `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. Subagent generation
-is not part of this yet: it is added once Phase 4 defines real spoke files to generate from.
+The plugin/engine version handshake (ADR-007) shipped in P2-12: the generated `.mcp.json` pins the
+`mcp-server` version it launches, and the server checks it against the engine's own version at
+startup. What the generator produces today: a `.claude-plugin/plugin.json` manifest, the skills
+under `skills/` (`qa-start`, `qa-explore`, `qa-design-cases`), a `PreToolUse` hook
+(`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of that protection, on
+top of the engine's own manifest and hash checks — and an `.mcp.json` that launches
+`qa-mcp-server` via `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. Subagent generation is not
+part of this yet: it is added once Phase 4 defines real spoke files to generate from. Publishing
+the plugin to a real, discoverable marketplace is still planned; installing it from a local
+marketplace with the framework source absent from disk is already verified by CI on Windows and
+macOS (P2-13).
+
+### A real end-to-end session
+
+The plugin installed from a local marketplace this way drives a real Claude Code session against
+[`examples/demo-app`](examples/demo-app), with the engine's own MCP tools providing every result —
+`qa-start` never invents an answer the engine hasn't returned.
+
+![A real qa-start session against examples/demo-app, from a fresh environment with no browsers installed through the scope and cases gates](docs/public/media/hub-session-flow.svg)
+
+Recorded from a real session: `qa.doctor` on a fresh checkout reports all three Playwright browsers
+missing; the operator chooses Chromium-only, and the doctor re-check confirms Firefox/WebKit still
+missing before the hub proceeds. `qa-design-cases` finds no selector registry yet, dispatches
+`qa-explore`, and its own attempt to hand-edit `config.yaml` (to enable static analysis) is blocked
+by the same `PreToolUse` hook shown above — `.qa/` has no back door even for the skill that wants
+in — so it falls back to crawl-only exploration. The admin crawl adds 82 elements; the employee
+crawl adds **zero** new elements, which is itself the crawler independently confirming
+`/admin/users` stays unreachable to that identity, matching the role-based-access requirement. 10
+test cases are registered across `auth`, `access-control`, `dashboard` and `tasks`, covering all 7
+requirements, and both the `scope` and `cases` gates are approved. `currentPhase` stays `"cases"`
+afterward — nothing in the pipeline advances further yet, since execution and generation are Phase 3.
+
+A real requirement from that run's `scope.json`:
+
+```json
+{
+  "id": "role-based-access",
+  "title": "Role-based access",
+  "description": "The application supports two roles: admin and employee. The user management section (/admin/users) is accessible only to users with the admin role; an employee must not be able to view the user list.",
+  "source": { "kind": "text", "label": "operator-requirements" },
+  "inScope": true
+}
+```
+
+And one of the 10 registered test cases, grounded in real registry locators, not invented ones:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "login-invalid-credentials",
+  "feature": "auth",
+  "requirementIds": ["authentication"],
+  "testType": "e2e",
+  "title": "Invalid credentials show an error and stay on the login page",
+  "preconditions": ["The user is on the login page (http://localhost:4310/login)"],
+  "steps": [
+    { "description": "Enter a registered account's email into the \"Email\" field" },
+    { "description": "Enter an incorrect password into the \"Password\" field" },
+    { "description": "Click the \"Log in\" button" }
+  ],
+  "expectedResult": "The login page is redisplayed with the error message \"Invalid email or password.\" shown, and no session is created (the user is not redirected to /dashboard).",
+  "regressionTier": "regression",
+  "status": "draft",
+  "createdAt": "2026-09-24T18:00:00Z"
+}
+```
+
+Every test case is still only a validated JSON artifact at this point — `qa cases render`
+(Markdown/HTML rendering, ADR-002) and actually running a case against the app (`qa run`, Phase 3)
+are both still open work, not yet implemented.
 
 ## Documentation
 
