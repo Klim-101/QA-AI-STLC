@@ -1,24 +1,41 @@
 <svg viewBox="0 0 860 1920" role="img" aria-label="A real qa-start session against examples/demo-app: a fresh environment with no browsers installed, chromium-only doctor result, a blocked config.yaml edit redirecting to a crawl-only explore of both admin and employee identities (the employee crawl adds zero new elements, itself confirming /admin/users stayed unreachable), 10 registered test cases covering all 7 requirements, and the scope and cases gates — ending with currentPhase still at cases because execution and generation are not implemented yet." xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+      <path d="M0,0 L10,5 L0,10 z" class="arrowhead-fill"/>
     </marker>
   </defs>
 
   <style>
-    .box { fill: none; stroke: currentColor; stroke-width: 1.5; }
-    .lbl { font-size: 13px; fill: currentColor; }
-    .lbl2 { font-size: 12px; fill: currentColor; }
-    .small { font-size: 11px; fill: currentColor; }
-    .arrow { fill: none; stroke: currentColor; stroke-width: 1.5; marker-end: url(#arrow); }
-    .phase { font-size: 12px; fill: currentColor; letter-spacing: 0.08em; }
-    .phaseline { stroke: currentColor; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.5; }
+    :root { color-scheme: light dark; }
+    .bg { fill: #ffffff; }
+    .box { fill: none; stroke: #57606a; stroke-width: 1.5; }
+    .lbl { font-size: 13px; fill: #1f2328; }
+    .lbl2 { font-size: 12px; fill: #1f2328; }
+    .small { font-size: 11px; fill: #57606a; }
+    .arrow { fill: none; stroke: #57606a; stroke-width: 1.5; marker-end: url(#arrow); }
+    .arrowhead-fill { fill: #57606a; }
+    .phase { font-size: 12px; fill: #57606a; letter-spacing: 0.08em; }
+    .phaseline { stroke: #57606a; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.5; }
     .gate { fill: none; stroke: #2f81f7; stroke-width: 2; }
     .gatetext { font-size: 13px; fill: #2f81f7; font-weight: 600; }
     .guard { fill: none; stroke: #d97706; stroke-width: 2; }
     .guardtext { font-size: 13px; fill: #d97706; font-weight: 600; }
-    .end { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 0.75; }
+    .guardsmall { font-size: 11px; fill: #d97706; }
+    .end { fill: none; stroke: #57606a; stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 0.75; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .box, .arrow, .phaseline, .end { stroke: #8b949e; }
+      .lbl, .lbl2 { fill: #e6edf3; }
+      .small, .phase { fill: #8b949e; }
+      .arrowhead-fill { fill: #8b949e; }
+      .gate { stroke: #79c0ff; }
+      .gatetext { fill: #79c0ff; }
+      .guard { stroke: #f0883e; }
+      .guardtext, .guardsmall { fill: #f0883e; }
+    }
   </style>
+
+  <rect class="bg" x="0" y="0" width="860" height="1920"/>
 
   <!-- 1: terminal -->
   <rect class="box" x="120" y="30" width="460" height="40"/>
@@ -109,7 +126,7 @@
   <!-- 15: hook guard -->
   <rect class="guard" x="120" y="1100" width="460" height="44"/>
   <text class="guardtext" x="350" y="1120" text-anchor="middle">blocked: PreToolUse hook</text>
-  <text class="small" x="350" y="1136" text-anchor="middle" fill="#d97706">.qa/ is engine-managed — no MCP tool sets source.path</text>
+  <text class="guardsmall" x="350" y="1136" text-anchor="middle">.qa/ is engine-managed — no MCP tool sets source.path</text>
   <line class="arrow" x1="350" y1="1144" x2="350" y2="1170"/>
 
   <!-- 16: skip static -->
