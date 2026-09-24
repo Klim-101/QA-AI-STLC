@@ -5,12 +5,16 @@
 // (skills, hub, phase prompts, references), the hook script under `scripts/claude-plugin/`, and
 // `plugin.config.ts`. It also generates a `claude plugin eval` suite under `evals/` from each
 // skill's `triggers`/`nonTriggers` frontmatter (P2-10) — a local, hand-run check; CI wiring is a
-// separate task (P2-23), since each eval run is a real, billed model call. `agents/` and
-// `plugin.config.ts` stay the only hand-edited sources; `--check` verifies the generated tree
-// still matches them and flags any file that does not belong there (a manual edit), the same
-// contract `generate-claude-rules.mjs` already applies to `.claude/rules`. Run with
-// `node --experimental-strip-types` (see package.json) so `plugin.config.ts` can be imported
-// directly, the same way `vitest.config.ts` is loaded without a separate build step.
+// separate task (P2-23), since each eval run is a real, billed model call. It also generates the
+// repository root's own `.claude-plugin/marketplace.json` (P2-15), which declares this same
+// generated plugin by a relative `source`, so this public repository is itself installable as a
+// Claude Code marketplace (`claude plugin marketplace add <owner>/<repo>`) with no separate
+// marketplace repository to keep in sync. `agents/` and `plugin.config.ts` stay the only
+// hand-edited sources; `--check` verifies the generated tree still matches them and flags any file
+// that does not belong there (a manual edit), the same contract `generate-claude-rules.mjs` already
+// applies to `.claude/rules`. Run with `node --experimental-strip-types` (see package.json) so
+// `plugin.config.ts` can be imported directly, the same way `vitest.config.ts` is loaded without a
+// separate build step.
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -21,6 +25,7 @@ const repoRoot = join(import.meta.dirname, '..');
 const outDir = join(repoRoot, 'adapters', 'claude-plugin');
 const agentsDir = join(repoRoot, 'agents');
 const hookSourcePath = join(repoRoot, 'scripts', 'claude-plugin', 'block-qa-writes.mjs');
+const marketplaceJsonPath = join(repoRoot, '.claude-plugin', 'marketplace.json');
 
 const { default: pluginConfig } = await import(pathToFileURL(join(repoRoot, 'plugin.config.ts')).href);
 const mcpServerPackage = JSON.parse(
@@ -182,6 +187,29 @@ async function buildFiles() {
   return files;
 }
 
+/**
+ * The repository root's own marketplace manifest (P2-15): declares this same generated plugin by
+ * a path relative to the repo root, so `claude plugin marketplace add <owner>/<repo>` needs no
+ * separate marketplace repository or copy of the plugin to stay in sync.
+ */
+async function buildMarketplaceJson() {
+  return renderJson(
+    {
+      name: pluginConfig.name,
+      owner: pluginConfig.author,
+      description: `${pluginConfig.description} Published from this repository's own tree.`,
+      plugins: [
+        {
+          name: pluginConfig.name,
+          source: './adapters/claude-plugin',
+          description: pluginConfig.description,
+        },
+      ],
+    },
+    marketplaceJsonPath,
+  );
+}
+
 function readExisting(absolutePath) {
   try {
     return readFileSync(absolutePath, 'utf8');
@@ -208,6 +236,7 @@ function existingRelativePaths() {
 }
 
 const files = await buildFiles();
+const marketplaceJson = await buildMarketplaceJson();
 const checkOnly = process.argv.includes('--check');
 
 if (!checkOnly) {
@@ -217,7 +246,11 @@ if (!checkOnly) {
     mkdirSync(dirname(absolutePath), { recursive: true });
     writeFileSync(absolutePath, content);
   }
-  console.log(`Generated ${files.size} file(s) in ${relative(repoRoot, outDir)}.`);
+  mkdirSync(dirname(marketplaceJsonPath), { recursive: true });
+  writeFileSync(marketplaceJsonPath, marketplaceJson);
+  console.log(
+    `Generated ${files.size} file(s) in ${relative(repoRoot, outDir)} and ${relative(repoRoot, marketplaceJsonPath)}.`,
+  );
   process.exit(0);
 }
 
@@ -228,6 +261,13 @@ for (const [relativePath, { content }] of files) {
     console.error(`${relative(repoRoot, absolutePath)} does not match its source. Run "npm run generate".`);
     outOfDate = true;
   }
+}
+
+if (readExisting(marketplaceJsonPath) !== marketplaceJson) {
+  console.error(
+    `${relative(repoRoot, marketplaceJsonPath)} does not match its source. Run "npm run generate".`,
+  );
+  outOfDate = true;
 }
 
 const expectedPaths = new Set(files.keys());
@@ -243,4 +283,4 @@ for (const relativePath of existingRelativePaths()) {
 if (outOfDate) {
   process.exit(1);
 }
-console.log(`${relative(repoRoot, outDir)} is up to date.`);
+console.log(`${relative(repoRoot, outDir)} and ${relative(repoRoot, marketplaceJsonPath)} are up to date.`);
