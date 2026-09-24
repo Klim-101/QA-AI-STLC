@@ -51,7 +51,11 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
 ## 4. Workflow for agents
 
 1. Read this file and the relevant package `README.md` before editing.
-2. Work on a branch (section 8). Never commit to `main`.
+2. Work on a branch (section 8). Never commit to `main`. Create the branch first, before the first
+   edit — not right before the first commit. An edit started on `main` by habit (for example,
+   right after a previous branch was deleted post-merge) is a real risk, not a formatting nit: move
+   uncommitted work to a real branch (`git checkout -b` carries uncommitted changes) the moment it
+   is noticed, before anything is committed.
 3. Keep a change to one concern. Do not refactor unrelated code in the same change.
 4. Write or update tests in the same change as the behavior. Unit-test the change directly; add an integration test in the package's `test/` directory when the change crosses a module boundary (filesystem, browser, CLI, MCP). Never merge a behavior change with only manual verification — coverage in CI (section 13) is the only accepted evidence.
 5. Run the full local gate before declaring work done:
@@ -67,6 +71,14 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
    ```
 
    The repository is being bootstrapped. Until a script exists, run the checks that do exist and state which ones were unavailable.
+
+   `npm run test`/`npm run typecheck` build every workspace dependency first (`pretest`/
+   `pretypecheck`). Calling `vitest`/`tsc` directly on one package for a faster iteration loop skips
+   that build step: a change to an exported symbol in `packages/schemas` or `packages/core` will not
+   be visible to a consuming package's tests until it is rebuilt, and the failure that results
+   (an import resolving to `undefined`) reads exactly like a real bug. Either use the `npm run`
+   scripts, or rebuild the changed dependency's workspace first (`npm run build --workspace
+   <package>`), before trusting a direct `vitest`/`tsc` failure at face value.
 
 6. Add a changeset (`npx changeset`) when behavior visible to users changes. This is the only manual step in the release process (section 8.4): do not bump a package version or run `npm publish` by hand.
 7. Update documentation and community files affected by the change (section 10).
@@ -355,11 +367,31 @@ GitHub's community profile checklist must stay complete. When a change affects o
 - Generated tests reference locators through the generated locator module, never literal selectors.
 - Output is deterministic: stable ordering, canonical JSON, no timestamps or random values in content that is hashed or snapshot-tested unless injected.
 
+### 12.7 Self-review for safety- and integrity-sensitive changes
+
+A change touching safe mode, a domain allowlist, a hash/tamper check, an approval gate or any other
+integrity mechanism (12.4, 12.5, ADR-003, ADR-005) is not done when its own unit test passes. A
+mechanism's test typically proves it runs, not that it is wired into every path that needs it — a
+real batch of Phase 2 regressions shipped `done`, with green CI, from exactly this gap: safe mode
+enforced on one navigation path but not another, a hash computed over bytes and re-checked over
+text, an approval never cross-checked against its own ledger, a computed score never actually
+consulted by anything, a field hardcoded to a safe-looking default (`false`, `0`) with no real
+detection behind it. Before calling this class of change done, check it against all four:
+
+1. Is the check enforced on every path that can trigger the thing it guards, not just the obvious one?
+2. Does the value that gets hashed/checked/compared match, byte-for-byte and encoding-for-encoding,
+   what gets read back later?
+3. Is every computed signal actually consumed by a decision somewhere, or is it dead weight that
+   looks load-bearing?
+4. Is a safe-looking default (`false`, `0`, an empty array) backed by real logic, or is it a
+   placeholder wearing a real field's name?
+
 ## 13. Testing
 
 - Vitest. Unit tests sit next to the code as `*.test.ts`; integration and end-to-end tests live in `test/` of the package.
 - Coverage is a required CI check (task P0-17), enforced per package with Vitest's `v8` provider. A pull request that drops a package's coverage below its recorded threshold fails CI; raise the threshold when coverage improves, never lower it to make a change pass. New code needs both unit tests for its logic and, where it crosses a module boundary (filesystem, browser, CLI, MCP), an integration test in `test/`.
 - Coverage thresholds are tiered by what a package is responsible for (ADR-008), not one blanket number: **Tier 1** (`schemas`, `core`, `explorer`, `cli`, `test-utils` — validation, state and decision logic) stays at 100% statements/branches/functions/lines. **Tier 2** (`mcp-server`, every `runner-*` — protocol and third-party-tool plumbing, from the package's creation) starts at 90% statements/lines/functions and 80% branches. A new package defaults to Tier 1; it qualifies for Tier 2 only when its primary responsibility is protocol or third-party-tool plumbing, not merely because it is new. Both tiers keep the same ratchet-up-only rule.
+- A branch that only differs in a default value (`x ?? fallback()`, an `options.foo === undefined` guard) still needs its own test on a Tier 1 package — a happy-path test that always supplies the value never exercises the fallback. Check the actual coverage report rather than assuming a passing test suite means every branch ran; `packages/cli`'s per-subcommand "defaults the project root to the current working directory" tests are the existing pattern to copy for a new CLI subcommand.
 - Test behavior through public functions, not private internals.
 - Unit tests make no network calls and do not launch browsers. Browser tests run against `examples/demo-app` only.
 - Use temporary directories for filesystem tests and clean them up. Never touch the developer's home directory or real host configuration.

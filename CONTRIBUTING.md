@@ -44,8 +44,8 @@ The repository is being bootstrapped, so some scripts may not exist yet. Run the
 
 ## Workflow
 
-1. Create a branch from the latest `main`: `<type>/<issue-number>-<short-description>`, for example `fix/57-registry-hash-order`. Types: `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`.
-2. Keep the change focused on one concern and include tests. Coverage is a required CI check; a pull request that lowers a package's coverage below its threshold will not pass.
+1. Create a branch from the latest `main` **before making any changes**, not right before your first commit: `<type>/<issue-number>-<short-description>`, for example `fix/57-registry-hash-order`. Types: `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`.
+2. Keep the change focused on one concern and include tests. Coverage is a required CI check; a pull request that lowers a package's coverage below its threshold will not pass. If a change touches safe mode, an allowlist, a hash/tamper check or another integrity mechanism, review it against [AGENTS.md §12.7](AGENTS.md#127-self-review-for-safety--and-integrity-sensitive-changes) before opening the pull request — a unit test proving the mechanism runs is not the same as proving it is wired into every path that needs it.
 3. Commit using [Conventional Commits](https://www.conventionalcommits.org/) and sign off every commit:
 
    ```sh
