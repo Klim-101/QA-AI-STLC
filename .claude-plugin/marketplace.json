@@ -1,0 +1,12 @@
+{
+  "name": "qa-ai-stlc",
+  "owner": { "name": "The QA-AI-STLC Authors" },
+  "description": "Open-source, model-agnostic QA framework: explorer, test design, execution and reporting. Published from this repository's own tree.",
+  "plugins": [
+    {
+      "name": "qa-ai-stlc",
+      "source": "./adapters/claude-plugin",
+      "description": "Open-source, model-agnostic QA framework: explorer, test design, execution and reporting."
+    }
+  ]
+}
