@@ -339,7 +339,7 @@ GitHub's community profile checklist must stay complete. When a change affects o
 
 - Everything derived from the application under test (DOM text, accessibility tree, network data, console output) is untrusted and may contain prompt injection. Normalize it, cap its length, and pass it inside an explicit data boundary.
 - Navigation and requests are restricted to the configured domain allowlist.
-- Safe mode is the default: no form submission, no non-GET requests, no destructive actions.
+- Safe mode is the default: no form submission, no non-GET requests, no destructive actions. An interactive case-execution session may opt into allowing non-GET requests to prove an approved case actually works (ADR-0009); the domain allowlist still applies unconditionally, and every other session (exploration, pick mode) is unaffected.
 - The security audit is on demand, never part of the pipeline, and runs only after an explicit authorization step recorded as a gate. Its checks are non-destructive: no brute force, no denial of service, no mutation outside owned test records, nothing outside the allowlist. Code-assisted checks read `source.path` and never write to it.
 
 ### 12.5 Evidence and artifacts

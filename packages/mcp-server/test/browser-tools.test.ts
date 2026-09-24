@@ -79,6 +79,7 @@ function createFakeBrowser(): FakeBrowser {
     },
     evaluate: () => Promise.resolve(undefined),
     ariaSnapshotJSON: () => Promise.resolve({ role: 'document', name: 'Staging home' }),
+    addScriptTag: () => Promise.resolve(undefined),
     getByRole: locator,
     getByTestId: locator,
     getByLabel: locator,

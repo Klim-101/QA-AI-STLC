@@ -16,6 +16,7 @@ function fakePage(options: { readonly ariaSnapshot?: unknown; readonly elements?
     route: () => Promise.resolve(),
     evaluate: () => Promise.resolve(options.elements),
     ariaSnapshotJSON: () => Promise.resolve(options.ariaSnapshot),
+    addScriptTag: () => Promise.resolve(undefined),
     ...createLocatorMethods(),
   };
 }

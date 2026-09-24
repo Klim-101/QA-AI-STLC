@@ -44,6 +44,7 @@ function trackedFakePage(options: LocatorStubOptions = {}): TrackedFakePage {
     route: () => Promise.resolve(),
     evaluate: () => Promise.resolve(undefined),
     ariaSnapshotJSON: () => Promise.resolve(undefined),
+    addScriptTag: () => Promise.resolve(undefined),
     getByRole: tracked('getByRole', locatorCalls, stub.getByRole),
     getByTestId: tracked('getByTestId', locatorCalls, stub.getByTestId),
     getByLabel: tracked('getByLabel', locatorCalls, stub.getByLabel),

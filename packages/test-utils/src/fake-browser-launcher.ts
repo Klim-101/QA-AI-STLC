@@ -60,6 +60,7 @@ export interface AuthPageLike {
   route(pattern: string, handler: RouteHandlerLike): Promise<unknown>;
   evaluate(pageFunction: () => unknown): Promise<unknown>;
   ariaSnapshotJSON(): Promise<unknown>;
+  addScriptTag(options: { readonly content: string }): Promise<unknown>;
   getByRole(role: string, options?: GetByRoleOptionsLike): PageLocatorLike;
   getByTestId(testId: string): PageLocatorLike;
   getByLabel(text: string): PageLocatorLike;
@@ -111,6 +112,7 @@ export interface FakePageCall {
     | 'route'
     | 'evaluate'
     | 'ariaSnapshotJSON'
+    | 'addScriptTag'
     | 'getByRole'
     | 'getByTestId'
     | 'getByLabel'
@@ -211,6 +213,10 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
     ariaSnapshotJSON: (...args) => {
       calls.push({ method: 'ariaSnapshotJSON', args });
       return Promise.resolve(options.ariaSnapshotResult);
+    },
+    addScriptTag: (...args) => {
+      calls.push({ method: 'addScriptTag', args });
+      return Promise.resolve(undefined);
     },
     getByRole: (...args) => fakeLocator('getByRole', args),
     getByTestId: (...args) => fakeLocator('getByTestId', args),

@@ -56,6 +56,7 @@ describe('createFakeCrawlPage', () => {
 
     await expect(page.evaluate(() => 'ignored')).resolves.toBeUndefined();
     await expect(page.ariaSnapshotJSON()).resolves.toBeUndefined();
+    await expect(page.addScriptTag({ content: 'window.foo = 1;' })).resolves.toBeUndefined();
   });
 
   it('resolves evaluate() to the elements configured for the current url after goto()', async () => {

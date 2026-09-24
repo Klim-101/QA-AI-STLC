@@ -8,10 +8,30 @@
 export interface HttpResponseLike {
   readonly ok: boolean;
   readonly status: number;
+  /** Only read by `request()`; defaults to `{}` when omitted so existing `get()`-only fixtures are unaffected. */
+  readonly headers?: Readonly<Record<string, string>>;
+  /** Only read by `request()`; defaults to `''` when omitted. */
+  readonly bodyText?: string;
+}
+
+export interface HttpRequestDetailsOptionsLike {
+  readonly method?: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly body?: string;
+  readonly signal?: AbortSignal;
+  readonly tlsInsecure?: boolean;
+}
+
+export interface HttpResponseDetailsLike {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly bodyText: string;
 }
 
 export interface HttpClientLike {
   get(url: string, options?: { readonly signal?: AbortSignal }): Promise<HttpResponseLike>;
+  request(url: string, options?: HttpRequestDetailsOptionsLike): Promise<HttpResponseDetailsLike>;
 }
 
 /**
@@ -21,5 +41,14 @@ export interface HttpClientLike {
 export function createFakeHttpClient(response: HttpResponseLike | Error): HttpClientLike {
   return {
     get: () => (response instanceof Error ? Promise.reject(response) : Promise.resolve(response)),
+    request: () =>
+      response instanceof Error
+        ? Promise.reject(response)
+        : Promise.resolve({
+            ok: response.ok,
+            status: response.status,
+            headers: response.headers ?? {},
+            bodyText: response.bodyText ?? '',
+          }),
   };
 }

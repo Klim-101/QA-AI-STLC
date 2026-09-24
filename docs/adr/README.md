@@ -12,6 +12,7 @@ An ADR records one significant, hard-to-reverse decision: the context that force
 | [ADR-006](0006-generated-tests-reference-a-locator-module.md)        | Generated tests reference a locator module        | Accepted |
 | [ADR-007](0007-engine-and-plugin-share-one-version.md)               | Engine and plugin share one version               | Accepted |
 | [ADR-008](0008-tiered-coverage-thresholds-by-package-trust-level.md) | Tiered coverage thresholds by package trust level | Accepted |
+| [ADR-009](0009-execution-sessions-may-relax-the-get-only-rule.md)    | Execution sessions may relax the GET-only rule    | Accepted |
 
 New ADRs are numbered sequentially and never renumbered or deleted. A decision that is later reversed gets a new ADR that supersedes the old one; the old one stays, marked `Superseded by ADR-0NN`.
 

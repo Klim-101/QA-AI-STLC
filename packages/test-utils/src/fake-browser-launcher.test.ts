@@ -70,15 +70,18 @@ describe('createFakeBrowserLauncher', () => {
     await page.route('**/*', () => undefined);
     const evaluated = await page.evaluate(() => 'ignored');
     const snapshot = await page.ariaSnapshotJSON();
+    const scriptTagResult = await page.addScriptTag({ content: 'window.foo = 1;' });
 
     expect(response?.status()).toBe(200);
     expect(evaluated).toBeUndefined();
     expect(snapshot).toBeUndefined();
+    expect(scriptTagResult).toBeUndefined();
     expect(launcher.pageCalls.map((call) => call.method)).toEqual([
       'goto',
       'route',
       'evaluate',
       'ariaSnapshotJSON',
+      'addScriptTag',
     ]);
   });
 

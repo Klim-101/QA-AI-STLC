@@ -12,7 +12,11 @@ export const LocatorCandidateSchema = z.object({
 });
 export type LocatorCandidate = z.infer<typeof LocatorCandidateSchema>;
 
-export const SelectorElementSourceSchema = z.enum(['crawl', 'static', 'manual']);
+// `execute` (P3-14): a locator an agent used successfully during interactive case execution, with
+// no dedicated research session (`crawl`) or explicit operator confirmation (`manual`) behind it —
+// distinct from both for that reason, even though the mechanics (a resolved, unique locator on a
+// live page) are similar to `manual`.
+export const SelectorElementSourceSchema = z.enum(['crawl', 'static', 'manual', 'execute']);
 export type SelectorElementSource = z.infer<typeof SelectorElementSourceSchema>;
 
 // `elementId` is the stable key generated tests import through the locator module (ADR-006); it
