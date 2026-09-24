@@ -289,6 +289,12 @@ Clone complete, validating marketplace…
 Installing plugin "qa-ai-stlc@qa-ai-stlc"...✔ Successfully installed plugin: qa-ai-stlc@qa-ai-stlc (scope: local)
 ```
 
+This is a decentralized marketplace — a plain git repository, not a reviewed or centrally listed
+one — so there is no install counter or built-in review system to check. If you've installed it,
+[Show and tell](https://github.com/Klim-101/QA-AI-STLC/discussions/categories/show-and-tell) is the
+place to say how it went; [Discussions](https://github.com/Klim-101/QA-AI-STLC/discussions) in
+general is the right place for questions and ideas that aren't a specific bug or feature request.
+
 ![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
 The plugin/engine version handshake (ADR-007) shipped in P2-12: the generated `.mcp.json` pins the
@@ -373,6 +379,7 @@ are both still open work, not yet implemented.
 ## Contributing
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Questions, ideas and general feedback belong in [Discussions](https://github.com/Klim-101/QA-AI-STLC/discussions); a specific bug or requested feature is still an [issue](https://github.com/Klim-101/QA-AI-STLC/issues/new/choose).
 
 ## Security
 
