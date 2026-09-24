@@ -78,7 +78,7 @@ Dependencies point downward only: `cli` and `mcp-server` depend on `core` and `e
    be visible to a consuming package's tests until it is rebuilt, and the failure that results
    (an import resolving to `undefined`) reads exactly like a real bug. Either use the `npm run`
    scripts, or rebuild the changed dependency's workspace first (`npm run build --workspace
-   <package>`), before trusting a direct `vitest`/`tsc` failure at face value.
+<package>`), before trusting a direct `vitest`/`tsc` failure at face value.
 
 6. Add a changeset (`npx changeset`) when behavior visible to users changes. This is the only manual step in the release process (section 8.4): do not bump a package version or run `npm publish` by hand.
 7. Update documentation and community files affected by the change (section 10).
