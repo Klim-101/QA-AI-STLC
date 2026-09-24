@@ -13,8 +13,8 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 > layer (`qa-start`, `qa-explore`, `qa-design-cases`) and a generated Claude Code plugin
 > (`adapters/claude-plugin/`, see [below](#claude-code-plugin)) both exist, including the
 > plugin/engine version handshake. Installing it from a local marketplace is verified by an
-> automated Windows/macOS CI smoke test (P2-13); publishing it to a real, discoverable marketplace
-> is still planned — see the [roadmap](docs/public/ROADMAP.md).
+> automated Windows/macOS CI smoke test (P2-13), and this repository is itself a real, installable
+> marketplace — see the [roadmap](docs/public/ROADMAP.md).
 
 ## Why
 
@@ -39,11 +39,11 @@ A deterministic TypeScript engine does the work that must be reliable. A thin la
 
 ## Supported hosts
 
-| Host                          | Status                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| Claude Code (CLI and desktop) | Plugin generated from source; local marketplace install verified on Windows and macOS |
-| Codex (CLI and desktop)       | Planned                                                                               |
-| Other MCP-capable hosts       | Engine usable through the local MCP server                                            |
+| Host                          | Status                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Claude Code (CLI and desktop) | Installable from this repository as a public marketplace, or from a local marketplace (verified on Windows and macOS) |
+| Codex (CLI and desktop)       | Planned                                                                                                               |
+| Other MCP-capable hosts       | Engine usable through the local MCP server                                                                            |
 
 ## Responsibility boundary
 
@@ -265,9 +265,29 @@ headed browser for a human to click through, which nothing can drive over MCP's 
 (the skills, hub definition, phase prompts and shared references every host generates from) and
 `plugin.config.ts` (static metadata: name, description, license) — plus `packages/mcp-server`'s own
 `package.json` version, so the plugin's version and the pinned MCP server it launches can never
-drift apart. `npm run lint:generated` (`--check` mode) diffs every generated file against its
-source and fails on anything hand-edited directly under `adapters/claude-plugin/`, the same
-contract already enforced for `.claude/rules/`.
+drift apart. The same command also generates this repository's own root
+`.claude-plugin/marketplace.json`, declaring that generated plugin by a path relative to the repo
+root — so this public repository is directly installable as a Claude Code marketplace, with no
+separate marketplace repository to keep in sync. `npm run lint:generated` (`--check` mode) diffs
+every generated file against its source and fails on anything hand-edited directly under
+`adapters/claude-plugin/` or `.claude-plugin/marketplace.json`, the same contract already enforced
+for `.claude/rules/`.
+
+```sh
+claude plugin marketplace add Klim-101/QA-AI-STLC
+claude plugin install qa-ai-stlc@qa-ai-stlc
+```
+
+This is real output from that exact install, against the real public repository, not a local copy:
+
+```
+Adding marketplace…SSH not configured, cloning via HTTPS: https://github.com/Klim-101/QA-AI-STLC.git
+Refreshing marketplace cache (timeout: 120s)…
+Cloning repository (timeout: 120s): https://github.com/Klim-101/QA-AI-STLC.git
+Clone complete, validating marketplace…
+✔ Successfully added marketplace: qa-ai-stlc (declared in local settings)
+Installing plugin "qa-ai-stlc@qa-ai-stlc"...✔ Successfully installed plugin: qa-ai-stlc@qa-ai-stlc (scope: local)
+```
 
 ![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
@@ -278,10 +298,12 @@ under `skills/` (`qa-start`, `qa-explore`, `qa-design-cases`), a `PreToolUse` ho
 (`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of that protection, on
 top of the engine's own manifest and hash checks — and an `.mcp.json` that launches
 `qa-mcp-server` via `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. Subagent generation is not
-part of this yet: it is added once Phase 4 defines real spoke files to generate from. Publishing
-the plugin to a real, discoverable marketplace is still planned; installing it from a local
-marketplace with the framework source absent from disk is already verified by CI on Windows and
-macOS (P2-13).
+part of this yet: it is added once Phase 4 defines real spoke files to generate from. Installing
+from a local marketplace with the framework source absent from disk is verified by CI on Windows
+and macOS (P2-13); installing directly from this public repository, as above, is verified manually
+against the real repo (P2-15) — `claude plugin list --json` afterward shows the installed plugin's
+`mcpServers` entry launching `npx -y @qa-ai-stlc/mcp-server@<version>`, matching the version pinned
+into the manifest at generate time.
 
 ### A real end-to-end session
 
