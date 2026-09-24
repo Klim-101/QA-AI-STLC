@@ -14,7 +14,9 @@ or `qa scope --from text --content <text> --label <label>` extracts requirements
 level-2 Markdown heading) into `artifacts/scope.json`, upserting by requirement id on a repeated
 call. `qa cases add --path <path>` validates a test case written as JSON — it must link to at
 least one requirement, and every linked id must actually exist in `artifacts/scope.json` — and
-registers it under `artifacts/cases/<id>.json`. `qa approve <gate> --artifact <path>
+registers it under `artifacts/cases/<id>.json`. `qa cases render <id>` renders a registered test
+case as a numbered Markdown document (metadata, preconditions, steps, expected result), so it can
+be handed to a stakeholder instead of raw JSON. `qa approve <gate> --artifact <path>
 --approved-by <name> [--note <text>]` hash-binds an approval to a pipeline gate (`scope`, `cases`,
 approved in order); `qa validate` recomputes every gate's status from the approval ledger and
 re-checks every registered case's requirement links, exiting non-zero for a reopened gate or an

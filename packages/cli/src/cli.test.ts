@@ -996,6 +996,62 @@ describe('runCli', () => {
     expect(deps.stdout).toContain('Registered artifacts/cases/checkout/case-1.json: linked to r1.');
   });
 
+  it('runs "cases render" and prints the rendered Markdown', async () => {
+    const caseJson = JSON.stringify({
+      id: 'case-1',
+      feature: 'checkout',
+      requirementIds: ['r1'],
+      testType: 'e2e',
+      title: 'A case',
+      steps: [{ description: 'Do something' }],
+      expectedResult: 'Something happens',
+      status: 'draft',
+      createdAt: '2026-09-20T12:00:00Z',
+    });
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'cases', 'checkout', 'case-1.json')]: caseJson,
+      }),
+    });
+
+    const exitCode = await runCli(['cases', 'render', 'case-1'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('# A case');
+    expect(deps.stdout.join('\n')).toContain('**Feature:** checkout');
+  });
+
+  it('reports a coded error when "cases render" is given no id', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['cases', 'render'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa cases render');
+  });
+
+  it('reports a coded error when "cases render" is given an id with no registered case', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['cases', 'render', 'missing'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('No registered test case with id "missing"');
+  });
+
+  it('defaults the project root to the current working directory for "cases render"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['cases', 'render', 'case-1'], {
+      io,
+      fs: createFakeFileSystem(),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('No registered test case with id "case-1"');
+  });
+
   it('runs "test-data add" and prints a human-readable confirmation', async () => {
     const testDataJson = JSON.stringify({
       id: 'valid-card',

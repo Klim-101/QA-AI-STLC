@@ -7,6 +7,7 @@ import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { approveTool } from '../src/tools/approve.js';
 import { casesAddTool } from '../src/tools/cases-add.js';
+import { casesRenderTool } from '../src/tools/cases-render.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { scopeTool } from '../src/tools/scope.js';
@@ -165,6 +166,42 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           unlinkedRequirementIds: ['removed-later'],
         },
       ]);
+    });
+  });
+
+  it('qa.cases_render renders a registered test case to Markdown by id', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Submit the login form' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+
+      const result = await casesRenderTool.handler({ id: 'login-case' });
+      const notFoundError = await casesRenderTool
+        .handler({ id: 'missing-case' })
+        .catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(result.casePath).toBe('artifacts/cases/login/login-case.json');
+      expect(result.markdown).toContain('# Log in with valid credentials');
+      expect(result.markdown).toContain('## Steps');
+      expect(notFoundError).toMatchObject({ code: 'CASE_NOT_FOUND' });
     });
   });
 

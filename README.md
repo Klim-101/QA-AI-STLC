@@ -366,9 +366,11 @@ And one of the 10 registered test cases, grounded in real registry locators, not
 }
 ```
 
-Every test case is still only a validated JSON artifact at this point — `qa cases render`
-(Markdown/HTML rendering, ADR-002) and actually running a case against the app (`qa run`, Phase 3)
-are both still open work, not yet implemented.
+That case can now be handed to a stakeholder as a presentable document instead of raw JSON: `qa
+cases render login-invalid-credentials` (or the matching `qa.cases_render` MCP tool) renders it
+through a reusable JSON-to-Markdown artifact registry (ADR-002) built to take a second artifact
+kind, such as defect drafts, once one exists. HTML rendering and actually running a case against
+the app (`qa run`, Phase 3) are both still open work, not yet implemented.
 
 ## Documentation
 
