@@ -8,7 +8,9 @@ approved before test case design starts.
 
 1. `qa.scope` with `from: 'file'` and a project-relative `path`, or `from: 'text'` with `content`
    and a `label`. Call it again with the same `## Heading`s to update a requirement instead of
-   duplicating it — `qa.scope` upserts by id.
+   duplicating it — `qa.scope` upserts by id. Requirement text filed this way is always English,
+   regardless of the language the operator supplied it in or discussed it in
+   ([`testing-standards.md`](../references/testing-standards.md#content-language)).
 2. Once the operator is satisfied with `artifacts/scope.json`, `qa.approve` with
    `gate: 'scope'` and the artifact's path to hash-bind the approval (ADR-003). This is the scope
    confirmation gate (development plan section 2.7 step 4); the pipeline does not advance to

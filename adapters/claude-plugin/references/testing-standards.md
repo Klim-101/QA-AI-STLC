@@ -11,6 +11,14 @@ where a rule below is checkable, the engine already checks it (`TestCaseSchema`,
 in `packages/schemas`; AGENTS.md 12.1). A skill uses this file to write _good content_ into fields
 the schema already requires or accepts, not to invent new obligations.
 
+## Content language
+
+Written artifact content — titles, descriptions, requirement text, preconditions, steps, expected
+results, and by extension defect drafts once those exist — is always written in English, regardless
+of the language the operator uses in conversation. A case or requirement discussed in Russian, for
+example, is still filed with English field content, so the artifact stays readable to any
+stakeholder and consistent across a project's history.
+
 ## Test-design techniques
 
 A test case earns its place in the suite when it targets a specific risk, not just "more coverage."
@@ -45,7 +53,13 @@ filling it well, not a restatement of the Zod contract:
   precondition beyond "the application is reachable" — it is optional for exactly that reason.
 - **`steps`** — one observable action per step, in the order a person or a spoke driving
   `browser.*`/HTTP/axe-core tools would actually perform them. A step is too coarse if its
-  description hides more than one decision point.
+  description hides more than one decision point. When a step both performs an action and needs to
+  observe or verify something along the way, write the observation as its own following step rather
+  than folding it only into `expectedResult` — a rendered case should read as a complete,
+  presentable procedure, not a single terse action line. For example, instead of one step "submit
+  the form with valid data" carrying the whole outcome in `expectedResult`, write two steps: "submit
+  the form with valid data" followed by "observe the confirmation banner", with `expectedResult`
+  stating what that banner must say.
 - **`expectedResult`** — the single outcome that makes the case pass or fail. A case that needs
   several independent expected results is usually several cases.
 - **`regressionTier`** — one tier per case (`RegressionTierSchema`, `packages/schemas`), not a
