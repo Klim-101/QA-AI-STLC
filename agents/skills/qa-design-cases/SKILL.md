@@ -37,9 +37,12 @@ restating it here — read that file before writing a case's content.
 
 ## Writing the case
 
-Follow `testing-standards.md`'s field guidance. Two points worth restating because they are easy
+Follow `testing-standards.md`'s field guidance. Three points worth restating because they are easy
 to skip under time pressure:
 
+- **English only, regardless of conversation language.** Every field's content — title,
+  preconditions, steps, expected result — is written in English even when the operator writes to
+  you in another language.
 - **`regressionTier` is not optional in practice.** Pick one of the four tiers deliberately — do
   not leave it unset because the right tier is unclear; ask the operator instead.
 - **`testDataRefs` before inlining.** If a value repeats across steps or cases (a test card number,
