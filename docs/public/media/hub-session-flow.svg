@@ -1,0 +1,169 @@
+<svg viewBox="0 0 860 1920" role="img" aria-label="A real qa-start session against examples/demo-app: a fresh environment with no browsers installed, chromium-only doctor result, a blocked config.yaml edit redirecting to a crawl-only explore of both admin and employee identities (the employee crawl adds zero new elements, itself confirming /admin/users stayed unreachable), 10 registered test cases covering all 7 requirements, and the scope and cases gates — ending with currentPhase still at cases because execution and generation are not implemented yet." xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <style>
+    .box { fill: none; stroke: currentColor; stroke-width: 1.5; }
+    .lbl { font-size: 13px; fill: currentColor; }
+    .lbl2 { font-size: 12px; fill: currentColor; }
+    .small { font-size: 11px; fill: currentColor; }
+    .arrow { fill: none; stroke: currentColor; stroke-width: 1.5; marker-end: url(#arrow); }
+    .phase { font-size: 12px; fill: currentColor; letter-spacing: 0.08em; }
+    .phaseline { stroke: currentColor; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.5; }
+    .gate { fill: none; stroke: #2f81f7; stroke-width: 2; }
+    .gatetext { font-size: 13px; fill: #2f81f7; font-weight: 600; }
+    .guard { fill: none; stroke: #d97706; stroke-width: 2; }
+    .guardtext { font-size: 13px; fill: #d97706; font-weight: 600; }
+    .end { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 0.75; }
+  </style>
+
+  <!-- 1: terminal -->
+  <rect class="box" x="120" y="30" width="460" height="40"/>
+  <text class="lbl" x="350" y="55" text-anchor="middle">terminal: qa-start</text>
+  <line class="arrow" x1="350" y1="70" x2="350" y2="96"/>
+  <text class="small" x="358" y="88">skill loads, 2 skills available — session auth expired</text>
+
+  <!-- 2: login -->
+  <rect class="box" x="120" y="112" width="460" height="40"/>
+  <text class="lbl" x="350" y="137" text-anchor="middle">operator: /login</text>
+  <line class="arrow" x1="350" y1="152" x2="350" y2="178"/>
+
+  <!-- 3: doctor -->
+  <rect class="box" x="120" y="178" width="460" height="40"/>
+  <text class="lbl" x="350" y="203" text-anchor="middle">qa-start resumes → qa.doctor — environment check</text>
+  <line class="arrow" x1="350" y1="218" x2="350" y2="244"/>
+
+  <!-- 4: doctor result -->
+  <rect class="box" x="120" y="244" width="460" height="48"/>
+  <text class="lbl2" x="350" y="264" text-anchor="middle">chromium ✗ · firefox ✗ · webkit ✗ (fresh environment)</text>
+  <text class="small" x="350" y="280" text-anchor="middle">identities + environment: ok</text>
+  <line class="arrow" x1="350" y1="292" x2="350" y2="318"/>
+
+  <!-- 5: operator decision -->
+  <rect class="box" x="120" y="318" width="460" height="40"/>
+  <text class="lbl" x="350" y="343" text-anchor="middle">operator: continue with Chrome only</text>
+  <line class="arrow" x1="350" y1="358" x2="350" y2="384"/>
+
+  <!-- 6: chromium install -->
+  <rect class="box" x="120" y="384" width="460" height="48"/>
+  <text class="lbl2" x="350" y="404" text-anchor="middle">chromium installed; doctor re-run</text>
+  <text class="small" x="350" y="420" text-anchor="middle">firefox / webkit still missing — proceed chromium-only</text>
+  <line class="arrow" x1="350" y1="432" x2="350" y2="458"/>
+
+  <!-- 7: fresh state -->
+  <rect class="box" x="120" y="458" width="460" height="40"/>
+  <text class="lbl" x="350" y="483" text-anchor="middle">no state.json → fresh start</text>
+  <line class="arrow" x1="350" y1="498" x2="350" y2="524"/>
+
+  <!-- phase 1 divider -->
+  <line class="phaseline" x1="60" y1="524" x2="800" y2="524"/>
+  <text class="phase" x="60" y="540">PHASE — scope</text>
+  <line class="arrow" x1="350" y1="524" x2="350" y2="564"/>
+
+  <!-- 8: requirements text -->
+  <rect class="box" x="120" y="564" width="460" height="40"/>
+  <text class="lbl" x="350" y="589" text-anchor="middle">operator pastes 7 requirements (## headings, English)</text>
+  <line class="arrow" x1="350" y1="604" x2="350" y2="630"/>
+
+  <!-- 9: qa.scope -->
+  <rect class="box" x="120" y="630" width="460" height="40"/>
+  <text class="lbl" x="350" y="655" text-anchor="middle">qa.scope → 7 requirements → scope.json</text>
+  <line class="arrow" x1="350" y1="670" x2="350" y2="696"/>
+
+  <!-- 10: approve -->
+  <rect class="box" x="120" y="696" width="460" height="40"/>
+  <text class="lbl" x="350" y="721" text-anchor="middle">operator approves</text>
+  <line class="arrow" x1="350" y1="736" x2="350" y2="762"/>
+
+  <!-- 11: scope gate -->
+  <rect class="gate" x="120" y="762" width="460" height="44"/>
+  <text class="gatetext" x="350" y="789" text-anchor="middle">scope gate ✓ hash-bound to scope.json</text>
+  <line class="arrow" x1="350" y1="806" x2="350" y2="834"/>
+
+  <!-- phase 2 divider -->
+  <line class="phaseline" x1="60" y1="834" x2="800" y2="834"/>
+  <text class="phase" x="60" y="850">PHASE — cases</text>
+  <line class="arrow" x1="350" y1="834" x2="350" y2="874"/>
+
+  <!-- 12: registry decision -->
+  <polygon class="box" points="350,874 500,908 350,942 200,908"/>
+  <text class="lbl2" x="350" y="904" text-anchor="middle">selector registry</text>
+  <text class="lbl2" x="350" y="920" text-anchor="middle">exists?</text>
+
+  <line class="arrow" x1="350" y1="942" x2="350" y2="968"/>
+  <text class="small" x="358" y="960">no</text>
+
+  <!-- 13: dispatch explore -->
+  <rect class="box" x="120" y="968" width="460" height="40"/>
+  <text class="lbl" x="350" y="993" text-anchor="middle">qa-design-cases dispatches qa-explore</text>
+  <line class="arrow" x1="350" y1="1008" x2="350" y2="1034"/>
+
+  <!-- 14: attempt config edit -->
+  <rect class="box" x="120" y="1034" width="460" height="40"/>
+  <text class="lbl" x="350" y="1059" text-anchor="middle">attempt: Edit .qa/config.yaml (set source.path)</text>
+  <line class="arrow" x1="350" y1="1074" x2="350" y2="1100"/>
+
+  <!-- 15: hook guard -->
+  <rect class="guard" x="120" y="1100" width="460" height="44"/>
+  <text class="guardtext" x="350" y="1120" text-anchor="middle">blocked: PreToolUse hook</text>
+  <text class="small" x="350" y="1136" text-anchor="middle" fill="#d97706">.qa/ is engine-managed — no MCP tool sets source.path</text>
+  <line class="arrow" x1="350" y1="1144" x2="350" y2="1170"/>
+
+  <!-- 16: skip static -->
+  <rect class="box" x="120" y="1170" width="460" height="40"/>
+  <text class="lbl" x="350" y="1195" text-anchor="middle">skip static analysis — proceed crawl-only</text>
+  <line class="arrow" x1="350" y1="1210" x2="350" y2="1236"/>
+
+  <!-- 17: crawl admin -->
+  <rect class="box" x="120" y="1236" width="460" height="40"/>
+  <text class="lbl" x="350" y="1261" text-anchor="middle">qa.explore — crawl as admin</text>
+  <line class="arrow" x1="350" y1="1276" x2="350" y2="1302"/>
+
+  <rect class="box" x="120" y="1302" width="460" height="40"/>
+  <text class="lbl" x="350" y="1327" text-anchor="middle">82 elements added, 0 missing locators</text>
+  <line class="arrow" x1="350" y1="1342" x2="350" y2="1368"/>
+
+  <!-- 18: crawl employee -->
+  <rect class="box" x="120" y="1368" width="460" height="40"/>
+  <text class="lbl" x="350" y="1393" text-anchor="middle">qa.explore — crawl as employee (checks /admin/users)</text>
+  <line class="arrow" x1="350" y1="1408" x2="350" y2="1434"/>
+
+  <rect class="box" x="120" y="1434" width="460" height="48"/>
+  <text class="lbl2" x="350" y="1454" text-anchor="middle">registry unchanged: 82 elements total</text>
+  <text class="small" x="350" y="1470" text-anchor="middle">0 new — /admin/users stayed unreachable to employee</text>
+  <line class="arrow" x1="350" y1="1482" x2="350" y2="1508"/>
+
+  <!-- 19: write drafts -->
+  <rect class="box" x="120" y="1508" width="460" height="40"/>
+  <text class="lbl" x="350" y="1533" text-anchor="middle">qa-design-cases: write 10 drafts → drafts\cases\**</text>
+  <line class="arrow" x1="350" y1="1548" x2="350" y2="1574"/>
+
+  <!-- 20: register -->
+  <rect class="box" x="120" y="1574" width="460" height="40"/>
+  <text class="lbl" x="350" y="1599" text-anchor="middle">qa.cases_add × 10 (MCP tool)</text>
+  <line class="arrow" x1="350" y1="1614" x2="350" y2="1640"/>
+
+  <!-- 21: result -->
+  <rect class="box" x="120" y="1640" width="460" height="40"/>
+  <text class="lbl" x="350" y="1665" text-anchor="middle">10 cases / 4 features / 7 of 7 requirements</text>
+  <line class="arrow" x1="350" y1="1680" x2="350" y2="1706"/>
+
+  <!-- 22: approve -->
+  <rect class="box" x="120" y="1706" width="460" height="40"/>
+  <text class="lbl" x="350" y="1731" text-anchor="middle">operator approves</text>
+  <line class="arrow" x1="350" y1="1746" x2="350" y2="1772"/>
+
+  <!-- 23: cases gate -->
+  <rect class="gate" x="120" y="1772" width="460" height="44"/>
+  <text class="gatetext" x="350" y="1799" text-anchor="middle">cases gate ✓ hash-bound to 10 case files</text>
+  <line class="arrow" x1="350" y1="1816" x2="350" y2="1844"/>
+
+  <!-- 24: end -->
+  <rect class="end" x="100" y="1844" width="500" height="58"/>
+  <text class="lbl2" x="350" y="1868" text-anchor="middle">currentPhase stays "cases"</text>
+  <text class="small" x="350" y="1886" text-anchor="middle">execution and generation (Phase 3) not implemented yet</text>
+
+</svg>
