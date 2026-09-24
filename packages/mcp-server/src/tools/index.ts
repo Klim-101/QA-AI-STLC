@@ -10,6 +10,7 @@ import { createBrowserNavigateTool } from './browser-navigate.js';
 import { createBrowserOpenTool } from './browser-open.js';
 import { createBrowserSnapshotTool } from './browser-snapshot.js';
 import { casesAddTool } from './cases-add.js';
+import { casesRenderTool } from './cases-render.js';
 import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
 import { pingTool } from './ping.js';
@@ -25,6 +26,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   exploreTool,
   scopeTool,
   casesAddTool,
+  casesRenderTool,
   testDataAddTool,
   approveTool,
   validateTool,

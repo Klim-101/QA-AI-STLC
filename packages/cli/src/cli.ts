@@ -7,12 +7,14 @@ import {
   QaError,
   runApprove,
   runCasesAdd,
+  runCasesRender,
   runDoctor,
   runScope,
   runTestDataAdd,
   runValidate,
   type ApproveResult,
   type CasesAddResult,
+  type CasesRenderResult,
   type DoctorReport,
   type ScopeResult,
   type TestDataAddResult,
@@ -48,6 +50,7 @@ Commands:
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
   cases add     Validate and register a test case: "cases add --path <path>"
+  cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links; nonzero exit on a reopened gate or an unlinked case
@@ -425,6 +428,9 @@ async function dispatchCases(rest: readonly string[], dependencies: RunCliDepend
   if (subcommand === 'add') {
     return await dispatchCasesAdd(subRest, dependencies);
   }
+  if (subcommand === 'render') {
+    return await dispatchCasesRender(subRest, dependencies);
+  }
   dependencies.io.stderr(`Unknown "qa cases" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
   return EXIT_USAGE;
 }
@@ -444,6 +450,28 @@ async function dispatchCasesAdd(rest: readonly string[], dependencies: RunCliDep
     ...(typeof values.path === 'string' ? { path: values.path } : {}),
   });
   printResult(context.io, json, 'cases-add', result, formatCasesAddResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchCasesRender(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: { json: { type: 'boolean', default: false } },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [id] = positionals;
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runCasesRender(context, { ...(id !== undefined ? { id } : {}) });
+  printResult(context.io, json, 'cases-render', result, formatCasesRenderResult(result));
   return EXIT_SUCCESS;
 }
 
@@ -609,6 +637,10 @@ function formatScopeResult(result: ScopeResult): readonly string[] {
 
 function formatCasesAddResult(result: CasesAddResult): readonly string[] {
   return [`Registered ${result.casePath}: linked to ${result.requirementIds.join(', ')}.`];
+}
+
+function formatCasesRenderResult(result: CasesRenderResult): readonly string[] {
+  return result.markdown.split('\n');
 }
 
 function formatTestDataAddResult(result: TestDataAddResult): readonly string[] {
