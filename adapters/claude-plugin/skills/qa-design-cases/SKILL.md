@@ -64,4 +64,4 @@ to skip under time pressure:
 - It does not invent a requirement id, a feature name or a locator to make registration succeed;
   a missing prerequisite is surfaced to the operator, not worked around.
 - It does not execute the case or drive `browser.*`/HTTP/axe-core tools — that is a later pipeline
-  step (`qa-execute`, [P3-15](https://github.com/Klim-101/QA-AI-STLC/issues/154), not built yet).
+  step, [`qa-execute`](../qa-execute/SKILL.md).
