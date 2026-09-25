@@ -34,6 +34,12 @@ run recorded — as Markdown or HTML, through the same `renderMarkdownArtifact`/
 registries `qa cases render` uses. Every byte comes from canonical JSON already under `.qa/`; no
 report is ever hand-written.
 
+`runValidate`'s opt-in `checkRuns` (`qa validate --run` / MCP `qa.validate` with `checkRuns:
+true`, P3-09) sweeps every recorded `RunResult` — from `qa run` or from interactive case
+execution alike — for an `evidenceIds` entry with no matching registered evidence file (a
+fabricated link) and for a `failed` result with none at all, independent of which write path
+produced the result.
+
 Filesystem access, wall-clock time, identifier generation and logging are injected through small
 ports (`FileSystem`, `Clock`, `IdGenerator`, `Logger`) rather than called directly, so the engine's logic is testable without real
 I/O and so hosts (CLI, MCP server, tests) can supply their own implementations.

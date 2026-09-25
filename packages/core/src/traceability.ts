@@ -13,10 +13,10 @@ import {
 } from '@qa-ai-stlc/schemas';
 import type { Clock } from './ports/clock.js';
 import type { QaStore } from './qa-store.js';
+import { listRunResultPaths } from './run-results.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 const CASES_DIR: RelativePath = 'artifacts/cases';
-const RUNS_DIR: RelativePath = 'runs';
 
 export interface TraceabilityResult {
   readonly resultId: Identifier;
@@ -92,8 +92,7 @@ async function loadCases(store: QaStore) {
 async function loadLatestResultsByTestCaseId(
   store: QaStore,
 ): Promise<ReadonlyMap<Identifier, TraceabilityResult>> {
-  const runFiles = await store.listFiles(RUNS_DIR);
-  const resultFiles = runFiles.filter((path) => path.includes('/results/'));
+  const resultFiles = await listRunResultPaths(store);
   const latestByTestCaseId = new Map<Identifier, TraceabilityResult>();
 
   for (const path of resultFiles) {

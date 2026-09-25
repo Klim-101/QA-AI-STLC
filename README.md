@@ -266,7 +266,7 @@ Current phase: scope.
 `npx @qa-ai-stlc/mcp-server` (bin: `qa-mcp-server`) starts a local server over stdio — the same
 process model any MCP-capable agent host already uses for a local tool, no Docker, no port, no
 process that outlives the session. It exposes one MCP tool per engine operation above (`qa.doctor`,
-`qa.explore`, `qa.scope`, `qa.cases_add`, `qa.approve`, `qa.validate`, `qa.run`), each calling the exact same
+`qa.explore`, `qa.scope`, `qa.cases_add`, `qa.approve`, `qa.validate`, `qa.run`, `qa.report`), each calling the exact same
 `packages/core`/`packages/explorer` function its CLI command calls, so a result from one is a result
 from the other. Manual pick-mode capture (`qa explore --pick <url>`) stays CLI-only: it opens a
 headed browser for a human to click through, which nothing can drive over MCP's stdio transport.

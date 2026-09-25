@@ -177,6 +177,29 @@ describe('buildTraceabilityMatrix', () => {
     expect(matrix.requirements).toEqual([]);
   });
 
+  it('picks up an interactively registered result under its own flat "runs/<test-case-id>/" layout (P3-14)', async () => {
+    const store = fakeStore({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'artifacts', 'cases', 'auth', 'case-1.json')]: caseJson({
+        id: 'case-1',
+        requirementIds: ['req-1'],
+      }),
+      // `runRegisterCaseResult` writes here, not under a "results/" subfolder like `qa run` does.
+      [join(QA_DIR, 'runs', 'case-1', 'result-1.json')]: resultJson({
+        id: 'result-1',
+        runId: 'run-interactive-1',
+        testCaseId: 'case-1',
+        status: 'passed',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+      }),
+    });
+
+    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+
+    const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
+    expect(req1?.cases[0]?.latestResult).toMatchObject({ resultId: 'result-1', status: 'passed' });
+  });
+
   it('ignores a run’s own run.json when scanning for results', async () => {
     const store = fakeStore({
       [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),

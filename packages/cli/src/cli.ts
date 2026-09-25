@@ -59,7 +59,7 @@ Commands:
   run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]"
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
-  validate      Recompute every gate's status and every case's requirement links; nonzero exit on a reopened gate or an unlinked case
+  validate      Recompute every gate's status and every case's requirement links: "validate [--run]" also sweeps every run result for a fabricated evidence link or a failed result missing evidence; nonzero exit on any of these
 
 Global options:
   --json         Print machine-readable JSON instead of human text
@@ -639,20 +639,25 @@ async function dispatchApprove(rest: readonly string[], dependencies: RunCliDepe
 }
 
 async function dispatchValidate(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
-  const values = parseCommandArgs(rest, { json: { type: 'boolean', default: false } });
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    run: { type: 'boolean', default: false },
+  });
   const json = values.json === true;
   const context = createCommandContext({
     ...dependencies,
     projectRoot: dependencies.projectRoot ?? process.cwd(),
     json,
   });
-  const report = await runValidate(context);
+  const report = await runValidate(context, { checkRuns: values.run === true });
   printResult(context.io, json, 'validate', report, formatValidateReport(report));
   const hasFailure =
     report.reopened.length > 0 ||
     report.unlinkedCases.length > 0 ||
     report.unresolvedTestData.length > 0 ||
-    report.tamperedArtifacts.length > 0;
+    report.tamperedArtifacts.length > 0 ||
+    (report.unresolvedResultEvidence?.length ?? 0) > 0 ||
+    (report.resultsMissingEvidence?.length ?? 0) > 0;
   return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
@@ -794,6 +799,26 @@ function formatValidateReport(report: ValidateReport): readonly string[] {
     lines.push(`${String(report.tamperedArtifacts.length)} tampered artifact(s):`);
     for (const artifactPath of report.tamperedArtifacts) {
       lines.push(`  ${artifactPath}`);
+    }
+  }
+  if (report.unresolvedResultEvidence !== undefined) {
+    if (report.unresolvedResultEvidence.length === 0) {
+      lines.push('No unresolved result evidence.');
+    } else {
+      lines.push(`${String(report.unresolvedResultEvidence.length)} result(s) with unresolved evidence:`);
+      for (const issue of report.unresolvedResultEvidence) {
+        lines.push(`  ${issue.resultPath}: ${issue.unresolvedEvidenceIds.join(', ')}`);
+      }
+    }
+  }
+  if (report.resultsMissingEvidence !== undefined) {
+    if (report.resultsMissingEvidence.length === 0) {
+      lines.push('No failed results missing evidence.');
+    } else {
+      lines.push(`${String(report.resultsMissingEvidence.length)} failed result(s) missing evidence:`);
+      for (const issue of report.resultsMissingEvidence) {
+        lines.push(`  ${issue.resultPath}`);
+      }
     }
   }
   return lines;

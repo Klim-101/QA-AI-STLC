@@ -375,6 +375,167 @@ describe('runValidate', () => {
     expect(report.caseSetStatusByType).toBeUndefined();
   });
 
+  it('does not check run results when "checkRuns" is not requested', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'failed',
+        evidenceIds: ['fabricated'],
+      }),
+    });
+
+    const report = await runValidate(context);
+
+    expect(report.unresolvedResultEvidence).toBeUndefined();
+    expect(report.resultsMissingEvidence).toBeUndefined();
+  });
+
+  it('reports no run-result issues for a project with no runs yet, when "checkRuns" is requested', async () => {
+    const context = fakeContext();
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.unresolvedResultEvidence).toEqual([]);
+    expect(report.resultsMissingEvidence).toEqual([]);
+  });
+
+  it('reports a result whose evidenceIds names an id with no registered evidence file (fabricated link)', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: ['fabricated'],
+      }),
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.unresolvedResultEvidence).toEqual([
+      {
+        resultPath: 'runs/run-1/results/result-1.json',
+        id: 'result-1',
+        unresolvedEvidenceIds: ['fabricated'],
+      },
+    ]);
+  });
+
+  it('reports no unresolved evidence when every evidenceId has a matching registered file', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: ['shot-1'],
+      }),
+      'evidence/run-1/shot-1.png': 'fake-png-bytes',
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.unresolvedResultEvidence).toEqual([]);
+  });
+
+  it('does not resolve a quarantined evidence id from its receipt file alone (regression)', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: ['quarantined-1'],
+      }),
+      'evidence/run-1/quarantined-1.quarantine.json': JSON.stringify({
+        id: 'quarantined-1',
+        runId: 'run-1',
+        kind: 'console-log',
+        createdAt: '2026-09-25T10:00:00.000Z',
+        reason: 'secret-detected',
+        patterns: ['bearer-token'],
+      }),
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.unresolvedResultEvidence).toEqual([
+      {
+        resultPath: 'runs/run-1/results/result-1.json',
+        id: 'result-1',
+        unresolvedEvidenceIds: ['quarantined-1'],
+      },
+    ]);
+  });
+
+  it('reports a failed result with zero evidence as missing coverage', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'failed',
+        evidenceIds: [],
+      }),
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.resultsMissingEvidence).toEqual([
+      { resultPath: 'runs/run-1/results/result-1.json', id: 'result-1' },
+    ]);
+  });
+
+  it('does not report a passed result with zero evidence as missing coverage', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: [],
+      }),
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.resultsMissingEvidence).toEqual([]);
+  });
+
+  it('resolves an evidence file with no extension by its whole filename', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: ['shot-1'],
+      }),
+      'evidence/run-1/shot-1': 'fake-bytes-with-no-extension',
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.unresolvedResultEvidence).toEqual([]);
+  });
+
+  it('reuses one directory listing per runId across more than one result', async () => {
+    const context = fakeContext({
+      'runs/run-1/results/result-1.json': runResultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: ['shot-1'],
+      }),
+      'runs/run-1/results/result-2.json': runResultJson({
+        id: 'result-2',
+        runId: 'run-1',
+        status: 'passed',
+        evidenceIds: ['shot-1'],
+      }),
+      'evidence/run-1/shot-1.png': 'fake-png-bytes',
+    });
+
+    const report = await runValidate(context, { checkRuns: true });
+
+    expect(report.unresolvedResultEvidence).toEqual([]);
+  });
+
   it("reports every case-bearing type's status by testing scope (P2-16)", async () => {
     const context = fakeContext({
       'config.yaml': [
@@ -406,6 +567,25 @@ function manifestJson(contentByPath: Readonly<Record<string, string>>): string {
         { sha256: hashText(content), mode: 'text', registeredAt: '2026-09-20T12:00:00Z' },
       ]),
     ),
+  });
+}
+
+function runResultJson(overrides: {
+  id: string;
+  runId: string;
+  status: string;
+  evidenceIds: string[];
+}): string {
+  return JSON.stringify({
+    id: overrides.id,
+    runId: overrides.runId,
+    testCaseId: 'case-1',
+    testType: 'e2e',
+    status: overrides.status,
+    startedAt: '2026-09-25T09:59:00.000Z',
+    finishedAt: '2026-09-25T10:00:00.000Z',
+    evidenceIds: overrides.evidenceIds,
+    ...(overrides.status === 'failed' ? { failure: { message: 'boom' } } : {}),
   });
 }
 

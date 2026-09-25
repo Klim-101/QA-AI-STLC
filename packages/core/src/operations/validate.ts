@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  RunResultSchema,
   SCHEMA_VERSION,
   ScopeSchema,
   TestCaseSchema,
@@ -21,6 +22,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { PHASES } from '../phases.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
+import { listRunResultPaths } from '../run-results.js';
 import { PipelineStateStore } from '../state-store.js';
 import { findUnresolvedTestDataRefs } from '../test-data-linking.js';
 import { checkCaseSetCompleteness, type CaseSetTypeStatus } from '../testing-scope.js';
@@ -28,6 +30,7 @@ import { checkCaseSetCompleteness, type CaseSetTypeStatus } from '../testing-sco
 const SCOPE_PATH = 'artifacts/scope.json';
 const CASES_DIR = 'artifacts/cases';
 const TEST_DATA_DIR = 'artifacts/test-data';
+const EVIDENCE_DIR = 'evidence';
 
 export interface UnlinkedCase {
   readonly casePath: string;
@@ -39,6 +42,27 @@ export interface UnresolvedTestDataCase {
   readonly casePath: string;
   readonly id: string;
   readonly unresolvedTestDataRefs: readonly string[];
+}
+
+export interface UnresolvedResultEvidence {
+  readonly resultPath: RelativePath;
+  readonly id: Identifier;
+  /** Every `evidenceIds` entry with no matching file under `evidence/<runId>/` — a fabricated link. */
+  readonly unresolvedEvidenceIds: readonly Identifier[];
+}
+
+export interface UncoveredFailedResult {
+  readonly resultPath: RelativePath;
+  readonly id: Identifier;
+}
+
+export interface ValidateOptions {
+  /**
+   * `qa validate --run` (P3-09): also sweeps every recorded `RunResult` for evidence integrity.
+   * Opt-in, not part of the default sweep, since it reads every evidence directory a project has
+   * ever written to — real I/O cost a plain gate/link check does not have.
+   */
+  readonly checkRuns?: boolean;
 }
 
 export interface ValidateReport {
@@ -71,6 +95,21 @@ export interface ValidateReport {
    * `in-scope`, so it needs no case set at all, distinct from `missing` (`in-scope` with none).
    */
   readonly caseSetStatusByType: Readonly<Record<string, CaseSetTypeStatus>> | undefined;
+  /**
+   * Every recorded `RunResult` referencing at least one `evidenceIds` entry with no matching
+   * registered evidence file (P3-09) — a result the engine did not actually produce the evidence
+   * for, whether written by `qa run` or by interactive case execution. `undefined` unless
+   * `checkRuns` was requested.
+   */
+  readonly unresolvedResultEvidence: readonly UnresolvedResultEvidence[] | undefined;
+  /**
+   * Every recorded `failed` result with zero registered evidence (P3-09) — a status the engine
+   * cannot back up. `runTestRun` already refuses to persist this for `qa run`'s own write path
+   * (`RUN_RESULT_MISSING_EVIDENCE`); this catches the same gap in any result written another way
+   * (e.g. `qa.case_result_register`, P3-14, which accepts a caller-supplied `evidenceIds`).
+   * `undefined` unless `checkRuns` was requested.
+   */
+  readonly resultsMissingEvidence: readonly UncoveredFailedResult[] | undefined;
 }
 
 /**
@@ -81,7 +120,10 @@ export interface ValidateReport {
  * registration time, this catches a link broken later by editing `scope.json`. Callers treat a
  * reopened gate or any unlinked case as failure, never a phase simply not yet approved.
  */
-export async function runValidate(context: EngineContext): Promise<ValidateReport> {
+export async function runValidate(
+  context: EngineContext,
+  options: ValidateOptions = {},
+): Promise<ValidateReport> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
   const ledger = new ApprovalLedgerStore({ store, manifest });
@@ -108,8 +150,83 @@ export async function runValidate(context: EngineContext): Promise<ValidateRepor
   const { unlinkedCases, unresolvedTestData, cases } = await findCaseLinkIssues(context, store);
   const tamperedArtifacts = await findTamperedArtifacts(context, store, manifest);
   const caseSetStatusByType = await computeCaseSetStatusByType(store, cases);
+  const runResultIssues = options.checkRuns === true ? await findRunResultIssues(store) : undefined;
 
-  return { state, reopened, unlinkedCases, unresolvedTestData, tamperedArtifacts, caseSetStatusByType };
+  return {
+    state,
+    reopened,
+    unlinkedCases,
+    unresolvedTestData,
+    tamperedArtifacts,
+    caseSetStatusByType,
+    unresolvedResultEvidence: runResultIssues?.unresolvedResultEvidence,
+    resultsMissingEvidence: runResultIssues?.resultsMissingEvidence,
+  };
+}
+
+interface RunResultIssues {
+  readonly unresolvedResultEvidence: readonly UnresolvedResultEvidence[];
+  readonly resultsMissingEvidence: readonly UncoveredFailedResult[];
+}
+
+/**
+ * Sweeps every recorded `RunResult` (`qa validate --run`, P3-09), independent of which write path
+ * produced it: a `failed` result with no evidence, or any result whose `evidenceIds` names an id
+ * with no matching file under `evidence/<runId>/`. A registered evidence file's own content is
+ * already covered by `findTamperedArtifacts`'s generic manifest sweep — this only checks that the
+ * *link itself* resolves to something real, the "fabricated evidence link" this task exists for.
+ */
+async function findRunResultIssues(store: QaStore): Promise<RunResultIssues> {
+  const resultPaths = await listRunResultPaths(store);
+  const unresolvedResultEvidence: UnresolvedResultEvidence[] = [];
+  const resultsMissingEvidence: UncoveredFailedResult[] = [];
+  const registeredEvidenceIdsByRunId = new Map<Identifier, ReadonlySet<Identifier>>();
+
+  for (const resultPath of [...resultPaths].sort()) {
+    const result = await store.readJson(resultPath, RunResultSchema);
+
+    if (result.status === 'failed' && result.evidenceIds.length === 0) {
+      resultsMissingEvidence.push({ resultPath, id: result.id });
+    }
+
+    if (result.evidenceIds.length === 0) {
+      continue;
+    }
+    let registeredEvidenceIds = registeredEvidenceIdsByRunId.get(result.runId);
+    if (registeredEvidenceIds === undefined) {
+      registeredEvidenceIds = await loadRegisteredEvidenceIds(store, result.runId);
+      registeredEvidenceIdsByRunId.set(result.runId, registeredEvidenceIds);
+    }
+    const unresolvedEvidenceIds = result.evidenceIds.filter((id) => !registeredEvidenceIds.has(id));
+    if (unresolvedEvidenceIds.length > 0) {
+      unresolvedResultEvidence.push({ resultPath, id: result.id, unresolvedEvidenceIds });
+    }
+  }
+
+  return { unresolvedResultEvidence, resultsMissingEvidence };
+}
+
+/**
+ * Every evidence id actually registered under `evidence/<runId>/` — a quarantined item's receipt
+ * (`<id>.quarantine.json`) does not count, since `EvidenceStore.register()` never wrote the real
+ * content for it (AGENTS.md 12.5); a result referencing that id claims evidence that was never
+ * really registered.
+ */
+async function loadRegisteredEvidenceIds(
+  store: QaStore,
+  runId: Identifier,
+): Promise<ReadonlySet<Identifier>> {
+  const files = await store.listFiles(`${EVIDENCE_DIR}/${runId}`);
+  const ids = new Set<Identifier>();
+  for (const path of files) {
+    const filename = path.slice(path.lastIndexOf('/') + 1);
+    if (filename.endsWith('.quarantine.json')) {
+      continue;
+    }
+    const dotIndex = filename.indexOf('.');
+    ids.add(dotIndex === -1 ? filename : filename.slice(0, dotIndex));
+  }
+  return ids;
 }
 
 /**
