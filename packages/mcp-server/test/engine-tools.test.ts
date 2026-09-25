@@ -202,6 +202,42 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('qa.validate does not sweep run results unless "checkRuns" is requested, and fails on a fabricated evidence link when it is (P3-09)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+
+      await mkdir(join(projectRoot, '.qa', 'runs', 'run-1', 'results'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'runs', 'run-1', 'results', 'result-1.json'),
+        JSON.stringify({
+          id: 'result-1',
+          runId: 'run-1',
+          testCaseId: 'login-case',
+          testType: 'e2e',
+          status: 'passed',
+          startedAt: '2026-09-25T09:59:00.000Z',
+          finishedAt: '2026-09-25T10:00:00.000Z',
+          evidenceIds: ['fabricated'],
+        }),
+        'utf-8',
+      );
+
+      const withoutCheck = await validateTool.handler({});
+      const withCheck = await validateTool.handler({ checkRuns: true });
+      process.chdir(originalCwd);
+
+      expect(withoutCheck.unresolvedResultEvidence).toBeUndefined();
+      expect(withCheck.unresolvedResultEvidence).toEqual([
+        {
+          resultPath: 'runs/run-1/results/result-1.json',
+          id: 'result-1',
+          unresolvedEvidenceIds: ['fabricated'],
+        },
+      ]);
+    });
+  });
+
   it('qa.cases_render renders a registered test case to Markdown by id', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);

@@ -43,6 +43,7 @@ export * from './render/markdown-registry.js';
 export * from './render/html-registry.js';
 export * from './render/test-case-markdown.js';
 export * from './traceability.js';
+export * from './run-results.js';
 export * from './operations/test-data-add.js';
 export * from './operations/approve.js';
 export * from './operations/validate.js';

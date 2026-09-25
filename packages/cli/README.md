@@ -20,7 +20,9 @@ be handed to a stakeholder instead of raw JSON. `qa approve <gate> --artifact <p
 --approved-by <name> [--note <text>]` hash-binds an approval to a pipeline gate (`scope`, `cases`,
 approved in order); `qa validate` recomputes every gate's status from the approval ledger and
 re-checks every registered case's requirement links, exiting non-zero for a reopened gate or an
-unlinked case. `qa run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]`
+unlinked case. `qa validate --run` also sweeps every recorded run result for a fabricated
+evidence link or a `failed` result with no registered evidence, whether it came from `qa run` or
+from interactive case execution. `qa run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]`
 runs a spec set through the runner for its test type and persists every result under
 `.qa/runs/<run-id>/`. `qa report [--run <run-id>] [--format markdown|html]` renders that run's
 summary and the current requirement → case → result → evidence traceability matrix — defaulting to

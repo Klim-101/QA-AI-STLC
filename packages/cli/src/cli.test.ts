@@ -977,6 +977,94 @@ describe('runCli', () => {
     expect(stdout).toContain('[open] scope');
   });
 
+  it('does not sweep run results without "--run"', async () => {
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'results', 'result-1.json')]: JSON.stringify({
+        id: 'result-1',
+        runId: 'run-1',
+        testCaseId: 'case-1',
+        testType: 'e2e',
+        status: 'failed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+        evidenceIds: ['fabricated'],
+        failure: { message: 'boom' },
+      }),
+    });
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).not.toContain('unresolved evidence');
+  });
+
+  it('runs "validate --run" and fails on a fabricated evidence link', async () => {
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'results', 'result-1.json')]: JSON.stringify({
+        id: 'result-1',
+        runId: 'run-1',
+        testCaseId: 'case-1',
+        testType: 'e2e',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+        evidenceIds: ['fabricated'],
+      }),
+    });
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['validate', '--run'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout.join('\n')).toContain('1 result(s) with unresolved evidence:');
+    expect(deps.stdout.join('\n')).toContain('runs/run-1/results/result-1.json: fabricated');
+  });
+
+  it('runs "validate --run" and fails on a failed result with no registered evidence', async () => {
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'results', 'result-1.json')]: JSON.stringify({
+        id: 'result-1',
+        runId: 'run-1',
+        testCaseId: 'case-1',
+        testType: 'e2e',
+        status: 'failed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+        evidenceIds: [],
+        failure: { message: 'boom' },
+      }),
+    });
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['validate', '--run'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout.join('\n')).toContain('1 failed result(s) missing evidence:');
+  });
+
+  it('runs "validate --run" and succeeds when every result checks out', async () => {
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'results', 'result-1.json')]: JSON.stringify({
+        id: 'result-1',
+        runId: 'run-1',
+        testCaseId: 'case-1',
+        testType: 'e2e',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+        evidenceIds: [],
+      }),
+    });
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['validate', '--run'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('No unresolved result evidence.');
+    expect(deps.stdout.join('\n')).toContain('No failed results missing evidence.');
+  });
+
   it('runs "cases add" and prints a human-readable confirmation', async () => {
     const scopeJson = JSON.stringify({
       generatedAt: '2026-09-20T12:00:00Z',
