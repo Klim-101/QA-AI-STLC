@@ -135,6 +135,7 @@ describe('runDoctor', () => {
       readFile: () => Promise.reject(new Error('disk exploded')),
       readBytes: () => Promise.reject(new Error('disk exploded')),
       writeFile: () => Promise.resolve(),
+      deleteFile: () => Promise.resolve(),
       mkdir: () => Promise.resolve(),
       pathExists: (path) => Promise.resolve(path.endsWith('config.yaml')),
       listFiles: () => Promise.resolve([]),

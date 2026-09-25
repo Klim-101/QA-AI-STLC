@@ -60,6 +60,7 @@ export * from './operations/registry-execute-register.js';
 export * from './operations/case-result-register.js';
 export * from './generation-contract.js';
 export * from './manual-regions.js';
+export * from './verification.js';
 export * from './operations/http-execute.js';
 export * from './operations/run.js';
 export * from './operations/report.js';

@@ -46,7 +46,21 @@ filtered slice of the selector registry and the locator module's current export 
 `GenerationSpokeInput`; `stampGeneratedTestSpec`/`isGeneratedTestSpecStale` stamp and later check a
 generated spec's `sourceHash` against that input. `extractManualRegions`/`applyManualRegions`
 round-trip a human's hand-written `// qa:manual:start <id>` / `// qa:manual:end <id>` blocks across
-regeneration, reused unchanged by the future verification loop (P3-06) and `qa upgrade` (P7-01).
+regeneration, reused unchanged by the verification loop (P3-06) and `qa upgrade` (P7-01).
+
+`verifyGeneratedTestSpec` (P3-06, development plan section 5.2) is the framework's primary quality
+mechanism: a spoke's generated spec is never registered on trust. Its content is typechecked
+against a fixed TypeScript baseline (a real `tsc --noEmit` spawn against a scratch copy placed
+beside the real target so its imports resolve) and, only if that passes, executed once through the
+injected `Runner`. Either failure returns `SpokeValidationIssue[]` in the same shape
+`SpokeErrorSchema.issues` already uses, reusing `RunResultSchema`'s own `failure`/`missingStepIds`
+fields to name exactly which step failed — no new failure-identity mechanism. Only a
+`'verified'` outcome can be passed to `registerVerifiedGeneratedTestSpec`, enforced by the type
+system, which then writes the spec to its real path and registers it in the manifest, the same
+"write to the project tree, then `manifest.register`" pattern ADR-006 established for the locator
+module. `hasVerificationRetryBudget` reads the existing `config.agents.retries` field; the retry
+loop itself — re-dispatching the generating spoke with a failed outcome's `issues` — is a hub
+responsibility, since regenerating the spec is a model call the engine never makes.
 
 Filesystem access, wall-clock time, identifier generation and logging are injected through small
 ports (`FileSystem`, `Clock`, `IdGenerator`, `Logger`) rather than called directly, so the engine's logic is testable without real

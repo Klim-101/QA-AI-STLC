@@ -213,6 +213,7 @@ describe('runCli', () => {
       readFile: () => Promise.reject(new Error('unused')),
       readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
+      deleteFile: () => Promise.resolve(),
       mkdir: () =>
         Promise.reject(
           new QaError('MKDIR_FAILED', 'could not create .qa/', { remediation: 'check permissions' }),
@@ -234,6 +235,7 @@ describe('runCli', () => {
       readFile: () => Promise.reject(new Error('unused')),
       readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
+      deleteFile: () => Promise.resolve(),
       mkdir: () => Promise.reject(new QaError('MKDIR_FAILED', 'could not create .qa/')),
       pathExists: () => Promise.resolve(false),
       listFiles: () => Promise.resolve([]),
@@ -251,6 +253,7 @@ describe('runCli', () => {
       readFile: () => Promise.reject(new Error('unused')),
       readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
+      deleteFile: () => Promise.resolve(),
       // Deliberately not an Error: proves `reportError` also handles a non-Error throw, which
       // TypeScript permits even though this project's own code never throws one.
       // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
@@ -271,6 +274,7 @@ describe('runCli', () => {
       readFile: () => Promise.reject(new Error('unused')),
       readBytes: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
+      deleteFile: () => Promise.resolve(),
       mkdir: () => Promise.reject(new Error('disk full')),
       pathExists: () => Promise.resolve(false),
       listFiles: () => Promise.resolve([]),

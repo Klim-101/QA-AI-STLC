@@ -57,6 +57,21 @@ describe('createFakeFileSystem', () => {
     expect(fs.getRawFile('/missing')).toBeUndefined();
   });
 
+  it('deletes a file so it no longer exists or reads back', async () => {
+    const fs = createFakeFileSystem({ '/a.txt': 'hello' });
+
+    await fs.deleteFile('/a.txt');
+
+    expect(await fs.pathExists('/a.txt')).toBe(false);
+    expect(fs.getRawFile('/a.txt')).toBeUndefined();
+  });
+
+  it('is a no-op deleting a file that was never written', async () => {
+    const fs = createFakeFileSystem();
+
+    await expect(fs.deleteFile('/missing')).resolves.toBeUndefined();
+  });
+
   it('reports pathExists for files, directories and neither', async () => {
     const fs = createFakeFileSystem({ '/a.txt': 'hello' });
     await fs.mkdir('/dir');
