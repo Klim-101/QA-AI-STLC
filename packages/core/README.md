@@ -27,6 +27,13 @@ returns raw evidence (a screenshot, a trace) alongside each `RunResult` it produ
 that ends up with no registered evidence — every item quarantined, or the runner captured none —
 fails the run with `RUN_RESULT_MISSING_EVIDENCE` rather than persisting an unbacked failure.
 
+`runReport` (`qa report` / MCP `qa.report`, P3-08, ADR-002) renders a run's summary and the
+current requirement → case → result → evidence traceability matrix — every requirement in
+`scope.json`, every case that links to it, and each case's most recent run result across every
+run recorded — as Markdown or HTML, through the same `renderMarkdownArtifact`/`renderHtmlArtifact`
+registries `qa cases render` uses. Every byte comes from canonical JSON already under `.qa/`; no
+report is ever hand-written.
+
 Filesystem access, wall-clock time, identifier generation and logging are injected through small
 ports (`FileSystem`, `Clock`, `IdGenerator`, `Logger`) rather than called directly, so the engine's logic is testable without real
 I/O and so hosts (CLI, MCP server, tests) can supply their own implementations.

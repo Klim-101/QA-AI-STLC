@@ -13,6 +13,7 @@ import { casesRenderTool } from '../src/tools/cases-render.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { httpExecuteTool } from '../src/tools/http-execute.js';
+import { reportTool } from '../src/tools/report.js';
 import { runTool } from '../src/tools/run.js';
 import { scopeTool } from '../src/tools/scope.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
@@ -429,6 +430,74 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       process.chdir(originalCwd);
 
       expect(rejected).toMatchObject({ code: 'CONFIG_MISSING' });
+    });
+  });
+
+  it('qa.report renders the requested run’s summary and the traceability matrix', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Submit the login form' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+
+      await mkdir(join(projectRoot, '.qa', 'runs', 'run-1', 'results'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'runs', 'run-1', 'run.json'),
+        JSON.stringify({
+          id: 'run-1',
+          testType: 'e2e',
+          specFiles: ['tests/login.playwright-spec.ts'],
+          baseUrl: 'https://staging.example.test/',
+          startedAt: '2026-09-25T10:00:00.000Z',
+          finishedAt: '2026-09-25T10:00:05.000Z',
+          resultIds: ['result-1'],
+          counts: { passed: 1, failed: 0, blocked: 0, skipped: 0, uncertain: 0, partial: 0 },
+        }),
+        'utf-8',
+      );
+      await writeFile(
+        join(projectRoot, '.qa', 'runs', 'run-1', 'results', 'result-1.json'),
+        JSON.stringify({
+          id: 'result-1',
+          runId: 'run-1',
+          testCaseId: 'login-case',
+          testType: 'e2e',
+          status: 'passed',
+          startedAt: '2026-09-25T10:00:00.000Z',
+          finishedAt: '2026-09-25T10:00:05.000Z',
+          evidenceIds: [],
+        }),
+        'utf-8',
+      );
+
+      const result = await reportTool.handler({ runId: 'run-1' });
+      const htmlResult = await reportTool.handler({ format: 'html' });
+      const notFoundError = await reportTool.handler({ runId: 'missing' }).catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(result.runId).toBe('run-1');
+      expect(result.format).toBe('markdown');
+      expect(result.runSummary).toContain('# Run summary: run-1');
+      expect(result.traceabilityMatrix).toContain('Log in with valid credentials (login-case) | passed |');
+      expect(htmlResult).toMatchObject({ runId: 'run-1', format: 'html' });
+      expect(htmlResult.runSummary).toContain('<h1>Run summary: run-1</h1>');
+      expect(notFoundError).toMatchObject({ code: 'REPORT_RUN_NOT_FOUND' });
     });
   });
 });

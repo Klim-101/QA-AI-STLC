@@ -9,11 +9,10 @@ agent host's own model over the MCP protocol.
 
 `qa-mcp-server` starts the stdio server with the built-in tools: `qa.ping` (a health check that
 does not touch `.qa/`) and one tool per engine operation — `qa.doctor`, `qa.explore`, `qa.scope`,
-`qa.cases_add`, `qa.cases_render`, `qa.approve`, `qa.validate` — each calling the exact same `packages/core` or
-`packages/explorer` function its CLI counterpart calls (P2-05). `qa.explore` does not support
-manual pick-mode capture: opening a headed browser for a human to click through is a CLI-only
-feature, not something an agent can drive over stdio. `report` has no CLI command yet, so it has
-no MCP tool yet either.
+`qa.cases_add`, `qa.cases_render`, `qa.approve`, `qa.validate`, `qa.run`, `qa.report` — each
+calling the exact same `packages/core` or `packages/explorer` function its CLI counterpart calls
+(P2-05). `qa.explore` does not support manual pick-mode capture: opening a headed browser for a
+human to click through is a CLI-only feature, not something an agent can drive over stdio.
 
 It also starts the six `browser.*` tools — `qa.browser_open`, `qa.browser_navigate`,
 `qa.browser_click`, `qa.browser_fill`, `qa.browser_snapshot`, `qa.browser_close` — the only way

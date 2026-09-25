@@ -9,6 +9,7 @@ import {
   runCasesAdd,
   runCasesRender,
   runDoctor,
+  runReport,
   runScope,
   runTestDataAdd,
   runValidate,
@@ -16,6 +17,8 @@ import {
   type CasesAddResult,
   type CasesRenderResult,
   type DoctorReport,
+  type ReportFormat,
+  type ReportResult,
   type ScopeResult,
   type TestDataAddResult,
   type ValidateReport,
@@ -54,6 +57,7 @@ Commands:
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
   run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]"
+  report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links; nonzero exit on a reopened gate or an unlinked case
 
@@ -98,6 +102,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchTestData(rest, dependencies);
       case 'run':
         return await dispatchRun(rest, dependencies);
+      case 'report':
+        return await dispatchReport(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -561,6 +567,39 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
   return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
+function parseReportFormat(value: string | undefined): ReportFormat | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value !== 'markdown' && value !== 'html') {
+    throw new QaError('REPORT_OPTION_INVALID', `"${value}" is not valid for --format`, {
+      remediation: 'Use one of: markdown, html.',
+    });
+  }
+  return value;
+}
+
+async function dispatchReport(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    run: { type: 'string' },
+    format: { type: 'string' },
+  });
+  const format = parseReportFormat(typeof values.format === 'string' ? values.format : undefined);
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runReport(context, {
+    ...(typeof values.run === 'string' ? { runId: values.run } : {}),
+    ...(format !== undefined ? { format } : {}),
+  });
+  printResult(context.io, json, 'report', result, formatReportResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -713,6 +752,10 @@ function formatRunSummary(summary: RunSummary): readonly string[] {
     `Run ${summary.runId}: ${String(total)} result(s) (${countsLine || 'none'}).`,
     `Wrote ${summary.runRecordPath}.`,
   ];
+}
+
+function formatReportResult(result: ReportResult): readonly string[] {
+  return [...result.runSummary.split('\n'), '', ...result.traceabilityMatrix.split('\n')];
 }
 
 function formatApproveResult(result: ApproveResult): readonly string[] {
