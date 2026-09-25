@@ -3,7 +3,12 @@
 
 import { QaError, randomIdGenerator, type IdGenerator } from '@qa-ai-stlc/core';
 import { RunResultSchema, type Identifier, type RunResult, type RunResultStatus } from '@qa-ai-stlc/schemas';
-import { collectSpecs, collectStepIds, type PlaywrightJsonReport, type PlaywrightTestResult } from './json-report.js';
+import {
+  collectSpecs,
+  collectStepIds,
+  type PlaywrightJsonReport,
+  type PlaywrightTestResult,
+} from './json-report.js';
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled Playwright test status: ${String(value)}`);

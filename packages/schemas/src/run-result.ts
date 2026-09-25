@@ -52,13 +52,10 @@ export const RunResultSchema = z
     message: '"failure" is required when status is "failed"',
     path: ['failure'],
   })
-  .refine(
-    (result) => result.status !== 'partial' || (result.missingStepIds?.length ?? 0) > 0,
-    {
-      message: '"missingStepIds" is required and non-empty when status is "partial"',
-      path: ['missingStepIds'],
-    },
-  )
+  .refine((result) => result.status !== 'partial' || (result.missingStepIds?.length ?? 0) > 0, {
+    message: '"missingStepIds" is required and non-empty when status is "partial"',
+    path: ['missingStepIds'],
+  })
   .refine((result) => result.status === 'partial' || result.missingStepIds === undefined, {
     message: '"missingStepIds" is only meaningful when status is "partial"',
     path: ['missingStepIds'],
