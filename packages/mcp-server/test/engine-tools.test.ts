@@ -13,6 +13,7 @@ import { casesRenderTool } from '../src/tools/cases-render.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { httpExecuteTool } from '../src/tools/http-execute.js';
+import { runTool } from '../src/tools/run.js';
 import { scopeTool } from '../src/tools/scope.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
@@ -406,6 +407,28 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(result.runResultPath).toBe(`runs/login-case/${result.id}.json`);
       expect(failureResult.id).not.toBe(result.id);
+    });
+  });
+
+  it('qa.run rejects a test type with no runner yet, before touching the project at all', async () => {
+    const rejected = await runTool
+      .handler({ specFiles: ['tests/login.playwright-spec.ts'], testType: 'api' })
+      .catch((caught: unknown) => caught);
+
+    expect(rejected).toMatchObject({ code: 'RUN_TEST_TYPE_UNSUPPORTED' });
+  });
+
+  it('qa.run reports config missing for the default e2e test type in an uninitialized project', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      const rejected = await runTool
+        .handler({ specFiles: ['tests/login.playwright-spec.ts'] })
+        .catch((caught: unknown) => caught);
+
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'CONFIG_MISSING' });
     });
   });
 });

@@ -18,6 +18,7 @@ import { exploreTool } from './explore.js';
 import { httpExecuteTool } from './http-execute.js';
 import { pingTool } from './ping.js';
 import { createRegistryExecuteRegisterTool } from './registry-execute-register.js';
+import { runTool } from './run.js';
 import { scopeTool } from './scope.js';
 import { testDataAddTool } from './test-data-add.js';
 import { validateTool } from './validate.js';
@@ -36,6 +37,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   validateTool,
   httpExecuteTool,
   caseResultRegisterTool,
+  runTool,
 ];
 
 /** The eight `qa.browser_*`/`qa.registry_execute_register` tools sharing one session store (ADR-005, P2-06). */

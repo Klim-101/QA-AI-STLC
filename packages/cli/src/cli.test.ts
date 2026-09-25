@@ -1220,4 +1220,186 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(deps.stdout.join('\n')).toContain('1 case(s) with unresolved test data:');
   });
+
+  const CONFIG_YAML_WITH_ENVIRONMENT = [
+    'schemaVersion: 1',
+    'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+    'environments:',
+    '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+    'identities: {}',
+    'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+    'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+    'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+    '',
+  ].join('\n');
+
+  /**
+   * A `ProcessRunner` fake that, instead of spawning Playwright for real, reads the ephemeral
+   * config `playwright-runner.ts` generated (its `--config=<path>` argument), extracts the report
+   * path it declared, and writes a hand-built report there through the same fake `FileSystem` the
+   * rest of the run uses — exercises the real `qa run` → `runTestRun` → `playwrightRunner` →
+   * report-mapping chain end to end without a real browser or child process.
+   */
+  function fakeProcessRunnerWritingReport(fs: FileSystem, report: unknown) {
+    return {
+      run: async (_command: string, args: readonly string[]) => {
+        const configArg = args.find((arg) => arg.startsWith('--config='));
+        const configPath = configArg?.slice('--config='.length);
+        if (configPath === undefined) {
+          throw new Error('Expected a --config=<path> argument.');
+        }
+        const configSource = await fs.readFile(configPath);
+        const configJson = configSource.slice('export default '.length).replace(/;\s*$/, '');
+        const config = JSON.parse(configJson) as { reporter: readonly [string, { outputFile: string }][] };
+        const [, { outputFile }] = config.reporter[0] as [string, { outputFile: string }];
+        await fs.writeFile(outputFile, JSON.stringify(report));
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    };
+  }
+
+  it('runs "run" end to end and reports success when every result passed', async () => {
+    const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
+    const deps = dependencies({
+      fs,
+      processRunner: fakeProcessRunnerWritingReport(fs, {
+        suites: [
+          {
+            specs: [
+              {
+                title: 'login',
+                tests: [
+                  {
+                    annotations: [{ type: 'testCaseId', description: 'login-case' }],
+                    results: [
+                      { status: 'passed', startTime: '2026-09-25T10:00:00.000Z', duration: 1000, errors: [] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const exitCode = await runCli(
+      ['run', '--spec', 'tests/login.playwright-spec.ts', '--environment', 'staging', '--json'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed = JSON.parse(deps.stdout[0] ?? '') as { data: { counts: Record<string, number> } };
+    expect(parsed.data.counts).toMatchObject({ passed: 1, failed: 0 });
+  });
+
+  it('runs "run" end to end and reports "none" when the runner produced no results', async () => {
+    const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
+    const deps = dependencies({
+      fs,
+      processRunner: fakeProcessRunnerWritingReport(fs, { suites: [] }),
+    });
+
+    const exitCode = await runCli(['run', '--spec', 'tests/login.playwright-spec.ts'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('0 result(s) (none).');
+  });
+
+  it('runs "run" end to end and reports failure when a result failed', async () => {
+    const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
+    const deps = dependencies({
+      fs,
+      processRunner: fakeProcessRunnerWritingReport(fs, {
+        suites: [
+          {
+            specs: [
+              {
+                title: 'login',
+                tests: [
+                  {
+                    annotations: [{ type: 'testCaseId', description: 'login-case' }],
+                    results: [
+                      {
+                        status: 'failed',
+                        startTime: '2026-09-25T10:00:00.000Z',
+                        duration: 1000,
+                        errors: [{ message: 'Expected the dashboard' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const exitCode = await runCli(['run', '--spec', 'tests/login.playwright-spec.ts'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stdout.join('\n')).toContain('failed: 1');
+  });
+
+  it('reports a coded error when "run" is given no --spec', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['run'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa run');
+  });
+
+  it('reports a coded error when "run --test-type" is an unknown value', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(
+      ['run', '--spec', 'tests/login.playwright-spec.ts', '--test-type', 'security'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('is not valid for --test-type');
+  });
+
+  it('reports a coded error for a test type with no runner yet', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT }),
+    });
+
+    const exitCode = await runCli(
+      ['run', '--spec', 'tests/login.playwright-spec.ts', '--test-type', 'api'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('No runner is available yet for test type "api"');
+  });
+
+  it('wires "run" through to the real Playwright runner, which reports a coded error when the process produced no report', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT }),
+      processRunner: { run: () => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' }) },
+    });
+
+    const exitCode = await runCli(['run', '--spec', 'tests/login.playwright-spec.ts'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Playwright did not produce a JSON report');
+  });
+
+  it('defaults the project root to the current working directory for "run"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['run', '--spec', 'tests/login.playwright-spec.ts'], {
+      io,
+      fs: createFakeFileSystem({ [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML_WITH_ENVIRONMENT }),
+      env: {},
+      processRunner: { run: () => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' }) },
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('Playwright did not produce a JSON report');
+  });
 });

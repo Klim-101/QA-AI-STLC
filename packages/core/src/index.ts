@@ -56,3 +56,4 @@ export * from './operations/browser-accessibility-scan.js';
 export * from './operations/registry-execute-register.js';
 export * from './operations/case-result-register.js';
 export * from './operations/http-execute.js';
+export * from './operations/run.js';

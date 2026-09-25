@@ -8,6 +8,7 @@
     { "path": "../schemas" },
     { "path": "../core" },
     { "path": "../explorer" },
+    { "path": "../runner-playwright" },
     { "path": "../test-utils" }
   ]
 }
