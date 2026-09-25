@@ -25,7 +25,7 @@
     "lint:fix": "eslint . --fix && prettier --write .",
     "generate": "node scripts/generate-claude-rules.mjs && node --experimental-strip-types scripts/generate-claude-plugin.mjs",
     "lint:generated": "node scripts/generate-claude-rules.mjs --check && node --experimental-strip-types scripts/generate-claude-plugin.mjs --check",
-    "licenses:check": "license-checker-rseidelsohn --production --excludePrivatePackages --onlyAllow \"MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;BlueOak-1.0.0;Python-2.0\"",
+    "licenses:check": "node scripts/check-licenses.mjs",
     "pretest": "npm run build",
     "test": "vitest run --passWithNoTests",
     "pretest:coverage": "npm run build",
