@@ -13,6 +13,12 @@ import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = SessionIdInputSchema.extend({
   url: z.string().describe('Absolute URL to open. Its host must be on the session allowlist.'),
+  stepId: z
+    .string()
+    .optional()
+    .describe(
+      "'step-<N>', N the case step's 1-based position this navigation performs, when executing a registered case.",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -39,6 +45,11 @@ export function createBrowserNavigateTool(
       'Returns where the page actually landed, which a redirect can change.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
-    handler: (input) => runBrowserNavigate(toBrowserOperationContext(dependencies), input),
+    handler: (input) =>
+      runBrowserNavigate(toBrowserOperationContext(dependencies), {
+        sessionId: input.sessionId,
+        url: input.url,
+        ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
+      }),
   };
 }

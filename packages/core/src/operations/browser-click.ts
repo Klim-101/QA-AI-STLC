@@ -8,6 +8,8 @@ import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evi
 export interface BrowserClickOptions {
   readonly sessionId: string;
   readonly selector: string;
+  /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
+  readonly stepId?: string;
 }
 
 export interface BrowserClickResult {
@@ -39,6 +41,7 @@ export async function runBrowserClick(
     session,
     now: context.engine.clock.now(),
     action: { type: 'click', selector: options.selector, url },
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
   return { sessionId: session.sessionId, selector: options.selector, url, evidence };

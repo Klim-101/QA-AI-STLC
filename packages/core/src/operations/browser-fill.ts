@@ -9,6 +9,8 @@ export interface BrowserFillOptions {
   readonly sessionId: string;
   readonly selector: string;
   readonly value: string;
+  /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
+  readonly stepId?: string;
 }
 
 export interface BrowserFillResult {
@@ -42,6 +44,7 @@ export async function runBrowserFill(
     session,
     now: context.engine.clock.now(),
     action: { type: 'fill', selector: options.selector, valueLength: options.value.length, url },
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
   return {

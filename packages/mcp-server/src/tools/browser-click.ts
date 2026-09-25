@@ -13,6 +13,12 @@ import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = SessionIdInputSchema.extend({
   selector: z.string().describe('A Playwright selector for the element to click.'),
+  stepId: z
+    .string()
+    .optional()
+    .describe(
+      "'step-<N>', N the case step's 1-based position this click performs, when executing a registered case.",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -34,6 +40,11 @@ export function createBrowserClickTool(
       'off, so a form is never actually submitted. Returns the URL after the click.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
-    handler: (input) => runBrowserClick(toBrowserOperationContext(dependencies), input),
+    handler: (input) =>
+      runBrowserClick(toBrowserOperationContext(dependencies), {
+        sessionId: input.sessionId,
+        selector: input.selector,
+        ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
+      }),
   };
 }

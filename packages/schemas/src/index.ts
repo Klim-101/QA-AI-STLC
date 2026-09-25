@@ -24,3 +24,4 @@ export * from './missing-test-id-report.js';
 export * from './state.js';
 export * from './spoke.js';
 export * from './generation-contract.js';
+export * from './proven-session.js';

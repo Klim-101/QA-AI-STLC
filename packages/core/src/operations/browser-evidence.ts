@@ -1,7 +1,12 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { BrowserActionSchema, type BrowserActionType, type Evidence } from '@qa-ai-stlc/schemas';
+import {
+  BrowserActionSchema,
+  type BrowserActionType,
+  type Evidence,
+  type Identifier,
+} from '@qa-ai-stlc/schemas';
 import type { BrowserSession } from '../browser-session-store.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
@@ -59,6 +64,15 @@ export interface RegisterBrowserActionOptions {
   readonly session: BrowserSession;
   readonly now: Date;
   readonly action: BrowserActionDetails;
+  /**
+   * The case step this action performs (`'step-<N>'`, `N` the step's 1-based position in the
+   * case's `steps`), when the caller is executing a registered case (`qa-execute`, P3-15) rather
+   * than free exploration. Stored inside the evidence content itself (`BrowserActionSchema`), not
+   * only on the `Evidence` wrapper this function returns — the wrapper is never written to disk on
+   * its own, so `qa-generate-tests` (P3-07) recovering a proven session's steps later has nowhere
+   * else to read it back from.
+   */
+  readonly stepId?: Identifier;
 }
 
 /** Writes one `action` evidence record for something the engine just did in the browser. */
@@ -66,6 +80,7 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
   const action = BrowserActionSchema.parse({
     type: options.action.type,
     sessionId: options.session.sessionId,
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
     ...(options.action.url !== undefined ? { url: options.action.url } : {}),
     ...(options.action.selector !== undefined ? { selector: options.action.selector } : {}),
     ...(options.action.valueLength !== undefined ? { valueLength: options.action.valueLength } : {}),
@@ -77,5 +92,6 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
     runId: options.session.runId,
     kind: 'action',
     content: toCanonicalJson(action),
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 }

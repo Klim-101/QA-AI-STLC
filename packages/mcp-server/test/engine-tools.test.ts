@@ -12,6 +12,7 @@ import { casesAddTool } from '../src/tools/cases-add.js';
 import { casesRenderTool } from '../src/tools/cases-render.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
+import { generationProvenSessionTool } from '../src/tools/generation-proven-session.js';
 import { httpExecuteTool } from '../src/tools/http-execute.js';
 import { reportTool } from '../src/tools/report.js';
 import { runTool } from '../src/tools/run.js';
@@ -402,7 +403,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
             'utf-8',
           );
 
-          const result = await httpExecuteTool.handler({ runId: 'run-1', url: baseUrl });
+          const result = await httpExecuteTool.handler({ runId: 'run-1', url: baseUrl, stepId: 'step-1' });
           const rejected = await httpExecuteTool
             .handler({ runId: 'run-1', url: 'https://evil.test/' })
             .catch((caught: unknown) => caught);
@@ -444,6 +445,76 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(result.runResultPath).toBe(`runs/login-case/${result.id}.json`);
       expect(failureResult.id).not.toBe(result.id);
+    });
+  });
+
+  it('qa.generation_proven_session recovers a proven qa-execute session for qa-generate-tests (P3-07)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Click the login button' }, { description: 'Observe the dashboard' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+
+      const notYetExecuted = await generationProvenSessionTool.handler({ testCaseId: 'login-case' });
+
+      // Evidence content is what qa.browser_click/qa.browser_navigate would have registered during
+      // a real qa-execute session (P3-15) — written directly here, the same way this file already
+      // seeds run results elsewhere, rather than driving a real browser in an MCP-tool-level test.
+      await mkdir(join(projectRoot, '.qa', 'evidence', 'run-1'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-1.json'),
+        JSON.stringify({
+          type: 'click',
+          sessionId: 'session-1',
+          stepId: 'step-1',
+          selector: 'role=button[name="Log in"]',
+          at: '2026-09-25T09:59:30.000Z',
+        }),
+        'utf-8',
+      );
+      await writeFile(
+        join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-2.json'),
+        JSON.stringify({
+          type: 'navigate',
+          sessionId: 'session-1',
+          stepId: 'step-2',
+          url: 'https://staging.example.test/dashboard',
+          at: '2026-09-25T09:59:45.000Z',
+        }),
+        'utf-8',
+      );
+      await caseResultRegisterTool.handler({
+        testCaseId: 'login-case',
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: ['evidence-1', 'evidence-2'],
+      });
+
+      const executed = await generationProvenSessionTool.handler({ testCaseId: 'login-case' });
+      process.chdir(originalCwd);
+
+      expect(notYetExecuted).toEqual({ found: false });
+      expect(executed.found).toBe(true);
+      expect(executed.session?.steps.map((step) => step.stepId)).toEqual(['step-1', 'step-2']);
+      expect(executed.session?.steps[0]?.description).toBe('Click the login button');
     });
   });
 

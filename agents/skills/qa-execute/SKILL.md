@@ -68,9 +68,9 @@ actually support it.
 - It does not write or edit case content — that is `qa-design-cases`. A case that turns out to be
   wrong (a stale selector, an outdated step) is reported back for redesign, not patched in place
   here.
-- It does not turn a proven session into a deterministic Playwright or API spec —
-  `qa-generate-tests` ([P3-07](https://github.com/Klim-101/QA-AI-STLC/issues/54), not built yet)
-  does that from this session's own proven steps.
+- It does not turn a proven session into a deterministic Playwright or API spec — that is
+  [`qa-generate-tests`](../qa-generate-tests/SKILL.md), which reads this session's own proven steps
+  back from evidence rather than this skill handing them over directly.
 - It does not replay an already-generated spec (`qa run`, a deterministic, no-model operation with
   no skill of its own).
 - It does not approve or reopen the `cases` gate — that stays the hub's job
@@ -78,6 +78,7 @@ actually support it.
 
 ## What comes next
 
-`qa-generate-tests` is not built yet (P3-07): once this skill registers a passing run result, say
-so plainly and note that generating a deterministic spec from it is planned but not available —
-never fabricate a "test generated" outcome. Update this section once P3-07 ships.
+Once this skill registers a passing run result, `qa-generate-tests` can turn it into a
+deterministic spec — but only if every step-performing call above carried its `stepId` (see
+`references/web.md`/`references/api.md`); a session that skipped this has no proven steps to
+generate from.

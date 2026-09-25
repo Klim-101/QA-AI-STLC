@@ -7,6 +7,7 @@ import {
   type GeneratedTestSpec,
   type GenerationSpokeInput,
   type Identifier,
+  type ProvenSession,
   type RelativePath,
   type SelectorElement,
   type SelectorRegistry,
@@ -61,6 +62,8 @@ export interface BuildGenerationSpokeInputOptions {
   readonly registry: SelectorRegistry;
   readonly elementIds: readonly Identifier[];
   readonly locatorModuleGeneratorVersion: string;
+  /** The case's proven `qa-execute` session (`findLatestProvenSession`), when one exists. */
+  readonly provenSession?: ProvenSession;
 }
 
 /** Assembles the exact input a `generate-test-spec` spoke task (P3-07) receives. */
@@ -75,6 +78,7 @@ export function buildGenerationSpokeInput(options: BuildGenerationSpokeInputOpti
     testCase: options.testCase,
     registrySlice,
     locatorModule: { generatorVersion: options.locatorModuleGeneratorVersion, exports },
+    ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
   });
 }
 

@@ -14,6 +14,12 @@ import type { ToolDefinition } from '../tool.js';
 const InputSchema = SessionIdInputSchema.extend({
   selector: z.string().describe('A Playwright selector for the field to type into.'),
   value: z.string().describe('The text to type. It is never written to evidence, only its length.'),
+  stepId: z
+    .string()
+    .optional()
+    .describe(
+      "'step-<N>', N the case step's 1-based position this fill performs, when executing a registered case.",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -36,6 +42,12 @@ export function createBrowserFillTool(
       'so filling a credential leaves no secret in .qa/.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
-    handler: (input) => runBrowserFill(toBrowserOperationContext(dependencies), input),
+    handler: (input) =>
+      runBrowserFill(toBrowserOperationContext(dependencies), {
+        sessionId: input.sessionId,
+        selector: input.selector,
+        value: input.value,
+        ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
+      }),
   };
 }

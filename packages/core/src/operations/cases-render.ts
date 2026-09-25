@@ -42,7 +42,7 @@ export async function runCasesRender(
 }
 
 /** Every case is registered under `artifacts/cases/<feature>/<id>.json`, feature unknown to the caller. */
-async function findCasePath(store: QaStore, id: string): Promise<RelativePath> {
+export async function findCasePath(store: QaStore, id: string): Promise<RelativePath> {
   const caseFiles = await store.listFiles(CASES_DIR);
   const matches = caseFiles.filter((path) => path.endsWith(`/${id}.json`));
 
