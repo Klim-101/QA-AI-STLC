@@ -20,8 +20,13 @@ be handed to a stakeholder instead of raw JSON. `qa approve <gate> --artifact <p
 --approved-by <name> [--note <text>]` hash-binds an approval to a pipeline gate (`scope`, `cases`,
 approved in order); `qa validate` recomputes every gate's status from the approval ledger and
 re-checks every registered case's requirement links, exiting non-zero for a reopened gate or an
-unlinked case. Every command supports `--json` for machine-readable output and exits non-zero on
-failure.
+unlinked case. `qa run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]`
+runs a spec set through the runner for its test type and persists every result under
+`.qa/runs/<run-id>/`. `qa report [--run <run-id>] [--format markdown|html]` renders that run's
+summary and the current requirement → case → result → evidence traceability matrix — defaulting to
+the most recently started run — from the canonical JSON already recorded under `.qa/`, with no
+hand-written report path. Every command supports `--json` for machine-readable output and exits
+non-zero on failure.
 
 Part of [QA-AI-STLC](https://github.com/Klim-101/QA-AI-STLC). See the repository root for
 license, contributing and security information.

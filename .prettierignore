@@ -3,3 +3,7 @@ coverage
 adapters
 package-lock.json
 docs/dev
+# Golden files are exact renderer output (AGENTS.md 13), compared byte for byte via
+# expectMatchesGoldenFile; Prettier reformatting them (e.g. padding Markdown table columns) would
+# make every renderer test fail against its own real output.
+**/__snapshots__/*.golden.*

@@ -48,6 +48,20 @@ function dependencies(
   return { io, projectRoot: PROJECT_ROOT, fs: createFakeFileSystem(), env: {}, stdout, stderr, ...overrides };
 }
 
+function runRecordJson(id: string, startedAt: string): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    id,
+    testType: 'e2e',
+    specFiles: ['tests/login.playwright-spec.ts'],
+    baseUrl: 'https://staging.example.test/',
+    startedAt,
+    finishedAt: '2026-09-25T10:00:05.000Z',
+    resultIds: [],
+    counts: { passed: 0, failed: 0, blocked: 0, skipped: 0, uncertain: 0, partial: 0 },
+  });
+}
+
 /** A `.qa/manifest.json` registering each of `contentByPath`'s entries under its own hash (P2-07). */
 function manifestRegistering(contentByPath: Readonly<Record<string, string>>): string {
   return JSON.stringify({
@@ -1402,5 +1416,95 @@ describe('runCli', () => {
 
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(stderr.join('\n')).toContain('Playwright did not produce a JSON report');
+  });
+
+  it('runs "report" end to end and renders the given run as Markdown by default', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
+          'run-1',
+          '2026-09-25T10:00:00.000Z',
+        ),
+      }),
+    });
+
+    const exitCode = await runCli(['report', '--run', 'run-1'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('# Run summary: run-1');
+    expect(deps.stdout.join('\n')).toContain('# Traceability matrix');
+  });
+
+  it('runs "report --format html" end to end', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
+          'run-1',
+          '2026-09-25T10:00:00.000Z',
+        ),
+      }),
+    });
+
+    const exitCode = await runCli(['report', '--run', 'run-1', '--format', 'html'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('<h1>Run summary: run-1</h1>');
+  });
+
+  it('defaults "report" to the most recently started run when --run is omitted', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [join(PROJECT_ROOT, '.qa', 'runs', 'run-older', 'run.json')]: runRecordJson(
+          'run-older',
+          '2026-09-24T10:00:00.000Z',
+        ),
+        [join(PROJECT_ROOT, '.qa', 'runs', 'run-newer', 'run.json')]: runRecordJson(
+          'run-newer',
+          '2026-09-25T10:00:00.000Z',
+        ),
+      }),
+    });
+
+    const exitCode = await runCli(['report', '--json'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const parsed = JSON.parse(deps.stdout[0] ?? '') as { data: { runId: string } };
+    expect(parsed.data.runId).toBe('run-newer');
+  });
+
+  it('reports a coded error when "report" is run before any "run" has ever happened', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['report'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('No runs are recorded yet under .qa/runs/');
+  });
+
+  it('reports a coded error when "report --format" is an unknown value', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['report', '--format', 'pdf'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('is not valid for --format');
+  });
+
+  it('defaults the project root to the current working directory for "report"', async () => {
+    const { io, stdout } = captureIO();
+
+    const exitCode = await runCli(['report'], {
+      io,
+      fs: createFakeFileSystem({
+        [join(process.cwd(), '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
+          'run-1',
+          '2026-09-25T10:00:00.000Z',
+        ),
+      }),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(stdout.join('\n')).toContain('# Run summary: run-1');
   });
 });
