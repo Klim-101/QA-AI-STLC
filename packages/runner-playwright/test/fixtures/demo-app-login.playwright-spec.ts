@@ -34,3 +34,29 @@ test(
     await expect(page).toHaveURL(/\/dashboard/);
   },
 );
+
+test(
+  'a wrong password reports partial step coverage',
+  {
+    annotation: [
+      { type: 'testCaseId', description: 'demo-app-login-wrong-password-steps' },
+      // Declares three steps; the last `test.step()` below is never reached once the assertion in
+      // the second one throws, proving the runner reports the gap as `partial`, not `failed`.
+      { type: 'stepIds', description: 'step-1,step-2,expected-result' },
+    ],
+  },
+  async ({ page }) => {
+    await test.step('[step-1] Fill in the login form', async () => {
+      await page.goto('/login');
+      await page.fill('#email', 'admin@example.com');
+      await page.fill('input[name="password"]', 'not-the-real-password');
+    });
+    await test.step('[step-2] Submit and land on the dashboard', async () => {
+      await page.getByRole('button', { name: 'Log in' }).click();
+      await expect(page).toHaveURL(/\/dashboard/);
+    });
+    await test.step('[expected-result] Dashboard greets the logged-in user', async () => {
+      await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    });
+  },
+);

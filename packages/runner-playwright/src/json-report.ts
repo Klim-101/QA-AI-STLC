@@ -13,11 +13,25 @@ const AnnotationSchema = z.object({
   description: z.string().optional(),
 });
 
+// `test.step()` calls nest (a step can contain further steps); Playwright's own report mirrors
+// that with a recursive `steps` array, so this schema does too.
+interface StepResult {
+  readonly title: string;
+  readonly steps?: readonly StepResult[] | undefined;
+}
+const StepResultSchema: z.ZodType<StepResult> = z.lazy(() =>
+  z.object({
+    title: z.string(),
+    steps: z.array(StepResultSchema).optional(),
+  }),
+);
+
 const TestResultSchema = z.object({
   status: z.enum(['passed', 'failed', 'timedOut', 'skipped', 'interrupted']),
   startTime: z.string(),
   duration: z.number(),
   errors: z.array(z.object({ message: z.string().optional() })),
+  steps: z.array(StepResultSchema).optional(),
 });
 
 const TestSchema = z.object({
@@ -48,6 +62,29 @@ export const PlaywrightJsonReportSchema = z.object({
 export type PlaywrightJsonReport = z.infer<typeof PlaywrightJsonReportSchema>;
 export type PlaywrightSpec = z.infer<typeof SpecSchema>;
 export type PlaywrightTestResult = z.infer<typeof TestResultSchema>;
+export type PlaywrightStepResult = StepResult;
+
+// The step/expected-result coverage convention (P3-02): a generated or hand-written spec titles
+// each `test.step()` call `[<id>] <description>`, where `<id>` matches an ID the test case
+// declares in its own `stepIds` annotation. Only the leading bracket is parsed; the rest of the
+// title is free text for humans reading the Playwright report.
+const STEP_ID_PATTERN = /^\[([^[\]]+)]/;
+
+/** Flattens a test result's own step tree, depth first, and extracts each step's declared ID. */
+export function collectStepIds(steps: readonly StepResult[] | undefined): readonly string[] {
+  const ids: string[] = [];
+  const visit = (candidates: readonly StepResult[]): void => {
+    for (const step of candidates) {
+      const match = STEP_ID_PATTERN.exec(step.title);
+      if (match?.[1] !== undefined) {
+        ids.push(match[1]);
+      }
+      visit(step.steps ?? []);
+    }
+  };
+  visit(steps ?? []);
+  return ids;
+}
 
 /** Flattens the report's nested suite tree into the specs it actually ran, depth first. */
 export function collectSpecs(report: PlaywrightJsonReport): readonly PlaywrightSpec[] {

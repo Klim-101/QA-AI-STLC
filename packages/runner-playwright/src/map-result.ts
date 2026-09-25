@@ -3,7 +3,12 @@
 
 import { QaError, randomIdGenerator, type IdGenerator } from '@qa-ai-stlc/core';
 import { RunResultSchema, type Identifier, type RunResult, type RunResultStatus } from '@qa-ai-stlc/schemas';
-import { collectSpecs, type PlaywrightJsonReport, type PlaywrightTestResult } from './json-report.js';
+import {
+  collectSpecs,
+  collectStepIds,
+  type PlaywrightJsonReport,
+  type PlaywrightTestResult,
+} from './json-report.js';
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled Playwright test status: ${String(value)}`);
@@ -36,6 +41,18 @@ function mapStatus(status: PlaywrightTestResult['status']): RunResultStatus {
 function stripAnsiCodes(text: string): string {
   // eslint-disable-next-line no-control-regex -- ANSI escape sequences are control characters by definition.
   return text.replace(/\u001b\[[0-9;]*m/g, '');
+}
+
+// A `stepIds` annotation is how a spec declares the full set of step/expected-result IDs its
+// `test.step()` calls are supposed to cover (P3-02); its `description` is that set, comma
+// separated, in declaration order. A test with no such annotation opts out of coverage tracking
+// entirely — kept optional so a hand-written spec with no `test.step()` calls (e.g. P3-01's own
+// fixture) is unaffected.
+function parseDeclaredStepIds(description: string | undefined): readonly string[] {
+  if (description === undefined || description.length === 0) {
+    return [];
+  }
+  return description.split(',').map((id) => id.trim());
 }
 
 export interface MapReportOptions {
@@ -72,10 +89,25 @@ export function mapReportToRunResults(options: MapReportOptions): readonly RunRe
         throw new QaError('RUNNER_NO_TEST_RESULT', `Playwright test "${spec.title}" produced no result.`);
       }
 
-      const status = mapStatus(lastResult.status);
+      const mappedStatus = mapStatus(lastResult.status);
       const startedAt = new Date(lastResult.startTime);
       const finishedAt = new Date(startedAt.getTime() + lastResult.duration);
       const failureMessage = lastResult.errors[0]?.message;
+
+      const stepIdsAnnotation = test.annotations.find((candidate) => candidate.type === 'stepIds');
+      const declaredStepIds = parseDeclaredStepIds(stepIdsAnnotation?.description);
+      const observedStepIds = new Set(collectStepIds(lastResult.steps));
+      const missingStepIds = declaredStepIds.filter((id) => !observedStepIds.has(id));
+
+      // Incomplete step coverage on a test Playwright itself considers finished (passed or
+      // failed) means the case was not actually exercised in full — reporting it as `passed` or
+      // `failed` would claim a verdict the run never reached (AGENTS.md 12.5); `partial` says so
+      // honestly. A test Playwright already reports as `blocked` or `skipped` is already honest
+      // about not having run to completion, so coverage does not override those.
+      const status: RunResultStatus =
+        missingStepIds.length > 0 && (mappedStatus === 'passed' || mappedStatus === 'failed')
+          ? 'partial'
+          : mappedStatus;
 
       results.push(
         RunResultSchema.parse({
@@ -87,15 +119,19 @@ export function mapReportToRunResults(options: MapReportOptions): readonly RunRe
           startedAt: startedAt.toISOString(),
           finishedAt: finishedAt.toISOString(),
           evidenceIds: [],
-          ...(status === 'failed'
+          ...(status === 'failed' || status === 'partial'
             ? {
                 failure: {
                   message: stripAnsiCodes(
-                    failureMessage ?? 'Playwright reported a failure with no error message.',
+                    failureMessage ??
+                      (status === 'partial'
+                        ? `Missing step coverage for: ${missingStepIds.join(', ')}.`
+                        : 'Playwright reported a failure with no error message.'),
                   ),
                 },
               }
             : {}),
+          ...(status === 'partial' ? { missingStepIds } : {}),
         }),
       );
     }

@@ -15,6 +15,7 @@ function reportWithOneTest(overrides: {
   readonly status?: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';
   readonly annotations?: readonly AnnotationOverride[];
   readonly errorMessage?: string;
+  readonly stepTitles?: readonly string[];
 }): PlaywrightJsonReport {
   return {
     suites: [
@@ -31,6 +32,7 @@ function reportWithOneTest(overrides: {
                     startTime: '2026-09-25T10:00:00.000Z',
                     duration: 1500,
                     errors: overrides.errorMessage !== undefined ? [{ message: overrides.errorMessage }] : [],
+                    steps: overrides.stepTitles?.map((title) => ({ title })),
                   },
                 ],
               },
@@ -110,5 +112,88 @@ describe('mapReportToRunResults', () => {
       suites: [{ specs: [{ title: 'no result', tests: [{ annotations: [], results: [] }] }] }],
     };
     expect(() => mapReportToRunResults({ report, runId: 'run-1', testType: 'e2e' })).toThrow(QaError);
+  });
+
+  describe('step coverage', () => {
+    it('ignores step coverage for a test with no "stepIds" annotation', () => {
+      const [result] = mapReportToRunResults({
+        report: reportWithOneTest({ status: 'passed', stepTitles: ['[step-1] Do the thing'] }),
+        runId: 'run-1',
+        testType: 'e2e',
+      });
+      expect(result?.status).toBe('passed');
+      expect(result?.missingStepIds).toBeUndefined();
+    });
+
+    it('stays "passed" when every declared step ID was observed', () => {
+      const [result] = mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'passed',
+          annotations: [
+            { type: 'testCaseId', description: 'tc-1' },
+            { type: 'stepIds', description: 'step-1, step-2, expected-result' },
+          ],
+          stepTitles: ['[step-1] Fill in the form', '[step-2] Submit', '[expected-result] Dashboard shown'],
+        }),
+        runId: 'run-1',
+        testType: 'e2e',
+      });
+      expect(result?.status).toBe('passed');
+      expect(result?.missingStepIds).toBeUndefined();
+    });
+
+    it('reports "partial" with the missing step IDs when a failed test did not reach every step', () => {
+      const [result] = mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'failed',
+          errorMessage: 'Expected the dashboard, got the login page',
+          annotations: [
+            { type: 'testCaseId', description: 'tc-1' },
+            { type: 'stepIds', description: 'step-1,step-2,expected-result' },
+          ],
+          stepTitles: ['[step-1] Fill in the form', '[step-2] Submit'],
+        }),
+        runId: 'run-1',
+        testType: 'e2e',
+      });
+      expect(result?.status).toBe('partial');
+      expect(result?.missingStepIds).toEqual(['expected-result']);
+      expect(result?.failure?.message).toBe('Expected the dashboard, got the login page');
+    });
+
+    it('reports "partial" with a coverage message when no Playwright error explains the gap', () => {
+      const [result] = mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'passed',
+          annotations: [
+            { type: 'testCaseId', description: 'tc-1' },
+            { type: 'stepIds', description: 'step-1,step-2' },
+          ],
+          stepTitles: ['[step-1] Fill in the form'],
+        }),
+        runId: 'run-1',
+        testType: 'e2e',
+      });
+      expect(result?.status).toBe('partial');
+      expect(result?.missingStepIds).toEqual(['step-2']);
+      expect(result?.failure?.message).toBe('Missing step coverage for: step-2.');
+    });
+
+    it('does not override an honest "blocked" status with "partial"', () => {
+      const [result] = mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'interrupted',
+          annotations: [
+            { type: 'testCaseId', description: 'tc-1' },
+            { type: 'stepIds', description: 'step-1,step-2' },
+          ],
+          stepTitles: [],
+        }),
+        runId: 'run-1',
+        testType: 'e2e',
+      });
+      expect(result?.status).toBe('blocked');
+      expect(result?.missingStepIds).toBeUndefined();
+    });
   });
 });

@@ -36,6 +36,11 @@ export const RunResultSchema = z
     finishedAt: IsoDateTimeSchema,
     evidenceIds: z.array(IdentifierSchema),
     failure: RunResultFailureSchema.optional(),
+    // The declared step/expected-result IDs (P3-02) a runner found no matching `test.step()` for
+    // in its report, in declaration order. Only meaningful for `status: 'partial'`: it is how a
+    // partial result says which part of the case it did not get to, not just that it did not
+    // finish.
+    missingStepIds: z.array(z.string().min(1)).optional(),
   })
   // Valid JSON is not a correct result: a result that finished before it started, or that claims
   // to have failed without saying what failed, is not a shape the engine ever produces.
@@ -46,5 +51,13 @@ export const RunResultSchema = z
   .refine((result) => result.status !== 'failed' || result.failure !== undefined, {
     message: '"failure" is required when status is "failed"',
     path: ['failure'],
+  })
+  .refine((result) => result.status !== 'partial' || (result.missingStepIds?.length ?? 0) > 0, {
+    message: '"missingStepIds" is required and non-empty when status is "partial"',
+    path: ['missingStepIds'],
+  })
+  .refine((result) => result.status === 'partial' || result.missingStepIds === undefined, {
+    message: '"missingStepIds" is only meaningful when status is "partial"',
+    path: ['missingStepIds'],
   });
 export type RunResult = z.infer<typeof RunResultSchema>;

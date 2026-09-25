@@ -81,15 +81,20 @@ describe('playwrightRunner (demo app)', () => {
         specFiles: [specFile],
       });
 
-      expect(results).toHaveLength(2);
+      expect(results).toHaveLength(3);
       const passed = results.find((result) => result.testCaseId === 'demo-app-login');
       const failed = results.find((result) => result.testCaseId === 'demo-app-login-wrong-password');
+      const partial = results.find((result) => result.testCaseId === 'demo-app-login-wrong-password-steps');
 
       expect(passed).toMatchObject({ runId: 'run-demo-app-login', testType: 'e2e', status: 'passed' });
       expect(passed?.failure).toBeUndefined();
 
       expect(failed).toMatchObject({ runId: 'run-demo-app-login', testType: 'e2e', status: 'failed' });
       expect(failed?.failure?.message.length).toBeGreaterThan(0);
+
+      expect(partial).toMatchObject({ runId: 'run-demo-app-login', testType: 'e2e', status: 'partial' });
+      expect(partial?.missingStepIds).toEqual(['expected-result']);
+      expect(partial?.failure?.message.length).toBeGreaterThan(0);
     },
     STARTUP_TIMEOUT_MS,
   );

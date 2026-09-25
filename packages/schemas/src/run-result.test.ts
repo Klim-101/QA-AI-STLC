@@ -75,4 +75,63 @@ describe('RunResultSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts a "partial" status with non-empty missing step IDs', () => {
+    const result = RunResultSchema.safeParse({
+      id: 'result-6',
+      runId: 'run-1',
+      testCaseId: 'case-6',
+      testType: 'e2e',
+      status: 'partial',
+      startedAt: '2026-09-16T12:00:00Z',
+      finishedAt: '2026-09-16T12:00:01Z',
+      evidenceIds: [],
+      missingStepIds: ['step-2', 'expected-result'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a "partial" status with no missing step IDs', () => {
+    const result = RunResultSchema.safeParse({
+      id: 'result-7',
+      runId: 'run-1',
+      testCaseId: 'case-7',
+      testType: 'e2e',
+      status: 'partial',
+      startedAt: '2026-09-16T12:00:00Z',
+      finishedAt: '2026-09-16T12:00:01Z',
+      evidenceIds: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a "partial" status with an empty missing step IDs array', () => {
+    const result = RunResultSchema.safeParse({
+      id: 'result-8',
+      runId: 'run-1',
+      testCaseId: 'case-8',
+      testType: 'e2e',
+      status: 'partial',
+      startedAt: '2026-09-16T12:00:00Z',
+      finishedAt: '2026-09-16T12:00:01Z',
+      evidenceIds: [],
+      missingStepIds: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing step IDs on a non-"partial" status', () => {
+    const result = RunResultSchema.safeParse({
+      id: 'result-9',
+      runId: 'run-1',
+      testCaseId: 'case-9',
+      testType: 'e2e',
+      status: 'passed',
+      startedAt: '2026-09-16T12:00:00Z',
+      finishedAt: '2026-09-16T12:00:01Z',
+      evidenceIds: [],
+      missingStepIds: ['step-1'],
+    });
+    expect(result.success).toBe(false);
+  });
 });
