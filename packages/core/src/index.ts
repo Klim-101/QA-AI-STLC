@@ -34,6 +34,7 @@ export * from './requirement-linking.js';
 export * from './test-data-linking.js';
 export * from './testing-scope.js';
 export * from './engine-context.js';
+export * from './runner.js';
 export * from './operations/doctor.js';
 export * from './operations/scope.js';
 export * from './operations/cases-add.js';
