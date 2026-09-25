@@ -81,6 +81,7 @@ describe('createFakeExploreBrowserLauncher', () => {
     const page = await context.newPage();
 
     await expect(page.ariaSnapshotJSON()).resolves.toEqual({ role: 'document' });
+    await expect(page.addScriptTag({ content: 'window.foo = 1;' })).resolves.toBeUndefined();
     expect(page.viewportSize()).toBeNull();
     await expect(page.reload()).resolves.toEqual(expect.objectContaining({}));
     await expect(page.setViewportSize({ width: 100, height: 100 })).resolves.toBeUndefined();

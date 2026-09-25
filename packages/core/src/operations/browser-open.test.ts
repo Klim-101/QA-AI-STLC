@@ -124,6 +124,60 @@ describe('runBrowserOpen', () => {
     expect(routeCall?.args[0]).toBe('**/*');
   });
 
+  it('keeps the GET-only rule by default even with executionMode omitted (ADR-0009)', async () => {
+    const harness = createBrowserTestHarness();
+
+    await runBrowserOpen(harness.context);
+
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'route');
+    const handler = routeCall?.args[1] as (route: {
+      request: () => { method: () => string; url: () => string };
+      abort: () => Promise<void>;
+      continue: () => Promise<void>;
+    }) => Promise<void>;
+    const calls: string[] = [];
+    await handler({
+      request: () => ({ method: () => 'POST', url: () => 'https://staging.example.test/login' }),
+      abort: () => {
+        calls.push('abort');
+        return Promise.resolve();
+      },
+      continue: () => {
+        calls.push('continue');
+        return Promise.resolve();
+      },
+    });
+
+    expect(calls).toEqual(['abort']);
+  });
+
+  it('allows a non-GET request within the allowlist when executionMode is set (P3-14, ADR-0009)', async () => {
+    const harness = createBrowserTestHarness();
+
+    await runBrowserOpen(harness.context, { executionMode: true });
+
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'route');
+    const handler = routeCall?.args[1] as (route: {
+      request: () => { method: () => string; url: () => string };
+      abort: () => Promise<void>;
+      continue: () => Promise<void>;
+    }) => Promise<void>;
+    const calls: string[] = [];
+    await handler({
+      request: () => ({ method: () => 'POST', url: () => 'https://staging.example.test/login' }),
+      abort: () => {
+        calls.push('abort');
+        return Promise.resolve();
+      },
+      continue: () => {
+        calls.push('continue');
+        return Promise.resolve();
+      },
+    });
+
+    expect(calls).toEqual(['continue']);
+  });
+
   it('resolves a named environment', async () => {
     const harness = createBrowserTestHarness();
 

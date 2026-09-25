@@ -26,6 +26,7 @@ function fakePage(overrides: Partial<AuthPage> = {}): AuthPage {
     route: () => Promise.resolve(),
     evaluate: () => Promise.resolve(undefined),
     ariaSnapshotJSON: () => Promise.resolve(undefined),
+    addScriptTag: () => Promise.resolve(undefined),
     getByRole: () => ({ count: () => Promise.resolve(1) }),
     getByTestId: () => ({ count: () => Promise.resolve(1) }),
     getByLabel: () => ({ count: () => Promise.resolve(1) }),

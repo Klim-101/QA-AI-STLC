@@ -4,7 +4,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchHttpClient } from './http-client.js';
 
-const undiciFetch = vi.fn<(...args: unknown[]) => Promise<{ ok: boolean; status: number }>>();
+const undiciFetch = vi.fn<
+  (...args: unknown[]) => Promise<{
+    ok: boolean;
+    status: number;
+    headers?: Headers;
+    text?: () => Promise<string>;
+  }>
+>();
 
 vi.mock('undici', () => ({
   // A named function, not an empty class, stands in for undici's `Agent`: it is only ever used
@@ -67,5 +74,63 @@ describe('fetchHttpClient', () => {
 
     const [, options] = undiciFetch.mock.calls[0] ?? [];
     expect(options).toMatchObject({ method: 'GET', signal: controller.signal });
+  });
+
+  it('request() defaults to GET with no body when no options are given', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, headers: new Headers(), text: () => Promise.resolve('') });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await fetchHttpClient.request('https://example.com');
+
+    expect(response).toEqual({ ok: true, status: 200, headers: {}, bodyText: '' });
+    expect(fetchMock).toHaveBeenCalledWith('https://example.com', { method: 'GET' });
+  });
+
+  it('request() passes method, headers and body through', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: new Headers({ 'content-type': 'text/html' }),
+      text: () => Promise.resolve('<p>Invalid email or password.</p>'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await fetchHttpClient.request('https://example.com/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'email=a%40b.com&password=wrong',
+    });
+
+    expect(response).toEqual({
+      ok: false,
+      status: 401,
+      headers: { 'content-type': 'text/html' },
+      bodyText: '<p>Invalid email or password.</p>',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('https://example.com/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'email=a%40b.com&password=wrong',
+    });
+  });
+
+  it('request() uses the insecure dispatcher when tlsInsecure is true', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    undiciFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: () => Promise.resolve(''),
+    });
+
+    await fetchHttpClient.request('https://staging.internal', { method: 'POST', tlsInsecure: true });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const [, options] = undiciFetch.mock.calls[0] ?? [];
+    expect(options).toMatchObject({ method: 'POST' });
+    expect((options as { dispatcher?: unknown } | undefined)?.dispatcher).toBeDefined();
   });
 });

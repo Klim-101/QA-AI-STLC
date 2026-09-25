@@ -17,6 +17,11 @@ import type { HttpClient } from './ports/http-client.js';
 import type { ProcessRunner } from './ports/process-runner.js';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 
+// None of this file's fixtures exercise `HttpClient.request` (only `checkBaseUrlReachable`'s
+// `get()` path); a rejecting stub keeps every inline `HttpClient` literal below minimal.
+const requestNotUsed: HttpClient['request'] = () =>
+  Promise.reject(new Error('request() not used in this fixture'));
+
 describe('resolveBrowserExecutablePath', () => {
   it('resolves a path for every supported browser', () => {
     expect(resolveBrowserExecutablePath('chromium')).toBeTruthy();
@@ -80,7 +85,10 @@ describe('checkBaseUrlReachable', () => {
   });
 
   it('accepts an explicit timeout', async () => {
-    const httpClient: HttpClient = { get: () => Promise.resolve({ ok: true, status: 200 }) };
+    const httpClient: HttpClient = {
+      get: () => Promise.resolve({ ok: true, status: 200 }),
+      request: requestNotUsed,
+    };
 
     const result = await checkBaseUrlReachable('https://example.com', { httpClient, timeoutMs: 50 });
 
@@ -88,7 +96,10 @@ describe('checkBaseUrlReachable', () => {
   });
 
   it('passes when the HTTP client resolves', async () => {
-    const httpClient: HttpClient = { get: () => Promise.resolve({ ok: true, status: 200 }) };
+    const httpClient: HttpClient = {
+      get: () => Promise.resolve({ ok: true, status: 200 }),
+      request: requestNotUsed,
+    };
 
     expect(await checkBaseUrlReachable('https://example.com', { httpClient })).toMatchObject({
       status: 'pass',
@@ -103,6 +114,7 @@ describe('checkBaseUrlReachable', () => {
             reject(new Error('aborted'));
           });
         }),
+      request: requestNotUsed,
     };
 
     const result = await checkBaseUrlReachable('https://example.com', { httpClient, timeoutMs: 5 });
@@ -113,6 +125,7 @@ describe('checkBaseUrlReachable', () => {
   it('fails with a remediation when the HTTP client rejects', async () => {
     const httpClient: HttpClient = {
       get: () => Promise.reject(new Error('network down')),
+      request: requestNotUsed,
     };
 
     const result = await checkBaseUrlReachable('https://example.com', { httpClient });
@@ -128,6 +141,7 @@ describe('checkBaseUrlReachable', () => {
         receivedOptions = options;
         return Promise.resolve({ ok: true, status: 200 });
       },
+      request: requestNotUsed,
     };
 
     await checkBaseUrlReachable('https://example.com', { httpClient, tlsInsecure: true });
@@ -143,6 +157,7 @@ describe('checkBaseUrlReachable', () => {
         receivedOptions = options;
         return Promise.resolve({ ok: true, status: 200 });
       },
+      request: requestNotUsed,
     };
 
     await checkBaseUrlReachable('https://example.com', { httpClient });
@@ -248,7 +263,10 @@ describe('checkApiContractReadable', () => {
 
   it('checks a contract URL over HTTP instead of the filesystem', async () => {
     const fs = createFakeFileSystem();
-    const httpClient: HttpClient = { get: () => Promise.resolve({ ok: true, status: 200 }) };
+    const httpClient: HttpClient = {
+      get: () => Promise.resolve({ ok: true, status: 200 }),
+      request: requestNotUsed,
+    };
 
     const results = await checkApiContractReadable(
       fs,
@@ -264,7 +282,10 @@ describe('checkApiContractReadable', () => {
 
   it('fails when a contract URL is not reachable', async () => {
     const fs = createFakeFileSystem();
-    const httpClient: HttpClient = { get: () => Promise.reject(new Error('network down')) };
+    const httpClient: HttpClient = {
+      get: () => Promise.reject(new Error('network down')),
+      request: requestNotUsed,
+    };
 
     const results = await checkApiContractReadable(
       fs,

@@ -64,4 +64,28 @@ describe('createBrowserSafeModeRouteHandler', () => {
     expect(route.calls).toEqual(['abort']);
     expect(blocked).toEqual([{ method: 'GET', url: 'http://staging.example.test:9999/' }]);
   });
+
+  it('allows an allowlisted non-GET request when allowMutations is set (P3-14, ADR-0009)', async () => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute('POST', 'https://staging.example.test/login');
+
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request), {
+      allowMutations: true,
+    })(route);
+
+    expect(route.calls).toEqual(['continue']);
+    expect(blocked).toEqual([]);
+  });
+
+  it('still aborts a non-allowlisted non-GET request even when allowMutations is set', async () => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute('POST', 'https://evil.test/phishing');
+
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request), {
+      allowMutations: true,
+    })(route);
+
+    expect(route.calls).toEqual(['abort']);
+    expect(blocked).toEqual([{ method: 'POST', url: 'https://evil.test/phishing' }]);
+  });
 });

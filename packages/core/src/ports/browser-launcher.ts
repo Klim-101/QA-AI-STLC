@@ -62,6 +62,8 @@ export interface AuthPage {
   evaluate(pageFunction: () => unknown): Promise<unknown>;
   /** The page's accessibility tree as free-form JSON (Playwright's own aria snapshot). */
   ariaSnapshotJSON(): Promise<unknown>;
+  /** Injects a script into the page (P3-14: loading axe-core for an accessibility scan). */
+  addScriptTag(options: { readonly content: string }): Promise<unknown>;
   getByRole(role: string, options?: GetByRoleOptions): PageLocator;
   getByTestId(testId: string): PageLocator;
   getByLabel(text: string): PageLocator;

@@ -17,6 +17,13 @@ const ALL_REQUESTS_PATTERN = '**/*';
 export interface BrowserOpenOptions {
   /** Environment name from config.yaml. Required only when the project defines more than one. */
   readonly environment?: string;
+  /**
+   * Opts into interactive case execution's one relaxation of safe mode (P3-14, ADR-0009): the
+   * session's route handler allows non-GET requests, so a real form submission can go through.
+   * The domain allowlist still applies unconditionally. Off by default — exploration and pick
+   * mode never set this.
+   */
+  readonly executionMode?: boolean;
 }
 
 export interface BrowserOpenResult {
@@ -63,10 +70,11 @@ export function resolveBrowserEnvironment(
 
 /**
  * MCP `qa.browser_open` (P2-06): launches a headless browser for an exploratory session and
- * records opening it as evidence. Safe mode is applied here, once, for the whole session and
- * with no way to turn it off (AGENTS.md 12.4): every non-GET request is aborted, so a later
- * click can never submit a form. The session's domain allowlist comes from the environment's
- * own configuration and bounds every navigation the session will be allowed to make.
+ * records opening it as evidence. Safe mode is applied here, once, for the whole session
+ * (AGENTS.md 12.4): every non-GET request is aborted, so a later click can never submit a form —
+ * unless `options.executionMode` opts an interactive case-execution session out of that one
+ * restriction (P3-14, ADR-0009). The session's domain allowlist comes from the environment's own
+ * configuration and bounds every navigation the session will be allowed to make, in either mode.
  */
 export async function runBrowserOpen(
   context: BrowserOperationContext,
@@ -97,8 +105,11 @@ export async function runBrowserOpen(
     const page = await browserContext.newPage();
     await page.route(
       ALL_REQUESTS_PATTERN,
-      createBrowserSafeModeRouteHandler(environment.config.allowlist, environment.config.baseUrl, (request) =>
-        blockedRequests.push(request),
+      createBrowserSafeModeRouteHandler(
+        environment.config.allowlist,
+        environment.config.baseUrl,
+        (request) => blockedRequests.push(request),
+        { allowMutations: options.executionMode === true },
       ),
     );
     session = context.sessions.open({

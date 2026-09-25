@@ -85,6 +85,7 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Aut
       return Promise.resolve(options.elementsByUrl?.[currentUrl] ?? options.linksByUrl?.[currentUrl] ?? []);
     },
     ariaSnapshotJSON: () => Promise.resolve({ role: 'document' }),
+    addScriptTag: () => Promise.resolve(undefined),
     getByRole: locatorMethod,
     getByTestId: locatorMethod,
     getByLabel: locatorMethod,

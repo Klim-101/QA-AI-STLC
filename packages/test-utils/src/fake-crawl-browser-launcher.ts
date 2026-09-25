@@ -102,6 +102,7 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     },
     ariaSnapshotJSON: () =>
       Promise.resolve(currentUrl === undefined ? undefined : options.ariaSnapshotByUrl?.[currentUrl]),
+    addScriptTag: () => Promise.resolve(undefined),
     getByRole: () => locator(),
     getByTestId: () => locator(),
     getByLabel: () => locator(),

@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["src/**/*.test.ts", "src/test-support/**"],
+  "compilerOptions": {
+    "rootDir": "src"
+  },
+  "exclude": ["src/**/*.test.ts", "src/test-support/**", "test"],
   "references": [{ "path": "../schemas/tsconfig.build.json" }]
 }

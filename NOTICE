@@ -3,3 +3,9 @@ Copyright The QA-AI-STLC Authors
 
 This product includes software developed by The QA-AI-STLC Authors
 (https://github.com/Klim-101/QA-AI-STLC).
+
+--
+
+This product depends on axe-core (https://github.com/dequelabs/axe-core), licensed under the
+Mozilla Public License, version 2.0. axe-core is used unmodified as a runtime dependency;
+its own license terms apply to its source.

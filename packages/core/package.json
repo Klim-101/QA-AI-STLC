@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@qa-ai-stlc/schemas": "1.0.1",
+    "axe-core": "4.13.0",
     "cross-spawn": "7.0.6",
     "playwright-core": "1.63.0",
     "undici": "8.11.0",

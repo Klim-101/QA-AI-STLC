@@ -16,6 +16,7 @@ function fakePage(evaluateResult: unknown): AuthPage {
     route: () => Promise.resolve(),
     evaluate: () => Promise.resolve(evaluateResult),
     ariaSnapshotJSON: () => Promise.resolve(undefined),
+    addScriptTag: () => Promise.resolve(undefined),
     ...createLocatorMethods(),
   };
 }

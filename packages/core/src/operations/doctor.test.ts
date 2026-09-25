@@ -108,7 +108,10 @@ describe('runDoctor', () => {
     const context = fakeContext({
       fs,
       env: { QA_ADMIN_PASSWORD: 'set' },
-      httpClient: { get },
+      httpClient: {
+        get,
+        request: vi.fn().mockRejectedValue(new Error('request() not used in this fixture')),
+      },
       logger: { ...noopLogger, warn },
     });
     await fs.mkdir(QA_DIR);
