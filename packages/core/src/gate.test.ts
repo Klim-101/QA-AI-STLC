@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ApprovalLedgerStore } from './approval-ledger-store.js';
 import { QaError } from './errors.js';
-import { GateStateMachine } from './gate.js';
+import { CASES_INDEX_PATH, GateStateMachine } from './gate.js';
 import { hashText } from './hash.js';
 import { toCanonicalJson } from './json-file.js';
 import { ManifestStore } from './manifest-store.js';
@@ -89,6 +89,13 @@ function validCase(overrides: { id?: string; feature?: string } = {}): unknown {
   };
 }
 
+/** The `cases` gate's aggregate snapshot (#357) for the given already-registered case file paths. */
+function casesIndex(files: readonly { path: string; content: unknown }[]): unknown {
+  return {
+    files: files.map(({ path, content }) => ({ path, sha256: hashText(toCanonicalJson(content)) })),
+  };
+}
+
 describe('GateStateMachine', () => {
   it('approves the current phase and advances to the next one', async () => {
     const { store, manifest, gates } = createGateStateMachine();
@@ -110,11 +117,17 @@ describe('GateStateMachine', () => {
     await writeAndRegisterConfig(store, manifest);
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const state = await gates.approve({
       gate: 'cases',
-      artifactPath: 'artifacts/cases/checkout/case-1.json',
+      artifactPath: CASES_INDEX_PATH,
       approvedBy: 'operator',
     });
 
@@ -199,20 +212,83 @@ describe('GateStateMachine', () => {
     expect((error as QaError).code).toBe('GATE_ARTIFACT_PATH_MISMATCH');
   });
 
-  it('accepts any registered artifact under artifacts/cases/ for the cases gate', async () => {
+  it('accepts the case-set aggregate for the cases gate', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(store, manifest);
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+
+    const state = await gates.approve({
+      gate: 'cases',
+      artifactPath: CASES_INDEX_PATH,
+      approvedBy: 'operator',
+    });
+
+    expect(state.gates.cases.status).toBe('satisfied');
+  });
+
+  // Regression, #357: a single case file is one of many files that make up the case set, so
+  // binding the gate to it directly (the old "any path under artifacts/cases/" behavior removed
+  // above) let approving one case's file stand in for the whole set.
+  it('rejects approving cases with one case file directly, even though it is registered', async () => {
     const { store, manifest, gates } = createGateStateMachine();
     await writeAndRegisterConfig(store, manifest);
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
-    const state = await gates.approve({
-      gate: 'cases',
-      artifactPath: 'artifacts/cases/checkout/case-1.json',
-      approvedBy: 'operator',
-    });
+    const error = await gates
+      .approve({
+        gate: 'cases',
+        artifactPath: 'artifacts/cases/checkout/case-1.json',
+        approvedBy: 'operator',
+      })
+      .catch((caught: unknown) => caught);
 
-    expect(state.gates.cases.status).toBe('satisfied');
+    expect(error).toBeInstanceOf(QaError);
+    expect((error as QaError).code).toBe('GATE_ARTIFACT_PATH_MISMATCH');
+  });
+
+  // The issue's own repro (#357): approving `cases` against the aggregate snapshot, then adding
+  // another case without refreshing the snapshot, must reopen the gate — the whole point of
+  // binding to a set-level snapshot instead of one file.
+  it('reopens a satisfied cases gate when a case is added after approval without refreshing the aggregate', async () => {
+    const { store, manifest, gates } = createGateStateMachine();
+    await writeAndRegisterConfig(store, manifest);
+    await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
+    await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
+    await gates.approve({ gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' });
+
+    // A second case is registered, but the aggregate on disk is stale until it is regenerated.
+    const case2 = validCase({ id: 'case-2' });
+    await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-2.json', case2);
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([
+        { path: 'artifacts/cases/checkout/case-1.json', content: validCase() },
+        { path: 'artifacts/cases/checkout/case-2.json', content: case2 },
+      ]),
+    );
+
+    const state = await gates.validate();
+
+    expect(state.gates.cases.status).toBe('open');
   });
 
   it('rejects approving cases while any testing type is still undecided (P2-16)', async () => {
@@ -224,14 +300,16 @@ describe('GateStateMachine', () => {
     );
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const error = await gates
-      .approve({
-        gate: 'cases',
-        artifactPath: 'artifacts/cases/checkout/case-1.json',
-        approvedBy: 'operator',
-      })
+      .approve({ gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' })
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(QaError);
@@ -247,14 +325,16 @@ describe('GateStateMachine', () => {
     );
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const error = await gates
-      .approve({
-        gate: 'cases',
-        artifactPath: 'artifacts/cases/checkout/case-1.json',
-        approvedBy: 'operator',
-      })
+      .approve({ gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' })
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(QaError);
@@ -271,14 +351,16 @@ describe('GateStateMachine', () => {
     );
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
 
     const error = await gates
-      .approve({
-        gate: 'cases',
-        artifactPath: 'artifacts/cases/checkout/case-1.json',
-        approvedBy: 'operator',
-      })
+      .approve({ gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' })
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(QaError);
@@ -292,12 +374,14 @@ describe('GateStateMachine', () => {
     await writeAndRegisterConfig(store, manifest);
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
-    await gates.approve({
-      gate: 'cases',
-      artifactPath: 'artifacts/cases/checkout/case-1.json',
-      approvedBy: 'operator',
-    });
+    await gates.approve({ gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' });
 
     // Flips `a11y` from out-of-scope to in-scope, the way "qa config set testing.a11y in-scope" would.
     const changed = configYaml('e2e: in-scope, api: out-of-scope, a11y: in-scope, security: out-of-scope');
@@ -312,12 +396,14 @@ describe('GateStateMachine', () => {
     await writeAndRegisterConfig(store, manifest);
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
     await writeAndRegister(store, manifest, 'artifacts/cases/checkout/case-1.json', validCase());
+    await writeAndRegister(
+      store,
+      manifest,
+      CASES_INDEX_PATH,
+      casesIndex([{ path: 'artifacts/cases/checkout/case-1.json', content: validCase() }]),
+    );
     await gates.approve({ gate: 'scope', artifactPath: 'artifacts/scope.json', approvedBy: 'operator' });
-    await gates.approve({
-      gate: 'cases',
-      artifactPath: 'artifacts/cases/checkout/case-1.json',
-      approvedBy: 'operator',
-    });
+    await gates.approve({ gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' });
 
     const state = await gates.validate();
 

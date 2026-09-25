@@ -3,6 +3,7 @@
 
 import { ApiSurfaceSchema } from './api-surface.js';
 import { ApprovalLedgerSchema } from './approval-ledger.js';
+import { CasesIndexSchema, FeatureCaseIndexSchema } from './case-index.js';
 import { ConfigSchema } from './config.js';
 import { DefectDraftSchema } from './defect.js';
 import { BrowserActionSchema, EvidenceSchema } from './evidence.js';
@@ -27,6 +28,8 @@ export const artifactSchemas = {
   'route-map': RouteMapSchema,
   'page-models': PageModelSetSchema,
   'test-case': TestCaseSchema,
+  'case-index': FeatureCaseIndexSchema,
+  'cases-index': CasesIndexSchema,
   'test-data': TestDataSchema,
   'run-result': RunResultSchema,
   evidence: EvidenceSchema,

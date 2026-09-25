@@ -17,6 +17,7 @@ import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 import { findUndecidedTestingTypes } from '../testing-scope.js';
+import { regenerateCaseIndexes } from './cases-index.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 const DEFAULT_SCOPE_GENERATED_AT = new Date(0).toISOString();
@@ -97,6 +98,9 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   const serialized = toCanonicalJson(testCase);
   await store.writeText(casePath, serialized);
   await manifestStore.register(casePath, serialized);
+  // Keeps the `cases` gate's aggregate snapshot (#357) current: a stale one would let a case
+  // added or edited after approval go undetected by `qa validate`.
+  await regenerateCaseIndexes(store, manifestStore);
 
   return { casePath, id: testCase.id, requirementIds: testCase.requirementIds };
 }
