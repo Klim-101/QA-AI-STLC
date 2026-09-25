@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { TestCase } from '@qa-ai-stlc/schemas';
+import type { FeatureCaseIndex, TestCase } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { renderMarkdownArtifact } from './markdown-registry.js';
 
@@ -24,5 +24,13 @@ describe('renderMarkdownArtifact', () => {
 
     expect(markdown).toContain('# A case');
     expect(markdown).toContain('**Feature:** checkout');
+  });
+
+  it('dispatches "case-index" to the case-index renderer', () => {
+    const index: FeatureCaseIndex = { schemaVersion: 1, feature: 'checkout', cases: [] };
+
+    const markdown = renderMarkdownArtifact('case-index', index);
+
+    expect(markdown).toContain('# Test cases: checkout');
   });
 });

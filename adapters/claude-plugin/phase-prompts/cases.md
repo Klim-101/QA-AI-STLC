@@ -9,9 +9,11 @@ back to the requirements approved in the `scope` phase, then gets the case set a
    (`TestCaseSchema`). The tool rejects a case whose `requirementIds` do not resolve against
    `artifacts/scope.json` with `CASE_UNLINKED_REQUIREMENT` — resolve the requirement id in the
    `scope` phase first, it is never invented here.
-2. Once the operator is satisfied with the registered case set, `qa.approve` with
-   `gate: 'cases'` and the relevant artifact path. This is the case review gate (development plan
-   section 2.7 step 5); execution and generation do not start without it.
+2. Once the operator is satisfied with the registered case set, `qa.approve` with `gate: 'cases'`
+   and `artifactPath: 'artifacts/cases-index.json'` — the case-set aggregate `qa.cases_add`
+   regenerates after every registration, never a single case's own file (#357: approving one case's
+   file left every other case unapproved and undetected). This is the case review gate (development
+   plan section 2.7 step 5); execution and generation do not start without it.
 3. `qa.validate` to re-check every registered case's requirement links against the current scope
    artifact — useful after a requirement in `artifacts/scope.json` changes, since that can silently
    break a case written against it.
