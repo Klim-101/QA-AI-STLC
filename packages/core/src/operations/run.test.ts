@@ -79,7 +79,10 @@ describe('runTestRun', () => {
     expect(summary).toEqual({
       runId: 'run-id-1',
       runRecordPath: 'runs/run-id-1/run.json',
-      resultPaths: ['runs/run-id-1/results/run-result-id-2.json', 'runs/run-id-1/results/run-result-id-3.json'],
+      resultPaths: [
+        'runs/run-id-1/results/run-result-id-2.json',
+        'runs/run-id-1/results/run-result-id-3.json',
+      ],
       counts: { passed: 1, failed: 1, blocked: 0, skipped: 0, uncertain: 0, partial: 0 },
     });
 
@@ -115,7 +118,7 @@ describe('runTestRun', () => {
       artifacts: Record<string, unknown>;
     };
     expect(manifest.artifacts).toHaveProperty(summary.runRecordPath);
-    expect(manifest.artifacts).toHaveProperty(summary.resultPaths[0] as string);
+    expect(manifest.artifacts).toHaveProperty(summary.resultPaths[0]!);
   });
 
   it('resolves the baseUrl from the named environment and passes an absolute spec path to the runner', async () => {
@@ -167,7 +170,11 @@ describe('runTestRun', () => {
     const { runner } = createFakeRunner(() => []);
 
     await expect(
-      runTestRun(context, { runner, environment: 'unknown-env', specFiles: ['tests/login.playwright-spec.ts'] }),
+      runTestRun(context, {
+        runner,
+        environment: 'unknown-env',
+        specFiles: ['tests/login.playwright-spec.ts'],
+      }),
     ).rejects.toThrow(expect.objectContaining({ code: 'BROWSER_ENVIRONMENT_UNKNOWN' }) as Error);
   });
 
@@ -183,10 +190,17 @@ describe('runTestRun', () => {
     });
 
     expect(summary.resultPaths).toEqual([]);
-    expect(summary.counts).toEqual({ passed: 0, failed: 0, blocked: 0, skipped: 0, uncertain: 0, partial: 0 });
-    const runRecord = JSON.parse(
-      String(fs.getRawFile(join('project', '.qa', summary.runRecordPath))),
-    ) as { resultIds: string[] };
+    expect(summary.counts).toEqual({
+      passed: 0,
+      failed: 0,
+      blocked: 0,
+      skipped: 0,
+      uncertain: 0,
+      partial: 0,
+    });
+    const runRecord = JSON.parse(String(fs.getRawFile(join('project', '.qa', summary.runRecordPath)))) as {
+      resultIds: string[];
+    };
     expect(runRecord.resultIds).toEqual([]);
   });
 });

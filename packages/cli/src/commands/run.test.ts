@@ -40,13 +40,16 @@ describe('runRun', () => {
     );
   });
 
-  it.each(['api', 'a11y'] as const)('throws a coded error for the unsupported "%s" test type', async (testType) => {
-    const context = fakeContext();
+  it.each(['api', 'a11y'] as const)(
+    'throws a coded error for the unsupported "%s" test type',
+    async (testType) => {
+      const context = fakeContext();
 
-    await expect(runRun(context, { specFiles: ['tests/x.spec.ts'], testType })).rejects.toThrow(
-      expect.objectContaining({ code: 'RUN_TEST_TYPE_UNSUPPORTED' }) as Error,
-    );
-  });
+      await expect(runRun(context, { specFiles: ['tests/x.spec.ts'], testType })).rejects.toThrow(
+        expect.objectContaining({ code: 'RUN_TEST_TYPE_UNSUPPORTED' }) as Error,
+      );
+    },
+  );
 
   it('mentions the only supported test type in the remediation', async () => {
     const context = fakeContext();
@@ -62,8 +65,8 @@ describe('runRun', () => {
     // Resolving a *named* environment against zero configured ones fails differently
     // (BROWSER_ENVIRONMENT_UNKNOWN) than resolving none at all (BROWSER_ENVIRONMENT_AMBIGUOUS,
     // covered above) — proves `environment` actually reached `core`, not just `specFiles`.
-    await expect(
-      runRun(context, { specFiles: ['tests/x.spec.ts'], environment: 'staging' }),
-    ).rejects.toThrow(expect.objectContaining({ code: 'BROWSER_ENVIRONMENT_UNKNOWN' }) as Error);
+    await expect(runRun(context, { specFiles: ['tests/x.spec.ts'], environment: 'staging' })).rejects.toThrow(
+      expect.objectContaining({ code: 'BROWSER_ENVIRONMENT_UNKNOWN' }) as Error,
+    );
   });
 });

@@ -26,10 +26,7 @@ function resolveRunner(testType: TestType): Runner {
 }
 
 const InputSchema = z.object({
-  specFiles: z
-    .array(z.string())
-    .min(1)
-    .describe('Project-relative paths to the spec files to run.'),
+  specFiles: z.array(z.string()).min(1).describe('Project-relative paths to the spec files to run.'),
   testType: TestTypeSchema.optional().describe('The spec set\'s test type. Defaults to "e2e".'),
   environment: z
     .string()
