@@ -53,6 +53,10 @@ export interface SpecConfigOptions {
  * which for a spec set spanning an operator's whole project would resolve inside it): every
  * artifact this run produces belongs in the same ephemeral run directory as the config and the
  * report, so a run never leaves stray files behind in the project it tested.
+ *
+ * `use.screenshot`/`use.trace` capture on failure only (P3-03): a passing test needs nothing to
+ * back it up, and capturing on every run would multiply the JSON report's own attachment list and
+ * the evidence this runner has to read back and register for no benefit.
  */
 export function generateSpecConfigSource(options: SpecConfigOptions): {
   readonly source: string;
@@ -64,7 +68,7 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
     testDir,
     testMatch,
     outputDir: options.outputDir,
-    use: { baseURL: options.baseUrl },
+    use: { baseURL: options.baseUrl, screenshot: 'only-on-failure', trace: 'retain-on-failure' },
     reporter: [['json', { outputFile: options.reportPath }]],
   };
   return { source: `export default ${JSON.stringify(config, null, 2)};\n`, testDir };
