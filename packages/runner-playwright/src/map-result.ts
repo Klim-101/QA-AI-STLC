@@ -1,11 +1,24 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, randomIdGenerator, type IdGenerator } from '@qa-ai-stlc/core';
-import { RunResultSchema, type Identifier, type RunResult, type RunResultStatus } from '@qa-ai-stlc/schemas';
+import {
+  QaError,
+  randomIdGenerator,
+  type FileSystem,
+  type IdGenerator,
+  type RunnerEvidence,
+  type RunnerOutcome,
+} from '@qa-ai-stlc/core';
+import {
+  RunResultSchema,
+  type EvidenceKind,
+  type Identifier,
+  type RunResultStatus,
+} from '@qa-ai-stlc/schemas';
 import {
   collectSpecs,
   collectStepIds,
+  type PlaywrightAttachment,
   type PlaywrightJsonReport,
   type PlaywrightTestResult,
 } from './json-report.js';
@@ -59,17 +72,53 @@ export interface MapReportOptions {
   readonly report: PlaywrightJsonReport;
   readonly runId: Identifier;
   readonly testType: 'e2e';
+  readonly fs: FileSystem;
   readonly idGenerator?: IdGenerator;
 }
 
+// Playwright's own capture settings (`spec-config.ts`'s `use.screenshot`/`use.trace`) are the only
+// attachments this runner turns into evidence; a hand-written spec's own `testInfo.attach()` calls
+// produce attachments with other content types, which are left for the operator to inspect through
+// Playwright's own HTML report instead of duplicating them into the evidence store.
+const EVIDENCE_KIND_BY_CONTENT_TYPE: Readonly<Record<string, EvidenceKind>> = {
+  'image/png': 'screenshot',
+  'application/zip': 'trace',
+  'video/webm': 'video',
+};
+
 /**
- * Maps every test Playwright actually ran to a validated `RunResult`. Throws a `QaError` for a
- * test with no `testCaseId` annotation: the engine has no case to attribute the result to, and
- * fabricating one would violate "the engine records, it does not fabricate a verdict" (ADR-005).
+ * Reads each capture attachment Playwright reported for one test attempt (P3-03) into raw
+ * evidence content: inline `body` (base64) for a small attachment, or `fs.readBytes(path)` for
+ * one Playwright wrote to disk under this runner's own ephemeral `outputDir`.
  */
-export function mapReportToRunResults(options: MapReportOptions): readonly RunResult[] {
+async function collectEvidence(
+  fs: FileSystem,
+  attachments: readonly PlaywrightAttachment[],
+): Promise<readonly RunnerEvidence[]> {
+  const evidence: RunnerEvidence[] = [];
+  for (const attachment of attachments) {
+    const kind = EVIDENCE_KIND_BY_CONTENT_TYPE[attachment.contentType];
+    if (kind === undefined) {
+      continue;
+    }
+    if (attachment.path !== undefined) {
+      evidence.push({ kind, content: await fs.readBytes(attachment.path) });
+    } else if (attachment.body !== undefined) {
+      evidence.push({ kind, content: Buffer.from(attachment.body, 'base64') });
+    }
+  }
+  return evidence;
+}
+
+/**
+ * Maps every test Playwright actually ran to a validated `RunResult`, paired with whatever
+ * evidence Playwright captured for it (P3-03). Throws a `QaError` for a test with no `testCaseId`
+ * annotation: the engine has no case to attribute the result to, and fabricating one would
+ * violate "the engine records, it does not fabricate a verdict" (ADR-005).
+ */
+export async function mapReportToRunResults(options: MapReportOptions): Promise<readonly RunnerOutcome[]> {
   const idGenerator = options.idGenerator ?? randomIdGenerator;
-  const results: RunResult[] = [];
+  const outcomes: RunnerOutcome[] = [];
 
   for (const spec of collectSpecs(options.report)) {
     for (const test of spec.tests) {
@@ -109,33 +158,33 @@ export function mapReportToRunResults(options: MapReportOptions): readonly RunRe
           ? 'partial'
           : mappedStatus;
 
-      results.push(
-        RunResultSchema.parse({
-          id: `run-result-${idGenerator.next()}`,
-          runId: options.runId,
-          testCaseId: annotation.description,
-          testType: options.testType,
-          status,
-          startedAt: startedAt.toISOString(),
-          finishedAt: finishedAt.toISOString(),
-          evidenceIds: [],
-          ...(status === 'failed' || status === 'partial'
-            ? {
-                failure: {
-                  message: stripAnsiCodes(
-                    failureMessage ??
-                      (status === 'partial'
-                        ? `Missing step coverage for: ${missingStepIds.join(', ')}.`
-                        : 'Playwright reported a failure with no error message.'),
-                  ),
-                },
-              }
-            : {}),
-          ...(status === 'partial' ? { missingStepIds } : {}),
-        }),
-      );
+      const result = RunResultSchema.parse({
+        id: `run-result-${idGenerator.next()}`,
+        runId: options.runId,
+        testCaseId: annotation.description,
+        testType: options.testType,
+        status,
+        startedAt: startedAt.toISOString(),
+        finishedAt: finishedAt.toISOString(),
+        evidenceIds: [],
+        ...(status === 'failed' || status === 'partial'
+          ? {
+              failure: {
+                message: stripAnsiCodes(
+                  failureMessage ??
+                    (status === 'partial'
+                      ? `Missing step coverage for: ${missingStepIds.join(', ')}.`
+                      : 'Playwright reported a failure with no error message.'),
+                ),
+              },
+            }
+          : {}),
+        ...(status === 'partial' ? { missingStepIds } : {}),
+      });
+
+      outcomes.push({ result, evidence: await collectEvidence(options.fs, lastResult.attachments) });
     }
   }
 
-  return results;
+  return outcomes;
 }

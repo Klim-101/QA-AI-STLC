@@ -1325,6 +1325,7 @@ describe('runCli', () => {
                         startTime: '2026-09-25T10:00:00.000Z',
                         duration: 1000,
                         errors: [{ message: 'Expected the dashboard' }],
+                        attachments: [{ name: 'screenshot', contentType: 'image/png', body: 'AQID' }],
                       },
                     ],
                   },

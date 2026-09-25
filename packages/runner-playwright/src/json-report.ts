@@ -26,12 +26,24 @@ const StepResultSchema: z.ZodType<StepResult> = z.lazy(() =>
   }),
 );
 
+// A captured screenshot, trace or video Playwright's own `use.screenshot`/`use.trace`/`use.video`
+// settings attached to this attempt. `body` carries small attachments inline as base64; `path`
+// points at a file on disk (this runner's own `outputDir`) for anything larger — Playwright picks
+// between the two, this schema accepts either.
+const AttachmentSchema = z.object({
+  name: z.string(),
+  contentType: z.string(),
+  path: z.string().optional(),
+  body: z.string().optional(),
+});
+
 const TestResultSchema = z.object({
   status: z.enum(['passed', 'failed', 'timedOut', 'skipped', 'interrupted']),
   startTime: z.string(),
   duration: z.number(),
   errors: z.array(z.object({ message: z.string().optional() })),
   steps: z.array(StepResultSchema).optional(),
+  attachments: z.array(AttachmentSchema).default([]),
 });
 
 const TestSchema = z.object({
@@ -63,6 +75,7 @@ export type PlaywrightJsonReport = z.infer<typeof PlaywrightJsonReportSchema>;
 export type PlaywrightSpec = z.infer<typeof SpecSchema>;
 export type PlaywrightTestResult = z.infer<typeof TestResultSchema>;
 export type PlaywrightStepResult = StepResult;
+export type PlaywrightAttachment = z.infer<typeof AttachmentSchema>;
 
 // The step/expected-result coverage convention (P3-02): a generated or hand-written spec titles
 // each `test.step()` call `[<id>] <description>`, where `<id>` matches an ID the test case

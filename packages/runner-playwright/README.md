@@ -20,8 +20,14 @@ test(
 ```
 
 A test with no such annotation makes `run()` throw a `QaError` — the engine never guesses which
-case a result belongs to. Evidence capture (screenshots, traces, redacted network data) is P3-03,
-not this package; every `RunResult` this runner returns has an empty `evidenceIds` array.
+case a result belongs to.
+
+`run()` returns a `RunnerOutcome` per result — the `RunResult` paired with whatever raw evidence
+(a screenshot, a trace) Playwright captured for it. Screenshot-on-failure and trace-on-failure
+capture are always on; this runner never writes evidence to disk itself (`RunResult.evidenceIds`
+is always empty coming out of it) — the caller (`qa run` / MCP `qa.run`, via `runTestRun`)
+registers the returned evidence through `EvidenceStore` and fills in `evidenceIds` (P3-03,
+ADR-004).
 
 Part of [QA-AI-STLC](https://github.com/Klim-101/QA-AI-STLC). See the repository root for
 license, contributing and security information.

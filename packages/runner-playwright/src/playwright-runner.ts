@@ -4,9 +4,14 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { QaError, type EngineContext, type Runner, type RunnerInput } from '@qa-ai-stlc/core';
+import {
+  QaError,
+  type EngineContext,
+  type Runner,
+  type RunnerInput,
+  type RunnerOutcome,
+} from '@qa-ai-stlc/core';
 import { randomUUID } from 'node:crypto';
-import type { RunResult } from '@qa-ai-stlc/schemas';
 import { PlaywrightJsonReportSchema } from './json-report.js';
 import { mapReportToRunResults } from './map-result.js';
 import { generateSpecConfigSource } from './spec-config.js';
@@ -16,7 +21,7 @@ import { generateSpecConfigSource } from './spec-config.js';
 // published, inside an operator's project, and needs no shell or PATH lookup (AGENTS.md 5.6).
 const cliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
 
-async function runOnce(engine: EngineContext, input: RunnerInput): Promise<readonly RunResult[]> {
+async function runOnce(engine: EngineContext, input: RunnerInput): Promise<readonly RunnerOutcome[]> {
   const runDir = join(tmpdir(), 'qa-ai-stlc-runner-playwright', randomUUID());
   const configPath = join(runDir, 'playwright.config.mjs');
   const reportPath = join(runDir, 'report.json');
@@ -48,6 +53,7 @@ async function runOnce(engine: EngineContext, input: RunnerInput): Promise<reado
     report,
     runId: input.runId,
     testType: 'e2e',
+    fs: engine.fs,
     ...(input.idGenerator !== undefined ? { idGenerator: input.idGenerator } : {}),
   });
 }

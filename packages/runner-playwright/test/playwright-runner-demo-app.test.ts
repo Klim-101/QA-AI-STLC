@@ -75,26 +75,48 @@ describe('playwrightRunner (demo app)', () => {
         new URL('./fixtures/demo-app-login.playwright-spec.ts', import.meta.url),
       );
 
-      const results = await playwrightRunner.run(engine, {
+      const outcomes = await playwrightRunner.run(engine, {
         runId: 'run-demo-app-login',
         baseUrl: BASE_URL,
         specFiles: [specFile],
       });
 
-      expect(results).toHaveLength(3);
-      const passed = results.find((result) => result.testCaseId === 'demo-app-login');
-      const failed = results.find((result) => result.testCaseId === 'demo-app-login-wrong-password');
-      const partial = results.find((result) => result.testCaseId === 'demo-app-login-wrong-password-steps');
+      expect(outcomes).toHaveLength(3);
+      const passed = outcomes.find((outcome) => outcome.result.testCaseId === 'demo-app-login');
+      const failed = outcomes.find(
+        (outcome) => outcome.result.testCaseId === 'demo-app-login-wrong-password',
+      );
+      const partial = outcomes.find(
+        (outcome) => outcome.result.testCaseId === 'demo-app-login-wrong-password-steps',
+      );
 
-      expect(passed).toMatchObject({ runId: 'run-demo-app-login', testType: 'e2e', status: 'passed' });
-      expect(passed?.failure).toBeUndefined();
+      expect(passed?.result).toMatchObject({
+        runId: 'run-demo-app-login',
+        testType: 'e2e',
+        status: 'passed',
+      });
+      expect(passed?.result.failure).toBeUndefined();
+      // A passing test needs nothing to back it up (`spec-config.ts`'s "only on failure" capture).
+      expect(passed?.evidence).toEqual([]);
 
-      expect(failed).toMatchObject({ runId: 'run-demo-app-login', testType: 'e2e', status: 'failed' });
-      expect(failed?.failure?.message.length).toBeGreaterThan(0);
+      expect(failed?.result).toMatchObject({
+        runId: 'run-demo-app-login',
+        testType: 'e2e',
+        status: 'failed',
+      });
+      expect(failed?.result.failure?.message.length).toBeGreaterThan(0);
+      // The real Playwright Test runner, with real screenshot/trace capture enabled (P3-03):
+      // proves this runner reads back real attachment files, not just a hand-built report fixture.
+      expect(failed?.evidence.map((item) => item.kind).sort()).toEqual(['screenshot', 'trace']);
 
-      expect(partial).toMatchObject({ runId: 'run-demo-app-login', testType: 'e2e', status: 'partial' });
-      expect(partial?.missingStepIds).toEqual(['expected-result']);
-      expect(partial?.failure?.message.length).toBeGreaterThan(0);
+      expect(partial?.result).toMatchObject({
+        runId: 'run-demo-app-login',
+        testType: 'e2e',
+        status: 'partial',
+      });
+      expect(partial?.result.missingStepIds).toEqual(['expected-result']);
+      expect(partial?.result.failure?.message.length).toBeGreaterThan(0);
+      expect(partial?.evidence.map((item) => item.kind).sort()).toEqual(['screenshot', 'trace']);
     },
     STARTUP_TIMEOUT_MS,
   );

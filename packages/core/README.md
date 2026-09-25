@@ -20,6 +20,13 @@ as `source: 'execute'`, `runHttpExecute` makes a real HTTP call for the `api` te
 `runBrowserAccessibilityScan` runs a real `axe-core` scan for `a11y` — all three register evidence
 the same way browser actions do, and `runRegisterCaseResult` ties that evidence into a run result.
 
+`runTestRun` (`qa run` / MCP `qa.run`, P3-04) drives the `Runner` interface a test-type package
+implements (`@qa-ai-stlc/runner-playwright` for `e2e`): a runner never writes evidence itself, it
+returns raw evidence (a screenshot, a trace) alongside each `RunResult` it produces, and
+`runTestRun` registers it through the same `EvidenceStore` (P3-03, ADR-004). A `failed` result
+that ends up with no registered evidence — every item quarantined, or the runner captured none —
+fails the run with `RUN_RESULT_MISSING_EVIDENCE` rather than persisting an unbacked failure.
+
 Filesystem access, wall-clock time, identifier generation and logging are injected through small
 ports (`FileSystem`, `Clock`, `IdGenerator`, `Logger`) rather than called directly, so the engine's logic is testable without real
 I/O and so hosts (CLI, MCP server, tests) can supply their own implementations.
