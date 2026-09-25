@@ -10,13 +10,13 @@ Each call registers the request and a capped preview of the response body as evi
 only the status code — read the registered evidence back if the case's expected result needs to
 check the response body or headers, not just the status.
 
-## Known limitation: no domain allowlist check
-
-Unlike every `qa.browser_*` tool, `qa.http_execute` does not currently restrict `url` to the
-environment's configured allowlist (`config.yaml`) — it calls whatever URL it is given. Only call it
-with a URL the operator's case actually targets; do not follow a redirect or a response-supplied URL
-to a different host without confirming that is what the case intends. This is a known engine gap,
-not a skill-level check this file can compensate for.
+`url` must be on the resolved environment's domain allowlist (`config.yaml`), the same
+unconditional check every `qa.browser_*` tool applies (#364) — pass `environment` when the project
+defines more than one. This restricts which host can be called, never which method: a real
+POST/PUT/DELETE against an allowed host is exactly what proving the case works requires. Do not
+follow a redirect or a response-supplied URL to a different host without confirming that is what
+the case intends — `qa.http_execute` rejects it with `BROWSER_URL_NOT_ALLOWED` if it is not on the
+allowlist, but a same-allowlist redirect to an unintended endpoint would still succeed.
 
 ## Reusable values
 

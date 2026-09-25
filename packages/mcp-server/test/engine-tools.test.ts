@@ -343,10 +343,35 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           res.end('{"ok":true}');
         },
         async (baseUrl) => {
+          // The allowlist must match this run's OS-assigned local port (#364), so config.yaml is
+          // written here, once the real baseUrl is known, rather than reused from `CONFIG_YAML`.
+          await mkdir(join(projectRoot, '.qa'), { recursive: true });
+          await writeFile(
+            join(projectRoot, '.qa', 'config.yaml'),
+            [
+              'schemaVersion: 1',
+              // http_execute does not check testing.<type> scope itself (unlike qa.cases_add), so
+              // any decided value avoids the schema's own "api requires an api: block" refinement.
+              'testing: { e2e: undecided, api: out-of-scope, a11y: undecided, security: undecided }',
+              'environments:',
+              `  local: { baseUrl: "${baseUrl}", allowlist: ["127.0.0.1"] }`,
+              'identities: {}',
+              'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+              'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+              'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+              '',
+            ].join('\n'),
+            'utf-8',
+          );
+
           const result = await httpExecuteTool.handler({ runId: 'run-1', url: baseUrl });
+          const rejected = await httpExecuteTool
+            .handler({ runId: 'run-1', url: 'https://evil.test/' })
+            .catch((caught: unknown) => caught);
 
           expect(result.status).toBe(200);
           expect(result.evidence.runId).toBe('run-1');
+          expect(rejected).toMatchObject({ code: 'BROWSER_URL_NOT_ALLOWED' });
         },
       );
       process.chdir(originalCwd);
