@@ -40,6 +40,14 @@ execution alike — for an `evidenceIds` entry with no matching registered evide
 fabricated link) and for a `failed` result with none at all, independent of which write path
 produced the result.
 
+The generation contract (P3-05, ADR-0010) fixes what a future `qa-generate-tests` spoke (P3-07)
+will exchange with the hub: `buildGenerationSpokeInput`/`buildRegistrySlice` assemble a case, a
+filtered slice of the selector registry and the locator module's current export list into a
+`GenerationSpokeInput`; `stampGeneratedTestSpec`/`isGeneratedTestSpecStale` stamp and later check a
+generated spec's `sourceHash` against that input. `extractManualRegions`/`applyManualRegions`
+round-trip a human's hand-written `// qa:manual:start <id>` / `// qa:manual:end <id>` blocks across
+regeneration, reused unchanged by the future verification loop (P3-06) and `qa upgrade` (P7-01).
+
 Filesystem access, wall-clock time, identifier generation and logging are injected through small
 ports (`FileSystem`, `Clock`, `IdGenerator`, `Logger`) rather than called directly, so the engine's logic is testable without real
 I/O and so hosts (CLI, MCP server, tests) can supply their own implementations.
