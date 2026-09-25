@@ -17,6 +17,7 @@ import {
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeEngineContext } from '../src/engine-context.js';
+import { createBrowserAccessibilityScanTool } from '../src/tools/browser-accessibility-scan.js';
 import { createBrowserClickTool } from '../src/tools/browser-click.js';
 import { createBrowserCloseTool } from '../src/tools/browser-close.js';
 import { createBrowserFillTool } from '../src/tools/browser-fill.js';
@@ -24,6 +25,7 @@ import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
 import { createBrowserSnapshotTool } from '../src/tools/browser-snapshot.js';
 import type { BrowserToolDependencies } from '../src/tools/browser-dependencies.js';
+import { createRegistryExecuteRegisterTool } from '../src/tools/registry-execute-register.js';
 
 const CONFIG_YAML = [
   'schemaVersion: 1',
@@ -77,7 +79,9 @@ function createFakeBrowser(): FakeBrowser {
       routeHandlers.push(handler);
       return Promise.resolve();
     },
-    evaluate: () => Promise.resolve(undefined),
+    // Only `qa.browser_accessibility_scan` calls `evaluate` (it runs axe-core's injected `run()`),
+    // so a fixed one-violation result is safe to return unconditionally here.
+    evaluate: () => Promise.resolve({ violations: [{ id: 'color-contrast' }] }),
     ariaSnapshotJSON: () => Promise.resolve({ role: 'document', name: 'Staging home' }),
     addScriptTag: () => Promise.resolve(undefined),
     getByRole: locator,
@@ -295,6 +299,45 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         await expect(call).rejects.toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
       }
       process.chdir(originalCwd);
+    });
+  });
+
+  it('qa.registry_execute_register promotes an ad hoc element, then qa.browser_accessibility_scan registers a scan (P3-15)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const opened = await createBrowserOpenTool(dependencies).handler({ environment: 'staging' });
+
+      const registered = await createRegistryExecuteRegisterTool(dependencies).handler({
+        sessionId: opened.sessionId,
+        selector: 'role=button[name="Log in"]',
+        kind: 'button',
+        name: 'Log in',
+      });
+      expect(registered.created).toBe(true);
+      const registry = JSON.parse(
+        await readFile(join(projectRoot, '.qa', 'selectors', 'registry.json'), 'utf-8'),
+      ) as { elements: { elementId: string; source: string }[] };
+      expect(registry.elements).toEqual([
+        expect.objectContaining({ elementId: registered.elementId, source: 'execute' }),
+      ]);
+
+      const scanned = await createBrowserAccessibilityScanTool(dependencies).handler({
+        sessionId: opened.sessionId,
+      });
+      const scanEvidence = JSON.parse(
+        await readFile(join(projectRoot, '.qa', ...scanned.evidence.path.split('/')), 'utf-8'),
+      ) as { violations: unknown[] };
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
+      process.chdir(originalCwd);
+
+      expect(scanned.violationCount).toBe(1);
+      expect(scanEvidence.violations).toEqual([{ id: 'color-contrast' }]);
     });
   });
 });

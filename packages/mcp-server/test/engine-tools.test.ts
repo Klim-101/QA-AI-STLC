@@ -2,17 +2,48 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { approveTool } from '../src/tools/approve.js';
+import { caseResultRegisterTool } from '../src/tools/case-result-register.js';
 import { casesAddTool } from '../src/tools/cases-add.js';
 import { casesRenderTool } from '../src/tools/cases-render.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
+import { httpExecuteTool } from '../src/tools/http-execute.js';
 import { scopeTool } from '../src/tools/scope.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
+
+/** Starts a real local HTTP server on an OS-assigned port, so `qa.http_execute` makes a real call
+ * without depending on the network or the demo app (that heavier exercise already lives in
+ * `packages/core/test/case-execution-demo-app.test.ts`). */
+async function withLocalServer(
+  handler: (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void,
+  run: (baseUrl: string) => Promise<void>,
+): Promise<void> {
+  const server: Server = createServer(handler);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('Expected the local server to bind to a network address.');
+  }
+  try {
+    await run(`http://127.0.0.1:${String(address.port)}/`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+}
 
 // Every type decided (P2-16 blocks qa.scope/qa.cases_add while any is "undecided"); e2e in-scope
 // since every case these tests register is testType "e2e".
@@ -299,6 +330,57 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       process.chdir(originalCwd);
 
       expect(error).toMatchObject({ code: 'CASE_UNLINKED_REQUIREMENT' });
+    });
+  });
+
+  it('qa.http_execute makes a real call and registers the request/response as evidence', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      await withLocalServer(
+        (_req, res) => {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end('{"ok":true}');
+        },
+        async (baseUrl) => {
+          const result = await httpExecuteTool.handler({ runId: 'run-1', url: baseUrl });
+
+          expect(result.status).toBe(200);
+          expect(result.evidence.runId).toBe('run-1');
+        },
+      );
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('qa.case_result_register ties evidence ids together into a registered run result', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      // Well in the past, so this test never flakes on "finishedAt (real clock) must not be
+      // earlier than startedAt" (RunResultSchema) around whatever moment it actually runs.
+      const startedAt = '2020-01-01T00:00:00.000Z';
+      const result = await caseResultRegisterTool.handler({
+        testCaseId: 'login-case',
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt,
+        evidenceIds: ['evidence-1', 'evidence-2'],
+      });
+      const failureResult = await caseResultRegisterTool.handler({
+        testCaseId: 'login-case',
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'failed',
+        startedAt,
+        evidenceIds: ['evidence-1'],
+        failure: { message: 'expected element not found' },
+      });
+      process.chdir(originalCwd);
+
+      expect(result.runResultPath).toBe(`runs/login-case/${result.id}.json`);
+      expect(failureResult.id).not.toBe(result.id);
     });
   });
 });

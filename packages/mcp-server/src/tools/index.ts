@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { approveTool } from './approve.js';
+import { createBrowserAccessibilityScanTool } from './browser-accessibility-scan.js';
 import { createBrowserClickTool } from './browser-click.js';
 import { createBrowserCloseTool } from './browser-close.js';
 import { createBrowserToolDependencies, type BrowserToolDependencies } from './browser-dependencies.js';
@@ -9,11 +10,14 @@ import { createBrowserFillTool } from './browser-fill.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
 import { createBrowserOpenTool } from './browser-open.js';
 import { createBrowserSnapshotTool } from './browser-snapshot.js';
+import { caseResultRegisterTool } from './case-result-register.js';
 import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
 import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
+import { httpExecuteTool } from './http-execute.js';
 import { pingTool } from './ping.js';
+import { createRegistryExecuteRegisterTool } from './registry-execute-register.js';
 import { scopeTool } from './scope.js';
 import { testDataAddTool } from './test-data-add.js';
 import { validateTool } from './validate.js';
@@ -30,9 +34,11 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   testDataAddTool,
   approveTool,
   validateTool,
+  httpExecuteTool,
+  caseResultRegisterTool,
 ];
 
-/** The six `qa.browser_*` tools, all sharing one session store (ADR-005, P2-06). */
+/** The eight `qa.browser_*`/`qa.registry_execute_register` tools sharing one session store (ADR-005, P2-06). */
 export function createBrowserTools(dependencies: BrowserToolDependencies): readonly ToolDefinition[] {
   return [
     createBrowserOpenTool(dependencies),
@@ -40,6 +46,8 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
     createBrowserClickTool(dependencies),
     createBrowserFillTool(dependencies),
     createBrowserSnapshotTool(dependencies),
+    createBrowserAccessibilityScanTool(dependencies),
+    createRegistryExecuteRegisterTool(dependencies),
     createBrowserCloseTool(dependencies),
   ];
 }

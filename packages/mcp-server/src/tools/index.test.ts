@@ -12,7 +12,7 @@ describe('BUILTIN_TOOLS', () => {
 });
 
 describe('createBuiltinTools', () => {
-  it('adds the six browser tools to the stateless ones', () => {
+  it('adds the browser tools and the session-bound execution tool to the stateless ones', () => {
     const names = createBuiltinTools().map((tool) => tool.name);
 
     expect(names).toContain('qa.ping');
@@ -22,8 +22,10 @@ describe('createBuiltinTools', () => {
       'qa.browser_click',
       'qa.browser_fill',
       'qa.browser_snapshot',
+      'qa.browser_accessibility_scan',
       'qa.browser_close',
     ]);
+    expect(names).toContain('qa.registry_execute_register');
   });
 
   it('gives every tool a unique name', () => {

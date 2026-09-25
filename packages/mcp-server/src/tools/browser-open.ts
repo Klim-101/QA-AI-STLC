@@ -12,6 +12,14 @@ const InputSchema = z.object({
     .string()
     .optional()
     .describe('Environment name from config.yaml. Required when there is more than one.'),
+  executionMode: z
+    .boolean()
+    .optional()
+    .describe(
+      'Interactive case execution only (ADR-0009): allows a non-GET request (a real form ' +
+        'submission) through safe mode, so an e2e case can be proven to actually work. The ' +
+        'domain allowlist still applies unconditionally. Never set this for exploration or pick mode.',
+    ),
 });
 
 const OutputSchema = z.object({
@@ -42,6 +50,7 @@ export function createBrowserOpenTool(
     async handler(input) {
       const result = await runBrowserOpen(toBrowserOperationContext(dependencies), {
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
+        ...(input.executionMode !== undefined ? { executionMode: input.executionMode } : {}),
       });
       return { ...result, allowlist: [...result.allowlist] };
     },
