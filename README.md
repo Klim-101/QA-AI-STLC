@@ -341,7 +341,8 @@ response (a 403, a redirect, or an equivalent denial) — a check the pipeline d
 its own; it belongs to the on-demand security audit (Phase 6), not to exploration. 10 test cases
 are registered across `auth`, `access-control`, `dashboard` and `tasks`, covering all 7
 requirements, and both the `scope` and `cases` gates are approved. `currentPhase` stays `"cases"`
-afterward — nothing in the pipeline advances further yet, since execution and generation are Phase 3.
+afterward: the hash-bound gate pipeline still only tracks `scope`/`cases` (v0) — `qa run` (below)
+executes and records results independently of it, not as a gated phase of its own yet.
 
 A real requirement from that run's `scope.json`:
 
