@@ -12,6 +12,7 @@ import { MissingTestIdReportSchema } from './missing-test-id-report.js';
 import { PageModelSetSchema } from './page-model.js';
 import { RcaSchema } from './rca.js';
 import { RouteMapSchema } from './route-map.js';
+import { RunRecordSchema } from './run-record.js';
 import { RunResultSchema } from './run-result.js';
 import { ScopeSchema } from './scope.js';
 import { SelectorRegistrySchema } from './selector-registry.js';
@@ -32,6 +33,7 @@ export const artifactSchemas = {
   'cases-index': CasesIndexSchema,
   'test-data': TestDataSchema,
   'run-result': RunResultSchema,
+  'run-record': RunRecordSchema,
   evidence: EvidenceSchema,
   'browser-action': BrowserActionSchema,
   'defect-draft': DefectDraftSchema,

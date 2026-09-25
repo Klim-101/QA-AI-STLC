@@ -13,6 +13,7 @@ export * from './case-index.js';
 export * from './test-data.js';
 export * from './evidence.js';
 export * from './run-result.js';
+export * from './run-record.js';
 export * from './defect.js';
 export * from './rca.js';
 export * from './selector-registry.js';

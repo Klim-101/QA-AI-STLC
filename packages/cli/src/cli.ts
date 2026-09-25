@@ -20,7 +20,7 @@ import {
   type TestDataAddResult,
   type ValidateReport,
 } from '@qa-ai-stlc/core';
-import type { TestingScopeDecision } from '@qa-ai-stlc/schemas';
+import { TestTypeSchema, type TestingScopeDecision, type TestType } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
 import {
@@ -32,6 +32,7 @@ import {
 import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
+import { runRun, type RunSummary } from './commands/run.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { readPackageVersion } from './package-version.js';
 
@@ -52,6 +53,7 @@ Commands:
   cases add     Validate and register a test case: "cases add --path <path>"
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
+  run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links; nonzero exit on a reopened gate or an unlinked case
 
@@ -94,6 +96,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchCases(rest, dependencies);
       case 'test-data':
         return await dispatchTestData(rest, dependencies);
+      case 'run':
+        return await dispatchRun(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -505,6 +509,58 @@ async function dispatchTestDataAdd(
   return EXIT_SUCCESS;
 }
 
+function parseTestType(value: string | undefined): TestType | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const result = TestTypeSchema.safeParse(value);
+  if (!result.success) {
+    throw new QaError('RUN_OPTION_INVALID', `"${value}" is not valid for --test-type`, {
+      remediation: `Use one of: ${TestTypeSchema.options.join(', ')}.`,
+    });
+  }
+  return result.data;
+}
+
+async function dispatchRun(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const { values } = parseArgs({
+    args: [...rest],
+    options: {
+      json: { type: 'boolean', default: false },
+      spec: { type: 'string', multiple: true },
+      'test-type': { type: 'string' },
+      environment: { type: 'string' },
+    },
+    allowPositionals: false,
+    strict: true,
+  });
+  const specFiles = values.spec ?? [];
+  if (specFiles.length === 0) {
+    throw new QaError('RUN_USAGE', 'Usage: qa run --spec <path> [--spec <path> ...]', {
+      remediation: 'Example: qa run --spec tests/login.playwright-spec.ts',
+    });
+  }
+  const testType = parseTestType(values['test-type']);
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const summary = await runRun(context, {
+    specFiles,
+    ...(testType !== undefined ? { testType } : {}),
+    ...(typeof values.environment === 'string' ? { environment: values.environment } : {}),
+  });
+  printResult(context.io, json, 'run', summary, formatRunSummary(summary));
+  const hasFailure =
+    summary.counts.failed > 0 ||
+    summary.counts.blocked > 0 ||
+    summary.counts.uncertain > 0 ||
+    summary.counts.partial > 0;
+  return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -645,6 +701,18 @@ function formatCasesRenderResult(result: CasesRenderResult): readonly string[] {
 
 function formatTestDataAddResult(result: TestDataAddResult): readonly string[] {
   return [`Registered ${result.testDataPath}.`];
+}
+
+function formatRunSummary(summary: RunSummary): readonly string[] {
+  const total = Object.values(summary.counts).reduce((sum, count) => sum + count, 0);
+  const countsLine = Object.entries(summary.counts)
+    .filter(([, count]) => count > 0)
+    .map(([status, count]) => `${status}: ${String(count)}`)
+    .join(', ');
+  return [
+    `Run ${summary.runId}: ${String(total)} result(s) (${countsLine || 'none'}).`,
+    `Wrote ${summary.runRecordPath}.`,
+  ];
 }
 
 function formatApproveResult(result: ApproveResult): readonly string[] {

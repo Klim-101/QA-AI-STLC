@@ -22,6 +22,7 @@ describe('artifactSchemas', () => {
         'page-models',
         'rca',
         'route-map',
+        'run-record',
         'run-result',
         'scope',
         'selector-registry',
