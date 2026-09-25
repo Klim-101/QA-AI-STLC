@@ -24,18 +24,22 @@ QA-AI-STLC turns that into a deterministic pipeline instead of a conversation. T
 
 ## What it does
 
-- **Asks what is in scope** for the project: Web E2E, API, accessibility and security testing are each decided by you, and the pipeline enforces the answer.
-- **Explores your application** and builds a stable selector registry and an API-surface map before any test is written.
-- **Extracts requirements** from a local Markdown source and keeps them in `artifacts/scope.json`, never from a tracker or wiki.
-- **Designs test cases** with the agent in your host, each one required to link back to a real requirement — a link to something that doesn't exist is rejected, not silently accepted. Every case declares a `feature` (its own artifact folder) and can reference a reusable, non-secret test-data set instead of duplicating values across cases.
-- **Gates every phase behind a hash-bound approval**: an artifact's exact content, not just its existence, is what gets approved, so editing it afterward reopens the gate automatically.
-- **Generates Playwright tests**, for the UI and for the API from your OpenAPI contract, that are verified by execution before they are kept and run in CI without any model.
-- **Records evidence** (screenshots, traces, redacted network data) that only the engine can create, so results cannot be invented.
-- **Prepares defect drafts** in a tracker-neutral format for you to file, and a root cause analysis for every defect you accept.
-- **Runs a security audit on demand**: non-destructive checks against the running application, and code-assisted checks when you point it at the source.
-- **Exposes every one of the above as an MCP tool** (`qa-mcp-server`, local, stdio, no Docker, no hosted service) so any MCP-capable agent host can drive the exact same engine logic the CLI does.
+A deterministic TypeScript engine does the work that must be reliable. A thin layer of skills lets the agent in your host drive it. This project is pre-alpha (see the status note above): the table below is the actual boundary between what runs today and what is still planned — don't take a capability as shipped just because it's described here.
 
-A deterministic TypeScript engine does the work that must be reliable. A thin layer of skills lets the agent in your host drive it.
+| Capability                                                                                                                                                                                                                                                                                                                                         | Status                                                | Notes                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Asks what is in scope** for the project: Web E2E, API, accessibility and security testing are each decided by you, and the pipeline enforces the answer.                                                                                                                                                                                         | Available                                             |                                                                                        |
+| **Explores your application** and builds a stable selector registry and an API-surface map before any test is written.                                                                                                                                                                                                                             | Available                                             |                                                                                        |
+| **Extracts requirements** from a local Markdown source and keeps them in `artifacts/scope.json`, never from a tracker or wiki.                                                                                                                                                                                                                     | Available                                             |                                                                                        |
+| **Designs test cases** with the agent in your host, each one required to link back to a real requirement — a link to something that doesn't exist is rejected, not silently accepted. Every case declares a `feature` (its own artifact folder) and can reference a reusable, non-secret test-data set instead of duplicating values across cases. | Available                                             |                                                                                        |
+| **Gates every phase behind a hash-bound approval**: an artifact's exact content, not just its existence, is what gets approved, so editing it afterward reopens the gate automatically.                                                                                                                                                            | Available                                             | Currently `scope` and `cases`; later phases add their own gates as they ship.          |
+| **Generates Playwright tests**, for the UI and for the API from your OpenAPI contract, that are verified by execution before they are kept and run in CI without any model.                                                                                                                                                                        | Planned                                               | Phase 3 (`qa run`); generation and execution have not started yet.                     |
+| **Records evidence** (screenshots, traces, redacted network data) that only the engine can create, so results cannot be invented.                                                                                                                                                                                                                  | Planned                                               | Phase 3, tied to the runner above.                                                     |
+| **Prepares defect drafts** in a tracker-neutral format for you to file, and a root cause analysis for every defect you accept.                                                                                                                                                                                                                     | Planned                                               | Phase 6.                                                                               |
+| **Runs a security audit on demand**: non-destructive checks against the running application, and code-assisted checks when you point it at the source.                                                                                                                                                                                             | Planned                                               | Phase 6; no `runner-security` package exists yet.                                      |
+| **Exposes every one of the above as an MCP tool** (`qa-mcp-server`, local, stdio, no Docker, no hosted service) so any MCP-capable agent host can drive the exact same engine logic the CLI does.                                                                                                                                                  | Available for the capabilities marked Available above | MCP coverage tracks engine coverage — a planned capability has no MCP tool yet either. |
+
+See the [roadmap](docs/public/ROADMAP.md) for phase-by-phase detail on what "Planned" covers.
 
 ## Supported hosts
 
@@ -325,9 +329,13 @@ missing before the hub proceeds. `qa-design-cases` finds no selector registry ye
 `qa-explore`, and its own attempt to hand-edit `config.yaml` (to enable static analysis) is blocked
 by the same `PreToolUse` hook shown above — `.qa/` has no back door even for the skill that wants
 in — so it falls back to crawl-only exploration. The admin crawl adds 82 elements; the employee
-crawl adds **zero** new elements, which is itself the crawler independently confirming
-`/admin/users` stays unreachable to that identity, matching the role-based-access requirement. 10
-test cases are registered across `auth`, `access-control`, `dashboard` and `tasks`, covering all 7
+crawl adds **zero** new elements — no link into `/admin/users` is reachable from anywhere the
+employee identity's crawl visits. That shows the page is not _discoverable_ under that identity; it
+is not a check that access to it is actually blocked. Confirming the role-based-access requirement
+itself needs a direct request to `/admin/users` as the employee identity and an assertion on the
+response (a 403, a redirect, or an equivalent denial) — a check the pipeline does not yet make on
+its own; it belongs to the on-demand security audit (Phase 6), not to exploration. 10 test cases
+are registered across `auth`, `access-control`, `dashboard` and `tasks`, covering all 7
 requirements, and both the `scope` and `cases` gates are approved. `currentPhase` stays `"cases"`
 afterward — nothing in the pipeline advances further yet, since execution and generation are Phase 3.
 
