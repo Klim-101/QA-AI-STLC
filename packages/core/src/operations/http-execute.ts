@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Evidence, Identifier } from '@qa-ai-stlc/schemas';
+import { assertUrlAllowed } from '../browser-allowlist.js';
+import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { EvidenceStore } from '../evidence-store.js';
 import { registerEvidenceOrThrow } from './browser-evidence.js';
+import { resolveBrowserEnvironment } from './browser-open.js';
 import { toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
@@ -15,6 +18,8 @@ const BODY_PREVIEW_MAX_LENGTH = 4000;
 
 export interface HttpExecuteOptions {
   readonly runId: Identifier;
+  /** Environment name from config.yaml. Required only when the project defines more than one. */
+  readonly environment?: string;
   readonly url: string;
   readonly method?: string;
   readonly headers?: Readonly<Record<string, string>>;
@@ -35,11 +40,21 @@ export interface HttpExecuteResult {
  * has direct access to (`HttpClient.request`, no browser needed). The response body is stored as
  * a capped preview: `EvidenceStore.register`'s secret scan still covers the whole preview, but an
  * unbounded body should not blow up evidence storage on its own.
+ *
+ * `url` is checked against the resolved environment's domain allowlist first (#364), the same
+ * unconditional check every `qa.browser_*` tool already applies — this only restricts which host
+ * can be called, never which method: a real POST/PUT/DELETE against an allowed host is exactly
+ * what proving the `api` test type actually works requires (ADR-0009's reasoning, applied here).
  */
 export async function runHttpExecute(
   context: EngineContext,
   options: HttpExecuteOptions,
 ): Promise<HttpExecuteResult> {
+  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  const config = await loadConfig(store);
+  const environment = resolveBrowserEnvironment(config, options.environment);
+  assertUrlAllowed(options.url, environment.config.allowlist, environment.config.baseUrl);
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const method = options.method ?? 'GET';
   const response = await context.httpClient.request(options.url, {
@@ -61,7 +76,6 @@ export async function runHttpExecute(
     at: context.clock.now().toISOString(),
   };
 
-  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
   const evidence = await registerEvidenceOrThrow(evidenceStore, {
