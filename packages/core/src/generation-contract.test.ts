@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { SCHEMA_VERSION, type SelectorRegistry, type TestCase } from '@qa-ai-stlc/schemas';
+import { ProvenSessionSchema, SCHEMA_VERSION, type SelectorRegistry, type TestCase } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import {
   buildGenerationSpokeInput,
@@ -130,19 +130,17 @@ describe('buildGenerationSpokeInput', () => {
   });
 
   it('includes a given provenSession, so it becomes part of sourceHash (P3-07)', () => {
-    const provenSession = {
+    const provenSession = ProvenSessionSchema.parse({
       testCaseId: 'case-1',
       runResultId: 'run-result-1',
       steps: [
         {
           stepId: 'step-1',
           description: 'Add an item to the cart',
-          actions: [
-            { type: 'click' as const, sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T12:00:00Z' },
-          ],
+          actions: [{ type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T12:00:00Z' }],
         },
       ],
-    };
+    });
 
     const input = buildGenerationSpokeInput({
       testCase,
@@ -247,19 +245,17 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
-      provenSession: {
+      provenSession: ProvenSessionSchema.parse({
         testCaseId: 'case-1',
         runResultId: 'run-result-2',
         steps: [
           {
             stepId: 'step-1',
             description: 'Add an item to the cart',
-            actions: [
-              { type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T13:00:00Z' },
-            ],
+            actions: [{ type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T13:00:00Z' }],
           },
         ],
-      },
+      }),
     });
 
     expect(isGeneratedTestSpecStale(spec, reExecutedInput)).toBe(true);
