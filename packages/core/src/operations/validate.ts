@@ -19,6 +19,7 @@ import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { GateStateMachine } from '../gate.js';
 import { ManifestStore } from '../manifest-store.js';
+import { resolveRelativePath } from '../paths.js';
 import { PHASES } from '../phases.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
@@ -31,6 +32,11 @@ const SCOPE_PATH = 'artifacts/scope.json';
 const CASES_DIR = 'artifacts/cases';
 const TEST_DATA_DIR = 'artifacts/test-data';
 const EVIDENCE_DIR = 'evidence';
+// The one manifest entry that lives in the real project tree, not under `.qa/` (ADR-006):
+// generated test code needs to be a real, importable, git-tracked file, not hidden inside the
+// store. `packages/core` cannot import this path from `@qa-ai-stlc/explorer` (AGENTS.md section 3,
+// dependencies point downward only), so it is named here too rather than shared.
+const LOCATOR_MODULE_PATH = 'tests/qa/locators.ts';
 
 export interface UnlinkedCase {
   readonly casePath: string;
@@ -245,12 +251,16 @@ async function findTamperedArtifacts(
   const manifest = await manifestStore.load();
   const tampered: RelativePath[] = [];
   for (const relativePath of Object.keys(manifest.artifacts).sort()) {
-    const exists = await context.fs.pathExists(store.resolve(relativePath));
+    const absolutePath =
+      relativePath === LOCATOR_MODULE_PATH
+        ? resolveRelativePath(context.projectRoot, relativePath)
+        : store.resolve(relativePath);
+    const exists = await context.fs.pathExists(absolutePath);
     if (!exists) {
       tampered.push(relativePath);
       continue;
     }
-    const rawBytes = await store.readBytes(relativePath);
+    const rawBytes = await context.fs.readBytes(absolutePath);
     const matches = await manifestStore.verifyContent(relativePath, rawBytes);
     if (!matches) {
       tampered.push(relativePath);

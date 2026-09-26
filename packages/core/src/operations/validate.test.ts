@@ -232,6 +232,51 @@ describe('runValidate', () => {
     expect(report.tamperedArtifacts).toEqual(['artifacts/scope.json']);
   });
 
+  it('reports no tampered artifact for the locator module, registered outside .qa/ (regression, #396)', async () => {
+    const locatorsContent = 'export function loginButton() { return null; }\n';
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, 'tests', 'qa', 'locators.ts')]: locatorsContent,
+      [join(QA_DIR, 'manifest.json')]: manifestJson({ 'tests/qa/locators.ts': locatorsContent }),
+    });
+    const context: EngineContext = {
+      projectRoot: PROJECT_ROOT,
+      fs,
+      clock: systemClock,
+      logger: noopLogger,
+      processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+      browserLauncher: createFakeBrowserLauncher(),
+      env: {},
+    };
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual([]);
+  });
+
+  it('reports the locator module tampered when its real, project-root content diverges from the manifest (regression, #396)', async () => {
+    const fs = createFakeFileSystem({
+      [join(PROJECT_ROOT, 'tests', 'qa', 'locators.ts')]: 'export function loginButton() { return null; }\n',
+      [join(QA_DIR, 'manifest.json')]: manifestJson({
+        'tests/qa/locators.ts': 'export function loginButton() { return "hand-edited"; }\n',
+      }),
+    });
+    const context: EngineContext = {
+      projectRoot: PROJECT_ROOT,
+      fs,
+      clock: systemClock,
+      logger: noopLogger,
+      processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+      browserLauncher: createFakeBrowserLauncher(),
+      env: {},
+    };
+
+    const report = await runValidate(context);
+
+    expect(report.tamperedArtifacts).toEqual(['tests/qa/locators.ts']);
+  });
+
   it('reports no tampered artifacts for binary evidence registered through EvidenceStore (regression, #277)', async () => {
     const fs = createFakeFileSystem();
     const store = new QaStore({ projectRoot: PROJECT_ROOT, fs });
