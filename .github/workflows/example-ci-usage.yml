@@ -71,19 +71,21 @@ jobs:
       - name: Run the no-model pipeline against a scratch project
         run: |
           set -eu
-          QA="$GITHUB_WORKSPACE/node_modules/.bin/qa"
+          # The built binary directly, not the npm-generated node_modules/.bin/qa symlink: more
+          # robust across runner OSes and doesn't depend on npm's workspace bin-linking behavior.
+          qa() { node "$GITHUB_WORKSPACE/packages/cli/dist/bin/qa.js" "$@"; }
           PROJECT_DIR="$GITHUB_WORKSPACE/.ci-example-scratch"
           rm -rf "$PROJECT_DIR"
           mkdir -p "$PROJECT_DIR/tests"
           cd "$PROJECT_DIR"
 
-          "$QA" init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope --defer-scope
-          "$QA" config add environment ci --base-url http://localhost:4310/login --allowlist localhost
+          qa init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope --defer-scope
+          qa config add environment ci --base-url http://localhost:4310/login --allowlist localhost
 
           # Builds the selector registry from the real, running demo app.
-          "$QA" explore --environment ci
+          qa explore --environment ci
           # Fails the job if a stored locator no longer resolves on the live page (selector drift).
-          "$QA" explore --environment ci --verify
+          qa explore --environment ci --verify
 
           # A hand-written spec, not generated: qa-generate-tests (Phase 3) is a separate capability
           # this example does not depend on. Named *.playwright-spec.ts so Vitest's own default
@@ -102,19 +104,19 @@ jobs:
           );
           SPEC
 
-          "$QA" scope --from text --label 'example workflow' \
+          qa scope --from text --label 'example workflow' \
             --content "$(printf '## Login page is reachable\nA visitor can open the login page without authenticating.')"
 
           # Folds the hand-written spec into traceability, reusing its own testCaseId annotation
           # (P3-11) -- the id below must match the slug qa scope derived from the heading above.
-          "$QA" link tests/login.playwright-spec.ts login-page-is-reachable --feature login
+          qa link tests/login.playwright-spec.ts login-page-is-reachable --feature login
 
-          "$QA" run --spec tests/login.playwright-spec.ts
+          qa run --spec tests/login.playwright-spec.ts
 
           # Re-sweeps every gate, requirement link and, with --run, every result's evidence.
-          "$QA" validate --run
+          qa validate --run
 
-          "$QA" report
+          qa report
 
       - name: Clean up the scratch project
         if: always()
