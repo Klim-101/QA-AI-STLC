@@ -1,5 +1,15 @@
 # @qa-ai-stlc/runner-playwright
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [efb7692]
+- Updated dependencies [6c06b46]
+- Updated dependencies [535e2e9]
+  - @qa-ai-stlc/schemas@1.2.0
+  - @qa-ai-stlc/core@1.3.0
+
 ## 0.2.0
 
 ### Minor Changes

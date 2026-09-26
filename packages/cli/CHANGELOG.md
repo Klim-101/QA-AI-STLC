@@ -1,5 +1,28 @@
 # @qa-ai-stlc/cli
 
+## 0.12.0
+
+### Minor Changes
+
+- efb7692: Flags a test case as flaky when its run history flips status within a configurable window
+  (`flaky.historyWindow` / `flaky.minStatusChanges` in `config.yaml`). The traceability matrix
+  (`qa report`) now shows a `Flaky` column per case, computed from every recorded run under
+  `.qa/runs`, not a fixed pass-rate formula — a case that always fails is never flagged flaky.
+- 535e2e9: Adds `qa link <spec> <requirement-id> --feature <name>` / `qa.link`: folds an already-existing,
+  hand-written Playwright spec into the requirement → case → result → evidence traceability matrix
+  without running it through generation. Reuses the spec's own `testCaseId` annotation when present,
+  so a later `qa run` still attributes its result to the same case.
+
+### Patch Changes
+
+- Updated dependencies [efb7692]
+- Updated dependencies [6c06b46]
+- Updated dependencies [535e2e9]
+  - @qa-ai-stlc/schemas@1.2.0
+  - @qa-ai-stlc/core@1.3.0
+  - @qa-ai-stlc/explorer@1.0.4
+  - @qa-ai-stlc/runner-playwright@0.2.1
+
 ## 0.11.0
 
 ### Minor Changes
