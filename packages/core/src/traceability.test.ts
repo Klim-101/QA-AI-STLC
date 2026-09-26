@@ -11,6 +11,7 @@ const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 const NOW = new Date('2026-09-25T12:00:00.000Z');
 const CLOCK = { now: () => NOW };
+const FLAKY_CONFIG = { historyWindow: 10, minStatusChanges: 2 };
 
 function scopeJson(): string {
   return JSON.stringify({
@@ -83,7 +84,7 @@ describe('buildTraceabilityMatrix', () => {
       }),
     });
 
-    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
 
     expect(matrix.generatedAt).toBe(NOW.toISOString());
     const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
@@ -105,7 +106,7 @@ describe('buildTraceabilityMatrix', () => {
       }),
     });
 
-    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
 
     const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
     expect(req1?.cases.map((testCase) => testCase.testCaseId)).toEqual(['case-a', 'case-b']);
@@ -120,7 +121,7 @@ describe('buildTraceabilityMatrix', () => {
       }),
     });
 
-    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
 
     const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
     expect(req1?.cases[0]?.latestResult).toBeUndefined();
@@ -158,7 +159,7 @@ describe('buildTraceabilityMatrix', () => {
       }),
     });
 
-    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
 
     const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
     expect(req1?.cases[0]?.latestResult).toMatchObject({
@@ -172,7 +173,7 @@ describe('buildTraceabilityMatrix', () => {
   it('returns no requirements for a project with no scope.json yet', async () => {
     const store = fakeStore();
 
-    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
 
     expect(matrix.requirements).toEqual([]);
   });
@@ -194,7 +195,7 @@ describe('buildTraceabilityMatrix', () => {
       }),
     });
 
-    const matrix = await buildTraceabilityMatrix(store, CLOCK);
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
 
     const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
     expect(req1?.cases[0]?.latestResult).toMatchObject({ resultId: 'result-1', status: 'passed' });
@@ -206,6 +207,89 @@ describe('buildTraceabilityMatrix', () => {
       [join(QA_DIR, 'runs', 'run-1', 'run.json')]: JSON.stringify({ id: 'run-1' }),
     });
 
-    await expect(buildTraceabilityMatrix(store, CLOCK)).resolves.toBeDefined();
+    await expect(buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG)).resolves.toBeDefined();
+  });
+
+  it('flags a case flaky once its history matches the configured pattern', async () => {
+    const store = fakeStore({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'artifacts', 'cases', 'auth', 'case-1.json')]: caseJson({
+        id: 'case-1',
+        requirementIds: ['req-1'],
+      }),
+      [join(QA_DIR, 'runs', 'run-1', 'results', 'result-1.json')]: resultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        testCaseId: 'case-1',
+        status: 'passed',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+      }),
+      [join(QA_DIR, 'runs', 'run-2', 'results', 'result-2.json')]: resultJson({
+        id: 'result-2',
+        runId: 'run-2',
+        testCaseId: 'case-1',
+        status: 'failed',
+        finishedAt: '2026-09-25T11:00:00.000Z',
+      }),
+      [join(QA_DIR, 'runs', 'run-3', 'results', 'result-3.json')]: resultJson({
+        id: 'result-3',
+        runId: 'run-3',
+        testCaseId: 'case-1',
+        status: 'passed',
+        finishedAt: '2026-09-25T12:00:00.000Z',
+      }),
+    });
+
+    const strict = await buildTraceabilityMatrix(store, CLOCK, { historyWindow: 10, minStatusChanges: 2 });
+    const req1Strict = strict.requirements.find((requirement) => requirement.requirementId === 'req-1');
+    expect(req1Strict?.cases[0]?.flaky).toBe(true);
+
+    const lenient = await buildTraceabilityMatrix(store, CLOCK, { historyWindow: 10, minStatusChanges: 3 });
+    const req1Lenient = lenient.requirements.find((requirement) => requirement.requirementId === 'req-1');
+    expect(req1Lenient?.cases[0]?.flaky).toBe(false);
+  });
+
+  it('reports "false" for a case that consistently fails, however low its pass rate', async () => {
+    const store = fakeStore({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'artifacts', 'cases', 'auth', 'case-1.json')]: caseJson({
+        id: 'case-1',
+        requirementIds: ['req-1'],
+      }),
+      [join(QA_DIR, 'runs', 'run-1', 'results', 'result-1.json')]: resultJson({
+        id: 'result-1',
+        runId: 'run-1',
+        testCaseId: 'case-1',
+        status: 'failed',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+      }),
+      [join(QA_DIR, 'runs', 'run-2', 'results', 'result-2.json')]: resultJson({
+        id: 'result-2',
+        runId: 'run-2',
+        testCaseId: 'case-1',
+        status: 'failed',
+        finishedAt: '2026-09-25T11:00:00.000Z',
+      }),
+    });
+
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
+
+    const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
+    expect(req1?.cases[0]?.flaky).toBe(false);
+  });
+
+  it('reports "false" for a case that has never run', async () => {
+    const store = fakeStore({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+      [join(QA_DIR, 'artifacts', 'cases', 'auth', 'case-1.json')]: caseJson({
+        id: 'case-1',
+        requirementIds: ['req-1'],
+      }),
+    });
+
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
+
+    const req1 = matrix.requirements.find((requirement) => requirement.requirementId === 'req-1');
+    expect(req1?.cases[0]?.flaky).toBe(false);
   });
 });

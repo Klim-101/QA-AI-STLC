@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { ConfigSchema, EnvironmentConfigSchema } from './config.js';
+import { ConfigSchema, EnvironmentConfigSchema, FlakyDetectionConfigSchema } from './config.js';
 
 function validConfig() {
   return {
@@ -99,6 +99,31 @@ describe('ConfigSchema', () => {
     delete admin.username;
     const result = ConfigSchema.safeParse(config);
     expect(result.success).toBe(true);
+  });
+
+  it('defaults flaky detection thresholds when omitted', () => {
+    const result = ConfigSchema.parse(validConfig());
+    expect(result.flaky).toEqual({ historyWindow: 10, minStatusChanges: 2 });
+  });
+
+  it('accepts explicit flaky detection thresholds', () => {
+    const result = ConfigSchema.parse({
+      ...validConfig(),
+      flaky: { historyWindow: 5, minStatusChanges: 3 },
+    });
+    expect(result.flaky).toEqual({ historyWindow: 5, minStatusChanges: 3 });
+  });
+});
+
+describe('FlakyDetectionConfigSchema', () => {
+  it('rejects a non-positive historyWindow', () => {
+    const result = FlakyDetectionConfigSchema.safeParse({ historyWindow: 0, minStatusChanges: 2 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-positive minStatusChanges', () => {
+    const result = FlakyDetectionConfigSchema.safeParse({ historyWindow: 10, minStatusChanges: 0 });
+    expect(result.success).toBe(false);
   });
 });
 

@@ -26,7 +26,12 @@ function renderRequirementSection(requirement: TraceabilityRequirement): string 
     return [heading, 'No linked test cases.'].join('\n\n');
   }
   const rows = requirement.cases.map(renderCaseRow);
-  return [heading, '| Case | Status | Result | Evidence |', '| --- | --- | --- | --- |', ...rows].join('\n');
+  return [
+    heading,
+    '| Case | Status | Result | Evidence | Flaky |',
+    '| --- | --- | --- | --- | --- |',
+    ...rows,
+  ].join('\n');
 }
 
 function renderCaseRow(testCase: TraceabilityCase): string {
@@ -34,5 +39,6 @@ function renderCaseRow(testCase: TraceabilityCase): string {
   const status = result?.status ?? 'never run';
   const resultId = result?.resultId ?? '—';
   const evidenceCount = result?.evidenceIds.length ?? 0;
-  return `| ${testCase.title} (${testCase.testCaseId}) | ${status} | ${resultId} | ${String(evidenceCount)} |`;
+  const flaky = testCase.flaky ? 'yes' : 'no';
+  return `| ${testCase.title} (${testCase.testCaseId}) | ${status} | ${resultId} | ${String(evidenceCount)} | ${flaky} |`;
 }

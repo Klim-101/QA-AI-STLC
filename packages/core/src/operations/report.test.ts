@@ -16,6 +16,15 @@ const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 const NOW = new Date('2026-09-25T12:00:00.000Z');
 
+const CONFIG_YAML = [
+  'testing: { e2e: in-scope, api: undecided, a11y: undecided, security: undecided }',
+  'environments: {}',
+  'identities: {}',
+  'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+  'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+  'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+].join('\n');
+
 function runRecordJson(overrides: { id: string; startedAt: string }): string {
   return JSON.stringify({
     schemaVersion: 1,
@@ -46,6 +55,7 @@ function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContex
 describe('runReport', () => {
   it('renders the given run’s summary and the traceability matrix as Markdown by default', async () => {
     const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: CONFIG_YAML,
       [join(QA_DIR, 'runs', 'run-1', 'run.json')]: runRecordJson({
         id: 'run-1',
         startedAt: '2026-09-25T10:00:00.000Z',
@@ -63,6 +73,7 @@ describe('runReport', () => {
 
   it('renders HTML when asked', async () => {
     const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: CONFIG_YAML,
       [join(QA_DIR, 'runs', 'run-1', 'run.json')]: runRecordJson({
         id: 'run-1',
         startedAt: '2026-09-25T10:00:00.000Z',
@@ -78,6 +89,7 @@ describe('runReport', () => {
 
   it('defaults to the most recently started run when none is given', async () => {
     const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: CONFIG_YAML,
       [join(QA_DIR, 'runs', 'run-older', 'run.json')]: runRecordJson({
         id: 'run-older',
         startedAt: '2026-09-24T10:00:00.000Z',

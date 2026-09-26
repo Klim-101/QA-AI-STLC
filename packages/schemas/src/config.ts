@@ -114,6 +114,17 @@ export const AgentsConfigSchema = z.object({
 });
 export type AgentsConfig = z.infer<typeof AgentsConfigSchema>;
 
+// Flaky detection (development plan section 6, "Quarantine mathematics" simplified per the
+// deferred-features table): a case is flagged flaky from its own recorded history in `.qa/runs`,
+// not a fixed formula — `historyWindow` and `minStatusChanges` are configurable thresholds.
+export const FlakyDetectionConfigSchema = z.object({
+  // How many of a case's most recent results to inspect.
+  historyWindow: z.number().int().positive(),
+  // How many status changes within that window flag the case as flaky.
+  minStatusChanges: z.number().int().positive(),
+});
+export type FlakyDetectionConfig = z.infer<typeof FlakyDetectionConfigSchema>;
+
 export const ConfigSchema = z
   .object({
     schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
@@ -125,6 +136,7 @@ export const ConfigSchema = z
     data: DataConfigSchema,
     selectors: SelectorsConfigSchema,
     agents: AgentsConfigSchema,
+    flaky: FlakyDetectionConfigSchema.default({ historyWindow: 10, minStatusChanges: 2 }),
   })
   // The testing scope survey (development plan section 2.7) is the single source of truth for
   // whether a contract or a source checkout is required; a config that claims API is in scope

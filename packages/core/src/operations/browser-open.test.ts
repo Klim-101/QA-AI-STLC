@@ -17,6 +17,7 @@ function configWithEnvironments(environments: Config['environments']): Config {
     data: { strategy: 'manual', ownerMarker: 'qa-ai-stlc' },
     selectors: { policy: 'playwright-default', testIdAttribute: 'data-testid' },
     agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 },
+    flaky: { historyWindow: 10, minStatusChanges: 2 },
   };
 }
 
