@@ -61,6 +61,12 @@ describe('renderConfigYaml', () => {
     expect(parsed.api).toStrictEqual({ contract: 'openapi', source: './openapi.yaml' });
   });
 
+  it('writes flaky detection thresholds', () => {
+    const parsed = ConfigSchema.parse(parseYaml(renderConfigYaml({ testing: ALL_UNDECIDED })));
+
+    expect(parsed.flaky).toStrictEqual({ historyWindow: 10, minStatusChanges: 2 });
+  });
+
   it('safely quotes a path containing YAML-special characters', () => {
     const parsed = ConfigSchema.parse(
       parseYaml(renderConfigYaml({ testing: ALL_UNDECIDED, sourcePath: 'weird: "path"' })),

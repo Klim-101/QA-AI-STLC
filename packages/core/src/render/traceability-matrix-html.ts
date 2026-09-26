@@ -39,7 +39,7 @@ function renderRequirementSection(requirement: TraceabilityRequirement): string 
   const rows = requirement.cases.map(renderCaseRow).join('');
   return [
     heading,
-    `<table><thead><tr><th>Case</th><th>Status</th><th>Result</th><th>Evidence</th></tr></thead>` +
+    `<table><thead><tr><th>Case</th><th>Status</th><th>Result</th><th>Evidence</th><th>Flaky</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`,
   ].join('\n');
 }
@@ -49,8 +49,10 @@ function renderCaseRow(testCase: TraceabilityCase): string {
   const status = result?.status ?? 'never run';
   const resultId = result?.resultId ?? '—';
   const evidenceCount = result?.evidenceIds.length ?? 0;
+  const flaky = testCase.flaky ? 'yes' : 'no';
   return (
     `<tr><td>${escapeHtml(testCase.title)} (${escapeHtml(testCase.testCaseId)})</td>` +
-    `<td>${escapeHtml(status)}</td><td>${escapeHtml(resultId)}</td><td>${String(evidenceCount)}</td></tr>`
+    `<td>${escapeHtml(status)}</td><td>${escapeHtml(resultId)}</td><td>${String(evidenceCount)}</td>` +
+    `<td>${flaky}</td></tr>`
   );
 }

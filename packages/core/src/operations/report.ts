@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RunRecordSchema, type Identifier, type RelativePath, type RunRecord } from '@qa-ai-stlc/schemas';
+import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
 import { QaStore } from '../qa-store.js';
@@ -55,7 +56,8 @@ export async function runReport(context: EngineContext, options: ReportOptions):
   }
   const runRecord = await store.readJson(runRecordPath, RunRecordSchema);
 
-  const matrix = await buildTraceabilityMatrix(store, context.clock);
+  const config = await loadConfig(store);
+  const matrix = await buildTraceabilityMatrix(store, context.clock, config.flaky);
 
   const runSummary =
     format === 'markdown'

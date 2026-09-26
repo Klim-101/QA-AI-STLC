@@ -363,6 +363,7 @@ describe('hasVerificationRetryBudget', () => {
     data: { strategy: 'manual', ownerMarker: 'qa-ai-stlc' },
     selectors: { policy: 'playwright-default', testIdAttribute: 'data-testid' },
     agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 2 },
+    flaky: { historyWindow: 10, minStatusChanges: 2 },
   };
 
   it('allows another attempt while attempts so far are within the budget', () => {

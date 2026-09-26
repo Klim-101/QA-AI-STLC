@@ -6,11 +6,13 @@ import {
   SCHEMA_VERSION,
   ScopeSchema,
   TestCaseSchema,
+  type FlakyDetectionConfig,
   type Identifier,
   type RelativePath,
   type RunResultStatus,
   type Scope,
 } from '@qa-ai-stlc/schemas';
+import { isFlakyHistory } from './flaky-detection.js';
 import type { Clock } from './ports/clock.js';
 import type { QaStore } from './qa-store.js';
 import { listRunResultPaths } from './run-results.js';
@@ -31,6 +33,8 @@ export interface TraceabilityCase {
   readonly title: string;
   /** `undefined` when no run has ever produced a result for this case yet. */
   readonly latestResult: TraceabilityResult | undefined;
+  /** Set when the case's status flips within its recent history (P3-10, `flaky` config). */
+  readonly flaky: boolean;
 }
 
 export interface TraceabilityRequirement {
@@ -51,20 +55,32 @@ export interface TraceabilityMatrix {
  * (`TestCase.requirementIds`), and each case's most recent run result, by `finishedAt`, across
  * every run recorded under `runs/**` — not just the run being reported on, so a case last run
  * yesterday still shows its real last-known status instead of disappearing from today's report.
+ * Each case's `flaky` flag (P3-10) is computed from that same history against `flakyConfig`.
  */
-export async function buildTraceabilityMatrix(store: QaStore, clock: Clock): Promise<TraceabilityMatrix> {
+export async function buildTraceabilityMatrix(
+  store: QaStore,
+  clock: Clock,
+  flakyConfig: FlakyDetectionConfig,
+): Promise<TraceabilityMatrix> {
   const scope = await loadScope(store);
   const cases = await loadCases(store);
-  const latestResultByTestCaseId = await loadLatestResultsByTestCaseId(store);
+  const resultHistoryByTestCaseId = await loadResultHistoryByTestCaseId(store);
 
   const requirements = scope.requirements.map((requirement) => {
     const linkedCases = cases
       .filter((testCase) => testCase.requirementIds.includes(requirement.id))
-      .map((testCase) => ({
-        testCaseId: testCase.id,
-        title: testCase.title,
-        latestResult: latestResultByTestCaseId.get(testCase.id),
-      }))
+      .map((testCase) => {
+        const history = resultHistoryByTestCaseId.get(testCase.id) ?? [];
+        return {
+          testCaseId: testCase.id,
+          title: testCase.title,
+          latestResult: history.at(-1),
+          flaky: isFlakyHistory(
+            history.map((result) => result.status),
+            flakyConfig,
+          ),
+        };
+      })
       .sort((a, b) => a.testCaseId.localeCompare(b.testCaseId));
 
     return { requirementId: requirement.id, title: requirement.title, cases: linkedCases };
@@ -88,26 +104,29 @@ async function loadCases(store: QaStore) {
   return cases.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-/** Every `RunResult` ever recorded, keyed by `testCaseId`, keeping only the one with the latest `finishedAt`. */
-async function loadLatestResultsByTestCaseId(
+/** Every `RunResult` ever recorded, keyed by `testCaseId`, sorted oldest first by `finishedAt`. */
+async function loadResultHistoryByTestCaseId(
   store: QaStore,
-): Promise<ReadonlyMap<Identifier, TraceabilityResult>> {
+): Promise<ReadonlyMap<Identifier, readonly TraceabilityResult[]>> {
   const resultFiles = await listRunResultPaths(store);
-  const latestByTestCaseId = new Map<Identifier, TraceabilityResult>();
+  const historyByTestCaseId = new Map<Identifier, TraceabilityResult[]>();
 
   for (const path of resultFiles) {
     const result = await store.readJson(path, RunResultSchema);
-    const current = latestByTestCaseId.get(result.testCaseId);
-    if (current === undefined || new Date(result.finishedAt) > new Date(current.finishedAt)) {
-      latestByTestCaseId.set(result.testCaseId, {
-        resultId: result.id,
-        runId: result.runId,
-        status: result.status,
-        finishedAt: result.finishedAt,
-        evidenceIds: result.evidenceIds,
-      });
-    }
+    const history = historyByTestCaseId.get(result.testCaseId) ?? [];
+    history.push({
+      resultId: result.id,
+      runId: result.runId,
+      status: result.status,
+      finishedAt: result.finishedAt,
+      evidenceIds: result.evidenceIds,
+    });
+    historyByTestCaseId.set(result.testCaseId, history);
   }
 
-  return latestByTestCaseId;
+  for (const history of historyByTestCaseId.values()) {
+    history.sort((a, b) => new Date(a.finishedAt).getTime() - new Date(b.finishedAt).getTime());
+  }
+
+  return historyByTestCaseId;
 }

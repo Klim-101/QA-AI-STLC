@@ -23,8 +23,14 @@ const MATRIX: TraceabilityMatrix = {
             finishedAt: '2026-09-25T10:00:05.000Z',
             evidenceIds: [],
           },
+          flaky: false,
         },
-        { testCaseId: 'case-2', title: 'Invalid credentials are rejected', latestResult: undefined },
+        {
+          testCaseId: 'case-2',
+          title: 'Invalid credentials are rejected',
+          latestResult: undefined,
+          flaky: false,
+        },
       ],
     },
     { requirementId: 'req-2', title: 'A locked account cannot log in', cases: [] },
@@ -53,6 +59,29 @@ describe('renderTraceabilityMatrixHtml', () => {
     const html = renderTraceabilityMatrixHtml(MATRIX);
 
     expect(html).toContain('<td>Invalid credentials are rejected (case-2)</td><td>never run</td>');
+  });
+
+  it('renders "no" for a stable case and "yes" for a flaky one', () => {
+    const html = renderTraceabilityMatrixHtml({
+      generatedAt: '2026-09-25T10:00:00.000Z',
+      requirements: [
+        {
+          requirementId: 'req-1',
+          title: 'A registered user can log in',
+          cases: [
+            ...(MATRIX.requirements[0]?.cases ?? []),
+            { testCaseId: 'case-3', title: 'Flaky login case', latestResult: undefined, flaky: true },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain(
+      '<td>Valid credentials log in (case-1)</td><td>passed</td><td>result-1</td><td>0</td><td>no</td>',
+    );
+    expect(html).toContain(
+      '<td>Flaky login case (case-3)</td><td>never run</td><td>—</td><td>0</td><td>yes</td>',
+    );
   });
 
   it('reports zero requirements without crashing', () => {

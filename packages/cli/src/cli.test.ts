@@ -1513,6 +1513,7 @@ describe('runCli', () => {
   it('runs "report" end to end and renders the given run as Markdown by default', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
         [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
           'run-1',
           '2026-09-25T10:00:00.000Z',
@@ -1530,6 +1531,7 @@ describe('runCli', () => {
   it('runs "report --format html" end to end', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
         [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
           'run-1',
           '2026-09-25T10:00:00.000Z',
@@ -1546,6 +1548,7 @@ describe('runCli', () => {
   it('defaults "report" to the most recently started run when --run is omitted', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
         [join(PROJECT_ROOT, '.qa', 'runs', 'run-older', 'run.json')]: runRecordJson(
           'run-older',
           '2026-09-24T10:00:00.000Z',
@@ -1588,6 +1591,7 @@ describe('runCli', () => {
     const exitCode = await runCli(['report'], {
       io,
       fs: createFakeFileSystem({
+        [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML,
         [join(process.cwd(), '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
           'run-1',
           '2026-09-25T10:00:00.000Z',
