@@ -7,6 +7,7 @@ import {
   QaStore,
   loadConfig,
   resolveRelativePath,
+  toCanonicalJson,
   toRelativePath,
   type EngineContext,
   type FileSystem,
@@ -354,8 +355,12 @@ export async function persistExploreResult(
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
   const merged = previous === undefined ? fresh : mergeSelectorRegistry(previous, fresh, generatedAt);
 
-  await store.writeJson(REGISTRY_PATH, merged);
-  await manifest.register(REGISTRY_PATH, JSON.stringify(merged));
+  // Registered from the exact same string each file is written with (AGENTS.md 12.7): a hash
+  // computed over a differently-formatted `JSON.stringify` of the same value would never match
+  // what `qa validate` reads back from disk.
+  const registrySerialized = toCanonicalJson(merged);
+  await store.writeText(REGISTRY_PATH, registrySerialized);
+  await manifest.register(REGISTRY_PATH, registrySerialized);
 
   const moduleResult = generateLocatorModule(merged, { generatorVersion: readPackageVersion() });
   await context.fs.mkdir(resolveRelativePath(context.projectRoot, 'tests/qa'));
@@ -366,8 +371,9 @@ export async function persistExploreResult(
   await manifest.register(LOCATOR_MODULE_PATH, moduleResult.source);
 
   const missingTestIdReport = buildMissingTestIdReport(merged);
-  await store.writeJson(MISSING_TEST_ID_REPORT_PATH, missingTestIdReport);
-  await manifest.register(MISSING_TEST_ID_REPORT_PATH, JSON.stringify(missingTestIdReport));
+  const missingTestIdReportSerialized = toCanonicalJson(missingTestIdReport);
+  await store.writeText(MISSING_TEST_ID_REPORT_PATH, missingTestIdReportSerialized);
+  await manifest.register(MISSING_TEST_ID_REPORT_PATH, missingTestIdReportSerialized);
 
   // Diffed against the fresh, unmerged registry, not the merged one: a merge always keeps an
   // element the fresh run no longer found (deprecating it in place) rather than dropping it, so

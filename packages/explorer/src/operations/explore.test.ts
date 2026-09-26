@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { QaError, type EngineContext } from '@qa-ai-stlc/core';
+import { QaError, hashText, type EngineContext } from '@qa-ai-stlc/core';
 import { SCHEMA_VERSION, type SelectorRegistry } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -111,6 +111,26 @@ describe('runExplore', () => {
         'selectors/missing-test-ids.json',
       ]),
     );
+  });
+
+  it('registers each written artifact under its own exact on-disk content, not a differently-formatted hash (#395)', async () => {
+    const context = fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
+
+    await runExplore(context);
+
+    const manifest = JSON.parse(await context.fs.readFile(join(QA_DIR, 'manifest.json'))) as {
+      artifacts: Record<string, { sha256: string }>;
+    };
+    const registryContent = await context.fs.readFile(join(QA_DIR, 'selectors', 'registry.json'));
+    expect(manifest.artifacts['selectors/registry.json']?.sha256).toBe(hashText(registryContent));
+    const missingReportContent = await context.fs.readFile(
+      join(QA_DIR, 'selectors', 'missing-test-ids.json'),
+    );
+    expect(manifest.artifacts['selectors/missing-test-ids.json']?.sha256).toBe(
+      hashText(missingReportContent),
+    );
+    const locatorsContent = await context.fs.readFile(join(PROJECT_ROOT, 'tests', 'qa', 'locators.ts'));
+    expect(manifest.artifacts['tests/qa/locators.ts']?.sha256).toBe(hashText(locatorsContent));
   });
 
   it('merges a second crawl onto the first, deprecating an element the second crawl no longer finds', async () => {
