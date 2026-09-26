@@ -394,6 +394,7 @@ it by hand, is Phase 3 work that has not started yet (see the roadmap).
 ## Documentation
 
 - [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
+- [CI usage](docs/public/ci-usage.md): the deterministic, no-model pipeline (`qa explore --verify`, `qa link`, `qa run`, `qa validate`) as a copy-pasteable recipe, proven continuously in this repository's own CI.
 - [Architecture diagram](docs/public/architecture-diagram.md): how the agent host, the engine and the pipeline state fit together.
 - [Architecture decision records](docs/adr/README.md): the significant, hard-to-reverse decisions behind the design, and why.
 
