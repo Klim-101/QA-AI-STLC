@@ -1,5 +1,57 @@
 # @qa-ai-stlc/cli
 
+## 0.11.0
+
+### Minor Changes
+
+- 9380d0d: Add `qa run` / MCP `qa.run` (P3-04): runs a spec set through the `Runner` for its test type (only
+  `e2e`, via `@qa-ai-stlc/runner-playwright`, has one so far) and persists every `RunResult` plus a
+  new `RunRecordSchema` summary under `.qa/runs/<run-id>/results/` and `.qa/runs/<run-id>/run.json`.
+  This is a new, per-invocation layout distinct from `qa.case_result_register`'s per-case one
+  (`.qa/runs/<test-case-id>/`, P3-14): a run can cover many results from one spec set, a case-result
+  registration covers exactly one ad hoc interactive check. `--environment <name>` resolves the
+  `baseUrl` from `config.yaml`, the same domain-allowlist-aware resolution every other environment-
+  aware command already uses.
+- 1ff0e16: Add `qa report` / MCP `qa.report` (P3-08, ADR-002): renders a run summary and the requirement →
+  case → result → evidence traceability matrix as Markdown or HTML, from the canonical JSON already
+  recorded under `.qa/` — no hand-written report path exists. `buildTraceabilityMatrix`
+  (`@qa-ai-stlc/core`) joins every requirement in `scope.json` against every case that links to it
+  and each case's most recent run result across every run ever recorded, not just the one being
+  reported on. Defaults to the most recently started run and Markdown format;
+  `--run <run-id>`/`runId` and `--format markdown|html`/`format` select otherwise. Two new artifact
+  kinds (`run-summary`, `traceability-matrix`) join the existing Markdown renderer registry, and a
+  new HTML renderer registry mirrors it — the framework's first HTML output.
+- 1775c76: Add `qa validate --run` / MCP `qa.validate` with `checkRuns: true` (P3-09): an opt-in sweep of
+  every recorded `RunResult` — from `qa run` or from interactive case execution alike — for a
+  fabricated evidence link (an `evidenceIds` entry with no matching registered evidence file,
+  excluding a quarantined item's own receipt) and for a `failed` result with no registered evidence
+  at all. Independent of `runTestRun`'s own write-time `RUN_RESULT_MISSING_EVIDENCE` check, this
+  catches the same gap in results written through any path, including `qa.case_result_register`,
+  which accepts a caller-supplied `evidenceIds` with no such check. Also fixes a real bug found
+  while building this: `buildTraceabilityMatrix` (P3-08) only scanned `qa run`'s own
+  `runs/<run-id>/results/` layout, silently missing every result interactive case execution wrote
+  under its own flat `runs/<test-case-id>/` layout — both now share a new `listRunResultPaths`
+  helper.
+
+### Patch Changes
+
+- Updated dependencies [8ec2ace]
+- Updated dependencies [30446d2]
+- Updated dependencies [9a5b1fe]
+- Updated dependencies [e0603c1]
+- Updated dependencies [344852d]
+- Updated dependencies [72ebb8e]
+- Updated dependencies [9380d0d]
+- Updated dependencies [1ff0e16]
+- Updated dependencies [43c1c0e]
+- Updated dependencies [d72dc03]
+- Updated dependencies [1775c76]
+- Updated dependencies [71c360e]
+  - @qa-ai-stlc/schemas@1.1.0
+  - @qa-ai-stlc/core@1.2.0
+  - @qa-ai-stlc/runner-playwright@0.2.0
+  - @qa-ai-stlc/explorer@1.0.3
+
 ## 0.10.0
 
 ### Minor Changes

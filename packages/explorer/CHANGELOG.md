@@ -1,5 +1,24 @@
 # @qa-ai-stlc/explorer
 
+## 1.0.3
+
+### Patch Changes
+
+- Updated dependencies [8ec2ace]
+- Updated dependencies [30446d2]
+- Updated dependencies [9a5b1fe]
+- Updated dependencies [e0603c1]
+- Updated dependencies [344852d]
+- Updated dependencies [72ebb8e]
+- Updated dependencies [9380d0d]
+- Updated dependencies [1ff0e16]
+- Updated dependencies [43c1c0e]
+- Updated dependencies [d72dc03]
+- Updated dependencies [1775c76]
+- Updated dependencies [71c360e]
+  - @qa-ai-stlc/schemas@1.1.0
+  - @qa-ai-stlc/core@1.2.0
+
 ## 1.0.2
 
 ### Patch Changes

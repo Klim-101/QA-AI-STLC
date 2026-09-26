@@ -2,8 +2,8 @@
   "mcpServers": {
     "qa-ai-stlc": {
       "command": "npx",
-      "args": ["-y", "@qa-ai-stlc/mcp-server@0.6.0"],
-      "env": { "QA_EXPECTED_ENGINE_VERSION": "0.6.0" }
+      "args": ["-y", "@qa-ai-stlc/mcp-server@0.7.0"],
+      "env": { "QA_EXPECTED_ENGINE_VERSION": "0.7.0" }
     }
   }
 }
