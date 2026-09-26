@@ -1,7 +1,12 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProvenSessionSchema, SCHEMA_VERSION, type SelectorRegistry, type TestCase } from '@qa-ai-stlc/schemas';
+import {
+  ProvenSessionSchema,
+  SCHEMA_VERSION,
+  type SelectorRegistry,
+  type TestCase,
+} from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import {
   buildGenerationSpokeInput,
@@ -252,7 +257,9 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
           {
             stepId: 'step-1',
             description: 'Add an item to the cart',
-            actions: [{ type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T13:00:00Z' }],
+            actions: [
+              { type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T13:00:00Z' },
+            ],
           },
         ],
       }),
