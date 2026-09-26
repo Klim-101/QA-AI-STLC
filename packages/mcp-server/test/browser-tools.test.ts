@@ -152,6 +152,10 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
     process.chdir(originalCwd);
   });
 
+  // A longer timeout than the 5000ms default: this drives open/navigate/click/fill/snapshot/close
+  // plus two extra evidence-file reads (P3-07's stepId assertions) through a real temp-directory
+  // filesystem, which the default budget can miss under CI load on a slower runner (observed
+  // flaking on windows-latest, #356, 2026-09-26) even though every step here is fast in isolation.
   it('leaves a complete evidence trail for a whole exploratory session', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
@@ -262,7 +266,7 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
 
       process.chdir(originalCwd);
     });
-  });
+  }, 15_000);
 
   it('registers a screenshot for every snapshot, so no unregistered image can exist', async () => {
     await withTempDir(async (projectRoot) => {
