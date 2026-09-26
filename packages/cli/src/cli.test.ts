@@ -1102,6 +1102,132 @@ describe('runCli', () => {
     expect(deps.stdout).toContain('Registered artifacts/cases/checkout/case-1.json: linked to r1.');
   });
 
+  it('runs "link" and prints a human-readable confirmation', async () => {
+    const scopeJson = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+    const specContent = [
+      "import { test } from '@playwright/test';",
+      "test('logs in', { annotation: { type: 'testCaseId', description: 'existing-case-1' } }, async () => {});",
+    ].join('\n');
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+          'artifacts/scope.json': scopeJson,
+        }),
+        [join(PROJECT_ROOT, 'tests', 'login.spec.ts')]: specContent,
+      }),
+    });
+
+    const exitCode = await runCli(['link', 'tests/login.spec.ts', 'r1', '--feature', 'login'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Registered artifacts/cases/login/existing-case-1.json: linked to r1.');
+  });
+
+  it('warns when the spec has no testCaseId annotation yet', async () => {
+    const scopeJson = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+          'artifacts/scope.json': scopeJson,
+        }),
+        [join(PROJECT_ROOT, 'tests', 'login.spec.ts')]: "test('logs in', async () => {});",
+      }),
+    });
+
+    const exitCode = await runCli(['link', 'tests/login.spec.ts', 'r1', '--feature', 'login'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('No "testCaseId" annotation found in the spec');
+  });
+
+  it('runs "link" with an explicit --test-type', async () => {
+    const scopeJson = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+    const apiConfigYaml = [
+      'schemaVersion: 1',
+      'testing: { e2e: in-scope, api: in-scope, a11y: out-of-scope, security: out-of-scope }',
+      'api: { contract: openapi, source: discover }',
+      'environments: {}',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+      '',
+    ].join('\n');
+    const specContent = [
+      "import { test } from '@playwright/test';",
+      "test('lists users', { annotation: { type: 'testCaseId', description: 'existing-case-1' } }, async () => {});",
+    ].join('\n');
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: apiConfigYaml,
+        [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: scopeJson,
+        [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+          'artifacts/scope.json': scopeJson,
+        }),
+        [join(PROJECT_ROOT, 'tests', 'users.spec.ts')]: specContent,
+      }),
+    });
+
+    const exitCode = await runCli(
+      ['link', 'tests/users.spec.ts', 'r1', '--feature', 'users', '--test-type', 'api'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Registered artifacts/cases/users/existing-case-1.json: linked to r1.');
+  });
+
+  it('reports a coded error when "link" is given no spec, requirement id or --feature', async () => {
+    const deps = dependencies();
+
+    const exitCode = await runCli(['link'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa link <spec> <requirement-id> --feature <name>');
+  });
+
+  it('reports a coded error when "link"’s requirement id is not in the scope artifact', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, 'tests', 'login.spec.ts')]: "test('logs in', async () => {});",
+      }),
+    });
+
+    const exitCode = await runCli(['link', 'tests/login.spec.ts', 'missing', '--feature', 'login'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('is not in artifacts/scope.json');
+  });
+
+  it('defaults the project root to the current working directory for "link"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['link', 'tests/login.spec.ts', 'r1', '--feature', 'login'], {
+      io,
+      fs: createFakeFileSystem({
+        [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML_WITH_ENVIRONMENT,
+      }),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('does not exist');
+  });
+
   it('runs "cases render" and prints the rendered Markdown', async () => {
     const caseJson = JSON.stringify({
       id: 'case-1',

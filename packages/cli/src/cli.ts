@@ -9,6 +9,7 @@ import {
   runCasesAdd,
   runCasesRender,
   runDoctor,
+  runLink,
   runReport,
   runScope,
   runTestDataAdd,
@@ -17,6 +18,7 @@ import {
   type CasesAddResult,
   type CasesRenderResult,
   type DoctorReport,
+  type LinkResult,
   type ReportFormat,
   type ReportResult,
   type ScopeResult,
@@ -57,6 +59,7 @@ Commands:
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
   run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]"
+  link          Register a hand-written spec in traceability without regeneration: "link <spec> <requirement-id> --feature <name> [--test-type e2e]"
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links: "validate [--run]" also sweeps every run result for a fabricated evidence link or a failed result missing evidence; nonzero exit on any of these
@@ -102,6 +105,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchTestData(rest, dependencies);
       case 'run':
         return await dispatchRun(rest, dependencies);
+      case 'link':
+        return await dispatchLink(rest, dependencies);
       case 'report':
         return await dispatchReport(rest, dependencies);
       case 'approve':
@@ -567,6 +572,35 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
   return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
+async function dispatchLink(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      feature: { type: 'string' },
+      'test-type': { type: 'string' },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [specFile, requirementId] = positionals;
+  const testType = parseTestType(values['test-type']);
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runLink(context, {
+    ...(specFile !== undefined ? { specFile } : {}),
+    ...(requirementId !== undefined ? { requirementId } : {}),
+    ...(typeof values.feature === 'string' ? { feature: values.feature } : {}),
+    ...(testType !== undefined ? { testType } : {}),
+  });
+  printResult(context.io, json, 'link', result, formatLinkResult(result));
+  return EXIT_SUCCESS;
+}
+
 function parseReportFormat(value: string | undefined): ReportFormat | undefined {
   if (value === undefined) {
     return undefined;
@@ -745,6 +779,16 @@ function formatCasesRenderResult(result: CasesRenderResult): readonly string[] {
 
 function formatTestDataAddResult(result: TestDataAddResult): readonly string[] {
   return [`Registered ${result.testDataPath}.`];
+}
+
+function formatLinkResult(result: LinkResult): readonly string[] {
+  const lines = [`Registered ${result.casePath}: linked to ${result.requirementId}.`];
+  if (!result.annotationFound) {
+    lines.push(
+      `No "testCaseId" annotation found in the spec; add test(title, { annotation: { type: 'testCaseId', description: '${result.testCaseId}' } }, ...) so a future "qa run" attributes its result to this case.`,
+    );
+  }
+  return lines;
 }
 
 function formatRunSummary(summary: RunSummary): readonly string[] {

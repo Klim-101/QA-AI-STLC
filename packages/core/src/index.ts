@@ -65,3 +65,4 @@ export * from './verification.js';
 export * from './operations/http-execute.js';
 export * from './operations/run.js';
 export * from './operations/report.js';
+export * from './operations/link.js';

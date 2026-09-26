@@ -14,6 +14,7 @@ import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { generationProvenSessionTool } from '../src/tools/generation-proven-session.js';
 import { httpExecuteTool } from '../src/tools/http-execute.js';
+import { linkTool } from '../src/tools/link.js';
 import { reportTool } from '../src/tools/report.js';
 import { runTool } from '../src/tools/run.js';
 import { scopeTool } from '../src/tools/scope.js';
@@ -200,6 +201,70 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           unlinkedRequirementIds: ['removed-later'],
         },
       ]);
+    });
+  });
+
+  it('qa.link registers a hand-written spec in traceability, reusing its own testCaseId annotation', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+
+      await mkdir(join(projectRoot, 'tests'), { recursive: true });
+      await writeFile(
+        join(projectRoot, 'tests', 'login.spec.ts'),
+        [
+          "import { test } from '@playwright/test';",
+          "test('logs in', { annotation: { type: 'testCaseId', description: 'hand-written-login' } }, async () => {});",
+          '',
+        ].join('\n'),
+        'utf-8',
+      );
+
+      const linkResult = await linkTool.handler({
+        specFile: 'tests/login.spec.ts',
+        requirementId: 'login',
+        feature: 'login',
+      });
+      process.chdir(originalCwd);
+
+      expect(linkResult).toEqual({
+        testCaseId: 'hand-written-login',
+        casePath: 'artifacts/cases/login/hand-written-login.json',
+        requirementId: 'login',
+        annotationFound: true,
+      });
+    });
+  });
+
+  it('qa.link honors an explicit testType', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+
+      await mkdir(join(projectRoot, 'tests'), { recursive: true });
+      await writeFile(
+        join(projectRoot, 'tests', 'login.spec.ts'),
+        [
+          "import { test } from '@playwright/test';",
+          "test('logs in', { annotation: { type: 'testCaseId', description: 'hand-written-login' } }, async () => {});",
+          '',
+        ].join('\n'),
+        'utf-8',
+      );
+
+      const linkResult = await linkTool.handler({
+        specFile: 'tests/login.spec.ts',
+        requirementId: 'login',
+        feature: 'login',
+        testType: 'e2e',
+      });
+      process.chdir(originalCwd);
+
+      expect(linkResult.testCaseId).toBe('hand-written-login');
     });
   });
 
