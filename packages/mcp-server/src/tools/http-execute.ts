@@ -18,6 +18,12 @@ const InputSchema = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
   tlsInsecure: z.boolean().optional().describe('Skip TLS certificate verification. Off by default.'),
+  stepId: z
+    .string()
+    .optional()
+    .describe(
+      "'step-<N>', N the case step's 1-based position this call performs, when executing a registered case.",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -51,5 +57,6 @@ export const httpExecuteTool: ToolDefinition<typeof InputSchema, typeof OutputSc
       ...(input.headers !== undefined ? { headers: input.headers } : {}),
       ...(input.body !== undefined ? { body: input.body } : {}),
       ...(input.tlsInsecure !== undefined ? { tlsInsecure: input.tlsInsecure } : {}),
+      ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
     }),
 };

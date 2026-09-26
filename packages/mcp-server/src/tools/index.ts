@@ -15,6 +15,7 @@ import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
 import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
+import { generationProvenSessionTool } from './generation-proven-session.js';
 import { httpExecuteTool } from './http-execute.js';
 import { pingTool } from './ping.js';
 import { createRegistryExecuteRegisterTool } from './registry-execute-register.js';
@@ -38,6 +39,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   validateTool,
   httpExecuteTool,
   caseResultRegisterTool,
+  generationProvenSessionTool,
   runTool,
   reportTool,
 ];

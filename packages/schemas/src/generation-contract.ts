@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { IdentifierSchema, RelativePathSchema, Sha256HexSchema, IsoDateTimeSchema } from './primitives.js';
+import { ProvenSessionSchema } from './proven-session.js';
 import { SelectorRegistrySchema } from './selector-registry.js';
 import { TestCaseSchema } from './test-case.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
@@ -31,6 +32,12 @@ export const GenerationSpokeInputSchema = z.object({
     generatorVersion: z.string().min(1),
     exports: z.array(LocatorModuleExportSchema),
   }),
+  // The case's most recent passing `qa-execute` session (P3-15), when one exists
+  // (`findLatestProvenSession`, `@qa-ai-stlc/core`) — what `qa-generate-tests` (P3-07) actually
+  // codifies. Included here, not passed alongside the input, specifically so it is part of
+  // `sourceHash`: re-running `qa-execute` for the case changes this field and therefore the hash,
+  // so `isGeneratedTestSpecStale` catches that drift with no separate detection mechanism.
+  provenSession: ProvenSessionSchema.optional(),
 });
 export type GenerationSpokeInput = z.infer<typeof GenerationSpokeInputSchema>;
 

@@ -174,6 +174,7 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       const navigated = await navigate.handler({
         sessionId: opened.sessionId,
         url: 'https://staging.example.test/login',
+        stepId: 'step-1',
       });
       expect(navigated.httpStatus).toBe(200);
 
@@ -186,10 +187,15 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         sessionId: opened.sessionId,
         selector: '#password',
         value: 'correct-horse',
+        stepId: 'step-2',
       });
       expect(filled.valueLength).toBe('correct-horse'.length);
 
-      const clicked = await click.handler({ sessionId: opened.sessionId, selector: '#submit' });
+      const clicked = await click.handler({
+        sessionId: opened.sessionId,
+        selector: '#submit',
+        stepId: 'step-3',
+      });
       expect(clicked.url).toBe('https://staging.example.test/login');
 
       // Safe mode still holds for whatever the click set off.
@@ -241,7 +247,18 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         'utf-8',
       );
       expect(fillRecord).not.toContain('correct-horse');
-      expect(JSON.parse(fillRecord)).toMatchObject({ type: 'fill', valueLength: 13 });
+      expect(JSON.parse(fillRecord)).toMatchObject({ type: 'fill', valueLength: 13, stepId: 'step-2' });
+
+      // stepId threads from the MCP tool through to the persisted evidence content, for
+      // qa-generate-tests (P3-07) to recover proven steps from later.
+      const navigateRecord = JSON.parse(
+        await readFile(join(projectRoot, '.qa', ...navigated.evidence.path.split('/')), 'utf-8'),
+      ) as { stepId?: string };
+      const clickRecord = JSON.parse(
+        await readFile(join(projectRoot, '.qa', ...clicked.evidence.path.split('/')), 'utf-8'),
+      ) as { stepId?: string };
+      expect(navigateRecord.stepId).toBe('step-1');
+      expect(clickRecord.stepId).toBe('step-3');
 
       process.chdir(originalCwd);
     });

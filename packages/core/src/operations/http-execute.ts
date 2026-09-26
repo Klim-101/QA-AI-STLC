@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Evidence, Identifier } from '@qa-ai-stlc/schemas';
+import { HttpRequestRecordSchema, type Evidence, type Identifier } from '@qa-ai-stlc/schemas';
 import { assertUrlAllowed } from '../browser-allowlist.js';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
@@ -26,6 +26,8 @@ export interface HttpExecuteOptions {
   readonly body?: string;
   readonly tlsInsecure?: boolean;
   readonly idGenerator?: IdGenerator;
+  /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
+  readonly stepId?: Identifier;
 }
 
 export interface HttpExecuteResult {
@@ -65,8 +67,9 @@ export async function runHttpExecute(
   });
 
   const truncated = response.bodyText.length > BODY_PREVIEW_MAX_LENGTH;
-  const record = {
-    type: 'http-request' as const,
+  const record = HttpRequestRecordSchema.parse({
+    type: 'http-request',
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
     method,
     url: options.url,
     status: response.status,
@@ -74,7 +77,7 @@ export async function runHttpExecute(
     bodyPreview: response.bodyText.slice(0, BODY_PREVIEW_MAX_LENGTH),
     truncated,
     at: context.clock.now().toISOString(),
-  };
+  });
 
   const manifest = new ManifestStore({ store, clock: context.clock });
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
@@ -84,6 +87,7 @@ export async function runHttpExecute(
     kind: 'other',
     fileExtension: 'json',
     content: toCanonicalJson(record),
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
   return { status: response.status, evidence };

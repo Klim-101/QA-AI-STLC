@@ -33,6 +33,13 @@ Follow the case's `steps` in order with `qa.browser_click` / `qa.browser_fill` /
 Each call registers its own evidence automatically — collect every evidence id as you go, you will
 need the full list for `qa.case_result_register`.
 
+**Pass `stepId: 'step-<N>'`** on every call that performs one of the case's `steps`, where `N` is
+that step's 1-based position in the case's `steps` array (the first step is `step-1`). This is what
+lets `qa-generate-tests` (P3-07) recover this session's proven steps from evidence alone, with no
+separate session-log artifact — omitting it leaves that step invisible to generation. A call that
+sets up the session rather than performing a case step (an initial navigation before step one, for
+example) omits `stepId`.
+
 ## Closing out
 
 Call `qa.browser_close` when the case's steps are done, whether it passed or failed — an open

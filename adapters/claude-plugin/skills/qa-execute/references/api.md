@@ -6,6 +6,11 @@ with several requests in sequence (for example, log in, then call an authenticat
 the tool once per request, threading any value the first response returned (a token, a cookie) into
 the next call's `headers`/`body` yourself.
 
+**Pass `stepId: 'step-<N>'`** on each call, where `N` is that step's 1-based position in the case's
+`steps` array (the first step is `step-1`) — the same convention `references/web.md` uses for
+browser actions. This is what lets `qa-generate-tests` (P3-07) recover this session's proven steps
+from evidence alone; a call omitting it is invisible to generation.
+
 Each call registers the request and a capped preview of the response body as evidence and returns
 only the status code — read the registered evidence back if the case's expected result needs to
 check the response body or headers, not just the status.

@@ -78,6 +78,28 @@ describe('GenerationSpokeInputSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts an optional provenSession, part of sourceHash for staleness detection (P3-07)', () => {
+    const result = GenerationSpokeInputSchema.safeParse({
+      testCase,
+      registrySlice,
+      locatorModule: { generatorVersion: '0.7.0', exports: [] },
+      provenSession: {
+        testCaseId: 'case-1',
+        runResultId: 'run-result-1',
+        steps: [
+          {
+            stepId: 'step-1',
+            description: 'Add an item to the cart',
+            actions: [
+              { type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T12:00:00Z' },
+            ],
+          },
+        ],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('ManualRegionSchema', () => {

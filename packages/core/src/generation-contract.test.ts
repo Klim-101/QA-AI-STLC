@@ -1,7 +1,12 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { SCHEMA_VERSION, type SelectorRegistry, type TestCase } from '@qa-ai-stlc/schemas';
+import {
+  ProvenSessionSchema,
+  SCHEMA_VERSION,
+  type SelectorRegistry,
+  type TestCase,
+} from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import {
   buildGenerationSpokeInput,
@@ -117,6 +122,41 @@ describe('buildGenerationSpokeInput', () => {
 
     expect(input.locatorModule.exports).toEqual([]);
   });
+
+  it('omits provenSession when none is given', () => {
+    const input = buildGenerationSpokeInput({
+      testCase,
+      registry,
+      elementIds: [],
+      locatorModuleGeneratorVersion: '0.7.0',
+    });
+
+    expect(input.provenSession).toBeUndefined();
+  });
+
+  it('includes a given provenSession, so it becomes part of sourceHash (P3-07)', () => {
+    const provenSession = ProvenSessionSchema.parse({
+      testCaseId: 'case-1',
+      runResultId: 'run-result-1',
+      steps: [
+        {
+          stepId: 'step-1',
+          description: 'Add an item to the cart',
+          actions: [{ type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T12:00:00Z' }],
+        },
+      ],
+    });
+
+    const input = buildGenerationSpokeInput({
+      testCase,
+      registry,
+      elementIds: [],
+      locatorModuleGeneratorVersion: '0.7.0',
+      provenSession,
+    });
+
+    expect(input.provenSession).toMatchObject(provenSession);
+  });
 });
 
 describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
@@ -188,5 +228,43 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
     });
 
     expect(isGeneratedTestSpecStale(spec, changedInput)).toBe(true);
+  });
+
+  it('is stale once qa-execute produces a new proven session for the case (P3-07)', () => {
+    const input = buildGenerationSpokeInput({
+      testCase,
+      registry,
+      elementIds: ['el-1'],
+      locatorModuleGeneratorVersion: '0.7.0',
+    });
+    const spec = stampGeneratedTestSpec({
+      input,
+      content: 'export const GENERATOR_VERSION = "0.1.0";',
+      filePath: 'tests/qa/checkout/guest-checkout.spec.ts',
+      generatorVersion: '0.1.0',
+      clock: fixedClock,
+    });
+
+    const reExecutedInput = buildGenerationSpokeInput({
+      testCase,
+      registry,
+      elementIds: ['el-1'],
+      locatorModuleGeneratorVersion: '0.7.0',
+      provenSession: ProvenSessionSchema.parse({
+        testCaseId: 'case-1',
+        runResultId: 'run-result-2',
+        steps: [
+          {
+            stepId: 'step-1',
+            description: 'Add an item to the cart',
+            actions: [
+              { type: 'click', sessionId: 'session-1', stepId: 'step-1', at: '2026-09-25T13:00:00Z' },
+            ],
+          },
+        ],
+      }),
+    });
+
+    expect(isGeneratedTestSpecStale(spec, reExecutedInput)).toBe(true);
   });
 });

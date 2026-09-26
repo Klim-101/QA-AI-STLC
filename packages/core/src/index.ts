@@ -58,6 +58,7 @@ export * from './operations/browser-close.js';
 export * from './operations/browser-accessibility-scan.js';
 export * from './operations/registry-execute-register.js';
 export * from './operations/case-result-register.js';
+export * from './operations/proven-session.js';
 export * from './generation-contract.js';
 export * from './manual-regions.js';
 export * from './verification.js';

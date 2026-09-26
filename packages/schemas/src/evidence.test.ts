@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { BrowserActionSchema, EvidenceQuarantineReceiptSchema, EvidenceSchema } from './evidence.js';
+import {
+  BrowserActionSchema,
+  EvidenceQuarantineReceiptSchema,
+  EvidenceSchema,
+  HttpRequestRecordSchema,
+} from './evidence.js';
 
 const validHash = 'a'.repeat(64);
 
@@ -112,6 +117,73 @@ describe('BrowserActionSchema', () => {
       sessionId: 'session-1',
       selector: '#password',
       valueLength: -1,
+      at: '2026-09-21T12:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a click carrying the case step it performed', () => {
+    const result = BrowserActionSchema.safeParse({
+      type: 'click',
+      sessionId: 'session-1',
+      stepId: 'step-2',
+      selector: 'role=button[name="Log in"]',
+      at: '2026-09-21T12:00:00Z',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a record with no stepId, for a session-setup action', () => {
+    const result = BrowserActionSchema.safeParse({
+      type: 'open',
+      sessionId: 'session-1',
+      at: '2026-09-21T12:00:00Z',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.stepId).toBeUndefined();
+  });
+});
+
+describe('HttpRequestRecordSchema', () => {
+  it('accepts a request/response record carrying the case step it performed', () => {
+    const result = HttpRequestRecordSchema.safeParse({
+      type: 'http-request',
+      stepId: 'step-1',
+      method: 'POST',
+      url: 'https://staging.example.test/login',
+      status: 200,
+      responseHeaders: { 'content-type': 'application/json' },
+      bodyPreview: '{"ok":true}',
+      truncated: false,
+      at: '2026-09-21T12:00:00Z',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.schemaVersion).toBe(1);
+  });
+
+  it('accepts a record with no stepId', () => {
+    const result = HttpRequestRecordSchema.safeParse({
+      type: 'http-request',
+      method: 'GET',
+      url: 'https://staging.example.test/',
+      status: 200,
+      responseHeaders: {},
+      bodyPreview: '',
+      truncated: false,
+      at: '2026-09-21T12:00:00Z',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a record whose type is not "http-request"', () => {
+    const result = HttpRequestRecordSchema.safeParse({
+      type: 'something-else',
+      method: 'GET',
+      url: 'https://staging.example.test/',
+      status: 200,
+      responseHeaders: {},
+      bodyPreview: '',
+      truncated: false,
       at: '2026-09-21T12:00:00Z',
     });
     expect(result.success).toBe(false);

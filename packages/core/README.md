@@ -40,13 +40,21 @@ execution alike — for an `evidenceIds` entry with no matching registered evide
 fabricated link) and for a `failed` result with none at all, independent of which write path
 produced the result.
 
-The generation contract (P3-05, ADR-0010) fixes what a future `qa-generate-tests` spoke (P3-07)
-will exchange with the hub: `buildGenerationSpokeInput`/`buildRegistrySlice` assemble a case, a
+The generation contract (P3-05, ADR-0010) fixes what the `qa-generate-tests` skill (P3-07)
+exchanges with the hub: `buildGenerationSpokeInput`/`buildRegistrySlice` assemble a case, a
 filtered slice of the selector registry and the locator module's current export list into a
 `GenerationSpokeInput`; `stampGeneratedTestSpec`/`isGeneratedTestSpecStale` stamp and later check a
 generated spec's `sourceHash` against that input. `extractManualRegions`/`applyManualRegions`
 round-trip a human's hand-written `// qa:manual:start <id>` / `// qa:manual:end <id>` blocks across
 regeneration, reused unchanged by the verification loop (P3-06) and `qa upgrade` (P7-01).
+
+`findLatestProvenSession` (P3-07) recovers what `qa-generate-tests` actually codifies: a case's
+most recently `passed` `qa-execute` (P3-15) `RunResult`, with the evidence it points to grouped by
+the `'step-<N>'` id each action's own content carries (`BrowserActionSchema`/
+`HttpRequestRecordSchema`, `packages/schemas`) rather than a separate session-log artifact. Its MCP
+wrapper is `qa.generation_proven_session`. `GenerationSpokeInput`'s optional `provenSession` field
+carries this recovered session so it becomes part of `sourceHash`: re-running `qa-execute` for a
+case is caught as drift by the existing `isGeneratedTestSpecStale`, no separate detection needed.
 
 `verifyGeneratedTestSpec` (P3-06, development plan section 5.2) is the framework's primary quality
 mechanism: a spoke's generated spec is never registered on trust. Its content is typechecked

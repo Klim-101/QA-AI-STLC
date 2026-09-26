@@ -14,6 +14,12 @@ calling the exact same `packages/core` or `packages/explorer` function its CLI c
 (P2-05). `qa.explore` does not support manual pick-mode capture: opening a headed browser for a
 human to click through is a CLI-only feature, not something an agent can drive over stdio.
 
+Interactive case execution (P3-14/P3-15) adds `qa.http_execute` (the `api` test type, no browser),
+`qa.registry_execute_register` and `qa.case_result_register`. `qa.generation_proven_session`
+(P3-07) reads back a case's most recently proven `qa-execute` session — its evidence grouped by the
+`stepId` each `browser.*`/`qa.http_execute` call tagged it with — for `qa-generate-tests` to codify
+into a spec.
+
 It also starts the six `browser.*` tools — `qa.browser_open`, `qa.browser_navigate`,
 `qa.browser_click`, `qa.browser_fill`, `qa.browser_snapshot`, `qa.browser_close` — the only way
 an agent may touch the application under test (ADR-005). Every one of them registers what it did

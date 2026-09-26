@@ -132,6 +132,22 @@ describe('runHttpExecute', () => {
     expect(written.bodyPreview).toHaveLength(4000);
   });
 
+  it('carries a stepId into the recorded evidence, for qa-generate-tests (P3-07) to recover later', async () => {
+    const httpClient = createFakeHttpClient({ ok: true, status: 200, bodyText: 'ok' });
+    const { context, fs } = createContext(httpClient);
+
+    const result = await runHttpExecute(context, {
+      runId: 'run-1',
+      url: 'https://staging.example.test/login',
+      stepId: 'step-3',
+    });
+
+    const written = JSON.parse(String(fs.getRawFile(join('project', '.qa', result.evidence.path)))) as {
+      stepId?: string;
+    };
+    expect(written.stepId).toBe('step-3');
+  });
+
   // Regression, #364: qa.http_execute previously called any URL with no allowlist check at all.
   it("rejects a URL off the resolved environment's allowlist before making any request", async () => {
     const httpClient = createFakeHttpClient({ ok: true, status: 200 });

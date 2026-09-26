@@ -36,6 +36,23 @@ describe('runBrowserFill', () => {
     });
   });
 
+  it('carries a stepId into the recorded evidence, for qa-generate-tests (P3-07) to recover later', async () => {
+    const harness = createBrowserTestHarness();
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    const result = await runBrowserFill(harness.context, {
+      sessionId,
+      selector: '#password',
+      value: 'hunter2',
+      stepId: 'step-1',
+    });
+
+    const written = JSON.parse(
+      String(harness.fs.getRawFile(join('project', '.qa', result.evidence.path))),
+    ) as { stepId?: string };
+    expect(written.stepId).toBe('step-1');
+  });
+
   it('rejects an unknown session', async () => {
     const harness = createBrowserTestHarness();
 

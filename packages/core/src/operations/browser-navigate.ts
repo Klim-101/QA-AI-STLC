@@ -9,6 +9,8 @@ import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evi
 export interface BrowserNavigateOptions {
   readonly sessionId: string;
   readonly url: string;
+  /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
+  readonly stepId?: string;
 }
 
 export interface BrowserNavigateResult {
@@ -43,6 +45,7 @@ export async function runBrowserNavigate(
     session,
     now: context.engine.clock.now(),
     action: { type: 'navigate', url, ...(httpStatus !== undefined ? { httpStatus } : {}) },
+    ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
   return {
