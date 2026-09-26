@@ -13,6 +13,8 @@ coverage/
 .claude/settings.local.json
 .qa/evidence/
 .qa/runs/
+# Scratch project the example-ci-usage.yml workflow creates at runtime, never committed.
+/.ci-example-scratch/
 # Live session cookies/tokens (AuthSessionStore) -- never registered as evidence, never committed.
 .qa/auth/
 .env

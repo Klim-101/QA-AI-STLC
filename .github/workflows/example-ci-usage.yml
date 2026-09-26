@@ -1,0 +1,123 @@
+name: Example - CI usage (no model)
+
+# Lives in this repository's own CI so the recipe documented at docs/public/ci-usage.md is proven
+# green continuously, not just written once and left to rot (P3-12). Runs the `qa` CLI itself, the
+# same way an operator's own CI would, against the real running demo app -- not the internal test
+# suite's mocked/in-process calls (AGENTS.md 13).
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/example-ci-usage.yml'
+      - 'docs/public/ci-usage.md'
+      - 'packages/**'
+      - 'examples/demo-app/**'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: example-ci-usage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the engine packages
+        run: npm run build
+
+      # Output is redirected to a file, not inherited: an inherited stdout/stderr pipe held open by
+      # a backgrounded process stops this step from ever completing.
+      - name: Start the demo app
+        run: nohup npm run start --workspace @qa-ai-stlc/demo-app > demo-app.log 2>&1 &
+        env:
+          DEMO_APP_PORT: '4310'
+
+      - name: Wait for the demo app to be reachable
+        run: |
+          set -eu
+          for _ in $(seq 1 60); do
+            if curl --silent --fail http://localhost:4310/login > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Demo app never became reachable.' >&2
+          exit 1
+
+      # A scratch project *inside* the checkout, not os.tmpdir(): a hand-written spec's own
+      # `import { test } from '@playwright/test'` only resolves via Node's directory-walking
+      # lookup when the project sits somewhere under this repo's hoisted node_modules/.
+      - name: Run the no-model pipeline against a scratch project
+        run: |
+          set -eu
+          # The built binary directly, not the npm-generated node_modules/.bin/qa symlink: more
+          # robust across runner OSes and doesn't depend on npm's workspace bin-linking behavior.
+          qa() { node "$GITHUB_WORKSPACE/packages/cli/dist/bin/qa.js" "$@"; }
+          PROJECT_DIR="$GITHUB_WORKSPACE/.ci-example-scratch"
+          rm -rf "$PROJECT_DIR"
+          mkdir -p "$PROJECT_DIR/tests"
+          cd "$PROJECT_DIR"
+
+          qa init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope --defer-scope
+          qa config add environment ci --base-url http://localhost:4310/login --allowlist localhost
+
+          # Builds the selector registry from the real, running demo app.
+          qa explore --environment ci
+          # Fails the job if a stored locator no longer resolves on the live page (selector drift).
+          qa explore --environment ci --verify
+
+          # A hand-written spec, not generated: qa-generate-tests (Phase 3) is a separate capability
+          # this example does not depend on. Named *.playwright-spec.ts so Vitest's own default
+          # include glob (packages/**/*.spec.ts) never mistakes it for one of its own tests.
+          cat > tests/login.playwright-spec.ts <<'SPEC'
+          import { test, expect } from '@playwright/test';
+
+          test(
+            'the login page renders',
+            { annotation: { type: 'testCaseId', description: 'login-page-renders' } },
+            async ({ page }) => {
+              await page.goto('/login');
+              await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible();
+              await expect(page.locator('#email')).toBeVisible();
+            },
+          );
+          SPEC
+
+          qa scope --from text --label 'example workflow' \
+            --content "$(printf '## Login page is reachable\nA visitor can open the login page without authenticating.')"
+
+          # Folds the hand-written spec into traceability, reusing its own testCaseId annotation
+          # (P3-11) -- the id below must match the slug qa scope derived from the heading above.
+          qa link tests/login.playwright-spec.ts login-page-is-reachable --feature login
+
+          qa run --spec tests/login.playwright-spec.ts
+
+          # Re-sweeps every gate, requirement link and, with --run, every result's evidence.
+          qa validate --run
+
+          qa report
+
+      - name: Clean up the scratch project
+        if: always()
+        run: rm -rf "$GITHUB_WORKSPACE/.ci-example-scratch"
