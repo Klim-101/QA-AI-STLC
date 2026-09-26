@@ -1,5 +1,92 @@
 # @qa-ai-stlc/mcp-server
 
+## 0.7.0
+
+### Minor Changes
+
+- d1c700a: Exposes P3-14's interactive case execution operations over MCP, so an agent host can actually
+  drive them (they previously existed only in `@qa-ai-stlc/core`, unreachable from any host):
+
+  - `qa.browser_open` gains the `executionMode` option (ADR-0009), previously core-only.
+  - New tools: `qa.http_execute` (a real HTTP call for the `api` test type), `qa.browser_accessibility_scan`
+    (a real axe-core scan for `a11y`), `qa.registry_execute_register` (promotes an ad hoc element pick
+    into the selector registry as `source: "execute"`), and `qa.case_result_register` (ties an
+    execution's evidence together into a registered run result; the caller supplies the pass/fail
+    verdict, never the engine).
+
+  Backs the new `qa-execute` skill (P3-15, `agents/skills/qa-execute/`), which drives these tools to
+  prove an approved test case actually works before any code is generated for it.
+
+- 72ebb8e: Add `qa-generate-tests` (P3-07): the skill that codifies a proven `qa-execute` session into a
+  deterministic Playwright/API spec, plus the engine support it needs.
+
+  `qa.browser_click`/`qa.browser_fill`/`qa.browser_navigate`/`qa.http_execute` accept an optional
+  `stepId` (`'step-<N>'`, `N` the case step's 1-based position), carried inside the evidence content
+  itself (`BrowserActionSchema`, new `HttpRequestRecordSchema`) rather than only on the `Evidence`
+  wrapper, which is never persisted on its own. New core operation `findLatestProvenSession` (and its
+  MCP wrapper `qa.generation_proven_session`) recovers a case's most recently proven session by
+  reading its latest passing `RunResult` and grouping the evidence it points to by `stepId` — no
+  separate session-log artifact. `GenerationSpokeInput` gains an optional `provenSession` field, so
+  `isGeneratedTestSpecStale` (P3-04) picks up a re-executed `qa-execute` session as drift for free.
+
+  `agents/skills/qa-execute` documents the `stepId` convention for every step-performing call;
+  `agents/skills/qa-generate-tests` is new.
+
+- 9380d0d: Add `qa run` / MCP `qa.run` (P3-04): runs a spec set through the `Runner` for its test type (only
+  `e2e`, via `@qa-ai-stlc/runner-playwright`, has one so far) and persists every `RunResult` plus a
+  new `RunRecordSchema` summary under `.qa/runs/<run-id>/results/` and `.qa/runs/<run-id>/run.json`.
+  This is a new, per-invocation layout distinct from `qa.case_result_register`'s per-case one
+  (`.qa/runs/<test-case-id>/`, P3-14): a run can cover many results from one spec set, a case-result
+  registration covers exactly one ad hoc interactive check. `--environment <name>` resolves the
+  `baseUrl` from `config.yaml`, the same domain-allowlist-aware resolution every other environment-
+  aware command already uses.
+- 1ff0e16: Add `qa report` / MCP `qa.report` (P3-08, ADR-002): renders a run summary and the requirement →
+  case → result → evidence traceability matrix as Markdown or HTML, from the canonical JSON already
+  recorded under `.qa/` — no hand-written report path exists. `buildTraceabilityMatrix`
+  (`@qa-ai-stlc/core`) joins every requirement in `scope.json` against every case that links to it
+  and each case's most recent run result across every run ever recorded, not just the one being
+  reported on. Defaults to the most recently started run and Markdown format;
+  `--run <run-id>`/`runId` and `--format markdown|html`/`format` select otherwise. Two new artifact
+  kinds (`run-summary`, `traceability-matrix`) join the existing Markdown renderer registry, and a
+  new HTML renderer registry mirrors it — the framework's first HTML output.
+- 1775c76: Add `qa validate --run` / MCP `qa.validate` with `checkRuns: true` (P3-09): an opt-in sweep of
+  every recorded `RunResult` — from `qa run` or from interactive case execution alike — for a
+  fabricated evidence link (an `evidenceIds` entry with no matching registered evidence file,
+  excluding a quarantined item's own receipt) and for a `failed` result with no registered evidence
+  at all. Independent of `runTestRun`'s own write-time `RUN_RESULT_MISSING_EVIDENCE` check, this
+  catches the same gap in results written through any path, including `qa.case_result_register`,
+  which accepts a caller-supplied `evidenceIds` with no such check. Also fixes a real bug found
+  while building this: `buildTraceabilityMatrix` (P3-08) only scanned `qa run`'s own
+  `runs/<run-id>/results/` layout, silently missing every result interactive case execution wrote
+  under its own flat `runs/<test-case-id>/` layout — both now share a new `listRunResultPaths`
+  helper.
+
+### Patch Changes
+
+- e0603c1: Fixes `qa.http_execute` (#364): it made a real HTTP call to any URL it was given, with no check
+  against the environment's configured domain allowlist — the only `qa.browser_*`-adjacent tool that
+  didn't. `runHttpExecute` now resolves the environment (a new optional `environment` option, same
+  lookup `qa.browser_open` already uses) and rejects a URL off its allowlist with
+  `BROWSER_URL_NOT_ALLOWED` before making any request. This restricts which host can be called, never
+  which method: a real POST/PUT/DELETE against an allowed host still works, exactly as `api`
+  test-type execution requires.
+- Updated dependencies [8ec2ace]
+- Updated dependencies [30446d2]
+- Updated dependencies [9a5b1fe]
+- Updated dependencies [e0603c1]
+- Updated dependencies [344852d]
+- Updated dependencies [72ebb8e]
+- Updated dependencies [9380d0d]
+- Updated dependencies [1ff0e16]
+- Updated dependencies [43c1c0e]
+- Updated dependencies [d72dc03]
+- Updated dependencies [1775c76]
+- Updated dependencies [71c360e]
+  - @qa-ai-stlc/schemas@1.1.0
+  - @qa-ai-stlc/core@1.2.0
+  - @qa-ai-stlc/runner-playwright@0.2.0
+  - @qa-ai-stlc/explorer@1.0.3
+
 ## 0.6.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/runner-playwright",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Runner that executes a Playwright spec set and maps its JSON report to validated run results.",
   "type": "module",
   "license": "Apache-2.0",
@@ -29,8 +29,8 @@
   },
   "dependencies": {
     "@playwright/test": "1.63.0",
-    "@qa-ai-stlc/core": "1.1.0",
-    "@qa-ai-stlc/schemas": "1.0.1"
+    "@qa-ai-stlc/core": "1.2.0",
+    "@qa-ai-stlc/schemas": "1.1.0"
   },
   "devDependencies": {
     "@qa-ai-stlc/test-utils": "0.0.0"
