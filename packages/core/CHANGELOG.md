@@ -1,5 +1,51 @@
 # @qa-ai-stlc/core
 
+## 1.3.0
+
+### Minor Changes
+
+- efb7692: Flags a test case as flaky when its run history flips status within a configurable window
+  (`flaky.historyWindow` / `flaky.minStatusChanges` in `config.yaml`). The traceability matrix
+  (`qa report`) now shows a `Flaky` column per case, computed from every recorded run under
+  `.qa/runs`, not a fixed pass-rate formula — a case that always fails is never flagged flaky.
+- 535e2e9: Adds `qa link <spec> <requirement-id> --feature <name>` / `qa.link`: folds an already-existing,
+  hand-written Playwright spec into the requirement → case → result → evidence traceability matrix
+  without running it through generation. Reuses the spec's own `testCaseId` annotation when present,
+  so a later `qa run` still attributes its result to the same case.
+
+### Patch Changes
+
+- 6d5c9da: Fixes `runRegisterCaseResult` / `qa.case_result_register` accepting a fabricated result: it now
+  rejects a `testCaseId` that does not resolve to a registered test case, an `evidenceIds` entry that
+  was not actually registered under the given `runId`, and a `passed` result with zero evidence.
+  Previously none of these were checked at registration time, so a caller could register a permanent,
+  manifest-backed "passed" result for a test case that does not exist, backed by no real evidence.
+- ddd1bcd: `verifyGeneratedTestSpec` now requires the `TestCase` a generated spec claims to codify and checks
+  execution coverage against that case's own canonical step/expected-result ids (`canonicalStepIds`),
+  never the spec's own self-declared `stepIds` annotation. Previously coverage was checked only
+  against what the candidate spec itself chose to declare, so a spec with an empty body (only a
+  `testCaseId` annotation, no assertions, no `stepIds` declaration) reported `passed` and was accepted
+  as `'verified'`. `Runner.run()` gained an optional `requiredStepIds` input that
+  `runner-playwright`'s `mapReportToRunResults` honors as the authoritative required set when given,
+  overriding the spec's own declaration; ordinary `qa run` over hand-written specs is unaffected.
+- 6c06b46: Fixes two bugs that made `qa validate` always report false tampering right after a clean `qa
+explore`: `persistExploreResult` registered `selectors/registry.json` and
+  `selectors/missing-test-ids.json` with a hash computed from a differently-formatted
+  `JSON.stringify` than what was actually written to disk, and `qa validate`'s tamper sweep resolved
+  `tests/qa/locators.ts` (registered outside `.qa/`, per ADR-006) under `.qa/` instead of the project
+  root.
+- 592d606: `qa run` / `qa.run` now fails with a coded `RUN_NO_RESULTS` error when a spec set produces zero
+  results — a `--spec` path that does not exist or matches no tests previously wrote an empty
+  `RunRecord` and exited `0`, a silent false green since nothing was actually verified. Distinct from
+  a run that produced results with a `skipped`/`passed` status, which is unaffected.
+- 671249f: `verifyGeneratedTestSpec`'s `'verified'` outcome now carries a `contentSha256` of the exact content
+  that was typechecked and executed, and `registerVerifiedGeneratedTestSpec` rejects a mismatch
+  between that hash and the `GeneratedTestSpec.content` it is asked to write. Previously the two were
+  never compared, so a caller could verify one spec and register a completely different one under the
+  same `testCaseId`, defeating the verification loop (P3-06).
+- Updated dependencies [efb7692]
+  - @qa-ai-stlc/schemas@1.3.0
+
 ## 1.2.0
 
 ### Minor Changes

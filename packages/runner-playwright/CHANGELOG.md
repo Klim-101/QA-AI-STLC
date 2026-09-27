@@ -1,5 +1,27 @@
 # @qa-ai-stlc/runner-playwright
 
+## 1.3.0
+
+### Patch Changes
+
+- ddd1bcd: `verifyGeneratedTestSpec` now requires the `TestCase` a generated spec claims to codify and checks
+  execution coverage against that case's own canonical step/expected-result ids (`canonicalStepIds`),
+  never the spec's own self-declared `stepIds` annotation. Previously coverage was checked only
+  against what the candidate spec itself chose to declare, so a spec with an empty body (only a
+  `testCaseId` annotation, no assertions, no `stepIds` declaration) reported `passed` and was accepted
+  as `'verified'`. `Runner.run()` gained an optional `requiredStepIds` input that
+  `runner-playwright`'s `mapReportToRunResults` honors as the authoritative required set when given,
+  overriding the spec's own declaration; ordinary `qa run` over hand-written specs is unaffected.
+- Updated dependencies [6d5c9da]
+- Updated dependencies [efb7692]
+- Updated dependencies [ddd1bcd]
+- Updated dependencies [6c06b46]
+- Updated dependencies [535e2e9]
+- Updated dependencies [592d606]
+- Updated dependencies [671249f]
+  - @qa-ai-stlc/core@1.3.0
+  - @qa-ai-stlc/schemas@1.3.0
+
 ## 0.2.0
 
 ### Minor Changes
