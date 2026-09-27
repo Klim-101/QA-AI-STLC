@@ -96,7 +96,7 @@ describe('runBuildGenerationSpokeInput', () => {
     await seedCase(fs);
     await seedLocatorModule(fs);
     const provenSession = {
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion: SCHEMA_VERSION as 1,
       testCaseId: TEST_CASE.id,
       runResultId: 'run-result-1',
       steps: [
@@ -105,7 +105,7 @@ describe('runBuildGenerationSpokeInput', () => {
           description: 'Add an item to the cart',
           actions: [
             {
-              schemaVersion: SCHEMA_VERSION,
+              schemaVersion: SCHEMA_VERSION as 1,
               type: 'click' as const,
               sessionId: 'session-1',
               stepId: 'step-1',
