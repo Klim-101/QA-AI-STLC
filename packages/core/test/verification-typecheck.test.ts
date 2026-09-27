@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { SCHEMA_VERSION, type GeneratedTestSpec } from '@qa-ai-stlc/schemas';
+import { SCHEMA_VERSION, type GeneratedTestSpec, type TestCase } from '@qa-ai-stlc/schemas';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { describe, expect, it } from 'vitest';
 import type { EngineContext } from '../src/engine-context.js';
@@ -39,6 +39,19 @@ function spec(overrides: Partial<GeneratedTestSpec> = {}): GeneratedTestSpec {
     ...overrides,
   };
 }
+
+const TEST_CASE: TestCase = {
+  schemaVersion: SCHEMA_VERSION,
+  id: 'case-1',
+  feature: 'checkout',
+  requirementIds: ['req-1'],
+  testType: 'e2e',
+  title: 'A guest can check out',
+  steps: [{ description: 'Add an item to the cart' }, { description: 'Complete checkout as a guest' }],
+  expectedResult: 'The order confirmation page is shown',
+  status: 'approved',
+  createdAt: '2026-09-25T09:00:00Z',
+};
 
 // This never runs (`runner.run` is only reached once typecheck passes) except in the one test
 // that needs a real result; kept as a shared fixture since its shape is verbose.
@@ -86,7 +99,11 @@ describe('verifyGeneratedTestSpec against the real TypeScript compiler', () => {
     await withTempDir(async (dir) => {
       const context = await createProjectContext(dir);
 
-      const outcome = await verifyGeneratedTestSpec(context, { spec: spec(), runner: fakeRunner('passed') });
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: spec(),
+        testCase: TEST_CASE,
+        runner: fakeRunner('passed'),
+      });
 
       expect(outcome.status).toBe('verified');
     });
@@ -105,7 +122,11 @@ describe('verifyGeneratedTestSpec against the real TypeScript compiler', () => {
       };
       const brokenSpec = spec({ content: 'export const total: number = "not a number";\n' });
 
-      const outcome = await verifyGeneratedTestSpec(context, { spec: brokenSpec, runner });
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: brokenSpec,
+        testCase: TEST_CASE,
+        runner,
+      });
 
       expect(outcome.status).toBe('typecheck_failed');
       if (outcome.status === 'typecheck_failed') {

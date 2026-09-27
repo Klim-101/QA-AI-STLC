@@ -55,6 +55,7 @@ async function runOnce(engine: EngineContext, input: RunnerInput): Promise<reado
     testType: 'e2e',
     fs: engine.fs,
     ...(input.idGenerator !== undefined ? { idGenerator: input.idGenerator } : {}),
+    ...(input.requiredStepIds !== undefined ? { requiredStepIds: input.requiredStepIds } : {}),
   });
 }
 

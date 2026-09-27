@@ -295,5 +295,53 @@ describe('mapReportToRunResults', () => {
       expect(outcome?.result.status).toBe('blocked');
       expect(outcome?.result.missingStepIds).toBeUndefined();
     });
+
+    // P3-20: the caller-supplied canonical set is the authority once given, not the spec's own
+    // "stepIds" annotation — a generated spec cannot under-declare its way past coverage checking.
+    it('checks the caller-supplied "requiredStepIds" instead of the declared annotation, when given', async () => {
+      const [outcome] = await mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'passed',
+          annotations: [
+            { type: 'testCaseId', description: 'tc-1' },
+            { type: 'stepIds', description: 'step-1' },
+          ],
+          stepTitles: ['[step-1] Fill in the form'],
+        }),
+        runId: 'run-1',
+        testType: 'e2e',
+        fs: fakeFileSystem(),
+        requiredStepIds: ['step-1', 'step-2', 'expected-result'],
+      });
+      expect(outcome?.result.status).toBe('partial');
+      expect(outcome?.result.missingStepIds).toEqual(['step-2', 'expected-result']);
+    });
+
+    it('reports "partial" against "requiredStepIds" even for a spec with no "stepIds" annotation at all', async () => {
+      const [outcome] = await mapReportToRunResults({
+        report: reportWithOneTest({ status: 'passed', stepTitles: [] }),
+        runId: 'run-1',
+        testType: 'e2e',
+        fs: fakeFileSystem(),
+        requiredStepIds: ['step-1', 'expected-result'],
+      });
+      expect(outcome?.result.status).toBe('partial');
+      expect(outcome?.result.missingStepIds).toEqual(['step-1', 'expected-result']);
+    });
+
+    it('stays "passed" against "requiredStepIds" when every required id was actually observed', async () => {
+      const [outcome] = await mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'passed',
+          stepTitles: ['[step-1] Fill in the form', '[expected-result] Dashboard shown'],
+        }),
+        runId: 'run-1',
+        testType: 'e2e',
+        fs: fakeFileSystem(),
+        requiredStepIds: ['step-1', 'expected-result'],
+      });
+      expect(outcome?.result.status).toBe('passed');
+      expect(outcome?.result.missingStepIds).toBeUndefined();
+    });
   });
 });

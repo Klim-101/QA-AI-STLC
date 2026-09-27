@@ -74,6 +74,8 @@ export interface MapReportOptions {
   readonly testType: 'e2e';
   readonly fs: FileSystem;
   readonly idGenerator?: IdGenerator;
+  /** See `RunnerInput.requiredStepIds` (`@qa-ai-stlc/core`, P3-20). */
+  readonly requiredStepIds?: readonly string[];
 }
 
 // Playwright's own capture settings (`spec-config.ts`'s `use.screenshot`/`use.trace`) are the only
@@ -143,10 +145,14 @@ export async function mapReportToRunResults(options: MapReportOptions): Promise<
       const finishedAt = new Date(startedAt.getTime() + lastResult.duration);
       const failureMessage = lastResult.errors[0]?.message;
 
+      // The caller-supplied canonical set (P3-20) takes over the coverage check entirely when
+      // given — a generated spec's own `stepIds` annotation is what the check is meant to catch it
+      // under-declaring, so it is never trusted as the required set once a canonical one exists.
       const stepIdsAnnotation = test.annotations.find((candidate) => candidate.type === 'stepIds');
       const declaredStepIds = parseDeclaredStepIds(stepIdsAnnotation?.description);
+      const requiredStepIds = options.requiredStepIds ?? declaredStepIds;
       const observedStepIds = new Set(collectStepIds(lastResult.steps));
-      const missingStepIds = declaredStepIds.filter((id) => !observedStepIds.has(id));
+      const missingStepIds = requiredStepIds.filter((id) => !observedStepIds.has(id));
 
       // Incomplete step coverage on a test Playwright itself considers finished (passed or
       // failed) means the case was not actually exercised in full — reporting it as `passed` or

@@ -120,4 +120,40 @@ describe('playwrightRunner (demo app)', () => {
     },
     STARTUP_TIMEOUT_MS,
   );
+
+  // P3-20: a generated spec's own empty body (`user can log in` has no `test.step()` calls or
+  // `stepIds` annotation at all) must not pass verification just because it happens to hit
+  // `passed` in Playwright's eyes. Against a real Playwright run, `requiredStepIds` (the canonical
+  // set `verifyGeneratedTestSpec` derives from the actual `TestCase`, never the spec's own claim)
+  // forces the honest "nothing was actually exercised" result instead.
+  it(
+    'reports "partial" against the canonical required step ids, even for a test with no "stepIds" annotation of its own',
+    async () => {
+      const engine: EngineContext = {
+        projectRoot: fileURLToPath(new URL('../', import.meta.url)),
+        fs: nodeFileSystem,
+        clock: systemClock,
+        logger: noopLogger,
+        processRunner: nodeProcessRunner,
+        httpClient: fetchHttpClient,
+        browserLauncher: playwrightBrowserLauncher,
+        env: process.env,
+      };
+      const specFile = fileURLToPath(
+        new URL('./fixtures/demo-app-login.playwright-spec.ts', import.meta.url),
+      );
+
+      const outcomes = await playwrightRunner.run(engine, {
+        runId: 'run-demo-app-login-required',
+        baseUrl: BASE_URL,
+        specFiles: [specFile],
+        requiredStepIds: ['step-1', 'expected-result'],
+      });
+
+      const emptyBody = outcomes.find((outcome) => outcome.result.testCaseId === 'demo-app-login');
+      expect(emptyBody?.result.status).toBe('partial');
+      expect(emptyBody?.result.missingStepIds).toEqual(['step-1', 'expected-result']);
+    },
+    STARTUP_TIMEOUT_MS,
+  );
 });

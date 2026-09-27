@@ -14,6 +14,15 @@ export interface RunnerInput {
   readonly baseUrl: string;
   readonly specFiles: readonly string[];
   readonly idGenerator?: IdGenerator;
+  /**
+   * The canonical step/expected-result ids (`canonicalStepIds`, P3-20) every result this call
+   * produces must cover, when the caller knows the exact one `TestCase` behind this spec set (the
+   * generation verification loop, `verifyGeneratedTestSpec`). When given, a runner that supports
+   * step-coverage tracking checks observed coverage against this authoritative set instead of
+   * whatever the spec itself chose to declare — `undefined` for an ordinary `qa run` over
+   * arbitrary, possibly multi-case spec files, which has no single required set to check against.
+   */
+  readonly requiredStepIds?: readonly string[];
 }
 
 /**
