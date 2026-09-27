@@ -31,7 +31,7 @@ describe('pick mode click capture (overlay demo app)', () => {
     const page = await context.newPage();
     await page.goto(`data:text/html,${encodeURIComponent(OVERLAY_HTML)}`);
 
-    await injectPickModeOverlay(page);
+    await injectPickModeOverlay(page, 'data-testid');
     // The label fully covers the input, so a click here lands on #floating-label, not #username.
     await page.click('#floating-label');
     await page.click('#qa-pick-mode-finish');
