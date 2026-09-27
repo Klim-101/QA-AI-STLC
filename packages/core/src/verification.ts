@@ -10,6 +10,7 @@ import type {
   RunResult,
   Sha256Hex,
   SpokeValidationIssue,
+  TestCase,
 } from '@qa-ai-stlc/schemas';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
@@ -21,6 +22,7 @@ import { resolveRelativePath } from './paths.js';
 import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
 import { QaStore } from './qa-store.js';
 import type { Runner } from './runner.js';
+import { canonicalStepIds } from './step-ids.js';
 
 // `typescript` ships this CLI entry with no shebang-only wrapper needed; resolved through Node's
 // module graph, the same way `runner-playwright` resolves `@playwright/test/cli` (AGENTS.md 5.6),
@@ -150,6 +152,13 @@ function scratchSpecPath(targetAbsolutePath: string, idGenerator: IdGenerator): 
 
 export interface VerifyGeneratedTestSpecOptions {
   readonly spec: GeneratedTestSpec;
+  /**
+   * The registered case `spec` claims to codify (P3-20): its `steps` are the canonical authority
+   * coverage is checked against (`canonicalStepIds`), never the spec's own self-declared `stepIds`
+   * annotation — a spec that declares fewer steps than the case actually has, or none at all, is
+   * rejected instead of silently passing as covering zero required steps.
+   */
+  readonly testCase: TestCase;
   /** The `Runner` implementation for the spec's test type (e.g. `playwrightRunner` for `e2e`). */
   readonly runner: Runner;
   readonly environment?: string;
@@ -177,6 +186,14 @@ export async function verifyGeneratedTestSpec(
   context: EngineContext,
   options: VerifyGeneratedTestSpecOptions,
 ): Promise<VerificationOutcome> {
+  if (options.testCase.id !== options.spec.testCaseId) {
+    throw new QaError(
+      'core.verification.test_case_mismatch',
+      `"testCase" is "${options.testCase.id}", but the spec is for test case "${options.spec.testCaseId}".`,
+      { remediation: 'Pass the exact TestCase the spec was generated from.' },
+    );
+  }
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const targetAbsolutePath = resolveRelativePath(context.projectRoot, options.spec.filePath);
   const scratchAbsolutePath = scratchSpecPath(targetAbsolutePath, idGenerator);
@@ -203,6 +220,7 @@ export async function verifyGeneratedTestSpec(
       baseUrl: environment.config.baseUrl,
       specFiles: [scratchAbsolutePath],
       idGenerator,
+      requiredStepIds: canonicalStepIds(options.testCase),
     });
     const [outcome, ...extra] = outcomes;
     if (outcome === undefined || extra.length > 0) {

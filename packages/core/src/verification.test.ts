@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { SCHEMA_VERSION, type Config, type GeneratedTestSpec, type RunResult } from '@qa-ai-stlc/schemas';
+import {
+  SCHEMA_VERSION,
+  type Config,
+  type GeneratedTestSpec,
+  type RunResult,
+  type TestCase,
+} from '@qa-ai-stlc/schemas';
 import { createFakeFileSystem, type FakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeProcessRunner, type ProcessResultLike } from '@qa-ai-stlc/test-utils/fake-process-runner';
 import { describe, expect, it } from 'vitest';
@@ -38,6 +44,19 @@ const SPEC: GeneratedTestSpec = {
   sourceHash: 'a'.repeat(64),
   generatedAt: '2026-09-25T12:00:00Z',
   content: 'export const GENERATOR_VERSION = "0.1.0";',
+};
+
+const TEST_CASE: TestCase = {
+  schemaVersion: SCHEMA_VERSION,
+  id: 'case-1',
+  feature: 'checkout',
+  requirementIds: ['req-1'],
+  testType: 'e2e',
+  title: 'A guest can check out',
+  steps: [{ description: 'Add an item to the cart' }, { description: 'Complete checkout as a guest' }],
+  expectedResult: 'The order confirmation page is shown',
+  status: 'approved',
+  createdAt: '2026-09-25T09:00:00Z',
 };
 
 const TARGET_ABSOLUTE_PATH = join('project', 'tests', 'qa', 'checkout', 'guest-checkout.spec.ts');
@@ -93,7 +112,12 @@ describe('verifyGeneratedTestSpec', () => {
       return [];
     });
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'typecheck_failed',
@@ -118,7 +142,12 @@ describe('verifyGeneratedTestSpec', () => {
     });
     const runner = createFakeRunner(() => []);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'typecheck_failed',
@@ -132,7 +161,12 @@ describe('verifyGeneratedTestSpec', () => {
     });
     const runner = createFakeRunner(() => []);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'typecheck_failed',
@@ -144,7 +178,12 @@ describe('verifyGeneratedTestSpec', () => {
     const { context } = createContext({ processRunner: { exitCode: 1, stdout: '', stderr: '' } });
     const runner = createFakeRunner(() => []);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'typecheck_failed',
@@ -160,18 +199,47 @@ describe('verifyGeneratedTestSpec', () => {
       return [{ result: fakeResult({ status: 'passed' }), evidence: [] }];
     });
 
-    await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    await verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator });
 
     expect(receivedInput?.baseUrl).toBe('https://staging.example.test/');
     expect(receivedInput?.specFiles).toHaveLength(1);
     expect(receivedInput?.specFiles[0]).not.toBe(TARGET_ABSOLUTE_PATH);
   });
 
+  // P3-20: coverage must be checked against the case the engine itself registered, not whatever
+  // the spec's own "stepIds" annotation claims to cover.
+  it('passes the canonical step ids derived from testCase, not the spec, to the runner', async () => {
+    const { context } = createContext();
+    let receivedInput: RunnerInput | undefined;
+    const runner = createFakeRunner((input) => {
+      receivedInput = input;
+      return [{ result: fakeResult({ status: 'passed' }), evidence: [] }];
+    });
+
+    await verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator });
+
+    expect(receivedInput?.requiredStepIds).toEqual(['step-1', 'step-2', 'expected-result']);
+  });
+
+  it('throws when testCase does not match the spec it is verifying', async () => {
+    const { context } = createContext();
+    const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
+
+    await expect(
+      verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: { ...TEST_CASE, id: 'a-different-case' },
+        runner,
+        idGenerator,
+      }),
+    ).rejects.toMatchObject({ code: 'core.verification.test_case_mismatch' });
+  });
+
   it('defaults to a random id generator when none is given', async () => {
     const { context } = createContext();
     const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner });
+    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner });
 
     expect(outcome.status).toBe('verified');
   });
@@ -180,7 +248,12 @@ describe('verifyGeneratedTestSpec', () => {
     const { context, fs } = createContext();
     const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome.status).toBe('verified');
     expect(await fs.pathExists(TARGET_ABSOLUTE_PATH)).toBe(false);
@@ -195,7 +268,12 @@ describe('verifyGeneratedTestSpec', () => {
       },
     ]);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'execution_failed',
@@ -210,7 +288,12 @@ describe('verifyGeneratedTestSpec', () => {
       { result: { ...fakeResult({ status: 'failed' }), failure: undefined }, evidence: [] },
     ]);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toMatchObject({
       status: 'execution_failed',
@@ -227,7 +310,12 @@ describe('verifyGeneratedTestSpec', () => {
       },
     ]);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'execution_failed',
@@ -245,7 +333,12 @@ describe('verifyGeneratedTestSpec', () => {
       { result: { ...fakeResult({ status: 'partial' }), missingStepIds: undefined }, evidence: [] },
     ]);
 
-    const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
 
     expect(outcome).toEqual({
       status: 'verified',
@@ -260,7 +353,12 @@ describe('verifyGeneratedTestSpec', () => {
       const { context } = createContext();
       const runner = createFakeRunner(() => [{ result: fakeResult({ status }), evidence: [] }]);
 
-      const outcome = await verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator });
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+      });
 
       expect(outcome).toEqual({
         status: 'execution_failed',
@@ -279,18 +377,18 @@ describe('verifyGeneratedTestSpec', () => {
       },
     ]);
 
-    await expect(verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator })).rejects.toThrow(
-      'Unhandled RunResult status: flaky',
-    );
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow('Unhandled RunResult status: flaky');
   });
 
   it('throws when the runner produces no result', async () => {
     const { context } = createContext();
     const runner = createFakeRunner(() => []);
 
-    await expect(verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator })).rejects.toThrow(
-      QaError,
-    );
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow(QaError);
   });
 
   it('throws when the runner produces more than one result', async () => {
@@ -300,9 +398,9 @@ describe('verifyGeneratedTestSpec', () => {
       { result: fakeResult({ id: 'result-2', status: 'passed' }), evidence: [] },
     ]);
 
-    await expect(verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator })).rejects.toThrow(
-      'exactly one run result',
-    );
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow('exactly one run result');
   });
 
   it('throws when the result names a different test case than the spec', async () => {
@@ -311,9 +409,9 @@ describe('verifyGeneratedTestSpec', () => {
       { result: fakeResult({ status: 'passed', testCaseId: 'a-different-case' }), evidence: [] },
     ]);
 
-    await expect(verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator })).rejects.toThrow(
-      /a-different-case/,
-    );
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow(/a-different-case/);
   });
 
   it('always deletes the scratch file, even when the runner throws', async () => {
@@ -322,9 +420,9 @@ describe('verifyGeneratedTestSpec', () => {
       throw new Error('runner crashed');
     });
 
-    await expect(verifyGeneratedTestSpec(context, { spec: SPEC, runner, idGenerator })).rejects.toThrow(
-      'runner crashed',
-    );
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow('runner crashed');
     expect(await fs.listFiles(join('project', 'tests', 'qa', 'checkout'))).toEqual([]);
   });
 });
