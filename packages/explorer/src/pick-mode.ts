@@ -139,14 +139,39 @@ export async function injectPickModeOverlay(page: AuthPage, testIdAttribute: str
     overlay.appendChild(finishButton);
     document.body.appendChild(overlay);
 
+    const INTERACTIVE_SELECTOR = 'button, a[href], input, select, textarea';
+
+    // A component library commonly draws a floating label or icon as a SIBLING overlapping the
+    // visible control (e.g. a Kendo-style floating-label `<input>`); `Element.closest()` only
+    // walks ancestors, so a click landing on that decorative sibling would otherwise resolve to
+    // nothing and be silently dropped. `elementsFromPoint` returns every element stacked at the
+    // click's coordinates, in paint order, so the real control is found even when it did not
+    // receive the click itself.
+    function resolveInteractiveTarget(event: MouseEvent): Element | null {
+      const target = event.target;
+      if (target instanceof Element) {
+        const direct = target.closest(INTERACTIVE_SELECTOR);
+        if (direct !== null) {
+          return direct;
+        }
+      }
+      for (const stacked of document.elementsFromPoint(event.clientX, event.clientY)) {
+        const match = stacked.closest(INTERACTIVE_SELECTOR);
+        if (match !== null) {
+          return match;
+        }
+      }
+      return null;
+    }
+
     document.addEventListener(
       'click',
       (event) => {
         const target = event.target;
-        if (!(target instanceof Element) || target.closest('#qa-pick-mode-overlay') !== null) {
+        if (target instanceof Element && target.closest('#qa-pick-mode-overlay') !== null) {
           return;
         }
-        const interactive = target.closest('button, a[href], input, select, textarea');
+        const interactive = resolveInteractiveTarget(event);
         if (interactive === null) {
           return;
         }
