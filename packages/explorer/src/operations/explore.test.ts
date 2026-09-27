@@ -3,7 +3,7 @@
 
 import { join } from 'node:path';
 import { QaError, hashText, type EngineContext } from '@qa-ai-stlc/core';
-import { SCHEMA_VERSION, type SelectorRegistry } from '@qa-ai-stlc/schemas';
+import { SCHEMA_VERSION, type ApiSurface, type SelectorRegistry } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createFakeExploreBrowserLauncher,
@@ -87,7 +87,15 @@ describe('runExplore', () => {
     const report = await runExplore(context);
 
     expect(report).toEqual(
-      expect.objectContaining({ mode: 'explore', elementCount: 1, added: 1, removed: 0, degraded: [] }),
+      expect.objectContaining({
+        mode: 'explore',
+        elementCount: 1,
+        added: 1,
+        removed: 0,
+        degraded: [],
+        endpointsPath: 'selectors/endpoints.json',
+        endpointCount: 1,
+      }),
     );
     const registry = JSON.parse(
       await context.fs.readFile(join(QA_DIR, 'selectors', 'registry.json')),
@@ -101,6 +109,12 @@ describe('runExplore', () => {
       await context.fs.readFile(join(QA_DIR, 'selectors', 'missing-test-ids.json')),
     ) as { entries: readonly unknown[] };
     expect(missingReport.entries).toHaveLength(1);
+    const endpoints = JSON.parse(
+      await context.fs.readFile(join(QA_DIR, 'selectors', 'endpoints.json')),
+    ) as ApiSurface;
+    expect(endpoints.endpoints).toEqual([
+      { method: 'GET', path: '/login', source: 'discovered', examples: ['/login'] },
+    ]);
     const manifest = JSON.parse(await context.fs.readFile(join(QA_DIR, 'manifest.json'))) as {
       artifacts: Record<string, unknown>;
     };
@@ -109,8 +123,56 @@ describe('runExplore', () => {
         'selectors/registry.json',
         'tests/qa/locators.ts',
         'selectors/missing-test-ids.json',
+        'selectors/endpoints.json',
       ]),
     );
+  });
+
+  it('collapses crawled routes that only differ by a record id into one endpoint (P6-01)', async () => {
+    const context = fakeContext({
+      // `elementsByUrl` and `linksByUrl` share one fake `evaluate()` call keyed by URL (the fake
+      // cannot tell an `extractPageElements()` call from an `extractLinks()` one apart), so
+      // `startUrl` gets only the links entry — it is still the one page every crawl always visits.
+      linksByUrl: {
+        [START_URL]: ['https://staging.example.com/tasks/1', 'https://staging.example.com/tasks/2'],
+      },
+      locatorCount: 1,
+    });
+
+    await runExplore(context);
+
+    const endpoints = JSON.parse(
+      await context.fs.readFile(join(QA_DIR, 'selectors', 'endpoints.json')),
+    ) as ApiSurface;
+    expect(endpoints.endpoints).toContainEqual({
+      method: 'GET',
+      path: '/tasks/{id}',
+      source: 'discovered',
+      examples: ['/tasks/1', '/tasks/2'],
+    });
+  });
+
+  it('merges endpoints from a second crawl onto the first instead of overwriting them', async () => {
+    const context = fakeContext({
+      linksByUrl: { [START_URL]: ['https://staging.example.com/tasks/1'] },
+      locatorCount: 1,
+    });
+    await runExplore(context);
+
+    // A plain second crawl with no `linksByUrl` only ever revisits the environment's own
+    // `startUrl` (`/login`) — `/tasks/1` is not reachable from it this time, the way a route
+    // that genuinely went away between two real crawls would not be either.
+    const secondContext: EngineContext = {
+      ...context,
+      browserLauncher: createFakeExploreBrowserLauncher({ locatorCount: 1 }),
+    };
+    const secondReport = await runExplore(secondContext);
+
+    const endpoints = JSON.parse(
+      await context.fs.readFile(join(QA_DIR, 'selectors', 'endpoints.json')),
+    ) as ApiSurface;
+    expect(endpoints.endpoints.map((endpoint) => endpoint.path)).toEqual(['/login', '/tasks/{id}']);
+    expect(secondReport.endpointCount).toBe(2);
   });
 
   it('registers each written artifact under its own exact on-disk content, not a differently-formatted hash (#395)', async () => {
@@ -392,6 +454,29 @@ describe('runExplore', () => {
     expect(report).toEqual(expect.objectContaining({ mode: 'verify', elementCount: 1, degraded: [] }));
   });
 
+  it('reports 0 endpoints when verifying and no endpoints.json has ever been written', async () => {
+    const context = fakeContext({ locatorCount: 1 }, undefined, {
+      [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()),
+    });
+
+    const report = await runExplore(context, { verify: true });
+
+    expect(report).toEqual(
+      expect.objectContaining({ endpointsPath: 'selectors/endpoints.json', endpointCount: 0 }),
+    );
+  });
+
+  it('reads the stored endpoint count when verifying', async () => {
+    const context = fakeContext({ locatorCount: 1 }, undefined, {
+      [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()),
+      [join(QA_DIR, 'selectors', 'endpoints.json')]: JSON.stringify(storedApiSurface()),
+    });
+
+    const report = await runExplore(context, { verify: true });
+
+    expect(report.endpointCount).toBe(1);
+  });
+
   it('reports a degraded selector when a stored candidate no longer resolves (a renamed test ID)', async () => {
     const context = fakeContext({ locatorCount: 0 }, undefined, {
       [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()),
@@ -493,4 +578,12 @@ function storedElement(): SelectorRegistry['elements'][number] {
 
 function storedRegistry(): SelectorRegistry {
   return { schemaVersion: SCHEMA_VERSION, generatedAt: '2026-09-18T00:00:00Z', elements: [storedElement()] };
+}
+
+function storedApiSurface(): ApiSurface {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    generatedAt: '2026-09-18T00:00:00Z',
+    endpoints: [{ method: 'GET', path: '/login', source: 'discovered', examples: ['/login'] }],
+  };
 }

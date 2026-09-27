@@ -19,8 +19,10 @@ nonTriggers:
 # `qa-explore` — selector registry
 
 Fires when the operator wants the selector registry built or re-checked. Scoped to what
-`qa.explore` actually does today: crawling and static source analysis feed the registry;
-API-surface mapping is not implemented yet (see [Not yet in scope](#not-yet-in-scope)).
+`qa.explore` actually does today: crawling and static source analysis feed the registry, and the
+same crawl also derives a discovered API surface (`endpoints.json`, see
+[Reading the result](#reading-the-result)). OpenAPI discovery/diff and synthesis are not
+implemented yet (see [Not yet in scope](#not-yet-in-scope)).
 
 ## Ask before calling anything
 
@@ -61,6 +63,15 @@ Before the first `qa.explore` call, ask the operator explicitly rather than assu
   a case can target them.
 - `blockedRequestCount` — non-GET requests safe mode blocked during the crawl. Non-zero is expected
   behavior, not a failure; mention it only if the operator asks what the crawl touched.
+- `endpointsPath` / `endpointCount` — where the discovered API surface was written
+  (`.qa/selectors/endpoints.json`) and how many endpoints it holds after merging with whatever was
+  already stored there. Each entry is `{ method, path, source: 'discovered', examples }`: `path`
+  has record-id segments collapsed to `{id}` (`/tasks/1`, `/tasks/2` → `/tasks/{id}`), and
+  `examples` keeps a capped sample of the raw paths that collapsed into it, so a reviewer can check
+  the collapse was correct instead of trusting it blindly. This is traffic the crawl itself
+  observed, not a contract — treat a large `endpointCount` as informational, not something to report
+  unprompted, unless the operator is specifically working toward API test generation
+  ([P6-04](https://github.com/Klim-101/QA-AI-STLC/issues/78) and later).
 
 Exploring is not itself a gated phase (`packages/core/src/phases.ts`'s `PHASES` has no `explore`
 entry), so do not stop after presenting the counts above. Read `.qa/state.json`'s `currentPhase`
@@ -81,8 +92,9 @@ ending on the registry report alone.
 
 ## Not yet in scope
 
-API-surface capture (`endpoints.json`, OpenAPI discovery/synthesis) is planned for
-[P6-01](https://github.com/Klim-101/QA-AI-STLC/issues/75) and later, not implemented yet. This
-skill covers the selector registry only. **When P6-01 lands, this file must be updated** to add the
-new tool call and how to read its result — P6-01's own exit criteria include updating this skill,
-so do not let this note go stale once that task is picked up.
+OpenAPI discovery/diff ([P6-02](https://github.com/Klim-101/QA-AI-STLC/issues/76)) and synthesized
+drafts ([P6-03](https://github.com/Klim-101/QA-AI-STLC/issues/77)) are not implemented yet: the
+discovered `endpoints.json` this skill reports on is traffic the crawl observed, not a contract
+diffed against or synthesized into an OpenAPI document. **When P6-02/P6-03 land, this file must be
+updated** to cover diffing and synthesis — do not let this note go stale once those tasks are
+picked up.

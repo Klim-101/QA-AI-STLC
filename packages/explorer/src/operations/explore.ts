@@ -13,6 +13,7 @@ import {
   type FileSystem,
 } from '@qa-ai-stlc/core';
 import {
+  ApiSurfaceSchema,
   SCHEMA_VERSION,
   SelectorPolicySchema,
   SelectorRegistrySchema,
@@ -24,6 +25,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import { isAllowedUrl } from '../allowlist.js';
 import { analyzePages } from '../analyze-pages.js';
+import { buildApiSurface, mergeApiSurface } from '../api-surface.js';
 import { analyzeStaticSource, type StaticSourceFile } from '../analyze-static-source.js';
 import { buildMissingTestIdReport } from '../build-missing-test-id-report.js';
 import {
@@ -41,6 +43,7 @@ import type { DegradedSelectorElement } from '../build-selector-registry.js';
 
 const REGISTRY_PATH = 'selectors/registry.json';
 const MISSING_TEST_ID_REPORT_PATH = 'selectors/missing-test-ids.json';
+const ENDPOINTS_PATH = 'selectors/endpoints.json';
 const LOCATOR_MODULE_PATH = 'tests/qa/locators.ts';
 
 // EJS is included alongside the three frameworks the development plan names (React/Angular/Vue):
@@ -69,6 +72,8 @@ export interface ExploreReport {
   readonly degraded: readonly DegradedSelectorElement[];
   readonly missingLocatorCount: number;
   readonly blockedRequestCount: number;
+  readonly endpointsPath: string;
+  readonly endpointCount: number;
 }
 
 export function resolvePolicy(config: Config, given: string | undefined): SelectorPolicy {
@@ -193,7 +198,7 @@ async function runCrawlAndBuild(
   context: EngineContext,
   config: Config,
   options: ExploreOptions,
-): Promise<{ elements: SelectorElement[]; blockedRequestCount: number }> {
+): Promise<{ elements: SelectorElement[]; blockedRequestCount: number; requestLogHar: string }> {
   const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
@@ -246,6 +251,7 @@ async function runCrawlAndBuild(
   return {
     elements,
     blockedRequestCount: crawlResult.blockedRequestCount + analyzeBlocked + buildBlocked,
+    requestLogHar: crawlResult.requestLogHar,
   };
 }
 
@@ -322,6 +328,9 @@ async function runVerify(
 
   const missingLocatorCount = generateLocatorModule(stored, { generatorVersion: readPackageVersion() })
     .missingLocators.length;
+  const endpointCount = (await store.pathExists(ENDPOINTS_PATH))
+    ? (await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema)).endpoints.length
+    : 0;
 
   return {
     mode: 'verify',
@@ -332,6 +341,8 @@ async function runVerify(
     degraded,
     missingLocatorCount,
     blockedRequestCount,
+    endpointsPath: ENDPOINTS_PATH,
+    endpointCount,
   };
 }
 
@@ -350,6 +361,7 @@ export async function persistExploreResult(
   previous: SelectorRegistry | undefined,
   elements: readonly SelectorElement[],
   blockedRequestCount: number,
+  requestLogHar: string,
 ): Promise<ExploreReport> {
   const generatedAt = context.clock.now().toISOString();
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
@@ -375,6 +387,18 @@ export async function persistExploreResult(
   await store.writeText(MISSING_TEST_ID_REPORT_PATH, missingTestIdReportSerialized);
   await manifest.register(MISSING_TEST_ID_REPORT_PATH, missingTestIdReportSerialized);
 
+  const freshApiSurface = buildApiSurface(requestLogHar, generatedAt);
+  const previousApiSurface = (await store.pathExists(ENDPOINTS_PATH))
+    ? await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema)
+    : undefined;
+  const apiSurface =
+    previousApiSurface === undefined
+      ? freshApiSurface
+      : mergeApiSurface(previousApiSurface, freshApiSurface, generatedAt);
+  const apiSurfaceSerialized = toCanonicalJson(apiSurface);
+  await store.writeText(ENDPOINTS_PATH, apiSurfaceSerialized);
+  await manifest.register(ENDPOINTS_PATH, apiSurfaceSerialized);
+
   // Diffed against the fresh, unmerged registry, not the merged one: a merge always keeps an
   // element the fresh run no longer found (deprecating it in place) rather than dropping it, so
   // diffing the merged result would never show a "removed" element at all.
@@ -392,6 +416,8 @@ export async function persistExploreResult(
     degraded: diff.degraded,
     missingLocatorCount: moduleResult.missingLocators.length,
     blockedRequestCount,
+    endpointsPath: ENDPOINTS_PATH,
+    endpointCount: apiSurface.endpoints.length,
   };
 }
 
@@ -420,7 +446,15 @@ export async function runExplore(
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : undefined;
 
-  const { elements, blockedRequestCount } = await runCrawlAndBuild(context, config, options);
+  const { elements, blockedRequestCount, requestLogHar } = await runCrawlAndBuild(context, config, options);
 
-  return persistExploreResult(context, store, manifest, previous, elements, blockedRequestCount);
+  return persistExploreResult(
+    context,
+    store,
+    manifest,
+    previous,
+    elements,
+    blockedRequestCount,
+    requestLogHar,
+  );
 }
