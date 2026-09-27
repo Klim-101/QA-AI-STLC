@@ -10,10 +10,13 @@ import {
   type TestType,
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
+import { QaError } from '../errors.js';
+import { EvidenceStore } from '../evidence-store.js';
 import { ManifestStore } from '../manifest-store.js';
 import { toCanonicalJson } from '../json-file.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
+import { findCasePath } from './cases-render.js';
 
 export interface RegisterCaseResultOptions {
   readonly testCaseId: Identifier;
@@ -41,6 +44,35 @@ export async function runRegisterCaseResult(
   context: EngineContext,
   options: RegisterCaseResultOptions,
 ): Promise<RegisterCaseResultResult> {
+  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  // Resolving the case first rejects a caller-fabricated testCaseId before anything is written
+  // (AGENTS.md 12.5 — evidence and the results built on it are the engine's own record, never a
+  // caller's unverified claim); `findCasePath` is the same lookup `qa cases render` already uses.
+  await findCasePath(store, options.testCaseId);
+
+  const manifest = new ManifestStore({ store, clock: context.clock });
+  const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
+  const registeredEvidenceIds = await evidenceStore.listRegisteredIds(options.runId);
+  const unresolvedEvidenceIds = options.evidenceIds.filter((id) => !registeredEvidenceIds.has(id));
+  if (unresolvedEvidenceIds.length > 0) {
+    throw new QaError(
+      'RUN_RESULT_UNRESOLVED_EVIDENCE',
+      `Run result for test case "${options.testCaseId}" references evidence id(s) not registered ` +
+        `under run "${options.runId}": ${unresolvedEvidenceIds.join(', ')}`,
+      {
+        remediation:
+          'Only pass evidenceIds that a browser/registry tool call actually registered for this runId.',
+      },
+    );
+  }
+  if (options.status === 'passed' && options.evidenceIds.length === 0) {
+    throw new QaError(
+      'RUN_RESULT_MISSING_EVIDENCE',
+      `Run result for test case "${options.testCaseId}" claims "passed" with no registered evidence.`,
+      { remediation: 'Register at least one piece of evidence for this run before reporting it as passed.' },
+    );
+  }
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const id = `run-result-${idGenerator.next()}`;
   const finishedAt = context.clock.now().toISOString();
@@ -58,8 +90,6 @@ export async function runRegisterCaseResult(
   });
 
   const runResultPath: RelativePath = `runs/${options.testCaseId}/${id}.json`;
-  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const manifest = new ManifestStore({ store, clock: context.clock });
   const serialized = toCanonicalJson(runResult);
   await store.writeJson(runResultPath, runResult);
   await manifest.register(runResultPath, serialized);

@@ -485,6 +485,32 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
   it('qa.case_result_register ties evidence ids together into a registered run result', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Click the login button' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+
+      // Evidence content is what a real browser/http execution tool would have registered —
+      // written directly here, the same way this file's qa.generation_proven_session test seeds
+      // evidence, rather than driving a real browser or HTTP call for a check-only test.
+      await mkdir(join(projectRoot, '.qa', 'evidence', 'run-1'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-1.json'), '{}', 'utf-8');
+      await writeFile(join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-2.json'), '{}', 'utf-8');
 
       // Well in the past, so this test never flakes on "finishedAt (real clock) must not be
       // earlier than startedAt" (RunResultSchema) around whatever moment it actually runs.
@@ -510,6 +536,27 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(result.runResultPath).toBe(`runs/login-case/${result.id}.json`);
       expect(failureResult.id).not.toBe(result.id);
+    });
+  });
+
+  it('qa.case_result_register rejects a testCaseId with no registered test case', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+
+      const rejected = await caseResultRegisterTool
+        .handler({
+          testCaseId: 'no-such-case',
+          testType: 'e2e',
+          runId: 'run-1',
+          status: 'passed',
+          startedAt: '2020-01-01T00:00:00.000Z',
+          evidenceIds: [],
+        })
+        .catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'CASE_NOT_FOUND' });
     });
   });
 
