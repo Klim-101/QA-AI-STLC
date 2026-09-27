@@ -2,7 +2,16 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@qa-ai-stlc/schemas",
+      "@qa-ai-stlc/core",
+      "@qa-ai-stlc/explorer",
+      "@qa-ai-stlc/cli",
+      "@qa-ai-stlc/mcp-server",
+      "@qa-ai-stlc/runner-playwright"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
