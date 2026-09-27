@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { generationManualRegionsExtractTool } from './generation-manual-regions-extract.js';
 
 describe('generationManualRegionsExtractTool', () => {
-  it('reads every qa:manual region out of a generated spec\'s source, in file order', async () => {
+  it("reads every qa:manual region out of a generated spec's source, in file order", async () => {
     const source = [
       'export const GENERATOR_VERSION = "1.0.0";',
       '// qa:manual:start helper',

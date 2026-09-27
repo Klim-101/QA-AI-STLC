@@ -11,9 +11,11 @@ const InputSchema = z.object({
   testCaseId: z.string().describe('The id of the registered test case to generate a spec for.'),
   elementIds: z
     .array(IdentifierSchema)
-    .describe('Registry element ids the case\'s steps actually need — fails loudly on one that does not resolve.'),
+    .describe(
+      "Registry element ids the case's steps actually need — fails loudly on one that does not resolve.",
+    ),
   provenSession: ProvenSessionSchema.optional().describe(
-    'The case\'s proven qa-execute session, from qa.generation_proven_session, when one exists.',
+    "The case's proven qa-execute session, from qa.generation_proven_session, when one exists.",
   ),
 });
 
@@ -24,18 +26,19 @@ const InputSchema = z.object({
  * `tests/qa/locators.ts`). Call `qa.generation_proven_session` first and pass its `session` here as
  * `provenSession` so it becomes part of the returned input's `sourceHash`.
  */
-export const generationSpokeInputTool: ToolDefinition<typeof InputSchema, typeof GenerationSpokeInputSchema> = {
-  name: 'qa.generation_spoke_input',
-  description:
-    'Assembles a generate-test-spec spoke task\'s input: the registered case, a registry slice ' +
-    'narrowed to "elementIds", and the locator module\'s real GENERATOR_VERSION stamp. Pass a ' +
-    'proven qa-execute session (qa.generation_proven_session) as "provenSession" when one exists.',
-  inputSchema: InputSchema,
-  outputSchema: GenerationSpokeInputSchema,
-  handler: (input) =>
-    runBuildGenerationSpokeInput(createNodeEngineContext(), {
-      testCaseId: input.testCaseId,
-      elementIds: input.elementIds,
-      ...(input.provenSession !== undefined ? { provenSession: input.provenSession } : {}),
-    }),
-};
+export const generationSpokeInputTool: ToolDefinition<typeof InputSchema, typeof GenerationSpokeInputSchema> =
+  {
+    name: 'qa.generation_spoke_input',
+    description:
+      "Assembles a generate-test-spec spoke task's input: the registered case, a registry slice " +
+      'narrowed to "elementIds", and the locator module\'s real GENERATOR_VERSION stamp. Pass a ' +
+      'proven qa-execute session (qa.generation_proven_session) as "provenSession" when one exists.',
+    inputSchema: InputSchema,
+    outputSchema: GenerationSpokeInputSchema,
+    handler: (input) =>
+      runBuildGenerationSpokeInput(createNodeEngineContext(), {
+        testCaseId: input.testCaseId,
+        elementIds: input.elementIds,
+        ...(input.provenSession !== undefined ? { provenSession: input.provenSession } : {}),
+      }),
+  };

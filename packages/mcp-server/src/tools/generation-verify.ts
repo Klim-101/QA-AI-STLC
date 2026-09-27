@@ -34,10 +34,15 @@ function resolveRunner(testType: TestType): Runner {
 }
 
 const InputSchema = z.object({
-  input: GenerationSpokeInputSchema.describe('The exact spoke input the candidate content was generated from (qa.generation_spoke_input).'),
-  content: z.string().min(1).describe('The candidate generated spec\'s full source.'),
+  input: GenerationSpokeInputSchema.describe(
+    'The exact spoke input the candidate content was generated from (qa.generation_spoke_input).',
+  ),
+  content: z.string().min(1).describe("The candidate generated spec's full source."),
   filePath: RelativePathSchema.describe('Where this spec will be registered once verified.'),
-  generatorVersion: z.string().min(1).describe('Stamped alongside the spec; must match the GENERATOR_VERSION the content itself exports.'),
+  generatorVersion: z
+    .string()
+    .min(1)
+    .describe('Stamped alongside the spec; must match the GENERATOR_VERSION the content itself exports.'),
   environment: z
     .string()
     .optional()
@@ -49,8 +54,12 @@ const OutputSchema = z.object({
   issues: z
     .array(SpokeValidationIssueSchema)
     .optional()
-    .describe('Present for "typecheck_failed"/"execution_failed" — what to fix and re-dispatch the generating spoke with.'),
-  result: RunResultSchema.optional().describe('Present for "execution_failed"/"verified" — the execution this outcome is based on.'),
+    .describe(
+      'Present for "typecheck_failed"/"execution_failed" — what to fix and re-dispatch the generating spoke with.',
+    ),
+  result: RunResultSchema.optional().describe(
+    'Present for "execution_failed"/"verified" — the execution this outcome is based on.',
+  ),
   spec: GeneratedTestSpecSchema.optional().describe(
     'Present only for "verified" — pass this exact object, unmodified, to qa.generation_register.',
   ),

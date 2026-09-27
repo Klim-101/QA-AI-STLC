@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = z.object({
-  source: z.string().describe('The existing generated spec\'s full source, about to be overwritten.'),
+  source: z.string().describe("The existing generated spec's full source, about to be overwritten."),
 });
 
 const OutputSchema = z.object({
@@ -25,7 +25,7 @@ export const generationManualRegionsExtractTool: ToolDefinition<typeof InputSche
   name: 'qa.generation_manual_regions_extract',
   description:
     'Reads every "// qa:manual:start <id>" / "// qa:manual:end <id>" block out of an existing ' +
-    'generated spec\'s source, in file order, so it can be spliced back into a freshly regenerated ' +
+    "generated spec's source, in file order, so it can be spliced back into a freshly regenerated " +
     'template with qa.generation_manual_regions_apply.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,

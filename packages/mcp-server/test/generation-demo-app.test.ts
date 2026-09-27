@@ -114,94 +114,106 @@ afterAll(async () => {
 // "generated" content below is a deterministic fixture standing in for what a spoke would produce,
 // the same role `demo-app-login.playwright-spec.ts` already plays for a hand-written spec.
 describe('generation verification loop (demo app, no LLM)', () => {
-  it('verifies and registers a real generated spec that fully covers its case', async () => {
-    const spokeInput = await generationSpokeInputTool.handler({
-      testCaseId: 'login-generated',
-      elementIds: [],
-    });
+  it(
+    'verifies and registers a real generated spec that fully covers its case',
+    async () => {
+      const spokeInput = await generationSpokeInputTool.handler({
+        testCaseId: 'login-generated',
+        elementIds: [],
+      });
 
-    const content = [
-      "import { expect, test } from '@playwright/test';",
-      '',
-      'test(',
-      "  'a registered user can log in',",
-      '  {',
-      '    annotation: [',
-      "      { type: 'testCaseId', description: 'login-generated' },",
-      "      { type: 'stepIds', description: 'step-1,expected-result' },",
-      '    ],',
-      '  },',
-      '  async ({ page }) => {',
-      "    await test.step('[step-1] Submit valid credentials', async () => {",
-      "      await page.goto('/login');",
-      "      await page.fill('#email', 'admin@example.com');",
-      "      await page.fill('input[name=\"password\"]', 'admin123');",
-      "      await page.getByRole('button', { name: 'Log in' }).click();",
-      '    });',
-      "    await test.step('[expected-result] The dashboard loads', async () => {",
-      "      await expect(page).toHaveURL(/\\/dashboard/);",
-      "      await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();",
-      '    });',
-      '  },',
-      ');',
-      '',
-    ].join('\n');
+      const content = [
+        "import { expect, test } from '@playwright/test';",
+        '',
+        'test(',
+        "  'a registered user can log in',",
+        '  {',
+        '    annotation: [',
+        "      { type: 'testCaseId', description: 'login-generated' },",
+        "      { type: 'stepIds', description: 'step-1,expected-result' },",
+        '    ],',
+        '  },',
+        '  async ({ page }) => {',
+        "    await test.step('[step-1] Submit valid credentials', async () => {",
+        "      await page.goto('/login');",
+        "      await page.fill('#email', 'admin@example.com');",
+        "      await page.fill('input[name=\"password\"]', 'admin123');",
+        "      await page.getByRole('button', { name: 'Log in' }).click();",
+        '    });',
+        "    await test.step('[expected-result] The dashboard loads', async () => {",
+        '      await expect(page).toHaveURL(/\\/dashboard/);',
+        "      await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();",
+        '    });',
+        '  },',
+        ');',
+        '',
+      ].join('\n');
 
-    const outcome = await generationVerifyTool.handler({
-      input: spokeInput,
-      content,
-      filePath: 'tests/qa/generated/login-verified.spec.ts',
-      generatorVersion: spokeInput.locatorModule.generatorVersion,
-    });
+      const outcome = await generationVerifyTool.handler({
+        input: spokeInput,
+        content,
+        filePath: 'tests/qa/generated/login-verified.spec.ts',
+        generatorVersion: spokeInput.locatorModule.generatorVersion,
+      });
 
-    expect(outcome.status).toBe('verified');
-    if (outcome.status !== 'verified' || outcome.spec === undefined || outcome.contentSha256 === undefined) {
-      throw new Error('Expected a verified outcome with a spec and contentSha256.');
-    }
+      expect(outcome.status).toBe('verified');
+      if (
+        outcome.status !== 'verified' ||
+        outcome.spec === undefined ||
+        outcome.contentSha256 === undefined
+      ) {
+        throw new Error('Expected a verified outcome with a spec and contentSha256.');
+      }
 
-    const registered = await generationRegisterTool.handler({
-      spec: outcome.spec,
-      result: outcome.result!,
-      contentSha256: outcome.contentSha256,
-    });
+      const registered = await generationRegisterTool.handler({
+        spec: outcome.spec,
+        result: outcome.result!,
+        contentSha256: outcome.contentSha256,
+      });
 
-    expect(registered.filePath).toBe('tests/qa/generated/login-verified.spec.ts');
-    const written = await readFile(join(PROJECT_ROOT, registered.filePath), 'utf-8');
-    expect(written).toBe(content);
-    const manifest = JSON.parse(
-      await readFile(join(PROJECT_ROOT, '.qa', 'manifest.json'), 'utf-8'),
-    ) as { artifacts: Record<string, unknown> };
-    expect(manifest.artifacts).toHaveProperty(registered.filePath);
-  }, STARTUP_TIMEOUT_MS);
+      expect(registered.filePath).toBe('tests/qa/generated/login-verified.spec.ts');
+      const written = await readFile(join(PROJECT_ROOT, registered.filePath), 'utf-8');
+      expect(written).toBe(content);
+      const manifest = JSON.parse(await readFile(join(PROJECT_ROOT, '.qa', 'manifest.json'), 'utf-8')) as {
+        artifacts: Record<string, unknown>;
+      };
+      expect(manifest.artifacts).toHaveProperty(registered.filePath);
+    },
+    STARTUP_TIMEOUT_MS,
+  );
 
   // The literal regression this whole capability exists for (P3-20): a generated spec whose body
   // is empty — only a testCaseId annotation, no assertions, no "stepIds" declaration — must not be
   // silently accepted as covering the case just because Playwright itself reports it "passed".
-  it('rejects a generated spec with an empty body instead of reporting it verified', async () => {
-    const spokeInput = await generationSpokeInputTool.handler({
-      testCaseId: 'login-generated',
-      elementIds: [],
-    });
+  it(
+    'rejects a generated spec with an empty body instead of reporting it verified',
+    async () => {
+      const spokeInput = await generationSpokeInputTool.handler({
+        testCaseId: 'login-generated',
+        elementIds: [],
+      });
 
-    const content = [
-      "import { test } from '@playwright/test';",
-      '',
-      'test(',
-      "  'an empty generated spec',",
-      "  { annotation: { type: 'testCaseId', description: 'login-generated' } },",
-      '  async () => {},',
-      ');',
-      '',
-    ].join('\n');
+      const content = [
+        "import { test } from '@playwright/test';",
+        '',
+        'test(',
+        "  'an empty generated spec',",
+        "  { annotation: { type: 'testCaseId', description: 'login-generated' } },",
+        '  async () => {},',
+        ');',
+        '',
+      ].join('\n');
 
-    const outcome = await generationVerifyTool.handler({
-      input: spokeInput,
-      content,
-      filePath: 'tests/qa/generated/login-empty.spec.ts',
-      generatorVersion: spokeInput.locatorModule.generatorVersion,
-    });
+      const outcome = await generationVerifyTool.handler({
+        input: spokeInput,
+        content,
+        filePath: 'tests/qa/generated/login-empty.spec.ts',
+        generatorVersion: spokeInput.locatorModule.generatorVersion,
+      });
 
-    expect(outcome.status).not.toBe('verified');
-    expect(outcome.issues?.length).toBeGreaterThan(0);
-  }, STARTUP_TIMEOUT_MS);
+      expect(outcome.status).not.toBe('verified');
+      expect(outcome.issues?.length).toBeGreaterThan(0);
+    },
+    STARTUP_TIMEOUT_MS,
+  );
 });

@@ -2,15 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { registerVerifiedGeneratedTestSpec } from '@qa-ai-stlc/core';
-import { GeneratedTestSpecSchema, RelativePathSchema, RunResultSchema, Sha256HexSchema } from '@qa-ai-stlc/schemas';
+import {
+  GeneratedTestSpecSchema,
+  RelativePathSchema,
+  RunResultSchema,
+  Sha256HexSchema,
+} from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = z.object({
-  spec: GeneratedTestSpecSchema.describe('The exact "spec" qa.generation_verify returned for its "verified" outcome.'),
-  result: RunResultSchema.describe('The exact "result" qa.generation_verify returned for its "verified" outcome.'),
-  contentSha256: Sha256HexSchema.describe('The exact "contentSha256" qa.generation_verify returned for its "verified" outcome.'),
+  spec: GeneratedTestSpecSchema.describe(
+    'The exact "spec" qa.generation_verify returned for its "verified" outcome.',
+  ),
+  result: RunResultSchema.describe(
+    'The exact "result" qa.generation_verify returned for its "verified" outcome.',
+  ),
+  contentSha256: Sha256HexSchema.describe(
+    'The exact "contentSha256" qa.generation_verify returned for its "verified" outcome.',
+  ),
 });
 
 const OutputSchema = z.object({

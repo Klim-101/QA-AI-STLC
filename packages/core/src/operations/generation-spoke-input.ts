@@ -74,11 +74,9 @@ export async function runBuildGenerationSpokeInput(
   const locatorModuleAbsolutePath = resolveRelativePath(context.projectRoot, LOCATOR_MODULE_PATH);
   const locatorModuleExists = await context.fs.pathExists(locatorModuleAbsolutePath);
   if (!locatorModuleExists) {
-    throw new QaError(
-      'GENERATION_LOCATOR_MODULE_MISSING',
-      `"${LOCATOR_MODULE_PATH}" does not exist yet.`,
-      { remediation: 'Run "qa explore" first to generate the locator module.' },
-    );
+    throw new QaError('GENERATION_LOCATOR_MODULE_MISSING', `"${LOCATOR_MODULE_PATH}" does not exist yet.`, {
+      remediation: 'Run "qa explore" first to generate the locator module.',
+    });
   }
   const locatorModuleSource = await context.fs.readFile(locatorModuleAbsolutePath);
   const locatorModuleGeneratorVersion = parseGeneratorVersion(locatorModuleSource);

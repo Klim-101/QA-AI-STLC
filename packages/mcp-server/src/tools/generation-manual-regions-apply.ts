@@ -7,7 +7,9 @@ import { z } from 'zod';
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = z.object({
-  templateSource: z.string().describe('The freshly generated spec source, before any manual region is spliced back in.'),
+  templateSource: z
+    .string()
+    .describe('The freshly generated spec source, before any manual region is spliced back in.'),
   existingRegions: z
     .array(ManualRegionSchema)
     .describe('The regions qa.generation_manual_regions_extract read from the file being replaced.'),
@@ -29,7 +31,7 @@ export const generationManualRegionsApplyTool: ToolDefinition<typeof InputSchema
   name: 'qa.generation_manual_regions_apply',
   description:
     'Splices previously preserved "// qa:manual" regions into a freshly generated spec template, ' +
-    'replacing each marker pair\'s placeholder content with the matching preserved region. Fails ' +
+    "replacing each marker pair's placeholder content with the matching preserved region. Fails " +
     'when the new template dropped a marker a preserved region still needs.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
