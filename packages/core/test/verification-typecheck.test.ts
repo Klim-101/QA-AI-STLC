@@ -99,7 +99,11 @@ describe('verifyGeneratedTestSpec against the real TypeScript compiler', () => {
     await withTempDir(async (dir) => {
       const context = await createProjectContext(dir);
 
-      const outcome = await verifyGeneratedTestSpec(context, { spec: spec(), testCase: TEST_CASE, runner: fakeRunner('passed') });
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: spec(),
+        testCase: TEST_CASE,
+        runner: fakeRunner('passed'),
+      });
 
       expect(outcome.status).toBe('verified');
     });
@@ -118,7 +122,11 @@ describe('verifyGeneratedTestSpec against the real TypeScript compiler', () => {
       };
       const brokenSpec = spec({ content: 'export const total: number = "not a number";\n' });
 
-      const outcome = await verifyGeneratedTestSpec(context, { spec: brokenSpec, testCase: TEST_CASE, runner });
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: brokenSpec,
+        testCase: TEST_CASE,
+        runner,
+      });
 
       expect(outcome.status).toBe('typecheck_failed');
       if (outcome.status === 'typecheck_failed') {
