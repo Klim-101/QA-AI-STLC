@@ -24,7 +24,7 @@ describe('buildMissingTestIdReport (demo app)', () => {
       })),
     );
 
-    const { elements } = analyzeStaticSource({ files });
+    const { elements } = analyzeStaticSource({ files, testIdAttribute: 'data-testid' });
     const report = buildMissingTestIdReport({
       schemaVersion: 1,
       generatedAt: '2026-09-18T00:00:00Z',

@@ -5,6 +5,7 @@ import {
   ManifestStore,
   QaError,
   QaStore,
+  configureTestIdAttribute,
   loadConfig,
   resolveRelativePath,
   toCanonicalJson,
@@ -199,6 +200,7 @@ async function runCrawlAndBuild(
   const policy = resolvePolicy(config, options.policy);
   const tlsInsecure = environment.config.tlsInsecure === true;
   warnIfTlsInsecure(context, environment.name, tlsInsecure);
+  configureTestIdAttribute(config.selectors.testIdAttribute);
 
   const crawlResult = await crawl({
     startUrl: environment.config.baseUrl,
@@ -216,6 +218,7 @@ async function runCrawlAndBuild(
     baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
+    testIdAttribute: config.selectors.testIdAttribute,
     ...(identity !== undefined ? { identity } : {}),
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
@@ -240,7 +243,13 @@ async function runCrawlAndBuild(
       );
     }
     const files = await readStaticSourceFiles(context.fs, context.projectRoot, config.source.path);
-    elements.push(...analyzeStaticSource({ files, clock: context.clock }).elements);
+    elements.push(
+      ...analyzeStaticSource({
+        files,
+        clock: context.clock,
+        testIdAttribute: config.selectors.testIdAttribute,
+      }).elements,
+    );
   }
 
   return {
@@ -266,6 +275,7 @@ async function runVerify(
   const identity = resolveIdentity(context, config, options);
   const tlsInsecure = environment.config.tlsInsecure === true;
   warnIfTlsInsecure(context, environment.name, tlsInsecure);
+  configureTestIdAttribute(config.selectors.testIdAttribute);
   const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
 
   const checkable = stored.elements.filter(

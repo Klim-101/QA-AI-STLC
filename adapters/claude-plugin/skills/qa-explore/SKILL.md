@@ -39,6 +39,18 @@ Before the first `qa.explore` call, ask the operator explicitly rather than assu
    [What this skill does not do](#what-this-skill-does-not-do)) rather than only surfacing it later
    if `missingLocatorCount` turns out non-zero.
 
+## When the built-in auto-login heuristic fails
+
+`qa.explore`'s scripted login (`identity.auth: "storage-state"`) fills the username/password fields
+with a generic default selector (`input[type="email"], input[name="username"],
+input[id="username"], input[autocomplete="username"]`) only when
+`identities.<name>.selectors.username`/`password`/`submit` is not set in `config.yaml`. A login form
+that does not use any of those standard attributes — a custom component library (e.g. a Kendo
+`<kendo-textbox formcontrolname="username" data-ui-id="...">`) is a typical case — is not a gap this
+skill or the engine needs a code change for: set the matching identity's `selectors.username` (and
+`password`/`submit` as needed) to a CSS selector that actually matches the app's markup, then retry.
+Check this before concluding auto-login is unfixable or filing it as an engine limitation.
+
 ## What this skill calls
 
 1. **`qa.doctor`**, if not already confirmed this session (`qa-start` normally does this at session

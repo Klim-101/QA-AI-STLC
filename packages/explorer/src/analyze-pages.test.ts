@@ -28,6 +28,7 @@ describe('analyzePages', () => {
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
+      testIdAttribute: 'data-testid',
     });
 
     expect(result.pageModelSet.pages.map((page) => page.url)).toEqual([
@@ -49,6 +50,7 @@ describe('analyzePages', () => {
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
+      testIdAttribute: 'data-testid',
     });
 
     expect(browserLauncher.newContextCalls).toEqual([{}]);
@@ -68,6 +70,7 @@ describe('analyzePages', () => {
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
+      testIdAttribute: 'data-testid',
       identity: { config: identityConfig, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
     });
 
@@ -85,6 +88,7 @@ describe('analyzePages', () => {
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
+      testIdAttribute: 'data-testid',
       tlsInsecure: true,
     });
 
@@ -105,6 +109,7 @@ describe('analyzePages', () => {
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
+      testIdAttribute: 'data-testid',
     });
 
     expect(result.blockedRequestCount).toBe(1);

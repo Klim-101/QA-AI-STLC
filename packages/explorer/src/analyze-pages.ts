@@ -17,6 +17,8 @@ export interface AnalyzePagesOptions {
   readonly browserLauncher: BrowserLauncher;
   /** Signs in before analyzing, reusing `authenticate()` (P1-05). Omit to analyze anonymously. */
   readonly identity?: ExplorerIdentity;
+  /** The attribute a crawled element's `testId` is read from (`config.selectors.testIdAttribute`). */
+  readonly testIdAttribute: string;
   readonly limits?: NormalizeLimits;
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this analysis session (P2-18); off by default. */
@@ -61,7 +63,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
     const pages: PageModel[] = [];
     for (const url of options.urls) {
       await page.goto(url);
-      pages.push(await analyzePage(page, url, limits));
+      pages.push(await analyzePage(page, url, options.testIdAttribute, limits));
     }
 
     const pageModelSet: PageModelSet = {

@@ -221,6 +221,7 @@ export async function verifyGeneratedTestSpec(
       specFiles: [scratchAbsolutePath],
       idGenerator,
       requiredStepIds: canonicalStepIds(options.testCase),
+      testIdAttribute: config.selectors.testIdAttribute,
     });
     const [outcome, ...extra] = outcomes;
     if (outcome === undefined || extra.length > 0) {

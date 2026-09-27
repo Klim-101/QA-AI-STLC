@@ -9,6 +9,7 @@ import { computeElementId } from './build-selector-registry.js';
 import {
   capturePickModeElements,
   finalizeManualSelectorEntries,
+  injectPickModeOverlay,
   readPickModeState,
   waitForPickModeCompletion,
   type PickModeCapture,
@@ -54,6 +55,22 @@ const CAPTURE: PickModeCapture = {
   nthOfType: 1,
   accessibleName: 'Log in',
 };
+
+describe('injectPickModeOverlay', () => {
+  it('forwards the given testIdAttribute to page.evaluate (#419)', async () => {
+    const evaluateArgs: unknown[] = [];
+    const page = fakePage({
+      evaluate: (_pageFunction, arg) => {
+        evaluateArgs.push(arg);
+        return Promise.resolve(undefined);
+      },
+    });
+
+    await injectPickModeOverlay(page, 'data-ui-id');
+
+    expect(evaluateArgs).toEqual(['data-ui-id']);
+  });
+});
 
 describe('readPickModeState', () => {
   it('parses a valid overlay state', async () => {

@@ -41,7 +41,11 @@ export interface SpecConfigOptions {
   readonly specFiles: readonly string[];
   readonly reportPath: string;
   readonly outputDir: string;
+  /** The attribute `getByTestId()` resolves against; defaults to Playwright's own `'data-testid'`. */
+  readonly testIdAttribute?: string;
 }
+
+const DEFAULT_TEST_ID_ATTRIBUTE = 'data-testid';
 
 /**
  * Builds an ephemeral Playwright config as plain-object ESM source, deliberately with no
@@ -68,7 +72,12 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
     testDir,
     testMatch,
     outputDir: options.outputDir,
-    use: { baseURL: options.baseUrl, screenshot: 'only-on-failure', trace: 'retain-on-failure' },
+    use: {
+      baseURL: options.baseUrl,
+      testIdAttribute: options.testIdAttribute ?? DEFAULT_TEST_ID_ATTRIBUTE,
+      screenshot: 'only-on-failure',
+      trace: 'retain-on-failure',
+    },
     reporter: [['json', { outputFile: options.reportPath }]],
   };
   return { source: `export default ${JSON.stringify(config, null, 2)};\n`, testDir };

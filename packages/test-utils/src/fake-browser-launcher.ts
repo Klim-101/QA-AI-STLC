@@ -58,7 +58,7 @@ export interface AuthPageLike {
   click(selector: string): Promise<void>;
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
   route(pattern: string, handler: RouteHandlerLike): Promise<unknown>;
-  evaluate(pageFunction: () => unknown): Promise<unknown>;
+  evaluate<Arg = void>(pageFunction: (arg: Arg) => unknown, arg?: Arg): Promise<unknown>;
   ariaSnapshotJSON(): Promise<unknown>;
   addScriptTag(options: { readonly content: string }): Promise<unknown>;
   getByRole(role: string, options?: GetByRoleOptionsLike): PageLocatorLike;

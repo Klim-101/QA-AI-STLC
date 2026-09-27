@@ -15,6 +15,13 @@ export interface RunnerInput {
   readonly specFiles: readonly string[];
   readonly idGenerator?: IdGenerator;
   /**
+   * The attribute a generated spec's `getByTestId()` calls resolve against
+   * (`config.selectors.testIdAttribute`); omitted for a runner whose test type has no notion of a
+   * browser DOM (`runner-api`, `runner-a11y`). A runner that does resolve `getByTestId` locators
+   * falls back to Playwright's own default, `'data-testid'`, when this is omitted.
+   */
+  readonly testIdAttribute?: string;
+  /**
    * The canonical step/expected-result ids (`canonicalStepIds`, P3-20) every result this call
    * produces must cover, when the caller knows the exact one `TestCase` behind this spec set (the
    * generation verification loop, `verifyGeneratedTestSpec`). When given, a runner that supports

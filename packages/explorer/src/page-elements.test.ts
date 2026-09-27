@@ -7,14 +7,17 @@ import { DEFAULT_NORMALIZE_LIMITS } from './normalize.js';
 import { extractPageElements } from './page-elements.js';
 import { createLocatorMethods } from './test-support/locator-stub.js';
 
-function fakePage(evaluateResult: unknown): AuthPage {
+function fakePage(evaluateResult: unknown, evaluateArgs: unknown[] = []): AuthPage {
   return {
     goto: () => Promise.resolve(null),
     fill: () => Promise.resolve(),
     click: () => Promise.resolve(),
     waitForLoadState: () => Promise.resolve(),
     route: () => Promise.resolve(),
-    evaluate: () => Promise.resolve(evaluateResult),
+    evaluate: (_pageFunction, arg) => {
+      evaluateArgs.push(arg);
+      return Promise.resolve(evaluateResult);
+    },
     ariaSnapshotJSON: () => Promise.resolve(undefined),
     addScriptTag: () => Promise.resolve(undefined),
     ...createLocatorMethods(),
@@ -44,7 +47,7 @@ describe('extractPageElements', () => {
       dialogs: [{ accessibleName: 'Edit task', open: false }],
     });
 
-    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
 
     expect(result).toEqual({
       interactiveElements: [
@@ -97,7 +100,7 @@ describe('extractPageElements', () => {
       dialogs: [],
     });
 
-    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
 
     expect(result.interactiveElements).toEqual([
       {
@@ -134,7 +137,7 @@ describe('extractPageElements', () => {
       dialogs: [],
     });
 
-    const result = await extractPageElements(page, limits);
+    const result = await extractPageElements(page, limits, 'data-testid');
 
     expect(result.interactiveElements[0]?.label).toBe('a ve…');
     expect(result.interactiveElements[0]?.placeholder).toBe('a ve…');
@@ -153,7 +156,7 @@ describe('extractPageElements', () => {
       dialogs: [],
     });
 
-    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
 
     expect(result.interactiveElements).toEqual([{ kind: 'link', tagName: 'a', nthOfType: 1 }]);
   });
@@ -172,15 +175,24 @@ describe('extractPageElements', () => {
       dialogs: [],
     });
 
-    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
 
     expect(result.forms).toEqual([{ method: 'get', fields: [{ type: 'checkbox', required: false }] }]);
+  });
+
+  it('forwards a non-default testIdAttribute to page.evaluate (#419)', async () => {
+    const evaluateArgs: unknown[] = [];
+    const page = fakePage({ interactiveElements: [], forms: [], tables: [], dialogs: [] }, evaluateArgs);
+
+    await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-ui-id');
+
+    expect(evaluateArgs).toEqual(['data-ui-id']);
   });
 
   it('returns empty, truncated results when evaluate does not resolve to the expected shape', async () => {
     const page = fakePage(undefined);
 
-    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS);
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
 
     expect(result).toEqual({ interactiveElements: [], forms: [], tables: [], dialogs: [], truncated: true });
   });
@@ -195,11 +207,11 @@ describe('extractPageElements', () => {
     }));
     const page = fakePage({ interactiveElements: manyButtons, forms: [], tables: [], dialogs: [] });
 
-    const result = await extractPageElements(page, {
-      maxTextLength: 200,
-      maxArrayLength: 2,
-      maxTreeNodes: 500,
-    });
+    const result = await extractPageElements(
+      page,
+      { maxTextLength: 200, maxArrayLength: 2, maxTreeNodes: 500 },
+      'data-testid',
+    );
 
     expect(result.interactiveElements).toHaveLength(2);
     expect(result.truncated).toBe(true);
@@ -216,11 +228,11 @@ describe('extractPageElements', () => {
       dialogs: manyDialogs,
     });
 
-    const result = await extractPageElements(page, {
-      maxTextLength: 200,
-      maxArrayLength: 2,
-      maxTreeNodes: 500,
-    });
+    const result = await extractPageElements(
+      page,
+      { maxTextLength: 200, maxArrayLength: 2, maxTreeNodes: 500 },
+      'data-testid',
+    );
 
     expect(result.forms).toHaveLength(2);
     expect(result.tables).toHaveLength(2);
@@ -245,7 +257,7 @@ describe('extractPageElements', () => {
       dialogs: [{ accessibleName: 'a very long dialog name', open: true }],
     });
 
-    const result = await extractPageElements(page, limits);
+    const result = await extractPageElements(page, limits, 'data-testid');
 
     expect(result.interactiveElements[0]?.accessibleName).toBe('a ve…');
     expect(result.tables[0]?.columnHeaders[0]).toBe('a ve…');

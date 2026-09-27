@@ -108,6 +108,7 @@ describe('analyzePages (demo app)', () => {
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
+      testIdAttribute: 'data-testid',
       identity: {
         config: {
           auth: 'storage-state',
@@ -139,6 +140,7 @@ describe('analyzePages (demo app)', () => {
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
+      testIdAttribute: 'data-testid',
     });
 
     const inputs = result.pageModelSet.pages[0]?.interactiveElements.filter(
@@ -218,6 +220,7 @@ describe('buildSelectorRegistry (demo app)', () => {
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
+      testIdAttribute: 'data-testid',
     });
 
     const first = await buildSelectorRegistry({

@@ -22,7 +22,10 @@ describe('analyzeStaticSource (demo app)', () => {
     );
     const content = await readFile(absolutePath, 'utf8');
 
-    const { elements } = analyzeStaticSource({ files: [{ filePath, content }] });
+    const { elements } = analyzeStaticSource({
+      files: [{ filePath, content }],
+      testIdAttribute: 'data-testid',
+    });
 
     // Exactly the button and the two inputs: the `<p role="alert">` error message, the `<label>`s,
     // the `<link>`/`<meta>` head tags and every other tag in the file are neither a mapped tag name

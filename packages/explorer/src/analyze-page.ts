@@ -15,6 +15,7 @@ import { extractPageElements } from './page-elements.js';
 export async function analyzePage(
   page: AuthPage,
   url: string,
+  testIdAttribute: string,
   limits: NormalizeLimits = DEFAULT_NORMALIZE_LIMITS,
 ): Promise<PageModel> {
   const rawAccessibilityTree = await page.ariaSnapshotJSON();
@@ -22,7 +23,7 @@ export async function analyzePage(
     rawAccessibilityTree,
     limits,
   );
-  const elements = await extractPageElements(page, limits);
+  const elements = await extractPageElements(page, limits, testIdAttribute);
 
   return {
     url,

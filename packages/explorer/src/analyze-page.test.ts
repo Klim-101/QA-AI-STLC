@@ -35,7 +35,12 @@ describe('analyzePage', () => {
       },
     });
 
-    const model = await analyzePage(page, 'https://staging.example.com/tasks', DEFAULT_NORMALIZE_LIMITS);
+    const model = await analyzePage(
+      page,
+      'https://staging.example.com/tasks',
+      'data-testid',
+      DEFAULT_NORMALIZE_LIMITS,
+    );
 
     expect(model).toEqual({
       url: 'https://staging.example.com/tasks',
@@ -54,8 +59,24 @@ describe('analyzePage', () => {
       elements: undefined,
     });
 
-    const model = await analyzePage(page, 'https://staging.example.com/', DEFAULT_NORMALIZE_LIMITS);
+    const model = await analyzePage(
+      page,
+      'https://staging.example.com/',
+      'data-testid',
+      DEFAULT_NORMALIZE_LIMITS,
+    );
 
     expect(model.truncated).toBe(true);
+  });
+
+  it('reads the interactive elements testId off the configured attribute (default-limits branch)', async () => {
+    const page = fakePage({
+      ariaSnapshot: { role: 'document', name: 'Tasks' },
+      elements: { interactiveElements: [], forms: [], tables: [], dialogs: [] },
+    });
+
+    const model = await analyzePage(page, 'https://staging.example.com/', 'data-testid');
+
+    expect(model.truncated).toBe(false);
   });
 });

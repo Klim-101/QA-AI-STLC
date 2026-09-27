@@ -117,6 +117,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
     baseUrl: environment.config.baseUrl,
     specFiles: absoluteSpecFiles,
     idGenerator,
+    testIdAttribute: config.selectors.testIdAttribute,
   });
 
   // A spec path that does not exist or matches nothing still makes Playwright write a JSON report
