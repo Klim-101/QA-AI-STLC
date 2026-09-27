@@ -1525,7 +1525,9 @@ describe('runCli', () => {
     expect(parsed.data.counts).toMatchObject({ passed: 1, failed: 0 });
   });
 
-  it('runs "run" end to end and reports "none" when the runner produced no results', async () => {
+  // P3-19: a spec path matching zero tests must fail loud, not report a clean zero-count success —
+  // a silent false green, since nothing was actually verified.
+  it('runs "run" end to end and fails when the runner produced no results', async () => {
     const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
     const deps = dependencies({
       fs,
@@ -1534,8 +1536,9 @@ describe('runCli', () => {
 
     const exitCode = await runCli(['run', '--spec', 'tests/login.playwright-spec.ts'], deps);
 
-    expect(exitCode).toBe(EXIT_SUCCESS);
-    expect(deps.stdout.join('\n')).toContain('0 result(s) (none).');
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('error:');
+    expect(deps.stderr.join('\n')).toContain('zero results');
   });
 
   it('runs "run" end to end and reports failure when a result failed', async () => {

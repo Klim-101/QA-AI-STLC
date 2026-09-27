@@ -791,6 +791,8 @@ function formatLinkResult(result: LinkResult): readonly string[] {
   return lines;
 }
 
+// `runTestRun` (RUN_NO_RESULTS, P3-19) now rejects a run with zero results before returning, so
+// `total` here is always at least 1 and `countsLine` is never empty.
 function formatRunSummary(summary: RunSummary): readonly string[] {
   const total = Object.values(summary.counts).reduce((sum, count) => sum + count, 0);
   const countsLine = Object.entries(summary.counts)
@@ -798,7 +800,7 @@ function formatRunSummary(summary: RunSummary): readonly string[] {
     .map(([status, count]) => `${status}: ${String(count)}`)
     .join(', ');
   return [
-    `Run ${summary.runId}: ${String(total)} result(s) (${countsLine || 'none'}).`,
+    `Run ${summary.runId}: ${String(total)} result(s) (${countsLine}).`,
     `Wrote ${summary.runRecordPath}.`,
   ];
 }
