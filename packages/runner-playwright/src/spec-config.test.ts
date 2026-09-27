@@ -38,6 +38,19 @@ describe('generateSpecConfigSource', () => {
     expect(source).toContain('"a.spec.ts"');
     expect(source).toContain('"b.spec.ts"');
     expect(source).toContain('"baseURL": "http://localhost:4310/"');
+    expect(source).toContain('"testIdAttribute": "data-testid"');
     expect(source).toContain('"outputDir"');
+  });
+
+  it('configures getByTestId() to resolve against a non-default attribute when given (#419)', () => {
+    const { source } = generateSpecConfigSource({
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+      testIdAttribute: 'data-ui-id',
+    });
+
+    expect(source).toContain('"testIdAttribute": "data-ui-id"');
   });
 });

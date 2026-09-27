@@ -13,6 +13,8 @@ export interface StaticSourceFile {
 
 export interface AnalyzeStaticSourceOptions {
   readonly files: readonly StaticSourceFile[];
+  /** The attribute a static finding's `testId` is read from (`config.selectors.testIdAttribute`). */
+  readonly testIdAttribute: string;
   readonly clock?: Clock;
 }
 
@@ -119,7 +121,7 @@ function findTagEnd(content: string, tagStart: number): number {
 // opening tag the same way), not a per-framework parser. It can still match a `<` that starts a
 // string or comment rather than a real tag — an accepted, documented false-positive risk in
 // exchange for needing no `@babel/parser`, `vue/compiler-sfc` or `@angular/compiler` dependency.
-function findStaticElements(file: StaticSourceFile): StaticFinding[] {
+function findStaticElements(file: StaticSourceFile, testIdAttribute: string): StaticFinding[] {
   const findings: StaticFinding[] = [];
   let cursor = 0;
   for (;;) {
@@ -151,7 +153,7 @@ function findStaticElements(file: StaticSourceFile): StaticFinding[] {
     findings.push({
       kind,
       tagName,
-      testId: literalAttribute(attrs, 'data-testid'),
+      testId: literalAttribute(attrs, testIdAttribute),
       ariaLabel: literalAttribute(attrs, 'aria-label'),
       role,
       filePath: file.filePath,
@@ -194,7 +196,7 @@ export function analyzeStaticSource(options: AnalyzeStaticSourceOptions): Analyz
   const nameFor = createElementNamer();
 
   const elements = options.files.flatMap((file) =>
-    findStaticElements(file).map((finding) => ({
+    findStaticElements(file, options.testIdAttribute).map((finding) => ({
       elementId: hashText(
         `${finding.filePath} ${String(finding.line)} ${finding.kind} ${findingNameSource(finding)}`,
       ),

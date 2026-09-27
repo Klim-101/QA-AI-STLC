@@ -16,6 +16,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/components/LoginForm.tsx', '<button data-testid="login-button">Log in</button>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements).toEqual([
@@ -34,6 +35,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', '<button data-testid="submit"></button>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]).not.toHaveProperty('pii');
@@ -44,6 +46,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.vue', '<div role="button" aria-label="Close dialog"></div>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.kind).toBe('button');
@@ -58,6 +61,7 @@ describe('analyzeStaticSource', () => {
         file('src/app.component.html', '<a role="link" aria-label="Home" data-testid="home-link">Home</a>'),
       ],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([
@@ -70,6 +74,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', '<div data-testid="wrapper"><span aria-label="icon" /></div>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements).toEqual([]);
@@ -79,6 +84,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/Form.tsx', '<div>\n  <input data-testid="email" />\n</div>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.sourceLocation).toEqual({ filePath: 'src/Form.tsx', line: 2 });
@@ -88,6 +94,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.vue', '<button :data-testid="dynamicId" aria-label="Submit"></button>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([]);
@@ -97,6 +104,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/app.component.html', '<button [attr.data-testid]="dynamicId"></button>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([]);
@@ -109,6 +117,7 @@ describe('analyzeStaticSource', () => {
         file('src/B.tsx', '<button data-testid="submit-2" aria-label="Submit"></button>'),
       ],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.name).toBe('submit');
@@ -119,6 +128,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', "<button data-testid='login-button'>Log in</button>")],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([
@@ -130,6 +140,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', '<div role="checkbox" aria-label="Accept terms"></div>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements).toEqual([]);
@@ -138,6 +149,7 @@ describe('analyzeStaticSource', () => {
   it('uses the system clock when none is given', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', '<button data-testid="submit"></button>')],
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.lastVerifiedAt).toEqual(expect.any(String));
@@ -148,6 +160,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', '<button data-testid="submit"></button><div data-testid="broken"')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements).toHaveLength(1);
@@ -164,6 +177,7 @@ describe('analyzeStaticSource', () => {
         ),
       ],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements).toHaveLength(1);
@@ -179,6 +193,7 @@ describe('analyzeStaticSource', () => {
         ),
       ],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
@@ -193,6 +208,7 @@ describe('analyzeStaticSource', () => {
         ),
       ],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
@@ -202,6 +218,7 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', String.raw`<button title="a \" b" data-testid="save">Save</button>`)],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
@@ -211,15 +228,44 @@ describe('analyzeStaticSource', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/App.tsx', '<button title="a > b" data-testid="save">Save</button>')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements[0]?.locatorCandidates).toEqual([{ strategy: 'testId', value: 'save', fragile: false }]);
+  });
+
+  it('reads testId off a configured non-default attribute name (#419)', () => {
+    const { elements } = analyzeStaticSource({
+      files: [
+        file(
+          'src/components/LoginForm.tsx',
+          '<input data-ui-id="login-page.username" aria-label="Username" />',
+        ),
+      ],
+      clock: FIXED_CLOCK,
+      testIdAttribute: 'data-ui-id',
+    });
+
+    expect(elements[0]?.locatorCandidates).toEqual([
+      { strategy: 'testId', value: 'login-page.username', fragile: false },
+    ]);
+  });
+
+  it('does not read data-testid when a different attribute is configured (#419)', () => {
+    const { elements } = analyzeStaticSource({
+      files: [file('src/App.tsx', '<button data-testid="submit" aria-label="Submit"></button>')],
+      clock: FIXED_CLOCK,
+      testIdAttribute: 'data-ui-id',
+    });
+
+    expect(elements[0]?.locatorCandidates).toEqual([]);
   });
 
   it('returns no elements for a file with no recognizable tags', () => {
     const { elements } = analyzeStaticSource({
       files: [file('src/util.ts', 'export function add(a: number, b: number) { return a + b; }')],
       clock: FIXED_CLOCK,
+      testIdAttribute: 'data-testid',
     });
 
     expect(elements).toEqual([]);

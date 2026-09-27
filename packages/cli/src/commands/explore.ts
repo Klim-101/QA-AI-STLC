@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ManifestStore, QaStore, loadConfig } from '@qa-ai-stlc/core';
+import { ManifestStore, QaStore, configureTestIdAttribute, loadConfig } from '@qa-ai-stlc/core';
 import {
   buildRequestLogHar,
   capturePickModeElements,
@@ -51,6 +51,7 @@ async function runPickModeSession(
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
   const tlsInsecure = resolveExploreEnvironment(config, options.environment);
+  configureTestIdAttribute(config.selectors.testIdAttribute);
   const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
 
   // Headed: a human clicks the elements in this window, unlike every other launch() call here.
@@ -62,7 +63,7 @@ async function runPickModeSession(
     });
     const page = await browserContext.newPage();
     await page.goto(options.pick);
-    await injectPickModeOverlay(page);
+    await injectPickModeOverlay(page, config.selectors.testIdAttribute);
     context.io.stdout(
       `Pick mode: a browser window opened at ${options.pick}. Click every element to capture, then click "Finish picking".`,
     );

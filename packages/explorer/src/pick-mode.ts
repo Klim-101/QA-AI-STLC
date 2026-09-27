@@ -40,9 +40,9 @@ interface PickModeState {
  * 12.4). A second call on the same page is a no-op — the overlay is idempotent across re-navigation
  * within the same pick-mode session.
  */
-export async function injectPickModeOverlay(page: AuthPage): Promise<void> {
+export async function injectPickModeOverlay(page: AuthPage, testIdAttribute: string): Promise<void> {
   /* v8 ignore next 95 -- runs in the browser's own V8 instance, invisible to Node coverage */
-  await page.evaluate(() => {
+  await page.evaluate((testIdAttribute: string) => {
     const globalWindow = window as unknown as { __qaPickMode?: { done: boolean; captures: unknown[] } };
     if (globalWindow.__qaPickMode !== undefined) {
       return;
@@ -161,7 +161,7 @@ export async function injectPickModeOverlay(page: AuthPage): Promise<void> {
           tagName,
           nthOfType: nthOfType(interactive),
           accessibleName: accessibleName(interactive),
-          testId: interactive.getAttribute('data-testid') ?? undefined,
+          testId: interactive.getAttribute(testIdAttribute) ?? undefined,
           role: computeRole(interactive, kind),
           label: labelText(interactive),
           placeholder: interactive.getAttribute('placeholder') ?? undefined,
@@ -171,7 +171,7 @@ export async function injectPickModeOverlay(page: AuthPage): Promise<void> {
       },
       { capture: true },
     );
-  });
+  }, testIdAttribute);
 }
 
 function isPickModeCapture(value: unknown): value is PickModeCapture {

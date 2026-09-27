@@ -78,9 +78,12 @@ function isInteractiveElementKind(value: string): value is InteractiveElementKin
  * inside the browser (Playwright serializes it across the CDP boundary), so it can reference DOM
  * globals unavailable to the rest of this package.
  */
-async function readRawPageElements(page: AuthPage): Promise<RawPageElements | undefined> {
+async function readRawPageElements(
+  page: AuthPage,
+  testIdAttribute: string,
+): Promise<RawPageElements | undefined> {
   /* v8 ignore next 90 -- runs in the browser's own V8 instance, invisible to Node coverage */
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate((testIdAttribute: string) => {
     function accessibleName(element: Element): string | undefined {
       const ariaLabel = element.getAttribute('aria-label');
       if (ariaLabel !== null && ariaLabel.trim().length > 0) {
@@ -165,7 +168,7 @@ async function readRawPageElements(page: AuthPage): Promise<RawPageElements | un
       return {
         kind,
         accessibleName: accessibleName(element),
-        testId: element.getAttribute('data-testid') ?? undefined,
+        testId: element.getAttribute(testIdAttribute) ?? undefined,
         role: computeRole(element, kind),
         label: labelText(element),
         placeholder: element.getAttribute('placeholder') ?? undefined,
@@ -198,7 +201,7 @@ async function readRawPageElements(page: AuthPage): Promise<RawPageElements | un
     }));
 
     return { interactiveElements, forms, tables, dialogs };
-  });
+  }, testIdAttribute);
   return isRawPageElements(result) ? result : undefined;
 }
 
@@ -302,8 +305,12 @@ function normalizeDialog(raw: RawDialog, limits: NormalizeLimits, onTruncated: (
 }
 
 /** Extracts and normalizes every interactive element, form, table and dialog on the current page. */
-export async function extractPageElements(page: AuthPage, limits: NormalizeLimits): Promise<PageElements> {
-  const raw = await readRawPageElements(page);
+export async function extractPageElements(
+  page: AuthPage,
+  limits: NormalizeLimits,
+  testIdAttribute: string,
+): Promise<PageElements> {
+  const raw = await readRawPageElements(page, testIdAttribute);
   if (raw === undefined) {
     return { interactiveElements: [], forms: [], tables: [], dialogs: [], truncated: true };
   }

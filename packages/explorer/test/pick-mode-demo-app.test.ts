@@ -62,7 +62,7 @@ describe('pick mode (demo app)', () => {
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/login`);
 
-    await injectPickModeOverlay(page);
+    await injectPickModeOverlay(page, 'data-testid');
     await page.click('button[type="submit"]');
     await page.click('#qa-pick-mode-finish');
 

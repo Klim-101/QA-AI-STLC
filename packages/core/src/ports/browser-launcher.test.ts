@@ -5,9 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const launch = vi.fn();
 const connectOverCDP = vi.fn();
+const setTestIdAttribute = vi.fn();
 
 vi.mock('playwright-core', () => ({
   chromium: { launch, connectOverCDP },
+  selectors: { setTestIdAttribute },
 }));
 
 function fakePlaywrightBrowser() {
@@ -22,6 +24,7 @@ describe('playwrightBrowserLauncher', () => {
   beforeEach(() => {
     launch.mockReset();
     connectOverCDP.mockReset();
+    setTestIdAttribute.mockReset();
   });
 
   it('delegates launch() to chromium.launch() without ever starting a real browser here', async () => {
@@ -101,5 +104,15 @@ describe('playwrightBrowserLauncher', () => {
     await browser.close();
 
     expect(rawBrowser.close).toHaveBeenCalled();
+  });
+});
+
+describe('configureTestIdAttribute', () => {
+  it("delegates to playwright-core's selectors.setTestIdAttribute() (#419)", async () => {
+    const { configureTestIdAttribute } = await import('./browser-launcher.js');
+
+    configureTestIdAttribute('data-ui-id');
+
+    expect(setTestIdAttribute).toHaveBeenCalledWith('data-ui-id');
   });
 });

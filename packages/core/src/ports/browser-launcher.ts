@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { chromium } from 'playwright-core';
+import { chromium, selectors } from 'playwright-core';
 import type {
   Browser as PlaywrightBrowser,
   BrowserContext as PlaywrightBrowserContext,
@@ -58,8 +58,17 @@ export interface AuthPage {
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
   /** Intercepts every request matching `pattern` (a glob, per Playwright's own syntax). */
   route(pattern: string, handler: RouteHandler): Promise<unknown>;
-  /** Runs `pageFunction` in the page's browsing context. Untyped: callers narrow the result. */
-  evaluate(pageFunction: () => unknown): Promise<unknown>;
+  /**
+   * Runs `pageFunction` in the page's browsing context, passing `arg` across the CDP boundary as
+   * Playwright's own `page.evaluate(pageFunction, arg)` does (a closure over an outer-scope
+   * variable is never available inside the browser). Untyped: callers narrow the result. Generic,
+   * matching Playwright's own `evaluate<R, Arg>` shape, so `arg`'s type is checked against
+   * `pageFunction`'s own parameter instead of forcing every caller through `unknown`; every test
+   * double implementing this interface must declare the same generic method shape (AuthPageLike and
+   * its extensions in `@qa-ai-stlc/test-utils`), or a non-generic override is rejected as too narrow
+   * for every possible `Arg`.
+   */
+  evaluate<Arg = void>(pageFunction: (arg: Arg) => unknown, arg?: Arg): Promise<unknown>;
   /** The page's accessibility tree as free-form JSON (Playwright's own aria snapshot). */
   ariaSnapshotJSON(): Promise<unknown>;
   /** Injects a script into the page (P3-14: loading axe-core for an accessibility scan). */
@@ -134,3 +143,15 @@ export const playwrightBrowserLauncher: BrowserLauncher = {
     wrapBrowser(await chromium.launch(options?.headless === undefined ? {} : { headless: options.headless })),
   connectOverCdp: async (endpointUrl) => wrapBrowser(await chromium.connectOverCDP(endpointUrl)),
 };
+
+/**
+ * Tells Playwright which attribute `page.getByTestId()` (both the explorer's own live scoring and
+ * a generated test's `AuthPage.getByTestId` calls) resolves against, for an application that does
+ * not use the `data-testid` convention (`config.selectors.testIdAttribute`, AGENTS.md 12.7: this
+ * mirrors the attribute name the explorer itself reads off the DOM, or the two would silently
+ * disagree). Applies process-wide to every page created afterwards; call it once, before the first
+ * browser launch of a session that will call `getByTestId`.
+ */
+export function configureTestIdAttribute(attribute: string): void {
+  selectors.setTestIdAttribute(attribute);
+}

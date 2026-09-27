@@ -33,6 +33,7 @@ async function runOnce(engine: EngineContext, input: RunnerInput): Promise<reado
     specFiles: input.specFiles,
     reportPath,
     outputDir,
+    ...(input.testIdAttribute !== undefined ? { testIdAttribute: input.testIdAttribute } : {}),
   });
   await engine.fs.writeFile(configPath, source);
 

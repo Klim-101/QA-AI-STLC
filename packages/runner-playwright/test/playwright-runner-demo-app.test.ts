@@ -79,6 +79,7 @@ describe('playwrightRunner (demo app)', () => {
         runId: 'run-demo-app-login',
         baseUrl: BASE_URL,
         specFiles: [specFile],
+        testIdAttribute: 'data-testid',
       });
 
       expect(outcomes).toHaveLength(3);
