@@ -63,6 +63,7 @@ export * from './operations/proven-session.js';
 export * from './generation-contract.js';
 export * from './manual-regions.js';
 export * from './verification.js';
+export * from './operations/generation-spoke-input.js';
 export * from './operations/http-execute.js';
 export * from './operations/run.js';
 export * from './operations/report.js';

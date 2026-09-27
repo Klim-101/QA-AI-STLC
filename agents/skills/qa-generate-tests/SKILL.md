@@ -35,13 +35,14 @@ detect or announce a stale spec — that stays the hub's/a future `qa-regression
 2. **Read the proven steps from `found: true`'s `session`.** Its `steps` are already grouped by
    `stepId` in case order, each with the recorded action(s) that proved it — never re-derive steps
    from conversation or memory.
-3. **Check for an existing spec.** If `spec.filePath` already has content, extract its manual
-   regions (`extractManualRegions`) before generating the new template, so hand-edited code survives
-   (`// qa:manual:start <id>` / `// qa:manual:end <id>`).
-4. **Resolve the registry slice.** `buildGenerationSpokeInput` needs the exact element ids the
-   proven session actually used — fail loudly on one that does not resolve, never guess a locator.
-   Pass the proven session itself as `buildGenerationSpokeInput`'s `provenSession` option, so it
-   becomes part of `sourceHash` and a later `qa-execute` re-run is detected as drift.
+3. **Check for an existing spec.** If `spec.filePath` already has content (read it yourself; it
+   lives in the real project tree, not `.qa/`), call `qa.generation_manual_regions_extract` on it
+   before generating the new template, so hand-edited code survives (`// qa:manual:start <id>` /
+   `// qa:manual:end <id>`).
+4. **Resolve the registry slice.** Call `qa.generation_spoke_input` with the case's id and the
+   exact element ids the proven session actually used — fail loudly on one that does not resolve,
+   never guess a locator. Pass the proven session itself as `provenSession`, so it becomes part of
+   `sourceHash` and a later `qa-execute` re-run is detected as drift.
 
 ## Writing the spec
 
@@ -57,13 +58,16 @@ ISTQB/ISO 29119 grounding. Two points worth restating:
 
 ## Verifying and registering
 
-1. `applyManualRegions` to splice preserved hand-written code back into the freshly generated
-   template.
-2. `verifyGeneratedTestSpec` — typechecks the candidate, then executes it once through the runner.
-3. Only a `'verified'` outcome is registered, via `registerVerifiedGeneratedTestSpec`.
+1. Call `qa.generation_manual_regions_apply` to splice preserved hand-written code back into the
+   freshly generated template.
+2. Call `qa.generation_verify` with the exact `qa.generation_spoke_input` result, the candidate
+   content, the target `filePath` and the generator's own version — it typechecks the candidate,
+   then, only if that passes, executes it once through the runner.
+3. Only a `'verified'` outcome is registered: call `qa.generation_register` with the exact `spec`,
+   `result` and `contentSha256` the `'verified'` outcome returned, unmodified.
 4. A `'typecheck_failed'` or `'execution_failed'` outcome is never registered. Report the `issues`
-   plainly; the hub re-dispatches within the configured retry budget
-   (`hasVerificationRetryBudget`) — this skill does not run its own retry loop.
+   plainly; the hub re-dispatches within the configured retry budget — this skill does not run its
+   own retry loop.
 
 ## What this skill does not do
 

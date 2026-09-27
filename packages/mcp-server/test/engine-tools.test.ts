@@ -13,6 +13,9 @@ import { casesRenderTool } from '../src/tools/cases-render.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { generationProvenSessionTool } from '../src/tools/generation-proven-session.js';
+import { generationRegisterTool } from '../src/tools/generation-register.js';
+import { generationSpokeInputTool } from '../src/tools/generation-spoke-input.js';
+import { generationVerifyTool } from '../src/tools/generation-verify.js';
 import { httpExecuteTool } from '../src/tools/http-execute.js';
 import { linkTool } from '../src/tools/link.js';
 import { reportTool } from '../src/tools/report.js';
@@ -627,6 +630,216 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(executed.found).toBe(true);
       expect(executed.session?.steps.map((step) => step.stepId)).toEqual(['step-1', 'step-2']);
       expect(executed.session?.steps[0]?.description).toBe('Click the login button');
+    });
+  });
+
+  it('qa.generation_spoke_input rejects an unregistered testCaseId', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      const rejected = await generationSpokeInputTool
+        .handler({ testCaseId: 'no-such-case', elementIds: [] })
+        .catch((caught: unknown) => caught);
+
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'CASE_NOT_FOUND' });
+    });
+  });
+
+  it('qa.generation_spoke_input rejects a case with no generated locator module yet', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Click the login button' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+
+      const rejected = await generationSpokeInputTool
+        .handler({ testCaseId: 'login-case', elementIds: [] })
+        .catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'GENERATION_LOCATOR_MODULE_MISSING' });
+    });
+  });
+
+  it('qa.generation_spoke_input assembles a real spoke input from a registered case and locator module', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Click the login button' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+      await mkdir(join(projectRoot, 'tests', 'qa'), { recursive: true });
+      await writeFile(
+        join(projectRoot, 'tests', 'qa', 'locators.ts'),
+        'export const GENERATOR_VERSION = "1.3.0";\n',
+        'utf-8',
+      );
+
+      const provenSession = {
+        schemaVersion: 1 as const,
+        testCaseId: 'login-case',
+        runResultId: 'run-result-1',
+        steps: [
+          {
+            stepId: 'step-1',
+            description: 'Click the login button',
+            actions: [
+              {
+                schemaVersion: 1 as const,
+                type: 'click' as const,
+                sessionId: 'session-1',
+                stepId: 'step-1',
+                at: '2026-09-20T12:00:00Z',
+              },
+            ],
+          },
+        ],
+      };
+      const input = await generationSpokeInputTool.handler({
+        testCaseId: 'login-case',
+        elementIds: [],
+        provenSession,
+      });
+      process.chdir(originalCwd);
+
+      expect(input.testCase.id).toBe('login-case');
+      expect(input.registrySlice.elements).toEqual([]);
+      expect(input.locatorModule).toEqual({ generatorVersion: '1.3.0', exports: [] });
+      expect(input.provenSession?.runResultId).toBe('run-result-1');
+    });
+  });
+
+  it('qa.generation_verify rejects a test type with no runner yet, before touching the project at all', async () => {
+    const rejected = await generationVerifyTool
+      .handler({
+        input: {
+          schemaVersion: 1,
+          testCase: {
+            schemaVersion: 1,
+            id: 'api-case',
+            feature: 'billing',
+            requirementIds: ['req-1'],
+            testType: 'api',
+            title: 'Fetches the invoice',
+            steps: [{ description: 'GET /invoice' }],
+            expectedResult: 'Returns 200',
+            status: 'approved',
+            createdAt: '2026-09-20T12:00:00Z',
+          },
+          registrySlice: { schemaVersion: 1, generatedAt: '2026-09-20T12:00:00Z', elements: [] },
+          locatorModule: { generatorVersion: '1.3.0', exports: [] },
+        },
+        content: 'export const GENERATOR_VERSION = "1.3.0";\n',
+        filePath: 'tests/qa/billing/invoice.spec.ts',
+        generatorVersion: '1.3.0',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(rejected).toMatchObject({ code: 'RUN_TEST_TYPE_UNSUPPORTED' });
+  });
+
+  it('qa.generation_verify reports typecheck_failed for a real type error, without touching the project', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      const outcome = await generationVerifyTool.handler({
+        input: {
+          schemaVersion: 1,
+          testCase: {
+            schemaVersion: 1,
+            id: 'checkout-case',
+            feature: 'checkout',
+            requirementIds: ['req-1'],
+            testType: 'e2e',
+            title: 'Guest checkout',
+            steps: [{ description: 'Complete checkout' }],
+            expectedResult: 'Order confirmed',
+            status: 'approved',
+            createdAt: '2026-09-20T12:00:00Z',
+          },
+          registrySlice: { schemaVersion: 1, generatedAt: '2026-09-20T12:00:00Z', elements: [] },
+          locatorModule: { generatorVersion: '1.3.0', exports: [] },
+        },
+        content: 'export const total: number = "not a number";\n',
+        filePath: 'tests/qa/checkout/guest-checkout.spec.ts',
+        generatorVersion: '1.3.0',
+        // A typecheck failure never reaches environment resolution, but this still exercises
+        // "environment" actually being forwarded, not just its absence.
+        environment: 'staging',
+      });
+      process.chdir(originalCwd);
+
+      expect(outcome.status).toBe('typecheck_failed');
+      expect(outcome.issues?.[0]?.message).toContain("Type 'string' is not assignable to type 'number'");
+    });
+  });
+
+  it('qa.generation_register rejects content that does not match what was actually verified', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      const rejected = await generationRegisterTool
+        .handler({
+          spec: {
+            schemaVersion: 1,
+            testCaseId: 'checkout-case',
+            generatorVersion: '1.3.0',
+            filePath: 'tests/qa/checkout/guest-checkout.spec.ts',
+            sourceHash: 'a'.repeat(64),
+            generatedAt: '2026-09-27T10:00:00.000Z',
+            content: 'export const GENERATOR_VERSION = "1.3.0"; // real content',
+          },
+          result: {
+            schemaVersion: 1,
+            id: 'run-result-1',
+            runId: 'verify-1',
+            testCaseId: 'checkout-case',
+            testType: 'e2e',
+            status: 'passed',
+            startedAt: '2026-09-27T10:00:00.000Z',
+            finishedAt: '2026-09-27T10:00:01.000Z',
+            evidenceIds: [],
+          },
+          // Sha256 of different content than "spec.content" above — must be rejected.
+          contentSha256: 'b'.repeat(64),
+        })
+        .catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'core.verification.content_mismatch' });
     });
   });
 
