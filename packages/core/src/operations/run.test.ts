@@ -133,7 +133,9 @@ describe('runTestRun', () => {
 
   it('resolves the baseUrl from the named environment and passes an absolute spec path to the runner', async () => {
     const { context } = createContext();
-    const { runner, state } = createFakeRunner(() => []);
+    const { runner, state } = createFakeRunner(() => [
+      fakeOutcome(fakeResult({ id: 'result-1', status: 'passed' })),
+    ]);
 
     await runTestRun(context, {
       runner,
@@ -151,7 +153,9 @@ describe('runTestRun', () => {
 
   it('generates a random run ID when no idGenerator is given', async () => {
     const { context } = createContext();
-    const { runner, state } = createFakeRunner(() => []);
+    const { runner, state } = createFakeRunner(() => [
+      fakeOutcome(fakeResult({ id: 'result-1', status: 'passed' })),
+    ]);
 
     const summary = await runTestRun(context, {
       runner,
@@ -188,30 +192,22 @@ describe('runTestRun', () => {
     ).rejects.toThrow(expect.objectContaining({ code: 'BROWSER_ENVIRONMENT_UNKNOWN' }) as Error);
   });
 
-  it('produces an empty run record when the runner reports no results', async () => {
+  // P3-19: a spec path that does not exist or matches nothing still makes the runner return zero
+  // outcomes with no crash, so this must not be reported as a clean, zero-count success — a silent
+  // false green, distinct from a run that produced results with a skipped/passed status.
+  it('throws instead of persisting an empty run record when the runner reports no results', async () => {
     const { context, fs } = createContext();
     const { runner } = createFakeRunner(() => []);
 
-    const summary = await runTestRun(context, {
-      runner,
-      environment: 'staging',
-      specFiles: ['tests/login.playwright-spec.ts'],
-      idGenerator: createSequentialIdGenerator('id'),
-    });
-
-    expect(summary.resultPaths).toEqual([]);
-    expect(summary.counts).toEqual({
-      passed: 0,
-      failed: 0,
-      blocked: 0,
-      skipped: 0,
-      uncertain: 0,
-      partial: 0,
-    });
-    const runRecord = JSON.parse(String(fs.getRawFile(join('project', '.qa', summary.runRecordPath)))) as {
-      resultIds: string[];
-    };
-    expect(runRecord.resultIds).toEqual([]);
+    await expect(
+      runTestRun(context, {
+        runner,
+        environment: 'staging',
+        specFiles: ['tests/does-not-exist.playwright-spec.ts'],
+        idGenerator: createSequentialIdGenerator('id'),
+      }),
+    ).rejects.toThrow(expect.objectContaining({ code: 'RUN_NO_RESULTS' }) as Error);
+    await expect(fs.listFiles(join('project', '.qa', 'runs'))).resolves.toEqual([]);
   });
 
   it('registers a runner-captured screenshot as evidence and fills in the result’s evidenceIds', async () => {

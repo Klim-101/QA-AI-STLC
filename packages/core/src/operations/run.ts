@@ -119,6 +119,17 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
     idGenerator,
   });
 
+  // A spec path that does not exist or matches nothing still makes Playwright write a JSON report
+  // with zero test entries — no crash, so `RUNNER_NO_REPORT` never fires — and zero outcomes would
+  // otherwise persist a clean-looking `RunRecord` with every count at zero, a silent false green
+  // (nothing was actually verified) rather than a real one. Distinct from a run that produced
+  // results with a `skipped`/`passed` status: this rejects producing *no* results at all.
+  if (specFiles.length > 0 && outcomes.length === 0) {
+    throw new QaError('RUN_NO_RESULTS', `The spec set produced zero results: ${specFiles.join(', ')}.`, {
+      remediation: 'Check that every --spec path exists and matches at least one test.',
+    });
+  }
+
   const manifest = new ManifestStore({ store, clock: context.clock });
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
   const resultPaths: RelativePath[] = [];
