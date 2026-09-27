@@ -1,5 +1,25 @@
 # @qa-ai-stlc/explorer
 
+## 1.3.0
+
+### Patch Changes
+
+- 6c06b46: Fixes two bugs that made `qa validate` always report false tampering right after a clean `qa
+explore`: `persistExploreResult` registered `selectors/registry.json` and
+  `selectors/missing-test-ids.json` with a hash computed from a differently-formatted
+  `JSON.stringify` than what was actually written to disk, and `qa validate`'s tamper sweep resolved
+  `tests/qa/locators.ts` (registered outside `.qa/`, per ADR-006) under `.qa/` instead of the project
+  root.
+- Updated dependencies [6d5c9da]
+- Updated dependencies [efb7692]
+- Updated dependencies [ddd1bcd]
+- Updated dependencies [6c06b46]
+- Updated dependencies [535e2e9]
+- Updated dependencies [592d606]
+- Updated dependencies [671249f]
+  - @qa-ai-stlc/core@1.3.0
+  - @qa-ai-stlc/schemas@1.3.0
+
 ## 1.0.3
 
 ### Patch Changes

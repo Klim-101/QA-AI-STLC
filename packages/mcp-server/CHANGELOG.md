@@ -1,5 +1,33 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.3.0
+
+### Minor Changes
+
+- 535e2e9: Adds `qa link <spec> <requirement-id> --feature <name>` / `qa.link`: folds an already-existing,
+  hand-written Playwright spec into the requirement → case → result → evidence traceability matrix
+  without running it through generation. Reuses the spec's own `testCaseId` annotation when present,
+  so a later `qa run` still attributes its result to the same case.
+
+### Patch Changes
+
+- 6d5c9da: Fixes `runRegisterCaseResult` / `qa.case_result_register` accepting a fabricated result: it now
+  rejects a `testCaseId` that does not resolve to a registered test case, an `evidenceIds` entry that
+  was not actually registered under the given `runId`, and a `passed` result with zero evidence.
+  Previously none of these were checked at registration time, so a caller could register a permanent,
+  manifest-backed "passed" result for a test case that does not exist, backed by no real evidence.
+- Updated dependencies [6d5c9da]
+- Updated dependencies [efb7692]
+- Updated dependencies [ddd1bcd]
+- Updated dependencies [6c06b46]
+- Updated dependencies [535e2e9]
+- Updated dependencies [592d606]
+- Updated dependencies [671249f]
+  - @qa-ai-stlc/core@1.3.0
+  - @qa-ai-stlc/schemas@1.3.0
+  - @qa-ai-stlc/runner-playwright@1.3.0
+  - @qa-ai-stlc/explorer@1.3.0
+
 ## 0.7.0
 
 ### Minor Changes
