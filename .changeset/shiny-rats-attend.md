@@ -1,8 +1,8 @@
 ---
-"@qa-ai-stlc/schemas": minor
-"@qa-ai-stlc/explorer": minor
-"@qa-ai-stlc/cli": minor
-"@qa-ai-stlc/mcp-server": minor
+'@qa-ai-stlc/schemas': minor
+'@qa-ai-stlc/explorer': minor
+'@qa-ai-stlc/cli': minor
+'@qa-ai-stlc/mcp-server': minor
 ---
 
 `qa explore` / `qa.explore` now derives a discovered API surface from the crawl's own traffic and
