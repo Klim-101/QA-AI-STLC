@@ -8,11 +8,13 @@ import type {
   GeneratedTestSpec,
   RelativePath,
   RunResult,
+  Sha256Hex,
   SpokeValidationIssue,
 } from '@qa-ai-stlc/schemas';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
+import { hashText } from './hash.js';
 import { ManifestStore } from './manifest-store.js';
 import { resolveBrowserEnvironment } from './operations/browser-open.js';
 import { resolveRelativePath } from './paths.js';
@@ -161,7 +163,7 @@ export type VerificationOutcome =
       readonly issues: readonly SpokeValidationIssue[];
       readonly result: RunResult;
     }
-  | { readonly status: 'verified'; readonly result: RunResult };
+  | { readonly status: 'verified'; readonly result: RunResult; readonly contentSha256: Sha256Hex };
 
 /**
  * The verification loop (P3-06, development plan section 5.2): a generated spec is never
@@ -221,7 +223,7 @@ export async function verifyGeneratedTestSpec(
     if (issues.length > 0) {
       return { status: 'execution_failed', issues, result: outcome.result };
     }
-    return { status: 'verified', result: outcome.result };
+    return { status: 'verified', result: outcome.result, contentSha256: hashText(options.spec.content) };
   } finally {
     await context.fs.deleteFile(scratchAbsolutePath);
   }
@@ -245,6 +247,16 @@ export async function registerVerifiedGeneratedTestSpec(
       {
         remediation:
           'Pass the VerificationOutcome that verifyGeneratedTestSpec returned for this exact spec.',
+      },
+    );
+  }
+  if (verification.contentSha256 !== hashText(spec.content)) {
+    throw new QaError(
+      'core.verification.content_mismatch',
+      `"${spec.filePath}"'s content does not match what was actually verified for test case "${spec.testCaseId}".`,
+      {
+        remediation:
+          'Pass the exact GeneratedTestSpec that verifyGeneratedTestSpec verified, unmodified, to registerVerifiedGeneratedTestSpec.',
       },
     );
   }

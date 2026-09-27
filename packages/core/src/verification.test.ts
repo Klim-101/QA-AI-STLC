@@ -8,6 +8,7 @@ import { createFakeProcessRunner, type ProcessResultLike } from '@qa-ai-stlc/tes
 import { describe, expect, it } from 'vitest';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
+import { hashText } from './hash.js';
 import type { Runner, RunnerInput, RunnerOutcome } from './runner.js';
 import { createFakeEngineContext } from './test-support/fake-engine-context.js';
 import { createSequentialIdGenerator } from './test-support/fake-id-generator.js';
@@ -249,6 +250,7 @@ describe('verifyGeneratedTestSpec', () => {
     expect(outcome).toEqual({
       status: 'verified',
       result: expect.objectContaining({ status: 'partial' }) as RunResult,
+      contentSha256: hashText(SPEC.content),
     });
   });
 
@@ -330,7 +332,11 @@ describe('verifyGeneratedTestSpec', () => {
 describe('registerVerifiedGeneratedTestSpec', () => {
   it('writes the spec content to its real path and registers it in the manifest', async () => {
     const { context, fs } = createContext();
-    const verification = { status: 'verified' as const, result: fakeResult({ status: 'passed' }) };
+    const verification = {
+      status: 'verified' as const,
+      result: fakeResult({ status: 'passed' }),
+      contentSha256: hashText(SPEC.content),
+    };
 
     await registerVerifiedGeneratedTestSpec(context, SPEC, verification);
 
@@ -346,11 +352,26 @@ describe('registerVerifiedGeneratedTestSpec', () => {
     const verification = {
       status: 'verified' as const,
       result: fakeResult({ status: 'passed', testCaseId: 'a-different-case' }),
+      contentSha256: hashText(SPEC.content),
     };
 
     await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verification)).rejects.toThrow(
       /a-different-case/,
     );
+  });
+
+  // The task this test exists for (P3-18): verifying one spec's content must not authorize
+  // registering a completely different string of content under the same testCaseId.
+  it('throws when the verified content does not match the content being registered', async () => {
+    const { context } = createContext();
+    const verifiedElsewhere: GeneratedTestSpec = { ...SPEC, content: 'export const DIFFERENT = true;' };
+    const verification = {
+      status: 'verified' as const,
+      result: fakeResult({ status: 'passed' }),
+      contentSha256: hashText(verifiedElsewhere.content),
+    };
+
+    await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verification)).rejects.toThrow(QaError);
   });
 });
 
