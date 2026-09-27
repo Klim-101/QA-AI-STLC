@@ -15,7 +15,12 @@ import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
 import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
+import { generationManualRegionsApplyTool } from './generation-manual-regions-apply.js';
+import { generationManualRegionsExtractTool } from './generation-manual-regions-extract.js';
 import { generationProvenSessionTool } from './generation-proven-session.js';
+import { generationRegisterTool } from './generation-register.js';
+import { generationSpokeInputTool } from './generation-spoke-input.js';
+import { generationVerifyTool } from './generation-verify.js';
 import { httpExecuteTool } from './http-execute.js';
 import { linkTool } from './link.js';
 import { pingTool } from './ping.js';
@@ -41,6 +46,11 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   httpExecuteTool,
   caseResultRegisterTool,
   generationProvenSessionTool,
+  generationSpokeInputTool,
+  generationManualRegionsExtractTool,
+  generationManualRegionsApplyTool,
+  generationVerifyTool,
+  generationRegisterTool,
   runTool,
   linkTool,
   reportTool,
