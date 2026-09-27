@@ -107,6 +107,26 @@ export class EvidenceStore {
     return { status: 'registered', evidence };
   }
 
+  /**
+   * Every evidence id actually registered under `evidence/<runId>/` — a quarantined item's receipt
+   * (`<id>.quarantine.json`) does not count, since `register()` never wrote real content for it
+   * (AGENTS.md 12.5). Callers that accept a caller-supplied `evidenceIds` list (`qa validate --run`,
+   * `qa.case_result_register`) use this to reject ids no registration ever produced.
+   */
+  async listRegisteredIds(runId: Identifier): Promise<ReadonlySet<Identifier>> {
+    const files = await this.store.listFiles(`evidence/${runId}`);
+    const ids = new Set<Identifier>();
+    for (const path of files) {
+      const filename = path.slice(path.lastIndexOf('/') + 1);
+      if (filename.endsWith('.quarantine.json')) {
+        continue;
+      }
+      const dotIndex = filename.indexOf('.');
+      ids.add(dotIndex === -1 ? filename : filename.slice(0, dotIndex));
+    }
+    return ids;
+  }
+
   private async writeQuarantineReceipt(
     options: EvidenceRegisterOptions,
     patterns: readonly string[],

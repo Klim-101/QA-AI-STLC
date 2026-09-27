@@ -17,6 +17,7 @@ import {
 import { ApprovalLedgerStore, APPROVAL_LEDGER_PATH } from '../approval-ledger-store.js';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
+import { EvidenceStore } from '../evidence-store.js';
 import { GateStateMachine } from '../gate.js';
 import { ManifestStore } from '../manifest-store.js';
 import { resolveRelativePath } from '../paths.js';
@@ -31,7 +32,6 @@ import { checkCaseSetCompleteness, type CaseSetTypeStatus } from '../testing-sco
 const SCOPE_PATH = 'artifacts/scope.json';
 const CASES_DIR = 'artifacts/cases';
 const TEST_DATA_DIR = 'artifacts/test-data';
-const EVIDENCE_DIR = 'evidence';
 // The one manifest entry that lives in the real project tree, not under `.qa/` (ADR-006):
 // generated test code needs to be a real, importable, git-tracked file, not hidden inside the
 // store. `packages/core` cannot import this path from `@qa-ai-stlc/explorer` (AGENTS.md section 3,
@@ -156,7 +156,9 @@ export async function runValidate(
   const { unlinkedCases, unresolvedTestData, cases } = await findCaseLinkIssues(context, store);
   const tamperedArtifacts = await findTamperedArtifacts(context, store, manifest);
   const caseSetStatusByType = await computeCaseSetStatusByType(store, cases);
-  const runResultIssues = options.checkRuns === true ? await findRunResultIssues(store) : undefined;
+  const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
+  const runResultIssues =
+    options.checkRuns === true ? await findRunResultIssues(store, evidenceStore) : undefined;
 
   return {
     state,
@@ -182,7 +184,7 @@ interface RunResultIssues {
  * already covered by `findTamperedArtifacts`'s generic manifest sweep — this only checks that the
  * *link itself* resolves to something real, the "fabricated evidence link" this task exists for.
  */
-async function findRunResultIssues(store: QaStore): Promise<RunResultIssues> {
+async function findRunResultIssues(store: QaStore, evidenceStore: EvidenceStore): Promise<RunResultIssues> {
   const resultPaths = await listRunResultPaths(store);
   const unresolvedResultEvidence: UnresolvedResultEvidence[] = [];
   const resultsMissingEvidence: UncoveredFailedResult[] = [];
@@ -200,7 +202,7 @@ async function findRunResultIssues(store: QaStore): Promise<RunResultIssues> {
     }
     let registeredEvidenceIds = registeredEvidenceIdsByRunId.get(result.runId);
     if (registeredEvidenceIds === undefined) {
-      registeredEvidenceIds = await loadRegisteredEvidenceIds(store, result.runId);
+      registeredEvidenceIds = await evidenceStore.listRegisteredIds(result.runId);
       registeredEvidenceIdsByRunId.set(result.runId, registeredEvidenceIds);
     }
     const unresolvedEvidenceIds = result.evidenceIds.filter((id) => !registeredEvidenceIds.has(id));
@@ -210,29 +212,6 @@ async function findRunResultIssues(store: QaStore): Promise<RunResultIssues> {
   }
 
   return { unresolvedResultEvidence, resultsMissingEvidence };
-}
-
-/**
- * Every evidence id actually registered under `evidence/<runId>/` — a quarantined item's receipt
- * (`<id>.quarantine.json`) does not count, since `EvidenceStore.register()` never wrote the real
- * content for it (AGENTS.md 12.5); a result referencing that id claims evidence that was never
- * really registered.
- */
-async function loadRegisteredEvidenceIds(
-  store: QaStore,
-  runId: Identifier,
-): Promise<ReadonlySet<Identifier>> {
-  const files = await store.listFiles(`${EVIDENCE_DIR}/${runId}`);
-  const ids = new Set<Identifier>();
-  for (const path of files) {
-    const filename = path.slice(path.lastIndexOf('/') + 1);
-    if (filename.endsWith('.quarantine.json')) {
-      continue;
-    }
-    const dotIndex = filename.indexOf('.');
-    ids.add(dotIndex === -1 ? filename : filename.slice(0, dotIndex));
-  }
-  return ids;
 }
 
 /**

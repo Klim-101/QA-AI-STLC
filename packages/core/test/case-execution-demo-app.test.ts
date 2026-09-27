@@ -94,6 +94,23 @@ describe('interactive case execution (demo app)', () => {
     await withTempDir(async (projectRoot) => {
       await mkdir(join(projectRoot, '.qa'), { recursive: true });
       await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+      await mkdir(join(projectRoot, '.qa', 'artifacts', 'cases', 'login'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'artifacts', 'cases', 'login', 'login-valid-credentials.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          id: 'login-valid-credentials',
+          feature: 'login',
+          requirementIds: [],
+          testType: 'e2e',
+          title: 'A registered user can log in',
+          steps: [{ description: 'Submit valid credentials' }],
+          expectedResult: 'The dashboard loads',
+          status: 'approved',
+          createdAt: '2026-09-25T09:00:00.000Z',
+        }),
+        'utf-8',
+      );
 
       const engine: EngineContext = {
         projectRoot,

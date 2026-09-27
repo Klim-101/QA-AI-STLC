@@ -44,9 +44,11 @@ const testCase: TestCase = {
   createdAt: '2026-09-25T09:00:00.000Z',
 };
 
-function createContext(): { readonly context: EngineContext; readonly fs: FakeFileSystem } {
+async function createContext(): Promise<{ readonly context: EngineContext; readonly fs: FakeFileSystem }> {
   const fs = createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: CONFIG_YAML });
-  return { context: createFakeEngineContext({ fs, clock: { now: () => NOW } }), fs };
+  const context = createFakeEngineContext({ fs, clock: { now: () => NOW } });
+  await seedCase(context);
+  return { context, fs };
 }
 
 async function executeAndRegister(
@@ -85,7 +87,7 @@ async function executeAndRegister(
 
 describe('findLatestProvenSession', () => {
   it('recovers proven steps from a passing session, grouped and ordered by stepId', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await executeAndRegister(context, 'run-1', '2026-09-25T09:59:00.000Z');
 
     const session = await findLatestProvenSession(context, testCase, { testCaseId: testCase.id });
@@ -96,7 +98,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('returns undefined when the case has no run results at all', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
 
     const session = await findLatestProvenSession(context, testCase, { testCaseId: testCase.id });
 
@@ -104,7 +106,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('returns undefined when the only run result did not pass', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await runRegisterCaseResult(context, {
       testCaseId: testCase.id,
       testType: 'api',
@@ -121,7 +123,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('returns undefined when a passing session exists but its evidence predates the stepId convention', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     const httpClient = createFakeHttpClient({ ok: true, status: 200, bodyText: '{}' });
     const contextWithHttp: EngineContext = { ...context, httpClient };
     const result = await runHttpExecute(contextWithHttp, {
@@ -144,7 +146,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('picks the most recently finished passing session when several exist', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await executeAndRegister(
       context,
       'run-1',
@@ -164,7 +166,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('throws when evidence references a step the case no longer has, after the case was edited', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await executeAndRegister(context, 'run-1', '2026-09-25T09:59:00.000Z');
     const shrunkCase: TestCase = { ...testCase, steps: [testCase.steps[0]!] };
 
@@ -174,7 +176,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('keeps the already-found latest when an earlier-finishing result is read after it', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await context.fs.mkdir(join('project', '.qa', 'runs', testCase.id));
     await context.fs.writeFile(
       join('project', '.qa', 'runs', testCase.id, 'result-later.json'),
@@ -214,7 +216,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('skips an evidenceId with no matching file on disk, a dangling reference', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await seedRunResult(context, 'run-1', ['evidence-missing']);
 
     const session = await findLatestProvenSession(context, testCase, { testCaseId: testCase.id });
@@ -223,7 +225,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('skips evidence content that is not valid JSON', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await seedRunResult(context, 'run-1', ['evidence-1']);
     await seedEvidenceFile(context, 'run-1', 'evidence-1', 'not json');
 
@@ -233,7 +235,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('skips evidence content that is valid JSON but matches neither proven action shape', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await seedRunResult(context, 'run-1', ['evidence-1']);
     await seedEvidenceFile(context, 'run-1', 'evidence-1', JSON.stringify({ unrelated: true }));
 
@@ -243,7 +245,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('throws when a stepId does not follow the "step-<N>" convention', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await seedRunResult(context, 'run-1', ['evidence-1']);
     await seedEvidenceFile(
       context,
@@ -263,7 +265,7 @@ describe('findLatestProvenSession', () => {
   });
 
   it('throws when a stepId has a non-canonical numeric suffix', async () => {
-    const { context } = createContext();
+    const { context } = await createContext();
     await seedRunResult(context, 'run-1', ['evidence-1']);
     await seedEvidenceFile(
       context,
@@ -325,8 +327,7 @@ async function seedCase(context: EngineContext): Promise<void> {
 
 describe('runFindProvenSession', () => {
   it('reports found: false when the case has no proven session', async () => {
-    const { context } = createContext();
-    await seedCase(context);
+    const { context } = await createContext();
 
     const result = await runFindProvenSession(context, { testCaseId: testCase.id });
 
@@ -334,8 +335,7 @@ describe('runFindProvenSession', () => {
   });
 
   it('reports found: true with the recovered session when one exists', async () => {
-    const { context } = createContext();
-    await seedCase(context);
+    const { context } = await createContext();
     await executeAndRegister(context, 'run-1', '2026-09-25T09:59:00.000Z');
 
     const result = await runFindProvenSession(context, { testCaseId: testCase.id });
