@@ -41,6 +41,8 @@ const OutputSchema = z.object({
   degraded: z.array(DegradedSelectorSchema),
   missingLocatorCount: z.number(),
   blockedRequestCount: z.number(),
+  endpointsPath: z.string(),
+  endpointCount: z.number(),
 });
 
 /**
@@ -53,9 +55,12 @@ export const exploreTool: ToolDefinition<typeof InputSchema, typeof OutputSchema
   name: 'qa.explore',
   description:
     'Builds the selector registry by crawling the configured environment in safe mode, merging ' +
-    'in static source analysis when "static" is set. Set "verify" to instead re-check every ' +
-    'stored, non-deprecated selector against the live page and report which ones degraded. Does ' +
-    'not support manual pick-mode capture — that is a CLI-only, human-driven feature.',
+    'in static source analysis when "static" is set. Also derives an API surface from the ' +
+    'crawl\'s traffic (redacted, with ids templated to "{id}") and writes it to "endpointsPath" ' +
+    '(default ".qa/selectors/endpoints.json"), merging with anything already stored there. Set ' +
+    '"verify" to instead re-check every stored, non-deprecated selector against the live page ' +
+    'and report which ones degraded. Does not support manual pick-mode capture — that is a ' +
+    'CLI-only, human-driven feature.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   async handler(input) {

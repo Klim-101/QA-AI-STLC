@@ -3,6 +3,7 @@
 
 import { ManifestStore, QaStore, loadConfig } from '@qa-ai-stlc/core';
 import {
+  buildRequestLogHar,
   capturePickModeElements,
   finalizeManualSelectorEntries,
   injectPickModeOverlay,
@@ -101,5 +102,17 @@ export async function runExplore(
     pick: options.pick,
   });
 
-  return persistExploreResult(context, store, manifest, previous, elements, blockedRequestCount);
+  // Pick mode is a human clicking through a headed browser, not a crawl: there is no request log
+  // to derive `endpoints.json` from, so an empty one is passed through the same persistence tail
+  // the crawl-driven path uses.
+  const emptyRequestLogHar = buildRequestLogHar([], context.clock.now().toISOString());
+  return persistExploreResult(
+    context,
+    store,
+    manifest,
+    previous,
+    elements,
+    blockedRequestCount,
+    emptyRequestLogHar,
+  );
 }

@@ -21,4 +21,14 @@ describe('ApiSurfaceSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts a discovered endpoint with the raw paths it was templated from', () => {
+    const result = ApiSurfaceSchema.safeParse({
+      generatedAt: '2026-09-16T12:00:00Z',
+      endpoints: [
+        { method: 'GET', path: '/tasks/{id}', source: 'discovered', examples: ['/tasks/1', '/tasks/2'] },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
 });

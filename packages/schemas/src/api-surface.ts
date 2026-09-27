@@ -18,6 +18,11 @@ export const ApiEndpointSchema = z.object({
   path: z.string().min(1),
   operationId: z.string().optional(),
   source: ApiEndpointSourceSchema,
+  // A capped sample of the raw, untemplated paths this endpoint was collapsed from (a
+  // `discovered` endpoint's evidence for the templating decision — AGENTS.md 12.7's "does the
+  // computed value match what gets read back" applies to path templating too, so the originals
+  // stay inspectable instead of being silently discarded).
+  examples: z.array(z.string().min(1)).optional(),
 });
 export type ApiEndpoint = z.infer<typeof ApiEndpointSchema>;
 

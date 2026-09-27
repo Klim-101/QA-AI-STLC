@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
 import type { IdentityConfig, LocatorCandidate } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { buildApiSurface } from '../src/api-surface.js';
 import { analyzePages } from '../src/analyze-pages.js';
 import { buildSelectorRegistry, diffSelectorRegistry } from '../src/build-selector-registry.js';
 import { crawl } from '../src/crawl.js';
@@ -95,6 +96,40 @@ describe('crawl (demo app)', () => {
     );
     expect(result.routeMap.routes.every((route) => route.httpStatus === 200)).toBe(true);
     expect(result.blockedRequestCount).toBe(0);
+  }, 30_000);
+
+  // P6-01's exit criterion, against the real app rather than a fixture: the seeded tasks
+  // (`t-1`, `t-2`, `t-3`) each get their own `/tasks/:id` page, so a real crawl's request log
+  // must collapse them into one `/tasks/{id}` endpoint while keeping the raw paths it collapsed.
+  it("collapses the seeded tasks' detail pages into one endpoint and keeps their raw paths", async () => {
+    const identityConfig: IdentityConfig = {
+      auth: 'storage-state',
+      secret: 'QA_DEMO_ADMIN_PASSWORD',
+      loginUrl: `${BASE_URL}/login`,
+      username: 'admin@example.com',
+    };
+
+    const result = await crawl({
+      startUrl: `${BASE_URL}/dashboard`,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+      identity: { config: identityConfig, env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' } },
+    });
+
+    const apiSurface = buildApiSurface(result.requestLogHar, result.routeMap.generatedAt);
+
+    const taskDetailEndpoint = apiSurface.endpoints.find(
+      (endpoint) => endpoint.method === 'GET' && endpoint.path === '/tasks/{id}',
+    );
+    expect(taskDetailEndpoint?.examples?.length).toBeGreaterThan(1);
+    expect(taskDetailEndpoint?.examples).toEqual(
+      expect.arrayContaining(['/tasks/t-1', '/tasks/t-2', '/tasks/t-3']),
+    );
+    // `/tasks/new` is a static route, not a record id — it must stay its own endpoint rather
+    // than collapsing into `/tasks/{id}` alongside the real task ids.
+    expect(apiSurface.endpoints).toContainEqual(
+      expect.objectContaining({ method: 'GET', path: '/tasks/new' }),
+    );
   }, 30_000);
 });
 
