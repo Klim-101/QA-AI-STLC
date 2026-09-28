@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { QaError } from '../errors.js';
 import type { EngineContext } from '../engine-context.js';
 import { createFakeEngineContext } from '../test-support/fake-engine-context.js';
@@ -14,7 +14,7 @@ import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
 const NOW = new Date('2026-09-25T10:00:00.000Z');
 
 // Covers both hosts this file's fixtures target: staging.example.test (most tests) and
-// staging.internal (the tlsInsecure test, a distinct host on purpose).
+// staging.internal (the tlsInsecure tests, a distinct host on purpose).
 const CONFIG_YAML = [
   'schemaVersion: 1',
   'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
@@ -27,11 +27,14 @@ const CONFIG_YAML = [
   '',
 ].join('\n');
 
-function createContext(httpClient: EngineContext['httpClient']): {
+function createContext(
+  httpClient: EngineContext['httpClient'],
+  configYaml: string = CONFIG_YAML,
+): {
   readonly context: EngineContext;
   readonly fs: FakeFileSystem;
 } {
-  const fs = createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: CONFIG_YAML });
+  const fs = createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: configYaml });
   return { context: createFakeEngineContext({ fs, httpClient, clock: { now: () => NOW } }), fs };
 }
 
@@ -97,7 +100,7 @@ describe('runHttpExecute', () => {
     });
   });
 
-  it('passes tlsInsecure through to the HTTP client', async () => {
+  it('validates certificates when the environment does not set tlsInsecure, whatever the caller passes', async () => {
     let receivedOptions: Parameters<ReturnType<typeof createFakeHttpClient>['request']>[1];
     const httpClient = {
       get: () => Promise.reject(new Error('get() not used in this fixture')),
@@ -106,15 +109,49 @@ describe('runHttpExecute', () => {
         return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: '' });
       },
     };
+    const warn = vi.fn();
     const { context } = createContext(httpClient);
 
-    await runHttpExecute(context, {
-      runId: 'run-1',
-      url: 'https://staging.internal/',
-      tlsInsecure: true,
-    });
+    await runHttpExecute(
+      { ...context, logger: { ...context.logger, warn } },
+      {
+        runId: 'run-1',
+        url: 'https://staging.internal/',
+        // @ts-expect-error -- tlsInsecure is no longer a caller option; the environment decides.
+        tlsInsecure: true,
+      },
+    );
+
+    expect(receivedOptions).not.toHaveProperty('tlsInsecure');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("honors the environment's tlsInsecure without the caller passing anything, and warns", async () => {
+    let receivedOptions: Parameters<ReturnType<typeof createFakeHttpClient>['request']>[1];
+    const httpClient = {
+      get: () => Promise.reject(new Error('get() not used in this fixture')),
+      request: (url: string, options?: Parameters<ReturnType<typeof createFakeHttpClient>['request']>[1]) => {
+        receivedOptions = options;
+        return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: '' });
+      },
+    };
+    const warn = vi.fn();
+    const insecureConfigYaml = CONFIG_YAML.replace(
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test", "staging.internal"] }',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test", "staging.internal"], tlsInsecure: true }',
+    );
+    const { context } = createContext(httpClient, insecureConfigYaml);
+
+    await runHttpExecute(
+      { ...context, logger: { ...context.logger, warn } },
+      { runId: 'run-1', url: 'https://staging.internal/' },
+    );
 
     expect(receivedOptions?.tlsInsecure).toBe(true);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('staging'),
+      expect.objectContaining({ code: 'ENVIRONMENT_TLS_INSECURE', environment: 'staging' }),
+    );
   });
 
   it('truncates a response body longer than the preview cap', async () => {

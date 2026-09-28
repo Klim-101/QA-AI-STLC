@@ -485,6 +485,19 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('qa.http_execute has no TLS input, so a caller cannot turn certificate validation off', () => {
+    // The MCP SDK validates input against this schema's shape, which strips unknown keys; a
+    // caller-supplied tlsInsecure therefore never reaches the handler (ADR-011).
+    const parsed = httpExecuteTool.inputSchema.parse({
+      runId: 'run-1',
+      url: 'https://staging.example.test/',
+      tlsInsecure: true,
+    });
+
+    expect(Object.keys(httpExecuteTool.inputSchema.shape)).not.toContain('tlsInsecure');
+    expect(parsed).not.toHaveProperty('tlsInsecure');
+  });
+
   it('qa.case_result_register ties evidence ids together into a registered run result', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);

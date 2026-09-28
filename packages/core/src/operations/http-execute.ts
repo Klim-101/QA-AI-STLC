@@ -24,7 +24,6 @@ export interface HttpExecuteOptions {
   readonly method?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly body?: string;
-  readonly tlsInsecure?: boolean;
   readonly idGenerator?: IdGenerator;
   /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
   readonly stepId?: Identifier;
@@ -47,6 +46,10 @@ export interface HttpExecuteResult {
  * unconditional check every `qa.browser_*` tool already applies — this only restricts which host
  * can be called, never which method: a real POST/PUT/DELETE against an allowed host is exactly
  * what proving the `api` test type actually works requires (ADR-0009's reasoning, applied here).
+ *
+ * Certificate validation follows the resolved environment's `tlsInsecure` only, never the caller
+ * (ADR-011): like the allowlist, it is a boundary the operator configures, not one an agent can
+ * relax per call.
  */
 export async function runHttpExecute(
   context: EngineContext,
@@ -57,13 +60,21 @@ export async function runHttpExecute(
   const environment = resolveBrowserEnvironment(config, options.environment);
   assertUrlAllowed(options.url, environment.config.allowlist, environment.config.baseUrl);
 
+  const isTlsInsecure = environment.config.tlsInsecure === true;
+  if (isTlsInsecure) {
+    context.logger.warn(`TLS certificate validation is disabled for environment "${environment.name}"`, {
+      code: 'ENVIRONMENT_TLS_INSECURE',
+      environment: environment.name,
+    });
+  }
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const method = options.method ?? 'GET';
   const response = await context.httpClient.request(options.url, {
     method,
     ...(options.headers !== undefined ? { headers: options.headers } : {}),
     ...(options.body !== undefined ? { body: options.body } : {}),
-    ...(options.tlsInsecure !== undefined ? { tlsInsecure: options.tlsInsecure } : {}),
+    ...(isTlsInsecure ? { tlsInsecure: true } : {}),
   });
 
   const truncated = response.bodyText.length > BODY_PREVIEW_MAX_LENGTH;
