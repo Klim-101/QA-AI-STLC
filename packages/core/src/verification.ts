@@ -37,11 +37,14 @@ import { canonicalStepIds } from './step-ids.js';
 const tscPath = fileURLToPath(import.meta.resolve('typescript/bin/tsc'));
 
 // A generated spec is typechecked against a fixed, modern baseline rather than the operator's own
-// tsconfig.json: `tsc` does not auto-discover a tsconfig when given explicit file arguments, and
-// reading an arbitrary project's config would need to reconcile its `include`/`references`/path
-// mapping with checking exactly one file in isolation. This is a deliberate scope limit, not an
-// oversight — it still catches a real type error in the generated spec itself.
+// tsconfig.json: reading an arbitrary project's config would need to reconcile its
+// `include`/`references`/path mapping with checking exactly one file in isolation. This is a
+// deliberate scope limit, not an oversight — it still catches a real type error in the generated
+// spec itself. `--ignoreConfig` is required, not cosmetic: since TypeScript 6, `tsc <files>` exits
+// with TS5112 when a tsconfig.json sits in the working directory, which for the MCP server is the
+// project root of nearly every TypeScript project, so every spec would fail verification.
 const TSC_ARGS = [
+  '--ignoreConfig',
   '--noEmit',
   '--skipLibCheck',
   '--strict',
