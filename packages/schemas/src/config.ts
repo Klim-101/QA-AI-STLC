@@ -147,3 +147,30 @@ export const ConfigSchema = z
     path: ['api'],
   });
 export type Config = z.infer<typeof ConfigSchema>;
+
+export type ConfigSectionName = keyof Config;
+export type ConfigSectionLayering = 'committed-only' | 'local-overridable';
+
+/**
+ * Which top-level sections the local configuration layer may set (ADR-011). A `Record` over every
+ * section forces a new section to be classified when it is added; a section that feeds a gate, a
+ * hash or generated code must stay `committed-only` so every machine produces the same results.
+ */
+export const CONFIG_SECTION_LAYERING: Readonly<Record<ConfigSectionName, ConfigSectionLayering>> = {
+  schemaVersion: 'committed-only',
+  testing: 'committed-only',
+  source: 'local-overridable',
+  api: 'committed-only',
+  environments: 'local-overridable',
+  identities: 'local-overridable',
+  data: 'committed-only',
+  selectors: 'committed-only',
+  agents: 'local-overridable',
+  flaky: 'committed-only',
+};
+
+/** True when `key` is a known section the local layer may set; unknown keys are never overridable. */
+export function isLocalOverridableConfigSection(key: string): key is ConfigSectionName {
+  const layeringBySection: Readonly<Record<string, ConfigSectionLayering>> = CONFIG_SECTION_LAYERING;
+  return layeringBySection[key] === 'local-overridable';
+}

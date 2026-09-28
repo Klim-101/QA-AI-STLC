@@ -56,7 +56,7 @@ export async function runReport(context: EngineContext, options: ReportOptions):
   }
   const runRecord = await store.readJson(runRecordPath, RunRecordSchema);
 
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const matrix = await buildTraceabilityMatrix(store, context.clock, config.flaky);
 
   const runSummary =

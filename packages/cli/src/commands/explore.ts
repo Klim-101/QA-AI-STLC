@@ -46,8 +46,7 @@ async function runPickModeSession(
   context: CommandContext,
   options: ExploreOptions & { readonly pick: string },
 ): Promise<{ elements: SelectorElement[]; blockedRequestCount: number }> {
-  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
   const tlsInsecure = resolveExploreEnvironment(config, options.environment);

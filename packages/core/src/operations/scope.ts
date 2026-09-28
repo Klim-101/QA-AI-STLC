@@ -44,7 +44,7 @@ export interface ScopeResult {
  */
 export async function runScope(context: EngineContext, options: ScopeOptions): Promise<ScopeResult> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const undecided = findUndecidedTestingTypes(config.testing);
   if (undecided.length > 0) {
     throw new QaError(

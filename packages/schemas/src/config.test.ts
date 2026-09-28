@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { ConfigSchema, EnvironmentConfigSchema, FlakyDetectionConfigSchema } from './config.js';
+import {
+  CONFIG_SECTION_LAYERING,
+  ConfigSchema,
+  EnvironmentConfigSchema,
+  FlakyDetectionConfigSchema,
+  isLocalOverridableConfigSection,
+} from './config.js';
 
 function validConfig() {
   return {
@@ -158,5 +164,34 @@ describe('EnvironmentConfigSchema', () => {
       allowlist: ['https://staging.example.com'],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('CONFIG_SECTION_LAYERING', () => {
+  it('classifies every ConfigSchema section and nothing else', () => {
+    expect(Object.keys(CONFIG_SECTION_LAYERING).sort()).toStrictEqual(Object.keys(ConfigSchema.shape).sort());
+  });
+
+  it('lets the local layer set only machine-specific sections (ADR-011)', () => {
+    const overridable = Object.entries(CONFIG_SECTION_LAYERING)
+      .filter(([, layering]) => layering === 'local-overridable')
+      .map(([section]) => section)
+      .sort();
+    expect(overridable).toStrictEqual(['agents', 'environments', 'identities', 'source']);
+  });
+});
+
+describe('isLocalOverridableConfigSection', () => {
+  it('accepts a local-overridable section', () => {
+    expect(isLocalOverridableConfigSection('environments')).toBe(true);
+  });
+
+  it('rejects a committed-only section', () => {
+    expect(isLocalOverridableConfigSection('testing')).toBe(false);
+  });
+
+  it('rejects an unknown key, including an inherited object property name', () => {
+    expect(isLocalOverridableConfigSection('enviroments')).toBe(false);
+    expect(isLocalOverridableConfigSection('toString')).toBe(false);
   });
 });

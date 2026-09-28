@@ -78,7 +78,7 @@ export async function runLink(context: EngineContext, options: LinkOptions): Pro
   }
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const testType = options.testType ?? 'e2e';
   const undecided = findUndecidedTestingTypes(config.testing);
   if (undecided.length > 0) {

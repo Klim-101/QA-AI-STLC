@@ -56,7 +56,7 @@ export async function runHttpExecute(
   options: HttpExecuteOptions,
 ): Promise<HttpExecuteResult> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const environment = resolveBrowserEnvironment(config, options.environment);
   assertUrlAllowed(options.url, environment.config.allowlist, environment.config.baseUrl);
 

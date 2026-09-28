@@ -12,7 +12,7 @@ import {
   type TestingScope,
 } from '@qa-ai-stlc/schemas';
 import type { ApprovalLedgerStore } from './approval-ledger-store.js';
-import { loadConfig } from './config-loader.js';
+import { loadConfig, type ConfigSource } from './config-loader.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
 import type { ManifestStore } from './manifest-store.js';
@@ -27,6 +27,7 @@ export interface GateStateMachineOptions {
   readonly stateStore: PipelineStateStore;
   readonly ledger: ApprovalLedgerStore;
   readonly manifest: ManifestStore;
+  readonly configSource: ConfigSource;
   readonly clock?: Clock;
 }
 
@@ -90,6 +91,7 @@ export class GateStateMachine {
   private readonly stateStore: PipelineStateStore;
   private readonly ledger: ApprovalLedgerStore;
   private readonly manifest: ManifestStore;
+  private readonly configSource: ConfigSource;
   private readonly clock: Clock;
 
   constructor(options: GateStateMachineOptions) {
@@ -97,6 +99,7 @@ export class GateStateMachine {
     this.stateStore = options.stateStore;
     this.ledger = options.ledger;
     this.manifest = options.manifest;
+    this.configSource = options.configSource;
     this.clock = options.clock ?? systemClock;
   }
 
@@ -172,7 +175,7 @@ export class GateStateMachine {
    * `qa config set` reopens the gate the same way editing the artifact itself does.
    */
   private async assertCaseSetReadyToApprove(): Promise<TestingScope> {
-    const config = await loadConfig(this.store);
+    const config = await loadConfig(this.configSource);
     const undecided = findUndecidedTestingTypes(config.testing);
     if (undecided.length > 0) {
       throw new QaError(
@@ -269,7 +272,7 @@ export class GateStateMachine {
     // A scope decision (P2-16) changed since this gate was approved reopens it even though the
     // approved artifact's own content never changed — `qa config set testing.<type>` has no other
     // effect on the ledger or the artifact itself, so this is the only place that catches it.
-    const config = await loadConfig(this.store);
+    const config = await loadConfig(this.configSource);
     return { status: testingScopeMatches(approval.testingScope, config.testing) ? 'satisfied' : 'open' };
   }
 }

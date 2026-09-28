@@ -16,7 +16,6 @@ import {
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
-import { QaStore } from '../qa-store.js';
 
 export interface DoctorOptions {
   readonly fix?: boolean;
@@ -34,7 +33,6 @@ export interface DoctorReport {
  * final state.
  */
 export async function runDoctor(context: EngineContext, options: DoctorOptions = {}): Promise<DoctorReport> {
-  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   let checks: DoctorCheckResult[] = [checkNodeVersion()];
 
   for (const browser of SUPPORTED_BROWSERS) {
@@ -45,7 +43,7 @@ export async function runDoctor(context: EngineContext, options: DoctorOptions =
     checks = await fixMissingBrowsers(context, checks);
   }
 
-  checks = [...checks, ...(await runConfigChecks(context, store))];
+  checks = [...checks, ...(await runConfigChecks(context))];
 
   return { ok: checks.every((check) => check.status === 'pass'), checks };
 }
@@ -73,17 +71,14 @@ async function fixMissingBrowsers(
   return [...checks.map((check) => rechecked.get(check.name) ?? check), installResult];
 }
 
-async function runConfigChecks(
-  context: EngineContext,
-  store: QaStore,
-): Promise<readonly DoctorCheckResult[]> {
+async function runConfigChecks(context: EngineContext): Promise<readonly DoctorCheckResult[]> {
   let config: Config;
   try {
-    config = await loadConfig(store);
+    config = await loadConfig(context);
   } catch (error) {
     if (error instanceof QaError) {
-      // Every QaError `loadConfig` throws (CONFIG_MISSING, CONFIG_MALFORMED, CONFIG_INVALID)
-      // sets a remediation; the cast documents that invariant instead of a defensive branch no
+      // Every QaError `loadConfig` throws (CONFIG_MISSING, CONFIG_MALFORMED, CONFIG_INVALID,
+      // CONFIG_LOCAL_MISSING, CONFIG_OVERRIDE_NOT_ALLOWED) sets a remediation; the cast documents that invariant instead of a defensive branch no
       // config-loader failure can actually exercise. A `!` assertion reads more naturally here,
       // but AGENTS.md 5.2 restricts those to tests.
       return [

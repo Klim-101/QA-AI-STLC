@@ -4,7 +4,7 @@
 import { QaError, QaStore, findUndecidedTestingTypes } from '@qa-ai-stlc/core';
 import type { TestingScope, TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CommandContext } from '../command-context.js';
-import { QA_GITIGNORE, renderConfigYaml } from '../config-template.js';
+import { LOCAL_LAYER_IGNORE_ENTRY, QA_GITIGNORE, renderConfigYaml } from '../config-template.js';
 
 export interface TestingScopeAnswers {
   readonly e2e?: TestingScopeDecision;
@@ -53,6 +53,17 @@ function resolveTestingScope(answers: TestingScopeAnswers, deferScope: boolean):
   return testing;
 }
 
+// A project initialized before the local configuration layer existed (ADR-011) has a .gitignore
+// without it; a re-run adds the entry so a machine-specific file is never committed by accident.
+async function ensureLocalLayerIgnored(store: QaStore): Promise<void> {
+  const gitignore = await store.readText('.gitignore');
+  if (gitignore.split(/\r?\n/).includes(LOCAL_LAYER_IGNORE_ENTRY)) {
+    return;
+  }
+  const separator = gitignore === '' || gitignore.endsWith('\n') ? '' : '\n';
+  await store.writeText('.gitignore', `${gitignore}${separator}${LOCAL_LAYER_IGNORE_ENTRY}\n`);
+}
+
 /**
  * `qa init`: creates the documented `.qa/` layout (development plan section 3.2), then runs the
  * testing scope survey (section 2.7, P1-18) — Web E2E, API, accessibility and security are
@@ -60,7 +71,7 @@ function resolveTestingScope(answers: TestingScopeAnswers, deferScope: boolean):
  * blocks `qa init` from finishing unless `deferScope` is set, so a project never silently starts
  * with a scope nobody actually decided. Never overwrites an existing `config.yaml` unless `force`
  * is set, so a second run is safe; the scope gate only applies when a `config.yaml` is actually
- * about to be written.
+ * about to be written. A re-run adds the local configuration layer to an older `.gitignore`.
  */
 export async function runInit(context: CommandContext, options: InitOptions = {}): Promise<InitResult> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
@@ -101,6 +112,8 @@ export async function runInit(context: CommandContext, options: InitOptions = {}
   if (!gitignoreExisted || options.force === true) {
     await store.writeText('.gitignore', QA_GITIGNORE);
     created.push('.gitignore');
+  } else {
+    await ensureLocalLayerIgnored(store);
   }
 
   return {
