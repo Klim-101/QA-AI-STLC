@@ -102,6 +102,41 @@ async function createProjectContext(dir: string): Promise<EngineContext> {
 }
 
 describe('verifyGeneratedTestSpec against the real TypeScript compiler', () => {
+  // The MCP server runs with the project root as its working directory, and a TypeScript project
+  // almost always has a tsconfig.json there; TypeScript 6 rejects `tsc <files>` in that situation
+  // (TS5112) unless the config is explicitly ignored.
+  it('verifies from a working directory that contains a tsconfig.json', async () => {
+    await withTempDir(async (dir) => {
+      const context = await createProjectContext(dir);
+      await nodeFileSystem.writeFile(
+        join(dir, 'tsconfig.json'),
+        '{ "compilerOptions": { "strict": false } }\n',
+      );
+      const originalCwd = process.cwd();
+      process.chdir(dir);
+      try {
+        const verified = await verifyGeneratedTestSpec(context, {
+          spec: spec(),
+          testCase: TEST_CASE,
+          runner: fakeRunner('passed'),
+        });
+        const broken = await verifyGeneratedTestSpec(context, {
+          spec: spec({ content: 'export const total: number = "not a number";\n' }),
+          testCase: TEST_CASE,
+          runner: fakeRunner('passed'),
+        });
+
+        expect(verified.status).toBe('verified');
+        expect(broken).toMatchObject({
+          status: 'typecheck_failed',
+          issues: [{ message: expect.stringContaining('TS2322') as string }],
+        });
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+  }, 30_000);
+
   it('typechecks a real, well-typed generated spec and proceeds to execution', async () => {
     await withTempDir(async (dir) => {
       const context = await createProjectContext(dir);
