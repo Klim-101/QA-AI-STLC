@@ -8,8 +8,8 @@ import {
   GenerationSpokeInputSchema,
   RelativePathSchema,
   RunResultSchema,
-  Sha256HexSchema,
   SpokeValidationIssueSchema,
+  VerificationIdSchema,
   type TestType,
 } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
@@ -51,6 +51,9 @@ const InputSchema = z.object({
 
 const OutputSchema = z.object({
   status: z.enum(['typecheck_failed', 'execution_failed', 'verified']),
+  verificationId: VerificationIdSchema.describe(
+    'The engine\'s record of this verification. For "verified", pass it to qa.generation_register.',
+  ),
   issues: z
     .array(SpokeValidationIssueSchema)
     .optional()
@@ -62,9 +65,6 @@ const OutputSchema = z.object({
   ),
   spec: GeneratedTestSpecSchema.optional().describe(
     'Present only for "verified" — pass this exact object, unmodified, to qa.generation_register.',
-  ),
-  contentSha256: Sha256HexSchema.optional().describe(
-    'Present only for "verified" — pass this exact value, unmodified, to qa.generation_register.',
   ),
 });
 
@@ -82,7 +82,8 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
     'Typechecks a candidate generated spec and, only if that passes, executes it once through the ' +
     'real runner against a scratch copy that never touches the real project tree. Returns ' +
     '"typecheck_failed"/"execution_failed" with issues to fix, or "verified" with a spec and ' +
-    'contentSha256 to pass, unmodified, to qa.generation_register.',
+    'verificationId to pass, unmodified, to qa.generation_register. The test case must be registered ' +
+    'and unchanged since qa.generation_spoke_input built the input.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   async handler(input) {
@@ -102,12 +103,13 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
       ...(input.environment !== undefined ? { environment: input.environment } : {}),
     });
 
+    const { verificationId } = outcome;
     if (outcome.status === 'typecheck_failed') {
-      return { status: outcome.status, issues: [...outcome.issues] };
+      return { status: outcome.status, verificationId, issues: [...outcome.issues] };
     }
     if (outcome.status === 'execution_failed') {
-      return { status: outcome.status, issues: [...outcome.issues], result: outcome.result };
+      return { status: outcome.status, verificationId, issues: [...outcome.issues], result: outcome.result };
     }
-    return { status: outcome.status, spec, result: outcome.result, contentSha256: outcome.contentSha256 };
+    return { status: outcome.status, verificationId, spec, result: outcome.result };
   },
 };

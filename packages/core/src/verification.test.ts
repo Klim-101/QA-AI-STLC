@@ -4,6 +4,8 @@
 import { join } from 'node:path';
 import {
   SCHEMA_VERSION,
+  TestCaseSchema,
+  VerificationRecordSchema,
   type Config,
   type GeneratedTestSpec,
   type RunResult,
@@ -15,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
+import { toCanonicalJson } from './json-file.js';
 import type { Runner, RunnerInput, RunnerOutcome } from './runner.js';
 import { createFakeEngineContext } from './test-support/fake-engine-context.js';
 import { createSequentialIdGenerator } from './test-support/fake-id-generator.js';
@@ -61,10 +64,32 @@ const TEST_CASE: TestCase = {
 
 const TARGET_ABSOLUTE_PATH = join('project', 'tests', 'qa', 'checkout', 'guest-checkout.spec.ts');
 
+const CASE_ABSOLUTE_PATH = join('project', '.qa', 'artifacts', 'cases', 'checkout', 'case-1.json');
+const MANIFEST_ABSOLUTE_PATH = join('project', '.qa', 'manifest.json');
+
+// The case file and a manifest that registers it, built synchronously so every test starts from a
+// project where "case-1" is a real, untampered registered case.
+function registeredCaseFiles(testCase: TestCase = TEST_CASE): Record<string, string> {
+  const caseJson = toCanonicalJson(TestCaseSchema.parse(testCase));
+  const manifest = {
+    schemaVersion: SCHEMA_VERSION,
+    artifacts: {
+      'artifacts/cases/checkout/case-1.json': {
+        sha256: hashText(caseJson),
+        mode: 'text',
+        registeredAt: '2026-09-25T09:00:00.000Z',
+      },
+    },
+  };
+  return { [CASE_ABSOLUTE_PATH]: caseJson, [MANIFEST_ABSOLUTE_PATH]: toCanonicalJson(manifest) };
+}
+
 function createContext(
   overrides: { readonly processRunner?: ProcessResultLike; readonly fs?: FakeFileSystem } = {},
 ): { readonly context: EngineContext; readonly fs: FakeFileSystem } {
-  const fs = overrides.fs ?? createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: CONFIG_YAML });
+  const fs =
+    overrides.fs ??
+    createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: CONFIG_YAML, ...registeredCaseFiles() });
   const context = createFakeEngineContext({
     fs,
     processRunner: createFakeProcessRunner(
@@ -72,6 +97,19 @@ function createContext(
     ),
   });
   return { context, fs };
+}
+
+async function readRecord(fs: FakeFileSystem, verificationId: string): Promise<unknown> {
+  return VerificationRecordSchema.parse(
+    JSON.parse(await fs.readFile(join('project', '.qa', 'verifications', `${verificationId}.json`))),
+  );
+}
+
+async function manifestEntryFor(fs: FakeFileSystem, relativePath: string): Promise<unknown> {
+  const manifest = JSON.parse(await fs.readFile(MANIFEST_ABSOLUTE_PATH)) as {
+    artifacts: Record<string, unknown>;
+  };
+  return manifest.artifacts[relativePath];
 }
 
 function fakeResult(overrides: Partial<RunResult> & Pick<RunResult, 'status'>): RunResult {
@@ -84,6 +122,7 @@ function fakeResult(overrides: Partial<RunResult> & Pick<RunResult, 'status'>): 
     startedAt: '2026-09-25T12:00:00Z',
     finishedAt: '2026-09-25T12:00:01Z',
     evidenceIds: [],
+    ...(overrides.status === 'failed' ? { failure: { message: 'Assertion failed' } } : {}),
     ...overrides,
   };
 }
@@ -120,6 +159,7 @@ describe('verifyGeneratedTestSpec', () => {
     });
 
     expect(outcome).toEqual({
+      verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'typecheck_failed',
       issues: [
         { path: [SPEC.filePath, 1, 7], message: "TS2322: Type 'string' is not assignable to type 'number'." },
@@ -150,6 +190,7 @@ describe('verifyGeneratedTestSpec', () => {
     });
 
     expect(outcome).toEqual({
+      verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'typecheck_failed',
       issues: [{ path: [SPEC.filePath, 3, 1], message: "TS2304: Cannot find name 'x'." }],
     });
@@ -169,6 +210,7 @@ describe('verifyGeneratedTestSpec', () => {
     });
 
     expect(outcome).toEqual({
+      verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'typecheck_failed',
       issues: [{ path: [SPEC.filePath], message: 'internal compiler error' }],
     });
@@ -186,6 +228,7 @@ describe('verifyGeneratedTestSpec', () => {
     });
 
     expect(outcome).toEqual({
+      verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'typecheck_failed',
       issues: [{ path: [SPEC.filePath], message: 'tsc exited with a failure and produced no output.' }],
     });
@@ -276,29 +319,24 @@ describe('verifyGeneratedTestSpec', () => {
     });
 
     expect(outcome).toEqual({
+      verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'execution_failed',
       issues: [{ path: [], message: 'Expected 200, got 500' }],
       result: expect.objectContaining({ status: 'failed' }) as RunResult,
     });
   });
 
-  it('falls back to a generic message for a "failed" result with no recorded failure detail', async () => {
+  // Both fallbacks below exist only for a result the run result schema forbids; the verification
+  // record refuses to store one, so neither can end in a "verified" record.
+  it('rejects a "failed" result with no recorded failure detail', async () => {
     const { context } = createContext();
     const runner = createFakeRunner(() => [
       { result: { ...fakeResult({ status: 'failed' }), failure: undefined }, evidence: [] },
     ]);
 
-    const outcome = await verifyGeneratedTestSpec(context, {
-      spec: SPEC,
-      testCase: TEST_CASE,
-      runner,
-      idGenerator,
-    });
-
-    expect(outcome).toMatchObject({
-      status: 'execution_failed',
-      issues: [{ message: 'The generated spec failed with no recorded failure detail.' }],
-    });
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow('is required when status is');
   });
 
   it('names each missing step for a "partial" result', async () => {
@@ -318,6 +356,7 @@ describe('verifyGeneratedTestSpec', () => {
     });
 
     expect(outcome).toEqual({
+      verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'execution_failed',
       issues: [
         { path: ['step-2'], message: 'Step "step-2" did not run or did not complete.' },
@@ -327,24 +366,16 @@ describe('verifyGeneratedTestSpec', () => {
     });
   });
 
-  it('falls back to no issues for a "partial" result with no recorded missing steps', async () => {
-    const { context } = createContext();
+  it('rejects a "partial" result with no recorded missing steps instead of verifying it', async () => {
+    const { context, fs } = createContext();
     const runner = createFakeRunner(() => [
       { result: { ...fakeResult({ status: 'partial' }), missingStepIds: undefined }, evidence: [] },
     ]);
 
-    const outcome = await verifyGeneratedTestSpec(context, {
-      spec: SPEC,
-      testCase: TEST_CASE,
-      runner,
-      idGenerator,
-    });
-
-    expect(outcome).toEqual({
-      status: 'verified',
-      result: expect.objectContaining({ status: 'partial' }) as RunResult,
-      contentSha256: hashText(SPEC.content),
-    });
+    await expect(
+      verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator }),
+    ).rejects.toThrow();
+    expect(await fs.listFiles(join('project', '.qa', 'verifications'))).toEqual([]);
   });
 
   it.each(['blocked', 'skipped', 'uncertain'] as const)(
@@ -361,6 +392,7 @@ describe('verifyGeneratedTestSpec', () => {
       });
 
       expect(outcome).toEqual({
+        verificationId: expect.stringMatching(/^verification-/) as string,
         status: 'execution_failed',
         issues: [{ path: [], message: `Execution reported status "${status}", not "passed".` }],
         result: expect.objectContaining({ status }) as RunResult,
@@ -427,49 +459,253 @@ describe('verifyGeneratedTestSpec', () => {
   });
 });
 
-describe('registerVerifiedGeneratedTestSpec', () => {
-  it('writes the spec content to its real path and registers it in the manifest', async () => {
-    const { context, fs } = createContext();
-    const verification = {
-      status: 'verified' as const,
-      result: fakeResult({ status: 'passed' }),
-      contentSha256: hashText(SPEC.content),
-    };
+describe('verifyGeneratedTestSpec verification records', () => {
+  it('records a typecheck failure as a registered record with no run result', async () => {
+    const { context, fs } = createContext({ processRunner: { exitCode: 1, stdout: '', stderr: 'boom' } });
 
-    await registerVerifiedGeneratedTestSpec(context, SPEC, verification);
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner: createFakeRunner(() => []),
+      idGenerator: createSequentialIdGenerator('t'),
+    });
+
+    expect(outcome.verificationId).toBe('verification-t-1');
+    expect(await readRecord(fs, outcome.verificationId)).toEqual({
+      schemaVersion: SCHEMA_VERSION,
+      id: 'verification-t-1',
+      testCaseId: SPEC.testCaseId,
+      filePath: SPEC.filePath,
+      contentSha256: hashText(SPEC.content),
+      status: 'typecheck_failed',
+      verifiedAt: expect.any(String) as string,
+    });
+    expect(await manifestEntryFor(fs, 'verifications/verification-t-1.json')).toBeDefined();
+  });
+
+  it.each([
+    ['passed', 'verified'],
+    ['failed', 'execution_failed'],
+  ] as const)(
+    'records a "%s" execution as a "%s" record carrying the run result',
+    async (runStatus, status) => {
+      const { context, fs } = createContext();
+      const runner = createFakeRunner(() => [{ result: fakeResult({ status: runStatus }), evidence: [] }]);
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+      });
+
+      expect(outcome.status).toBe(status);
+      expect(await readRecord(fs, outcome.verificationId)).toMatchObject({
+        status,
+        result: { status: runStatus },
+      });
+    },
+  );
+
+  it('rejects a test case that is not registered, before writing anything', async () => {
+    const { context, fs } = createContext();
+    const unknownCase = { ...TEST_CASE, id: 'never-registered' };
+
+    await expect(
+      verifyGeneratedTestSpec(context, {
+        spec: { ...SPEC, testCaseId: 'never-registered' },
+        testCase: unknownCase,
+        runner: createFakeRunner(() => []),
+        idGenerator,
+      }),
+    ).rejects.toMatchObject({ code: 'CASE_NOT_FOUND' });
+    expect(await fs.listFiles(join('project', '.qa', 'verifications'))).toEqual([]);
+  });
+
+  it('rejects a registered case whose file was edited outside the engine', async () => {
+    const edited = toCanonicalJson(TestCaseSchema.parse({ ...TEST_CASE, steps: [TEST_CASE.steps[0]] }));
+    const fs = createFakeFileSystem({
+      [join('project', '.qa', 'config.yaml')]: CONFIG_YAML,
+      ...registeredCaseFiles(),
+      [CASE_ABSOLUTE_PATH]: edited,
+    });
+    const { context } = createContext({ fs });
+
+    await expect(
+      verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner: createFakeRunner(() => []),
+        idGenerator,
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_HASH_MISMATCH' });
+  });
+
+  // P3-20: a caller-supplied copy with fewer steps would otherwise shrink the required coverage.
+  it('rejects a testCase that differs from the registered case', async () => {
+    const { context } = createContext();
+    let runnerCalled = false;
+    const runner = createFakeRunner(() => {
+      runnerCalled = true;
+      return [];
+    });
+
+    await expect(
+      verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: { ...TEST_CASE, steps: [{ description: 'Add an item to the cart' }] },
+        runner,
+        idGenerator,
+      }),
+    ).rejects.toMatchObject({ code: 'core.verification.test_case_changed' });
+    expect(runnerCalled).toBe(false);
+  });
+});
+
+async function verifyPassing(context: EngineContext, spec: GeneratedTestSpec = SPEC): Promise<string> {
+  const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
+  const outcome = await verifyGeneratedTestSpec(context, { spec, testCase: TEST_CASE, runner, idGenerator });
+  expect(outcome.status).toBe('verified');
+  return outcome.verificationId;
+}
+
+describe('registerVerifiedGeneratedTestSpec', () => {
+  it('writes the verified spec to its real path, registers it and consumes the record', async () => {
+    const { context, fs } = createContext();
+    const verificationId = await verifyPassing(context);
+
+    await registerVerifiedGeneratedTestSpec(context, SPEC, verificationId);
 
     expect(await fs.readFile(TARGET_ABSOLUTE_PATH)).toBe(SPEC.content);
-    const manifest = JSON.parse(await fs.readFile(join('project', '.qa', 'manifest.json'))) as {
-      artifacts: Record<string, unknown>;
-    };
-    expect(manifest.artifacts[SPEC.filePath]).toBeDefined();
+    expect(await manifestEntryFor(fs, SPEC.filePath)).toBeDefined();
+    expect(await readRecord(fs, verificationId)).toMatchObject({ consumedAt: expect.any(String) as string });
   });
 
-  it('throws when the verification result is for a different test case', async () => {
-    const { context } = createContext();
-    const verification = {
-      status: 'verified' as const,
-      result: fakeResult({ status: 'passed', testCaseId: 'a-different-case' }),
+  // The live repro from P4-13: nothing was ever verified, the caller just names an outcome.
+  it.each(['verification-made-up', 'not-a-verification-id', 'verification-a/../../manifest'])(
+    'rejects "%s", for which the engine holds no record, without writing the spec',
+    async (verificationId) => {
+      const { context, fs } = createContext();
+
+      await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verificationId)).rejects.toMatchObject({
+        code: 'core.verification.record_not_found',
+      });
+      expect(await fs.pathExists(TARGET_ABSOLUTE_PATH)).toBe(false);
+    },
+  );
+
+  it('rejects a record written outside the engine', async () => {
+    const { context, fs } = createContext();
+    const forged = {
+      schemaVersion: SCHEMA_VERSION,
+      id: 'verification-forged',
+      testCaseId: SPEC.testCaseId,
+      filePath: SPEC.filePath,
       contentSha256: hashText(SPEC.content),
+      status: 'verified',
+      result: fakeResult({ status: 'passed' }),
+      verifiedAt: '2026-09-28T12:00:00Z',
     };
-
-    await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verification)).rejects.toThrow(
-      /a-different-case/,
+    await fs.writeFile(
+      join('project', '.qa', 'verifications', 'verification-forged.json'),
+      toCanonicalJson(forged),
     );
+
+    await expect(
+      registerVerifiedGeneratedTestSpec(context, SPEC, 'verification-forged'),
+    ).rejects.toMatchObject({
+      code: 'ARTIFACT_UNREGISTERED',
+    });
+    expect(await fs.pathExists(TARGET_ABSOLUTE_PATH)).toBe(false);
   });
 
-  // The task this test exists for (P3-18): verifying one spec's content must not authorize
-  // registering a completely different string of content under the same testCaseId.
-  it('throws when the verified content does not match the content being registered', async () => {
-    const { context } = createContext();
-    const verifiedElsewhere: GeneratedTestSpec = { ...SPEC, content: 'export const DIFFERENT = true;' };
-    const verification = {
-      status: 'verified' as const,
-      result: fakeResult({ status: 'passed' }),
-      contentSha256: hashText(verifiedElsewhere.content),
-    };
+  it('rejects a registered record edited to read "verified"', async () => {
+    const { context, fs } = createContext({ processRunner: { exitCode: 1, stdout: '', stderr: 'boom' } });
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner: createFakeRunner(() => []),
+      idGenerator,
+    });
+    const recordPath = join('project', '.qa', 'verifications', `${outcome.verificationId}.json`);
+    const record = JSON.parse(await fs.readFile(recordPath)) as Record<string, unknown>;
+    await fs.writeFile(recordPath, toCanonicalJson({ ...record, status: 'verified' }));
 
-    await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verification)).rejects.toThrow(QaError);
+    await expect(
+      registerVerifiedGeneratedTestSpec(context, SPEC, outcome.verificationId),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_HASH_MISMATCH' });
+  });
+
+  it.each([
+    ['typecheck_failed', { exitCode: 1, stdout: '', stderr: 'boom' }, 'passed'],
+    ['execution_failed', { exitCode: 0, stdout: '', stderr: '' }, 'failed'],
+  ] as const)('rejects a "%s" record', async (_status, processRunner, runStatus) => {
+    const { context, fs } = createContext({ processRunner });
+    const runner = createFakeRunner(() => [{ result: fakeResult({ status: runStatus }), evidence: [] }]);
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
+
+    await expect(
+      registerVerifiedGeneratedTestSpec(context, SPEC, outcome.verificationId),
+    ).rejects.toMatchObject({ code: 'core.verification.not_verified' });
+    expect(await fs.pathExists(TARGET_ABSOLUTE_PATH)).toBe(false);
+  });
+
+  it('rejects reusing a record that already authorized a registration', async () => {
+    const { context } = createContext();
+    const verificationId = await verifyPassing(context);
+    await registerVerifiedGeneratedTestSpec(context, SPEC, verificationId);
+
+    await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verificationId)).rejects.toMatchObject({
+      code: 'core.verification.already_consumed',
+    });
+  });
+
+  it('rejects a record for a different file path', async () => {
+    const { context, fs } = createContext();
+    const verificationId = await verifyPassing(context);
+    const moved = { ...SPEC, filePath: 'tests/qa/checkout/elsewhere.spec.ts' };
+
+    await expect(registerVerifiedGeneratedTestSpec(context, moved, verificationId)).rejects.toMatchObject({
+      code: 'core.verification.spec_mismatch',
+    });
+    expect(await fs.pathExists(join('project', 'tests', 'qa', 'checkout', 'elsewhere.spec.ts'))).toBe(false);
+  });
+
+  it('rejects a record for a different test case', async () => {
+    const { context } = createContext();
+    const verificationId = await verifyPassing(context);
+
+    await expect(
+      registerVerifiedGeneratedTestSpec(context, { ...SPEC, testCaseId: 'case-2' }, verificationId),
+    ).rejects.toMatchObject({ code: 'core.verification.spec_mismatch' });
+  });
+
+  // P3-18: verifying one content must not authorize registering a different one.
+  it('rejects content changed after verification', async () => {
+    const { context, fs } = createContext();
+    const verificationId = await verifyPassing(context);
+    const changed = { ...SPEC, content: 'this is not TypeScript at all {{{ ;;;' };
+
+    await expect(registerVerifiedGeneratedTestSpec(context, changed, verificationId)).rejects.toMatchObject({
+      code: 'core.verification.content_mismatch',
+    });
+    expect(await fs.pathExists(TARGET_ABSOLUTE_PATH)).toBe(false);
+    expect(await readRecord(fs, verificationId)).not.toHaveProperty('consumedAt');
+  });
+
+  it('rejects a record whose test case was removed after verification', async () => {
+    const { context, fs } = createContext();
+    const verificationId = await verifyPassing(context);
+    await fs.deleteFile(CASE_ABSOLUTE_PATH);
+
+    await expect(registerVerifiedGeneratedTestSpec(context, SPEC, verificationId)).rejects.toMatchObject({
+      code: 'CASE_NOT_FOUND',
+    });
   });
 });
 

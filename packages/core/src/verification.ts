@@ -3,21 +3,27 @@
 
 import { basename, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type {
-  Config,
-  GeneratedTestSpec,
-  RelativePath,
-  RunResult,
-  Sha256Hex,
-  SpokeValidationIssue,
-  TestCase,
+import {
+  TestCaseSchema,
+  VerificationIdSchema,
+  VerificationRecordSchema,
+  type Config,
+  type GeneratedTestSpec,
+  type RelativePath,
+  type RunResult,
+  type SpokeValidationIssue,
+  type TestCase,
+  type VerificationId,
+  type VerificationRecord,
 } from '@qa-ai-stlc/schemas';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
+import { toCanonicalJson } from './json-file.js';
 import { ManifestStore } from './manifest-store.js';
 import { resolveBrowserEnvironment } from './operations/browser-open.js';
+import { findCasePath } from './operations/cases-render.js';
 import { resolveRelativePath } from './paths.js';
 import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
 import { QaStore } from './qa-store.js';
@@ -166,21 +172,57 @@ export interface VerifyGeneratedTestSpecOptions {
 }
 
 export type VerificationOutcome =
-  | { readonly status: 'typecheck_failed'; readonly issues: readonly SpokeValidationIssue[] }
+  | {
+      readonly status: 'typecheck_failed';
+      readonly verificationId: VerificationId;
+      readonly issues: readonly SpokeValidationIssue[];
+    }
   | {
       readonly status: 'execution_failed';
+      readonly verificationId: VerificationId;
       readonly issues: readonly SpokeValidationIssue[];
       readonly result: RunResult;
     }
-  | { readonly status: 'verified'; readonly result: RunResult; readonly contentSha256: Sha256Hex };
+  | { readonly status: 'verified'; readonly verificationId: VerificationId; readonly result: RunResult };
+
+function verificationRecordPath(verificationId: VerificationId): RelativePath {
+  return `verifications/${verificationId}.json`;
+}
+
+async function writeVerificationRecord(
+  store: QaStore,
+  manifest: ManifestStore,
+  record: Omit<VerificationRecord, 'schemaVersion'>,
+): Promise<void> {
+  const recordPath = verificationRecordPath(record.id);
+  const parsed = VerificationRecordSchema.parse(record);
+  await store.writeJson(recordPath, parsed);
+  await manifest.register(recordPath, toCanonicalJson(parsed));
+}
+
+/**
+ * Resolves `testCaseId` to the case the engine registered, rejecting a tampered case file. Both
+ * verification and registration go through this, so neither accepts a spec for a case that does
+ * not exist, the same rule `runRegisterCaseResult` (P3-17) applies to a case result.
+ */
+async function readRegisteredTestCase(
+  store: QaStore,
+  manifest: ManifestStore,
+  testCaseId: string,
+): Promise<TestCase> {
+  const casePath = await findCasePath(store, testCaseId);
+  await manifest.assertRegistered(casePath, await store.readText(casePath));
+  return store.readJson(casePath, TestCaseSchema);
+}
 
 /**
  * The verification loop (P3-06, development plan section 5.2): a generated spec is never
  * registered on trust. Its content is typechecked and, only if that passes, executed once through
- * the injected `Runner`, against a scratch copy that never touches `spec.filePath` until
- * `registerVerifiedGeneratedTestSpec` is called with the resulting `'verified'` outcome. Either
- * failure mode returns `SpokeValidationIssue[]` in the same shape `SpokeErrorSchema.issues` already
- * uses, so the hub can re-dispatch the generating spoke with exactly what to fix.
+ * the injected `Runner`, against a scratch copy that never touches `spec.filePath`. Every outcome
+ * is recorded by the engine as a manifest-registered `VerificationRecord` (P4-13), and only a
+ * `'verified'` record's `verificationId` lets `registerVerifiedGeneratedTestSpec` write the spec.
+ * Either failure mode returns `SpokeValidationIssue[]` in the same shape `SpokeErrorSchema.issues`
+ * already uses, so the hub can re-dispatch the generating spoke with exactly what to fix.
  */
 export async function verifyGeneratedTestSpec(
   context: EngineContext,
@@ -194,7 +236,27 @@ export async function verifyGeneratedTestSpec(
     );
   }
 
+  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  const manifest = new ManifestStore({ store, clock: context.clock });
+  // Coverage is checked against the case's steps (P3-20), so a caller-edited copy with fewer steps
+  // than the registered case would otherwise verify a spec that skips the missing ones.
+  const registeredTestCase = await readRegisteredTestCase(store, manifest, options.testCase.id);
+  if (toCanonicalJson(TestCaseSchema.parse(options.testCase)) !== toCanonicalJson(registeredTestCase)) {
+    throw new QaError(
+      'core.verification.test_case_changed',
+      `"testCase" differs from the registered test case "${options.testCase.id}".`,
+      { remediation: 'Rebuild the spoke input with qa.generation_spoke_input and regenerate the spec.' },
+    );
+  }
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
+  const verificationId = VerificationIdSchema.parse(`verification-${idGenerator.next()}`);
+  const recordBase = {
+    id: verificationId,
+    testCaseId: options.spec.testCaseId,
+    filePath: options.spec.filePath,
+    contentSha256: hashText(options.spec.content),
+  };
   const targetAbsolutePath = resolveRelativePath(context.projectRoot, options.spec.filePath);
   const scratchAbsolutePath = scratchSpecPath(targetAbsolutePath, idGenerator);
 
@@ -207,10 +269,14 @@ export async function verifyGeneratedTestSpec(
       displayPath: options.spec.filePath,
     });
     if (typecheckIssues.length > 0) {
-      return { status: 'typecheck_failed', issues: typecheckIssues };
+      await writeVerificationRecord(store, manifest, {
+        ...recordBase,
+        status: 'typecheck_failed',
+        verifiedAt: context.clock.now().toISOString(),
+      });
+      return { status: 'typecheck_failed', verificationId, issues: typecheckIssues };
     }
 
-    const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
     const config = await loadConfig(store);
     const environment = resolveBrowserEnvironment(config, options.environment);
     const runId = `verify-${idGenerator.next()}`;
@@ -220,7 +286,7 @@ export async function verifyGeneratedTestSpec(
       baseUrl: environment.config.baseUrl,
       specFiles: [scratchAbsolutePath],
       idGenerator,
-      requiredStepIds: canonicalStepIds(options.testCase),
+      requiredStepIds: canonicalStepIds(registeredTestCase),
       testIdAttribute: config.selectors.testIdAttribute,
     });
     const [outcome, ...extra] = outcomes;
@@ -239,51 +305,94 @@ export async function verifyGeneratedTestSpec(
     }
 
     const issues = executionIssues(outcome.result);
-    if (issues.length > 0) {
-      return { status: 'execution_failed', issues, result: outcome.result };
+    const status = issues.length > 0 ? 'execution_failed' : 'verified';
+    await writeVerificationRecord(store, manifest, {
+      ...recordBase,
+      status,
+      result: outcome.result,
+      verifiedAt: context.clock.now().toISOString(),
+    });
+    if (status === 'execution_failed') {
+      return { status, verificationId, issues, result: outcome.result };
     }
-    return { status: 'verified', result: outcome.result, contentSha256: hashText(options.spec.content) };
+    return { status, verificationId, result: outcome.result };
   } finally {
     await context.fs.deleteFile(scratchAbsolutePath);
   }
 }
 
-/**
- * Writes a spec's content to its real `filePath` and registers it in the manifest (ADR-006 already
- * established this exact "write to the project tree, then `manifest.register`" pattern for the
- * generated locator module) — callable only with a `'verified'` `VerificationOutcome`, so a caller
- * cannot register a spec that has not actually gone through `verifyGeneratedTestSpec` successfully.
- */
-export async function registerVerifiedGeneratedTestSpec(
-  context: EngineContext,
-  spec: GeneratedTestSpec,
-  verification: Extract<VerificationOutcome, { status: 'verified' }>,
-): Promise<void> {
-  if (verification.result.testCaseId !== spec.testCaseId) {
+function assertRecordAuthorizes(record: VerificationRecord, spec: GeneratedTestSpec): void {
+  if (record.status !== 'verified') {
     throw new QaError(
-      'core.verification.spec_mismatch',
-      `The verified result is for test case "${verification.result.testCaseId}", not "${spec.testCaseId}".`,
+      'core.verification.not_verified',
+      `Verification "${record.id}" ended with status "${record.status}", not "verified".`,
       {
         remediation:
-          'Pass the VerificationOutcome that verifyGeneratedTestSpec returned for this exact spec.',
+          'Fix the reported issues, verify the spec again and register it with the new verificationId.',
       },
     );
   }
-  if (verification.contentSha256 !== hashText(spec.content)) {
+  if (record.consumedAt !== undefined) {
+    throw new QaError(
+      'core.verification.already_consumed',
+      `Verification "${record.id}" already authorized a registration at ${record.consumedAt}.`,
+      { remediation: 'Verify the spec again to register it a second time.' },
+    );
+  }
+  if (record.testCaseId !== spec.testCaseId || record.filePath !== spec.filePath) {
+    throw new QaError(
+      'core.verification.spec_mismatch',
+      `Verification "${record.id}" is for "${record.filePath}" (test case "${record.testCaseId}"), ` +
+        `not "${spec.filePath}" (test case "${spec.testCaseId}").`,
+      { remediation: 'Pass the verificationId qa.generation_verify returned for this exact spec.' },
+    );
+  }
+  if (record.contentSha256 !== hashText(spec.content)) {
     throw new QaError(
       'core.verification.content_mismatch',
       `"${spec.filePath}"'s content does not match what was actually verified for test case "${spec.testCaseId}".`,
       {
         remediation:
-          'Pass the exact GeneratedTestSpec that verifyGeneratedTestSpec verified, unmodified, to registerVerifiedGeneratedTestSpec.',
+          'Pass the exact spec qa.generation_verify verified, unmodified, with its verificationId.',
       },
     );
   }
+}
 
+/**
+ * Writes a spec's content to its real `filePath` and registers it in the manifest (ADR-006's
+ * "write to the project tree, then `manifest.register`" pattern). Authorized only by
+ * `verificationId`, the engine's own record of a `'verified'` run of this exact spec (P4-13): the
+ * record must be registered and untampered, match the spec's test case, file path and content
+ * hash, and not have authorized a registration before. The record is marked consumed before the
+ * spec is written, so a failed write burns the verification instead of leaving it reusable.
+ */
+export async function registerVerifiedGeneratedTestSpec(
+  context: EngineContext,
+  spec: GeneratedTestSpec,
+  verificationId: string,
+): Promise<void> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
-  const absolutePath = resolveRelativePath(context.projectRoot, spec.filePath);
 
+  const parsedId = VerificationIdSchema.safeParse(verificationId);
+  const record = parsedId.success
+    ? await manifest.readVerified(verificationRecordPath(parsedId.data), VerificationRecordSchema)
+    : undefined;
+  if (record === undefined) {
+    throw new QaError('core.verification.record_not_found', `No verification record "${verificationId}".`, {
+      remediation: 'Run qa.generation_verify on the spec and pass the verificationId it returns.',
+    });
+  }
+  assertRecordAuthorizes(record, spec);
+  await readRegisteredTestCase(store, manifest, spec.testCaseId);
+
+  await writeVerificationRecord(store, manifest, {
+    ...record,
+    consumedAt: context.clock.now().toISOString(),
+  });
+
+  const absolutePath = resolveRelativePath(context.projectRoot, spec.filePath);
   await context.fs.mkdir(dirname(absolutePath));
   await context.fs.writeFile(absolutePath, spec.content);
   await manifest.register(spec.filePath, spec.content);

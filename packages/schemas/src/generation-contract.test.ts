@@ -7,6 +7,8 @@ import {
   GenerationSpokeInputSchema,
   LocatorModuleExportSchema,
   ManualRegionSchema,
+  VerificationIdSchema,
+  VerificationRecordSchema,
 } from './generation-contract.js';
 
 const testCase = {
@@ -166,5 +168,36 @@ describe('GeneratedTestSpecSchema', () => {
       content: '',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('VerificationIdSchema', () => {
+  it('accepts an engine-generated id', () => {
+    expect(VerificationIdSchema.safeParse('verification-0b6f2c1e-9d7a-4f3b-8a2e-1c5d9e7f3a21').success).toBe(
+      true,
+    );
+  });
+
+  it.each(['case-1', 'verification-', 'verification-a/../b', 'verification-a b'])('rejects "%s"', (value) => {
+    expect(VerificationIdSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('VerificationRecordSchema', () => {
+  const record = {
+    id: 'verification-1',
+    testCaseId: 'case-1',
+    filePath: 'tests/qa/checkout/guest-checkout.spec.ts',
+    contentSha256: 'a'.repeat(64),
+    status: 'typecheck_failed',
+    verifiedAt: '2026-09-28T12:00:00Z',
+  };
+
+  it('accepts a record with no run result', () => {
+    expect(VerificationRecordSchema.safeParse(record).success).toBe(true);
+  });
+
+  it('rejects an unknown status', () => {
+    expect(VerificationRecordSchema.safeParse({ ...record, status: 'passed' }).success).toBe(false);
   });
 });
