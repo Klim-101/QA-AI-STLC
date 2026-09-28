@@ -17,7 +17,6 @@ const InputSchema = z.object({
   method: z.string().optional().describe('HTTP method. Defaults to GET.'),
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
-  tlsInsecure: z.boolean().optional().describe('Skip TLS certificate verification. Off by default.'),
   stepId: z
     .string()
     .optional()
@@ -37,7 +36,9 @@ const OutputSchema = z.object({
  * environment's domain allowlist first (#364) — the same unconditional check every `qa.browser_*`
  * tool applies — but any HTTP method is allowed against an allowed host, including a real
  * POST/PUT/DELETE. The response body is stored as a capped preview; the engine never decides pass
- * or fail — compare the status and body against the case's expected result yourself.
+ * or fail — compare the status and body against the case's expected result yourself. There is
+ * deliberately no TLS input: certificate validation follows the environment's `tlsInsecure` in
+ * config.yaml only (ADR-011).
  */
 export const httpExecuteTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = {
   name: 'qa.http_execute',
@@ -56,7 +57,6 @@ export const httpExecuteTool: ToolDefinition<typeof InputSchema, typeof OutputSc
       ...(input.method !== undefined ? { method: input.method } : {}),
       ...(input.headers !== undefined ? { headers: input.headers } : {}),
       ...(input.body !== undefined ? { body: input.body } : {}),
-      ...(input.tlsInsecure !== undefined ? { tlsInsecure: input.tlsInsecure } : {}),
       ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
     }),
 };
