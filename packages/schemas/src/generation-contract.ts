@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { IdentifierSchema, RelativePathSchema, Sha256HexSchema, IsoDateTimeSchema } from './primitives.js';
 import { ProvenSessionSchema } from './proven-session.js';
+import { RunResultSchema } from './run-result.js';
 import { SelectorRegistrySchema } from './selector-registry.js';
 import { TestCaseSchema } from './test-case.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
@@ -70,3 +71,30 @@ export const GeneratedTestSpecSchema = z.object({
   content: z.string().min(1),
 });
 export type GeneratedTestSpec = z.infer<typeof GeneratedTestSpecSchema>;
+
+// Engine-generated ids only (`verification-<uuid>`): the id becomes a path segment under
+// `verifications/`, and `IdentifierSchema` alone would accept a "/" that nests the lookup elsewhere.
+export const VerificationIdSchema = z.string().regex(/^verification-[A-Za-z0-9-]+$/);
+export type VerificationId = z.infer<typeof VerificationIdSchema>;
+
+export const VerificationStatusSchema = z.enum(['typecheck_failed', 'execution_failed', 'verified']);
+export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+
+// The engine's own record of one `verifyGeneratedTestSpec` run (P4-13), written and registered in
+// the manifest by the engine, never by a caller. Registering a generated spec requires a reference
+// to a `verified` record whose `testCaseId`, `filePath` and `contentSha256` match the spec, so a
+// caller can no longer present a made-up outcome as verification. `consumedAt` is set once the
+// record has authorized a registration, so one verification cannot register a spec twice.
+export const VerificationRecordSchema = z.object({
+  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+  id: VerificationIdSchema,
+  testCaseId: IdentifierSchema,
+  filePath: RelativePathSchema,
+  contentSha256: Sha256HexSchema,
+  status: VerificationStatusSchema,
+  // Absent only for `typecheck_failed`, where the spec never ran.
+  result: RunResultSchema.optional(),
+  verifiedAt: IsoDateTimeSchema,
+  consumedAt: IsoDateTimeSchema.optional(),
+});
+export type VerificationRecord = z.infer<typeof VerificationRecordSchema>;

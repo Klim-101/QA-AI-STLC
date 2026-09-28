@@ -63,8 +63,9 @@ ISTQB/ISO 29119 grounding. Two points worth restating:
 2. Call `qa.generation_verify` with the exact `qa.generation_spoke_input` result, the candidate
    content, the target `filePath` and the generator's own version — it typechecks the candidate,
    then, only if that passes, executes it once through the runner.
-3. Only a `'verified'` outcome is registered: call `qa.generation_register` with the exact `spec`,
-   `result` and `contentSha256` the `'verified'` outcome returned, unmodified.
+3. Only a `'verified'` outcome is registered: call `qa.generation_register` with the exact `spec`
+   and `verificationId` the `'verified'` outcome returned, unmodified. A `verificationId` registers
+   one spec once; to register again, verify again.
 4. A `'typecheck_failed'` or `'execution_failed'` outcome is never registered. Report the `issues`
    plainly; the hub re-dispatches within the configured retry budget — this skill does not run its
    own retry loop.

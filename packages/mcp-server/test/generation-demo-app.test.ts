@@ -157,18 +157,13 @@ describe('generation verification loop (demo app, no LLM)', () => {
       });
 
       expect(outcome.status).toBe('verified');
-      if (
-        outcome.status !== 'verified' ||
-        outcome.spec === undefined ||
-        outcome.contentSha256 === undefined
-      ) {
-        throw new Error('Expected a verified outcome with a spec and contentSha256.');
+      if (outcome.status !== 'verified' || outcome.spec === undefined) {
+        throw new Error('Expected a verified outcome with a spec.');
       }
 
       const registered = await generationRegisterTool.handler({
         spec: outcome.spec,
-        result: outcome.result!,
-        contentSha256: outcome.contentSha256,
+        verificationId: outcome.verificationId,
       });
 
       expect(registered.filePath).toBe('tests/qa/generated/login-verified.spec.ts');
@@ -178,6 +173,12 @@ describe('generation verification loop (demo app, no LLM)', () => {
         artifacts: Record<string, unknown>;
       };
       expect(manifest.artifacts).toHaveProperty(registered.filePath);
+
+      // P4-13: one verification authorizes one registration.
+      const reused = await generationRegisterTool
+        .handler({ spec: outcome.spec, verificationId: outcome.verificationId })
+        .catch((caught: unknown) => caught);
+      expect(reused).toMatchObject({ code: 'core.verification.already_consumed' });
     },
     STARTUP_TIMEOUT_MS,
   );

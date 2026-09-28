@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
@@ -68,6 +68,31 @@ const CONFIG_YAML = [
 async function writeConfig(projectRoot: string): Promise<void> {
   await mkdir(join(projectRoot, '.qa'), { recursive: true });
   await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+}
+
+// Registers "checkout-case" through the real scope -> cases_add path and returns it exactly as the
+// engine stored it, which is what qa.generation_verify requires its input's testCase to match.
+async function registerCheckoutCase(projectRoot: string): Promise<Record<string, unknown>> {
+  await writeConfig(projectRoot);
+  await writeFile(join(projectRoot, 'requirements.md'), '## Checkout\nA guest can check out.\n', 'utf-8');
+  await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+  await writeFile(
+    join(projectRoot, 'checkout-case.json'),
+    JSON.stringify({
+      id: 'checkout-case',
+      feature: 'checkout',
+      requirementIds: ['checkout'],
+      testType: 'e2e',
+      title: 'Guest checkout',
+      steps: [{ description: 'Complete checkout' }],
+      expectedResult: 'Order confirmed',
+      status: 'draft',
+      createdAt: '2026-09-20T12:00:00Z',
+    }),
+    'utf-8',
+  );
+  const { casePath } = await casesAddTool.handler({ path: 'checkout-case.json' });
+  return JSON.parse(await readFile(join(projectRoot, '.qa', casePath), 'utf-8')) as Record<string, unknown>;
 }
 
 // Every engine tool builds its `EngineContext` from `process.cwd()` (engine-context.ts), matching
@@ -787,22 +812,12 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
   it('qa.generation_verify reports typecheck_failed for a real type error, without touching the project', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
+      const testCase = await registerCheckoutCase(projectRoot);
 
       const outcome = await generationVerifyTool.handler({
         input: {
           schemaVersion: 1,
-          testCase: {
-            schemaVersion: 1,
-            id: 'checkout-case',
-            feature: 'checkout',
-            requirementIds: ['req-1'],
-            testType: 'e2e',
-            title: 'Guest checkout',
-            steps: [{ description: 'Complete checkout' }],
-            expectedResult: 'Order confirmed',
-            status: 'approved',
-            createdAt: '2026-09-20T12:00:00Z',
-          },
+          testCase: testCase as never,
           registrySlice: { schemaVersion: 1, generatedAt: '2026-09-20T12:00:00Z', elements: [] },
           locatorModule: { generatorVersion: '1.3.0', exports: [] },
         },
@@ -813,17 +828,6 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         // "environment" actually being forwarded, not just its absence.
         environment: 'staging',
       });
-      process.chdir(originalCwd);
-
-      expect(outcome.status).toBe('typecheck_failed');
-      expect(outcome.issues?.[0]?.message).toContain("Type 'string' is not assignable to type 'number'");
-    });
-  });
-
-  it('qa.generation_register rejects content that does not match what was actually verified', async () => {
-    await withTempDir(async (projectRoot) => {
-      process.chdir(projectRoot);
-
       const rejected = await generationRegisterTool
         .handler({
           spec: {
@@ -833,26 +837,46 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
             filePath: 'tests/qa/checkout/guest-checkout.spec.ts',
             sourceHash: 'a'.repeat(64),
             generatedAt: '2026-09-27T10:00:00.000Z',
-            content: 'export const GENERATOR_VERSION = "1.3.0"; // real content',
+            content: 'export const total: number = "not a number";\n',
           },
-          result: {
-            schemaVersion: 1,
-            id: 'run-result-1',
-            runId: 'verify-1',
-            testCaseId: 'checkout-case',
-            testType: 'e2e',
-            status: 'passed',
-            startedAt: '2026-09-27T10:00:00.000Z',
-            finishedAt: '2026-09-27T10:00:01.000Z',
-            evidenceIds: [],
-          },
-          // Sha256 of different content than "spec.content" above — must be rejected.
-          contentSha256: 'b'.repeat(64),
+          verificationId: outcome.verificationId,
         })
         .catch((caught: unknown) => caught);
       process.chdir(originalCwd);
 
-      expect(rejected).toMatchObject({ code: 'core.verification.content_mismatch' });
+      expect(outcome.status).toBe('typecheck_failed');
+      expect(outcome.issues?.[0]?.message).toContain("Type 'string' is not assignable to type 'number'");
+      expect(outcome.verificationId).toMatch(/^verification-/);
+      expect(rejected).toMatchObject({ code: 'core.verification.not_verified' });
+    });
+  });
+
+  // The P4-13 live repro: invalid TypeScript for a test case that does not exist, registered with
+  // no verification ever having run. The caller can no longer supply a result or hash at all.
+  it('qa.generation_register rejects a spec no verification ever ran for, writing nothing', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+
+      const rejected = await generationRegisterTool
+        .handler({
+          spec: {
+            schemaVersion: 1,
+            testCaseId: 'never-registered',
+            generatorVersion: '1.3.0',
+            filePath: 'tests/qa/never-verified.spec.ts',
+            sourceHash: 'a'.repeat(64),
+            generatedAt: '2026-09-28T10:00:00.000Z',
+            content: 'this is not TypeScript at all {{{ ;;;',
+          },
+          verificationId: 'verification-made-up',
+        })
+        .catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'core.verification.record_not_found' });
+      await expect(readFile(join(projectRoot, 'tests', 'qa', 'never-verified.spec.ts'))).rejects.toThrow();
+      await expect(readFile(join(projectRoot, '.qa', 'manifest.json'))).rejects.toThrow();
     });
   });
 

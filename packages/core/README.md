@@ -62,9 +62,13 @@ against a fixed TypeScript baseline (a real `tsc --noEmit` spawn against a scrat
 beside the real target so its imports resolve) and, only if that passes, executed once through the
 injected `Runner`. Either failure returns `SpokeValidationIssue[]` in the same shape
 `SpokeErrorSchema.issues` already uses, reusing `RunResultSchema`'s own `failure`/`missingStepIds`
-fields to name exactly which step failed — no new failure-identity mechanism. Only a
-`'verified'` outcome can be passed to `registerVerifiedGeneratedTestSpec`, enforced by the type
-system, which then writes the spec to its real path and registers it in the manifest, the same
+fields to name exactly which step failed — no new failure-identity mechanism. The case must be
+registered and unchanged, so required step coverage always comes from the engine's own copy.
+Every outcome is recorded by the engine as a manifest-registered `VerificationRecord` under
+`.qa/verifications/`, and `registerVerifiedGeneratedTestSpec` accepts only that record's
+`verificationId`, never a caller-supplied result or hash (P4-13). It rejects a record that is
+missing, tampered, not `verified`, already used, or for a different test case, file path or
+content, then writes the spec to its real path and registers it in the manifest, the same
 "write to the project tree, then `manifest.register`" pattern ADR-006 established for the locator
 module. `hasVerificationRetryBudget` reads the existing `config.agents.retries` field; the retry
 loop itself — re-dispatching the generating spoke with a failed outcome's `issues` — is a hub

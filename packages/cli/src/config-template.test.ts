@@ -81,5 +81,6 @@ describe('QA_GITIGNORE', () => {
     expect(QA_GITIGNORE).toContain('/runs/');
     expect(QA_GITIGNORE).toContain('/evidence/');
     expect(QA_GITIGNORE).toContain('/auth/');
+    expect(QA_GITIGNORE).toContain('/verifications/');
   });
 });

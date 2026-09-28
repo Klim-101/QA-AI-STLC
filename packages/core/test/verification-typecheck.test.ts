@@ -13,7 +13,10 @@ import { nodeFileSystem } from '../src/ports/file-system.js';
 import { nodeProcessRunner } from '../src/ports/process-runner.js';
 import { systemClock } from '../src/ports/clock.js';
 import type { Runner } from '../src/runner.js';
-import { verifyGeneratedTestSpec } from '../src/verification.js';
+import { toCanonicalJson } from '../src/json-file.js';
+import { ManifestStore } from '../src/manifest-store.js';
+import { QaStore } from '../src/qa-store.js';
+import { registerVerifiedGeneratedTestSpec, verifyGeneratedTestSpec } from '../src/verification.js';
 
 const CONFIG_YAML = [
   'schemaVersion: 1',
@@ -82,6 +85,10 @@ function fakeRunner(status: 'passed' | 'failed'): Runner {
 async function createProjectContext(dir: string): Promise<EngineContext> {
   await nodeFileSystem.mkdir(join(dir, '.qa'));
   await nodeFileSystem.writeFile(join(dir, '.qa', 'config.yaml'), CONFIG_YAML);
+  const store = new QaStore({ projectRoot: dir });
+  const casePath = 'artifacts/cases/checkout/case-1.json';
+  await store.writeJson(casePath, TEST_CASE);
+  await new ManifestStore({ store }).register(casePath, toCanonicalJson(TEST_CASE));
   return {
     projectRoot: dir,
     fs: nodeFileSystem,
@@ -140,6 +147,31 @@ describe('verifyGeneratedTestSpec against the real TypeScript compiler', () => {
       expect(runnerCalled).toBe(false);
       expect(await nodeFileSystem.pathExists(join(dir, 'tests', 'qa', 'checkout'))).toBe(true);
       expect(await nodeFileSystem.listFiles(join(dir, 'tests', 'qa', 'checkout'))).toEqual([]);
+    });
+  }, 30_000);
+
+  it('registers a spec only through the verification record the engine wrote for it', async () => {
+    await withTempDir(async (dir) => {
+      const context = await createProjectContext(dir);
+      const verified = spec();
+      const targetPath = join(dir, 'tests', 'qa', 'checkout', 'guest-checkout.spec.ts');
+
+      await expect(
+        registerVerifiedGeneratedTestSpec(context, verified, 'verification-never-ran'),
+      ).rejects.toMatchObject({ code: 'core.verification.record_not_found' });
+      expect(await nodeFileSystem.pathExists(targetPath)).toBe(false);
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: verified,
+        testCase: TEST_CASE,
+        runner: fakeRunner('passed'),
+      });
+      await registerVerifiedGeneratedTestSpec(context, verified, outcome.verificationId);
+
+      expect(await nodeFileSystem.readFile(targetPath)).toBe(verified.content);
+      await expect(
+        registerVerifiedGeneratedTestSpec(context, verified, outcome.verificationId),
+      ).rejects.toMatchObject({ code: 'core.verification.already_consumed' });
     });
   }, 30_000);
 });
