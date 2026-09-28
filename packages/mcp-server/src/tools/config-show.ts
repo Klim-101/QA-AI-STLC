@@ -4,6 +4,7 @@
 import { runConfigShow } from '@qa-ai-stlc/core';
 import { ConfigSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
+import { ConfigRelaxationSchema } from '../config-relaxation-schema.js';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
 
@@ -28,20 +29,6 @@ const ConfigShowValueSchema = z.object({
     .enum(['committed', 'local', 'default'])
     .describe('".qa/config.yaml", the local layer file, or a ConfigSchema default no layer set.'),
 });
-
-const ConfigRelaxationSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('allowlist-entry'),
-    environment: z.string(),
-    hostname: z.string(),
-    localLayerPath: z.string(),
-  }),
-  z.object({
-    kind: z.literal('tls-insecure'),
-    environment: z.string(),
-    localLayerPath: z.string(),
-  }),
-]);
 
 const OutputSchema = z.object({
   config: ConfigSchema,

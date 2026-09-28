@@ -169,6 +169,32 @@ Generated tests reference locators through this module by name (`apply(page)`), 
 literal selector, so a selector change is a one-line diff here instead of a search-and-replace
 across every test file.
 
+### Configuration layers
+
+`.qa/config.yaml` is committed and every machine reads the same one. A second, optional layer —
+`.qa/config.local.yaml`, or the file the `QA_CONFIG_LOCAL` environment variable names — lets one
+operator or one CI runner point at its own server, identity, source checkout or parallelism
+budget without touching the committed file. `qa init` adds `/config.local.yaml` to
+`.qa/.gitignore` and writes a commented `config.local.yaml.example` showing the syntax; copy the
+lines you need into a real `config.local.yaml`.
+
+Only `environments`, `identities`, `source` and `agents` may be set locally — everything that
+feeds a gate, a hash or generated code (`testing`, `selectors`, `data`, `api`, `flaky`,
+`evidence`) stays committed-only, so two machines never produce different pipeline results from
+the same artifacts. Objects merge key by key; arrays and scalars replace. If the local layer
+widens an environment's allowlist or sets `tlsInsecure: true`, every command that loads the
+configuration — including `qa doctor`, which `qa-start` runs first — prints a warning naming
+exactly what changed and which file did it, so a relaxation is never silent:
+
+```
+warning: CONFIG_RELAXATION .qa/config.local.yaml adds "localhost" to the allowlist of environment "dev", which .qa/config.yaml does not list
+```
+
+`qa config show --explain` (or the `qa.config_show` MCP tool) prints the effective configuration
+with the source of every value — `.qa/config.yaml`, the local layer, or a schema default — and
+every relaxation. See [ADR-0011](docs/adr/0011-layered-project-configuration.md) for the full
+design.
+
 ### Catching a stale selector
 
 `qa explore --verify` re-checks every stored primary candidate against the live page, without

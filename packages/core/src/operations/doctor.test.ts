@@ -86,6 +86,54 @@ describe('runDoctor', () => {
     expect(report.checks.find((check) => check.name === 'environment:staging')?.status).toBe('pass');
   });
 
+  it('fails and names the missing identity secret (P6-24)', async () => {
+    const fs = createFakeFileSystem();
+    const context = fakeContext({ fs, env: {} });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), CONFIG_YAML);
+
+    const report = await runDoctor(context);
+
+    expect(report.ok).toBe(false);
+    const identityCheck = report.checks.find((check) => check.name === 'identity:admin');
+    expect(identityCheck).toMatchObject({ status: 'fail', message: 'QA_ADMIN_PASSWORD is not set' });
+    expect(identityCheck?.remediation).toContain('QA_ADMIN_PASSWORD');
+  });
+
+  it('reports no relaxations with no local configuration layer', async () => {
+    const fs = createFakeFileSystem();
+    const context = fakeContext({ fs, env: { QA_ADMIN_PASSWORD: 'set' } });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), CONFIG_YAML);
+
+    const report = await runDoctor(context);
+
+    expect(report.relaxations).toStrictEqual([]);
+  });
+
+  it('reports every relaxation the local configuration layer introduces (P6-24, ADR-011)', async () => {
+    const fs = createFakeFileSystem();
+    const context = fakeContext({ fs, env: { QA_ADMIN_PASSWORD: 'set' } });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), CONFIG_YAML);
+    await fs.writeFile(
+      join(QA_DIR, 'config.local.yaml'),
+      'environments:\n  staging:\n    tlsInsecure: true\n',
+    );
+
+    const report = await runDoctor(context);
+
+    expect(report.relaxations).toStrictEqual([
+      { kind: 'tls-insecure', environment: 'staging', localLayerPath: '.qa/config.local.yaml' },
+    ]);
+  });
+
+  it('reports no relaxations, only the coded config error, when config fails to load', async () => {
+    const report = await runDoctor(fakeContext());
+
+    expect(report.relaxations).toStrictEqual([]);
+  });
+
   it('does nothing when fix is set and every browser is already installed', async () => {
     const installedFiles = Object.fromEntries(
       SUPPORTED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),

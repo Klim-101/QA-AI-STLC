@@ -811,11 +811,12 @@ function formatConfigShowResult(result: ConfigShowResult, explain: boolean): rea
 }
 
 function formatDoctorReport(report: DoctorReport): readonly string[] {
-  return report.checks.map((check) => {
+  const checkLines = report.checks.map((check) => {
     const marker = check.status === 'pass' ? 'PASS' : 'FAIL';
     const remediation = check.remediation !== undefined ? ` — ${check.remediation}` : '';
     return `[${marker}] ${check.name}: ${check.message}${remediation}`;
   });
+  return [...checkLines, ...report.relaxations.map((relaxation) => formatConfigRelaxation(relaxation))];
 }
 
 function formatExploreReport(report: ExploreReport): readonly string[] {

@@ -1,8 +1,10 @@
 # @qa-ai-stlc/cli
 
 The `qa` command: a thin client over `@qa-ai-stlc/core` and `@qa-ai-stlc/explorer` for CI and
-humans. `qa init` creates the `.qa/` store and runs the testing scope survey; `qa doctor` checks
-Node, browsers, identities and environment reachability before a run; `qa explore` crawls the
+humans. `qa init` creates the `.qa/` store, runs the testing scope survey, and writes a commented
+`.qa/config.local.yaml.example` showing the optional local configuration layer's syntax (ADR-011);
+`qa doctor` checks Node, browsers, identities and environment reachability before a run, and
+prints every relaxation the local layer introduces; `qa explore` crawls the
 configured environment, optionally merges static source analysis (`--static`) and pick-mode
 entries (`--pick <url>`), and writes the selector registry and a generated locator module;
 `qa explore --verify` re-checks stored selectors against the live page without re-crawling.

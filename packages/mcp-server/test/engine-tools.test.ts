@@ -122,7 +122,32 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(result.ok).toBe(false);
       expect(result.checks.some((check) => check.name === 'config' && check.status === 'fail')).toBe(true);
+      expect(result.relaxations).toStrictEqual([]);
       expect(resultWithFixOption.ok).toBe(false);
+    });
+  });
+
+  it('qa.doctor reports every relaxation the local configuration layer introduces (P6-24)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(
+        join(projectRoot, '.qa', 'config.local.yaml'),
+        'environments:\n  dev:\n    baseUrl: http://localhost:4310\n    allowlist: [localhost]\n',
+        'utf-8',
+      );
+
+      const result = await doctorTool.handler({});
+      process.chdir(originalCwd);
+
+      expect(result.relaxations).toStrictEqual([
+        {
+          kind: 'allowlist-entry',
+          environment: 'dev',
+          hostname: 'localhost',
+          localLayerPath: '.qa/config.local.yaml',
+        },
+      ]);
     });
   });
 

@@ -1,10 +1,10 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigSchema, type TestingScope } from '@qa-ai-stlc/schemas';
+import { ConfigSchema, isLocalOverridableConfigSection, type TestingScope } from '@qa-ai-stlc/schemas';
 import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
-import { QA_GITIGNORE, renderConfigYaml } from './config-template.js';
+import { CONFIG_LOCAL_EXAMPLE, QA_GITIGNORE, renderConfigYaml } from './config-template.js';
 
 const ALL_UNDECIDED: TestingScope = {
   e2e: 'undecided',
@@ -86,5 +86,42 @@ describe('QA_GITIGNORE', () => {
 
   it('ignores the local configuration layer', () => {
     expect(QA_GITIGNORE).toContain('/config.local.yaml');
+  });
+});
+
+describe('CONFIG_LOCAL_EXAMPLE', () => {
+  it('has every line commented out, so the file is inert if ever loaded by name', () => {
+    for (const line of CONFIG_LOCAL_EXAMPLE.split('\n')) {
+      if (line.trim().length > 0) {
+        expect(line.trimStart().startsWith('#')).toBe(true);
+      }
+    }
+  });
+
+  it('shows only local-overridable top-level sections (ADR-011)', () => {
+    const commentedSections = [...CONFIG_LOCAL_EXAMPLE.matchAll(/^#\s([a-zA-Z]+):\s*$/gm)].map(
+      (match) => match[1]!,
+    );
+
+    expect(commentedSections).toStrictEqual(['environments', 'identities', 'source', 'agents']);
+    for (const name of commentedSections) {
+      expect(isLocalOverridableConfigSection(name)).toBe(true);
+    }
+  });
+
+  it('never shows a committed-only section such as testing or selectors', () => {
+    expect(CONFIG_LOCAL_EXAMPLE).not.toMatch(/^#\s(testing|selectors|data|api|flaky|evidence):\s*$/m);
+  });
+
+  it('parses as valid YAML once uncommented, and validates as a config fragment', () => {
+    const startIndex = CONFIG_LOCAL_EXAMPLE.indexOf('# environments:');
+    const uncommented = CONFIG_LOCAL_EXAMPLE.slice(startIndex)
+      .split('\n')
+      .map((line) => line.replace(/^#\s?/, ''))
+      .join('\n');
+
+    const parsed = parseYaml(uncommented) as Readonly<Record<string, unknown>>;
+
+    expect(Object.keys(parsed)).toStrictEqual(['environments', 'identities', 'source', 'agents']);
   });
 });

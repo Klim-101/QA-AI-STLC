@@ -42,6 +42,13 @@ npm run licenses:check
 
 The repository is being bootstrapped, so some scripts may not exist yet. Run the ones that do and mention the rest in your pull request.
 
+When you run the CLI or the MCP server against a real project — including manually verifying a
+change against `examples/demo-app` — a machine-specific `.qa/config.local.yaml` (or a file named
+by `QA_CONFIG_LOCAL`) lets you set your own `environments`, `identities`, `source` or `agents`
+without touching the project's committed `config.yaml`; `qa init` writes a commented example at
+`.qa/config.local.yaml.example`. See [ADR-0011](docs/adr/0011-layered-project-configuration.md)
+and the README's ["Configuration layers"](README.md#configuration-layers) section.
+
 ## Workflow
 
 1. Create a branch from the latest `main` **before making any changes**, not right before your first commit: `<type>/<issue-number>-<short-description>`, for example `fix/57-registry-hash-order`. Types: `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`.

@@ -4,7 +4,13 @@
 import { QaError, QaStore, findUndecidedTestingTypes } from '@qa-ai-stlc/core';
 import type { TestingScope, TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { CommandContext } from '../command-context.js';
-import { LOCAL_LAYER_IGNORE_ENTRY, QA_GITIGNORE, renderConfigYaml } from '../config-template.js';
+import {
+  CONFIG_LOCAL_EXAMPLE,
+  CONFIG_LOCAL_EXAMPLE_PATH,
+  LOCAL_LAYER_IGNORE_ENTRY,
+  QA_GITIGNORE,
+  renderConfigYaml,
+} from '../config-template.js';
 
 export interface TestingScopeAnswers {
   readonly e2e?: TestingScopeDecision;
@@ -114,6 +120,14 @@ export async function runInit(context: CommandContext, options: InitOptions = {}
     created.push('.gitignore');
   } else {
     await ensureLocalLayerIgnored(store);
+  }
+
+  // Committed reference for the local configuration layer (ADR-011, P6-24): the layer file itself
+  // is never written here, since "qa init" has no local overrides of its own to suggest.
+  const exampleExisted = await store.pathExists(CONFIG_LOCAL_EXAMPLE_PATH);
+  if (!exampleExisted || options.force === true) {
+    await store.writeText(CONFIG_LOCAL_EXAMPLE_PATH, CONFIG_LOCAL_EXAMPLE);
+    created.push(CONFIG_LOCAL_EXAMPLE_PATH);
   }
 
   return {
