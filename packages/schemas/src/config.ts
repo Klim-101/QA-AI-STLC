@@ -52,20 +52,42 @@ export const EnvironmentConfigSchema = z.object({
   // Off by default (P2-18): bypasses TLS certificate validation for this environment's HTTP and
   // browser traffic, for reaching a server behind a self-signed or internal-CA certificate.
   tlsInsecure: z.boolean().optional(),
+  // Playwright's own default (30 seconds) applies when omitted (P6-23); a value that differs per
+  // environment is a field here rather than a generic overrides block (ADR-011), for a staging
+  // server that is consistently slower than a local one.
+  navigationTimeoutMs: z.number().int().positive().optional(),
+  actionTimeoutMs: z.number().int().positive().optional(),
 });
 export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 
 export const IdentityAuthSchema = z.enum(['cdp-attach', 'storage-state']);
 export type IdentityAuth = z.infer<typeof IdentityAuthSchema>;
 
-// A missing selector falls back to a generic default (development plan section 6.2); given only
-// when the application's login form does not match it.
+// A missing selector falls back to `selectors.defaultLoginSelectors` (development plan section
+// 6.2); given only when the application's login form does not match it.
 export const LoginSelectorsSchema = z.object({
   username: z.string().min(1).optional(),
   password: z.string().min(1).optional(),
   submit: z.string().min(1).optional(),
 });
 export type LoginSelectors = z.infer<typeof LoginSelectorsSchema>;
+
+export const DefaultLoginSelectorsSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+  submit: z.string().min(1),
+});
+export type DefaultLoginSelectors = z.infer<typeof DefaultLoginSelectorsSchema>;
+
+// The project-wide fallback (P6-23) used when neither an identity's own `selectors` nor its
+// individual fields name one; today's hardcoded values, so a project with a non-standard login
+// form can change them once instead of repeating an override on every identity.
+export const DEFAULT_LOGIN_SELECTORS: DefaultLoginSelectors = {
+  username:
+    'input[type="email"], input[name="username"], input[id="username"], input[autocomplete="username"]',
+  password: 'input[type="password"]',
+  submit: 'button[type="submit"], input[type="submit"]',
+};
 
 export const IdentityConfigSchema = z
   .object({
@@ -101,9 +123,47 @@ export type DataConfig = z.infer<typeof DataConfigSchema>;
 export const SelectorPolicySchema = z.enum(['playwright-default', 'testid-first', 'strict-no-css']);
 export type SelectorPolicy = z.infer<typeof SelectorPolicySchema>;
 
+export const ViewportSizeSchema = z.object({
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type ViewportSize = z.infer<typeof ViewportSizeSchema>;
+
+// Desktop, tablet and mobile (development plan section 6.3.5): a locator candidate must resolve
+// uniquely at each of these sizes, not only the one it was first observed at, to count as stable.
+export const DEFAULT_STABILITY_VIEWPORTS: readonly ViewportSize[] = [
+  { width: 1280, height: 720 },
+  { width: 768, height: 1024 },
+  { width: 375, height: 667 },
+];
+
+function isValidRegexSource(value: string): boolean {
+  try {
+    new RegExp(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const SelectorsConfigSchema = z.object({
   policy: SelectorPolicySchema,
   testIdAttribute: z.string().min(1),
+  stabilityViewports: z
+    .array(ViewportSizeSchema)
+    .min(1)
+    .default([...DEFAULT_STABILITY_VIEWPORTS]),
+  defaultLoginSelectors: DefaultLoginSelectorsSchema.default(DEFAULT_LOGIN_SELECTORS),
+  // Attributes, beyond `testIdAttribute`, synthesized as an extra CSS candidate when present — for
+  // a project whose own convention marks an element stable without using a `data-testid`-style
+  // attribute. Empty by default: no project convention is assumed.
+  extraStableAttributes: z.array(z.string().min(1)).default([]),
+  // An `id` matching one of these regular expressions (source text) is never used for the CSS
+  // fallback candidate: a framework-generated id (React's `useId`, a CSS-module hash) looks unique
+  // right now but is not stable across renders. Empty by default: no id is excluded.
+  generatedIdPatterns: z
+    .array(z.string().min(1).refine(isValidRegexSource, 'must be a valid regular expression'))
+    .default([]),
 });
 export type SelectorsConfig = z.infer<typeof SelectorsConfigSchema>;
 
@@ -125,6 +185,15 @@ export const FlakyDetectionConfigSchema = z.object({
 });
 export type FlakyDetectionConfig = z.infer<typeof FlakyDetectionConfigSchema>;
 
+export const EvidenceConfigSchema = z.object({
+  // Response bodies longer than this are stored truncated, with `truncated: true` set
+  // (`qa.http_execute`); the secret scan still covers the whole stored preview.
+  httpBodyPreviewMaxLength: z.number().int().positive(),
+});
+export type EvidenceConfig = z.infer<typeof EvidenceConfigSchema>;
+
+export const DEFAULT_EVIDENCE_CONFIG: EvidenceConfig = { httpBodyPreviewMaxLength: 4000 };
+
 export const ConfigSchema = z
   .object({
     schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
@@ -137,6 +206,7 @@ export const ConfigSchema = z
     selectors: SelectorsConfigSchema,
     agents: AgentsConfigSchema,
     flaky: FlakyDetectionConfigSchema.default({ historyWindow: 10, minStatusChanges: 2 }),
+    evidence: EvidenceConfigSchema.default(DEFAULT_EVIDENCE_CONFIG),
   })
   // The testing scope survey (development plan section 2.7) is the single source of truth for
   // whether a contract or a source checkout is required; a config that claims API is in scope
@@ -167,6 +237,7 @@ export const CONFIG_SECTION_LAYERING: Readonly<Record<ConfigSectionName, ConfigS
   selectors: 'committed-only',
   agents: 'local-overridable',
   flaky: 'committed-only',
+  evidence: 'committed-only',
 };
 
 /** True when `key` is a known section the local layer may set; unknown keys are never overridable. */

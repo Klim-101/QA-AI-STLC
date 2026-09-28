@@ -3,6 +3,7 @@
 
 import { join } from 'node:path';
 import {
+  ConfigSchema,
   SCHEMA_VERSION,
   TestCaseSchema,
   VerificationRecordSchema,
@@ -710,7 +711,7 @@ describe('registerVerifiedGeneratedTestSpec', () => {
 });
 
 describe('hasVerificationRetryBudget', () => {
-  const config: Config = {
+  const config: Config = ConfigSchema.parse({
     schemaVersion: SCHEMA_VERSION,
     testing: { e2e: 'undecided', api: 'undecided', a11y: 'undecided', security: 'undecided' },
     environments: {},
@@ -718,8 +719,7 @@ describe('hasVerificationRetryBudget', () => {
     data: { strategy: 'manual', ownerMarker: 'qa-ai-stlc' },
     selectors: { policy: 'playwright-default', testIdAttribute: 'data-testid' },
     agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 2 },
-    flaky: { historyWindow: 10, minStatusChanges: 2 },
-  };
+  });
 
   it('allows another attempt while attempts so far are within the budget', () => {
     expect(hasVerificationRetryBudget(config, 0)).toBe(true);

@@ -5,8 +5,13 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_SECTION_LAYERING,
   ConfigSchema,
+  DEFAULT_EVIDENCE_CONFIG,
+  DEFAULT_LOGIN_SELECTORS,
+  DEFAULT_STABILITY_VIEWPORTS,
   EnvironmentConfigSchema,
+  EvidenceConfigSchema,
   FlakyDetectionConfigSchema,
+  SelectorsConfigSchema,
   isLocalOverridableConfigSection,
 } from './config.js';
 
@@ -119,6 +124,68 @@ describe('ConfigSchema', () => {
     });
     expect(result.flaky).toEqual({ historyWindow: 5, minStatusChanges: 3 });
   });
+
+  it('defaults evidence.httpBodyPreviewMaxLength when omitted (P6-23)', () => {
+    const result = ConfigSchema.parse(validConfig());
+    expect(result.evidence).toEqual(DEFAULT_EVIDENCE_CONFIG);
+  });
+
+  it('accepts an explicit evidence.httpBodyPreviewMaxLength', () => {
+    const result = ConfigSchema.parse({ ...validConfig(), evidence: { httpBodyPreviewMaxLength: 200 } });
+    expect(result.evidence).toEqual({ httpBodyPreviewMaxLength: 200 });
+  });
+
+  it('defaults selectors.stabilityViewports, defaultLoginSelectors, extraStableAttributes and generatedIdPatterns when omitted (P6-23)', () => {
+    const result = ConfigSchema.parse(validConfig());
+    expect(result.selectors.stabilityViewports).toEqual(DEFAULT_STABILITY_VIEWPORTS);
+    expect(result.selectors.defaultLoginSelectors).toEqual(DEFAULT_LOGIN_SELECTORS);
+    expect(result.selectors.extraStableAttributes).toEqual([]);
+    expect(result.selectors.generatedIdPatterns).toEqual([]);
+  });
+
+  it('accepts an explicit override of every new selectors field (P6-23)', () => {
+    const config = validConfig();
+    const result = ConfigSchema.parse({
+      ...config,
+      selectors: {
+        ...config.selectors,
+        stabilityViewports: [{ width: 400, height: 300 }],
+        defaultLoginSelectors: { username: '#u', password: '#p', submit: '#s' },
+        extraStableAttributes: ['data-qa'],
+        generatedIdPatterns: ['^:r[0-9a-z]+:$'],
+      },
+    });
+    expect(result.selectors.stabilityViewports).toEqual([{ width: 400, height: 300 }]);
+    expect(result.selectors.defaultLoginSelectors).toEqual({ username: '#u', password: '#p', submit: '#s' });
+    expect(result.selectors.extraStableAttributes).toEqual(['data-qa']);
+    expect(result.selectors.generatedIdPatterns).toEqual(['^:r[0-9a-z]+:$']);
+  });
+});
+
+describe('EvidenceConfigSchema', () => {
+  it('rejects a non-positive httpBodyPreviewMaxLength', () => {
+    const result = EvidenceConfigSchema.safeParse({ httpBodyPreviewMaxLength: 0 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('SelectorsConfigSchema (P6-23)', () => {
+  const base = { policy: 'playwright-default', testIdAttribute: 'data-testid' };
+
+  it('rejects an empty stabilityViewports array', () => {
+    const result = SelectorsConfigSchema.safeParse({ ...base, stabilityViewports: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a generatedIdPatterns entry that is not a valid regular expression', () => {
+    const result = SelectorsConfigSchema.safeParse({ ...base, generatedIdPatterns: ['(unclosed'] });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a generatedIdPatterns entry that is a valid regular expression', () => {
+    const result = SelectorsConfigSchema.safeParse({ ...base, generatedIdPatterns: ['^generated-'] });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('FlakyDetectionConfigSchema', () => {
@@ -162,6 +229,46 @@ describe('EnvironmentConfigSchema', () => {
     const result = EnvironmentConfigSchema.safeParse({
       baseUrl: 'https://staging.example.com',
       allowlist: ['https://staging.example.com'],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts navigationTimeoutMs and actionTimeoutMs (P6-23)', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+      navigationTimeoutMs: 60_000,
+      actionTimeoutMs: 15_000,
+    });
+    expect(result).toMatchObject({
+      success: true,
+      data: { navigationTimeoutMs: 60_000, actionTimeoutMs: 15_000 },
+    });
+  });
+
+  it('defaults navigationTimeoutMs and actionTimeoutMs to undefined when omitted', () => {
+    const result = EnvironmentConfigSchema.parse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+    });
+    expect(result.navigationTimeoutMs).toBeUndefined();
+    expect(result.actionTimeoutMs).toBeUndefined();
+  });
+
+  it('rejects a non-positive navigationTimeoutMs', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+      navigationTimeoutMs: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-positive actionTimeoutMs', () => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+      actionTimeoutMs: -1,
     });
     expect(result.success).toBe(false);
   });

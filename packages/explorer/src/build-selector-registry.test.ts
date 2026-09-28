@@ -148,6 +148,26 @@ describe('buildSelectorRegistry', () => {
     expect(registry.elements[0]?.stabilityScore).toBe(1);
   });
 
+  it('never uses an id matching a configured generatedIdPatterns entry (P6-23)', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([pageModel(url, [element({ htmlId: 'r-generated', nthOfType: 2 })])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
+
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      generatedIdPatterns: ['^r-'],
+    });
+
+    expect(registry.elements[0]?.locatorCandidates[0]).toEqual({
+      strategy: 'css',
+      value: 'button:nth-of-type(2)',
+      fragile: true,
+    });
+  });
+
   it('records an empty candidate list and a stability score of 0 when strict-no-css finds nothing', async () => {
     const url = 'https://staging.example.com/login';
     const model = pageModelSet([pageModel(url, [element()])]);

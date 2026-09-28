@@ -35,7 +35,7 @@ export async function runBrowserNavigate(
   assertUrlAllowed(options.url, session.allowlist, session.baseUrl);
 
   const evidenceStore = createBrowserEvidenceStore(context.engine);
-  const response = await session.page.goto(options.url);
+  const response = await session.page.goto(options.url, { timeout: session.navigationTimeoutMs });
   const httpStatus = response === null ? undefined : response.status();
   const url = session.page.url();
 

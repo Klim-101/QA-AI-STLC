@@ -3,7 +3,10 @@
 
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
+import {
+  BROWSER_TEST_CONFIG_YAML,
+  createBrowserTestHarness,
+} from '../test-support/browser-session-harness.js';
 import { runBrowserClick } from './browser-click.js';
 import { runBrowserNavigate } from './browser-navigate.js';
 import { runBrowserOpen } from './browser-open.js';
@@ -17,7 +20,7 @@ describe('runBrowserClick', () => {
     const result = await runBrowserClick(harness.context, { sessionId, selector: '[data-testid="submit"]' });
 
     expect(harness.launcher.pageCalls.filter((call) => call.method === 'click')).toEqual([
-      { method: 'click', args: ['[data-testid="submit"]'] },
+      { method: 'click', args: ['[data-testid="submit"]', { timeout: 30_000 }] },
     ]);
     expect(result).toMatchObject({
       sessionId,
@@ -57,5 +60,22 @@ describe('runBrowserClick', () => {
     await expect(
       runBrowserClick(harness.context, { sessionId: 'session-gone', selector: 'button' }),
     ).rejects.toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
+  });
+
+  it("honors the environment's configured actionTimeoutMs (P6-23), overriding Playwright's default", async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: BROWSER_TEST_CONFIG_YAML.replace(
+        '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+        '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"], actionTimeoutMs: 5000 }',
+      ),
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+    await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/login' });
+
+    await runBrowserClick(harness.context, { sessionId, selector: '[data-testid="submit"]' });
+
+    expect(harness.launcher.pageCalls.filter((call) => call.method === 'click')).toEqual([
+      { method: 'click', args: ['[data-testid="submit"]', { timeout: 5000 }] },
+    ]);
   });
 });

@@ -19,6 +19,8 @@ export interface AnalyzePagesOptions {
   readonly identity?: ExplorerIdentity;
   /** The attribute a crawled element's `testId` is read from (`config.selectors.testIdAttribute`). */
   readonly testIdAttribute: string;
+  /** `config.selectors.extraStableAttributes` (P6-23), read off each element when present. */
+  readonly extraStableAttributes?: readonly string[];
   readonly limits?: NormalizeLimits;
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this analysis session (P2-18); off by default. */
@@ -63,7 +65,9 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
     const pages: PageModel[] = [];
     for (const url of options.urls) {
       await page.goto(url);
-      pages.push(await analyzePage(page, url, options.testIdAttribute, limits));
+      pages.push(
+        await analyzePage(page, url, options.testIdAttribute, limits, options.extraStableAttributes ?? []),
+      );
     }
 
     const pageModelSet: PageModelSet = {

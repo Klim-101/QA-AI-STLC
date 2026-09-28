@@ -98,6 +98,58 @@ describe('synthesizeLocatorCandidates', () => {
     expect(candidates[0]).toEqual({ strategy: 'css', value: 'input:nth-of-type(3)', fragile: true });
   });
 
+  it('prefers a configured extra stable attribute over the id css fallback (P6-23)', () => {
+    const candidates = synthesizeLocatorCandidates(
+      element({ htmlId: 'email', extraAttributeValues: { 'data-qa': 'email-field' } }),
+      'playwright-default',
+      { extraStableAttributes: ['data-qa'] },
+    );
+
+    expect(candidates[0]).toEqual({ strategy: 'css', value: '[data-qa="email-field"]', fragile: true });
+  });
+
+  it('tries extraStableAttributes in order and falls through to the id when none has a value', () => {
+    const candidates = synthesizeLocatorCandidates(
+      element({ htmlId: 'email', extraAttributeValues: { 'data-cy': 'email-field' } }),
+      'playwright-default',
+      { extraStableAttributes: ['data-qa', 'data-cy'] },
+    );
+
+    expect(candidates[0]).toEqual({ strategy: 'css', value: '[data-cy="email-field"]', fragile: true });
+  });
+
+  it('escapes a double quote and a backslash in an extra attribute value (P6-23)', () => {
+    const candidates = synthesizeLocatorCandidates(
+      element({ extraAttributeValues: { 'data-qa': 'a "quoted" \\ value' } }),
+      'playwright-default',
+      { extraStableAttributes: ['data-qa'] },
+    );
+
+    expect(candidates[0]).toEqual({
+      strategy: 'css',
+      value: '[data-qa="a \\"quoted\\" \\\\ value"]',
+      fragile: true,
+    });
+  });
+
+  it('never uses an id matching a configured generatedIdPatterns entry (P6-23)', () => {
+    const candidates = synthesizeLocatorCandidates(
+      element({ htmlId: 'r-abc123', tagName: 'input', nthOfType: 2 }),
+      'playwright-default',
+      { generatedIdPatterns: [/^r-[a-z0-9]+$/] },
+    );
+
+    expect(candidates[0]).toEqual({ strategy: 'css', value: 'input:nth-of-type(2)', fragile: true });
+  });
+
+  it('still uses a css-safe id that matches none of the configured generatedIdPatterns', () => {
+    const candidates = synthesizeLocatorCandidates(element({ htmlId: 'email' }), 'playwright-default', {
+      generatedIdPatterns: [/^r-[a-z0-9]+$/],
+    });
+
+    expect(candidates[0]).toEqual({ strategy: 'css', value: '#email', fragile: true });
+  });
+
   it('marks every css candidate fragile and every other strategy not fragile', () => {
     const candidates = synthesizeLocatorCandidates(
       element({

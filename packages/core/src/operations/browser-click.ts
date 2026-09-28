@@ -32,7 +32,7 @@ export async function runBrowserClick(
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
 
-  await session.page.click(options.selector);
+  await session.page.click(options.selector, { timeout: session.actionTimeoutMs });
   const url = session.page.url();
 
   const evidence = await registerBrowserAction({

@@ -17,13 +17,14 @@ export async function analyzePage(
   url: string,
   testIdAttribute: string,
   limits: NormalizeLimits = DEFAULT_NORMALIZE_LIMITS,
+  extraStableAttributes: readonly string[] = [],
 ): Promise<PageModel> {
   const rawAccessibilityTree = await page.ariaSnapshotJSON();
   const { tree, truncated: accessibilityTruncated } = normalizeAccessibilityTree(
     rawAccessibilityTree,
     limits,
   );
-  const elements = await extractPageElements(page, limits, testIdAttribute);
+  const elements = await extractPageElements(page, limits, testIdAttribute, extraStableAttributes);
 
   return {
     url,

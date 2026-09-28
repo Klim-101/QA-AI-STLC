@@ -47,14 +47,19 @@ export interface ScreenshotOptions {
   readonly fullPage?: boolean;
 }
 
+/** Milliseconds Playwright waits before failing a navigation or an action (P6-23, ADR-011). */
+export interface PageActionOptions {
+  readonly timeout?: number;
+}
+
 /**
  * The narrow slice of Playwright's `Page` API authentication and crawling need. A real Playwright
  * `Page` satisfies this structurally; unit tests supply a small fake instead (AGENTS.md 5.3, 13).
  */
 export interface AuthPage {
-  goto(url: string): Promise<PageResponse | null>;
-  fill(selector: string, value: string): Promise<void>;
-  click(selector: string): Promise<void>;
+  goto(url: string, options?: PageActionOptions): Promise<PageResponse | null>;
+  fill(selector: string, value: string, options?: PageActionOptions): Promise<void>;
+  click(selector: string, options?: PageActionOptions): Promise<void>;
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
   /** Intercepts every request matching `pattern` (a glob, per Playwright's own syntax). */
   route(pattern: string, handler: RouteHandler): Promise<unknown>;

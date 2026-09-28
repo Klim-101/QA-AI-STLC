@@ -243,6 +243,24 @@ describe('capturePickModeElements', () => {
     expect(element?.stabilityScore).toBe(1);
   });
 
+  it('forwards a given generatedIdPatterns option to locator synthesis (P6-23)', async () => {
+    const page = fakeScoringPage({ locatorCounts: [1] });
+    const capture: PickModeCapture = {
+      pickId: 'pick-4',
+      kind: 'input',
+      tagName: 'input',
+      nthOfType: 5,
+      htmlId: 'r-generated',
+    };
+
+    const [element] = await capturePickModeElements(page, 'https://example.com/login', [capture], {
+      policy: 'strict-no-css',
+      generatedIdPatterns: ['^r-'],
+    });
+
+    expect(element?.locatorCandidates).toEqual([]);
+  });
+
   it('scores 0 and still records the element when it has no locator candidate at all', async () => {
     const page = fakeScoringPage();
     const capture: PickModeCapture = { pickId: 'pick-2', kind: 'input', tagName: 'input', nthOfType: 3 };

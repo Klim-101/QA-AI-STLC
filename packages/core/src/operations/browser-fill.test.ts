@@ -19,7 +19,7 @@ describe('runBrowserFill', () => {
     });
 
     expect(harness.launcher.pageCalls.filter((call) => call.method === 'fill')).toEqual([
-      { method: 'fill', args: ['#password', 'hunter2-not-in-evidence'] },
+      { method: 'fill', args: ['#password', 'hunter2-not-in-evidence', { timeout: 30_000 }] },
     ]);
     expect(result.valueLength).toBe('hunter2-not-in-evidence'.length);
 

@@ -2,23 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import type { Config } from '@qa-ai-stlc/schemas';
+import { ConfigSchema, type Config } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthBrowser } from '../ports/browser-launcher.js';
 import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
 import { resolveBrowserEnvironment, runBrowserOpen } from './browser-open.js';
 
 function configWithEnvironments(environments: Config['environments']): Config {
-  return {
-    schemaVersion: 1,
+  return ConfigSchema.parse({
     testing: { e2e: 'undecided', api: 'undecided', a11y: 'undecided', security: 'undecided' },
     environments,
     identities: {},
     data: { strategy: 'manual', ownerMarker: 'qa-ai-stlc' },
     selectors: { policy: 'playwright-default', testIdAttribute: 'data-testid' },
     agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 },
-    flaky: { historyWindow: 10, minStatusChanges: 2 },
-  };
+  });
 }
 
 const STAGING = { baseUrl: 'https://staging.example.test/', allowlist: ['staging.example.test'] };

@@ -145,6 +145,86 @@ describe('extractPageElements', () => {
     expect(result.truncated).toBe(true);
   });
 
+  it('normalizes the extra attribute values an extraction reported (P6-23)', async () => {
+    const page = fakePage({
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: undefined,
+          testId: undefined,
+          role: 'button',
+          label: undefined,
+          placeholder: undefined,
+          htmlId: undefined,
+          tagName: 'button',
+          nthOfType: 1,
+          extraAttributeValues: { 'data-qa': 'submit-button' },
+        },
+      ],
+      forms: [],
+      tables: [],
+      dialogs: [],
+    });
+
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid', ['data-qa']);
+
+    expect(result.interactiveElements[0]?.extraAttributeValues).toEqual({ 'data-qa': 'submit-button' });
+  });
+
+  it('omits extraAttributeValues from the normalized element when none was reported', async () => {
+    const page = fakePage({
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: undefined,
+          testId: undefined,
+          role: 'button',
+          label: undefined,
+          placeholder: undefined,
+          htmlId: undefined,
+          tagName: 'button',
+          nthOfType: 1,
+          extraAttributeValues: {},
+        },
+      ],
+      forms: [],
+      tables: [],
+      dialogs: [],
+    });
+
+    const result = await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
+
+    expect(result.interactiveElements[0]).not.toHaveProperty('extraAttributeValues');
+  });
+
+  it('truncates an oversized extra attribute value (P6-23)', async () => {
+    const limits = { maxTextLength: 4, maxArrayLength: 200, maxTreeNodes: 500 };
+    const page = fakePage({
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: undefined,
+          testId: undefined,
+          role: 'button',
+          label: undefined,
+          placeholder: undefined,
+          htmlId: undefined,
+          tagName: 'button',
+          nthOfType: 1,
+          extraAttributeValues: { 'data-qa': 'a very long value' },
+        },
+      ],
+      forms: [],
+      tables: [],
+      dialogs: [],
+    });
+
+    const result = await extractPageElements(page, limits, 'data-testid', ['data-qa']);
+
+    expect(result.interactiveElements[0]?.extraAttributeValues).toEqual({ 'data-qa': 'a ve…' });
+    expect(result.truncated).toBe(true);
+  });
+
   it('drops an interactive element with an unrecognized kind', async () => {
     const page = fakePage({
       interactiveElements: [
@@ -186,7 +266,18 @@ describe('extractPageElements', () => {
 
     await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-ui-id');
 
-    expect(evaluateArgs).toEqual(['data-ui-id']);
+    expect(evaluateArgs).toEqual([{ testIdAttribute: 'data-ui-id', extraStableAttributes: [] }]);
+  });
+
+  it('forwards configured extraStableAttributes to page.evaluate (P6-23)', async () => {
+    const evaluateArgs: unknown[] = [];
+    const page = fakePage({ interactiveElements: [], forms: [], tables: [], dialogs: [] }, evaluateArgs);
+
+    await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid', ['data-qa', 'data-cy']);
+
+    expect(evaluateArgs).toEqual([
+      { testIdAttribute: 'data-testid', extraStableAttributes: ['data-qa', 'data-cy'] },
+    ]);
   });
 
   it('returns empty, truncated results when evaluate does not resolve to the expected shape', async () => {

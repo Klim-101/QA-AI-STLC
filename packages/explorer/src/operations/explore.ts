@@ -20,6 +20,7 @@ import {
   SelectorRegistrySchema,
   type Config,
   type EnvironmentConfig,
+  type IdentityConfig,
   type SelectorElement,
   type SelectorPolicy,
   type SelectorRegistry,
@@ -123,6 +124,23 @@ export function resolveEnvironment(
   );
 }
 
+/**
+ * Fills every login-form selector the identity itself does not set from the project's
+ * `selectors.defaultLoginSelectors` (P6-23), so `loginWithCredentials`'s own hardcoded fallback
+ * is reached only when a caller bypasses config entirely (for example a unit test).
+ */
+function withDefaultLoginSelectors(identityConfig: IdentityConfig, config: Config): IdentityConfig {
+  const defaults = config.selectors.defaultLoginSelectors;
+  return {
+    ...identityConfig,
+    selectors: {
+      username: identityConfig.selectors?.username ?? defaults.username,
+      password: identityConfig.selectors?.password ?? defaults.password,
+      submit: identityConfig.selectors?.submit ?? defaults.submit,
+    },
+  };
+}
+
 export function resolveIdentity(
   context: EngineContext,
   config: Config,
@@ -138,7 +156,7 @@ export function resolveIdentity(
     });
   }
   return {
-    config: identityConfig,
+    config: withDefaultLoginSelectors(identityConfig, config),
     env: context.env,
     ...(options.cdpEndpointUrl !== undefined ? { cdpEndpointUrl: options.cdpEndpointUrl } : {}),
   };
@@ -224,6 +242,7 @@ async function runCrawlAndBuild(
     browserLauncher: context.browserLauncher,
     tlsInsecure,
     testIdAttribute: config.selectors.testIdAttribute,
+    extraStableAttributes: config.selectors.extraStableAttributes,
     ...(identity !== undefined ? { identity } : {}),
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
@@ -234,6 +253,9 @@ async function runCrawlAndBuild(
     tlsInsecure,
     ...(identity !== undefined ? { identity } : {}),
     policy,
+    viewports: config.selectors.stabilityViewports,
+    extraStableAttributes: config.selectors.extraStableAttributes,
+    generatedIdPatterns: config.selectors.generatedIdPatterns,
   });
 
   const elements: SelectorElement[] = [...registry.elements];
@@ -322,7 +344,9 @@ async function runVerify(
       for (const element of elements) {
         // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- filtered above
         const primary = element.locatorCandidates[0] as SelectorElement['locatorCandidates'][number];
-        const currentScore = await scoreLocatorStability(page, primary);
+        const currentScore = await scoreLocatorStability(page, primary, {
+          viewports: config.selectors.stabilityViewports,
+        });
         if (currentScore < element.stabilityScore) {
           degraded.push({
             elementId: element.elementId,

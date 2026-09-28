@@ -3,7 +3,7 @@
 
 import { join } from 'node:path';
 import { QaError, hashText, type EngineContext } from '@qa-ai-stlc/core';
-import { SCHEMA_VERSION, type ApiSurface, type SelectorRegistry } from '@qa-ai-stlc/schemas';
+import { ConfigSchema, SCHEMA_VERSION, type ApiSurface, type SelectorRegistry } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createFakeExploreBrowserLauncher,
@@ -12,7 +12,7 @@ import {
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
 import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
-import { runExplore } from './explore.js';
+import { resolveIdentity, runExplore } from './explore.js';
 
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
@@ -23,9 +23,13 @@ interface ConfigOptions {
   readonly identities?: string;
   readonly source?: string;
   readonly policy?: string;
+  /** A raw YAML flow-mapping fragment (e.g. `stabilityViewports: [...]`), appended to `selectors`. */
+  readonly extraSelectorsFields?: string;
 }
 
 function configYaml(options: ConfigOptions = {}): string {
+  const extraSelectorsFields =
+    options.extraSelectorsFields === undefined ? '' : `, ${options.extraSelectorsFields}`;
   return `${[
     'schemaVersion: 1',
     'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
@@ -34,7 +38,7 @@ function configYaml(options: ConfigOptions = {}): string {
       `environments:\n  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"] }`,
     options.identities ?? 'identities: {}',
     'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
-    `selectors: { policy: ${options.policy ?? 'playwright-default'}, testIdAttribute: data-testid }`,
+    `selectors: { policy: ${options.policy ?? 'playwright-default'}, testIdAttribute: data-testid${extraSelectorsFields} }`,
     'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
   ]
     .filter((line) => line.length > 0)
@@ -126,6 +130,19 @@ describe('runExplore', () => {
         'selectors/endpoints.json',
       ]),
     );
+  });
+
+  it('scores candidate stability at the configured viewports (P6-23), not the hardcoded default', async () => {
+    const context = fakeContext(
+      { elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 },
+      { extraSelectorsFields: 'stabilityViewports: [{ width: 400, height: 300 }]' },
+    );
+
+    await runExplore(context);
+
+    const page = (context.browserLauncher as ReturnType<typeof createFakeExploreBrowserLauncher>).page;
+    expect(page.viewportSizeCalls).toContainEqual({ width: 400, height: 300 });
+    expect(page.viewportSizeCalls).not.toContainEqual({ width: 1280, height: 720 });
   });
 
   it('collapses crawled routes that only differ by a record id into one endpoint (P6-01)', async () => {
@@ -278,6 +295,59 @@ describe('runExplore', () => {
     const context = fakeContext();
 
     await expect(runExplore(context, { policy: 'not-a-policy' })).rejects.toThrow(QaError);
+  });
+
+  describe('resolveIdentity', () => {
+    function minimalConfig(overrides: Partial<{ selectors: Record<string, unknown> }> = {}) {
+      return ConfigSchema.parse({
+        testing: { e2e: 'undecided', api: 'undecided', a11y: 'undecided', security: 'undecided' },
+        environments: {},
+        identities: {
+          admin: { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' },
+          custom: {
+            auth: 'cdp-attach',
+            secret: 'QA_CUSTOM_PASSWORD',
+            selectors: { username: '#custom-username' },
+          },
+        },
+        data: { strategy: 'manual', ownerMarker: 'qa' },
+        selectors: { policy: 'playwright-default', testIdAttribute: 'data-testid', ...overrides.selectors },
+        agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 },
+      });
+    }
+
+    it('falls back to config.selectors.defaultLoginSelectors when the identity sets none (P6-23)', () => {
+      const config = minimalConfig();
+      const context = fakeContext();
+
+      const identity = resolveIdentity(context, config, { identity: 'admin' });
+
+      expect(identity?.config.selectors).toStrictEqual(config.selectors.defaultLoginSelectors);
+    });
+
+    it("keeps the identity's own selector and only fills the fields it omits", () => {
+      const config = minimalConfig();
+      const context = fakeContext();
+
+      const identity = resolveIdentity(context, config, { identity: 'custom' });
+
+      expect(identity?.config.selectors).toStrictEqual({
+        username: '#custom-username',
+        password: config.selectors.defaultLoginSelectors.password,
+        submit: config.selectors.defaultLoginSelectors.submit,
+      });
+    });
+
+    it('honors a project-wide override of the default login selectors', () => {
+      const config = minimalConfig({
+        selectors: { defaultLoginSelectors: { username: '#u', password: '#p', submit: '#s' } },
+      });
+      const context = fakeContext();
+
+      const identity = resolveIdentity(context, config, { identity: 'admin' });
+
+      expect(identity?.config.selectors).toStrictEqual({ username: '#u', password: '#p', submit: '#s' });
+    });
   });
 
   it('uses config.yaml selectors.policy when no --policy override is given', async () => {

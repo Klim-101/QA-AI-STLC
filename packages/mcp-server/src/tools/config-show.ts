@@ -9,7 +9,15 @@ import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = z.object({});
 
-const ConfigValueSchema = z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]);
+const ViewportSizeValueSchema = z.object({ width: z.number(), height: z.number() });
+
+const ConfigValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.string()),
+  z.array(ViewportSizeValueSchema),
+]);
 
 const ConfigShowValueSchema = z.object({
   path: z

@@ -3,7 +3,10 @@
 
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
+import {
+  BROWSER_TEST_CONFIG_YAML,
+  createBrowserTestHarness,
+} from '../test-support/browser-session-harness.js';
 import { runBrowserNavigate } from './browser-navigate.js';
 import { runBrowserOpen } from './browser-open.js';
 
@@ -24,6 +27,9 @@ describe('runBrowserNavigate', () => {
       httpStatus: 200,
     });
     expect(result.evidence.kind).toBe('action');
+    expect(harness.launcher.pageCalls.filter((call) => call.method === 'goto')).toEqual([
+      { method: 'goto', args: ['https://staging.example.test/login', { timeout: 30_000 }] },
+    ]);
     expect(JSON.parse(String(harness.fs.getRawFile(join('project', '.qa', result.evidence.path))))).toEqual({
       schemaVersion: 1,
       type: 'navigate',
@@ -86,5 +92,21 @@ describe('runBrowserNavigate', () => {
         url: 'https://staging.example.test/',
       }),
     ).rejects.toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
+  });
+
+  it("honors the environment's configured navigationTimeoutMs (P6-23), overriding Playwright's default", async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: BROWSER_TEST_CONFIG_YAML.replace(
+        '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+        '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"], navigationTimeoutMs: 5000 }',
+      ),
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/login' });
+
+    expect(harness.launcher.pageCalls.filter((call) => call.method === 'goto')).toEqual([
+      { method: 'goto', args: ['https://staging.example.test/login', { timeout: 5000 }] },
+    ]);
   });
 });
