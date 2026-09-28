@@ -9,7 +9,11 @@ entries (`--pick <url>`), and writes the selector registry and a generated locat
 `qa config set testing.<type> <value>` changes a scope decision after `init`; `qa config add
 environment <name> --base-url <url> --allowlist <a,b,c>` and `qa config add identity <name> --auth
 <cdp-attach|storage-state> --secret <QA_...> [--login-url <url>] [--username <user>]` add a
-schema-validated entry instead of hand-editing `config.yaml`. `qa scope --from file --path <path>`
+schema-validated entry instead of hand-editing `config.yaml`. `qa config show [--explain]` prints
+the effective configuration — `.qa/config.yaml` merged with its optional local layer
+(`.qa/config.local.yaml`, or the file `QA_CONFIG_LOCAL` names) — and every relaxation the local
+layer introduces; `--explain` also names the source layer (committed, local or a schema default)
+of every value. `qa scope --from file --path <path>`
 or `qa scope --from text --content <text> --label <label>` extracts requirements (one per
 level-2 Markdown heading) into `artifacts/scope.json`, upserting by requirement id on a repeated
 call. `qa cases add --path <path>` validates a test case written as JSON — it must link to at

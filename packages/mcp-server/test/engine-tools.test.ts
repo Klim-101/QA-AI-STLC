@@ -10,6 +10,7 @@ import { approveTool } from '../src/tools/approve.js';
 import { caseResultRegisterTool } from '../src/tools/case-result-register.js';
 import { casesAddTool } from '../src/tools/cases-add.js';
 import { casesRenderTool } from '../src/tools/cases-render.js';
+import { configShowTool } from '../src/tools/config-show.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { generationProvenSessionTool } from '../src/tools/generation-proven-session.js';
@@ -122,6 +123,61 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(result.ok).toBe(false);
       expect(result.checks.some((check) => check.name === 'config' && check.status === 'fail')).toBe(true);
       expect(resultWithFixOption.ok).toBe(false);
+    });
+  });
+
+  it('qa.config_show omits localLayerPath and lists no relaxations with no local layer', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+
+      const result = await configShowTool.handler({});
+      process.chdir(originalCwd);
+
+      expect(result.localLayerPath).toBeUndefined();
+      expect(result.relaxations).toStrictEqual([]);
+      expect(result.values).toContainEqual({
+        path: ['testing', 'e2e'],
+        value: 'in-scope',
+        layer: 'committed',
+      });
+    });
+  });
+
+  it('qa.config_show reports the source layer, the local file and the relaxations of a merged configuration', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(
+        join(projectRoot, '.qa', 'config.local.yaml'),
+        'agents:\n  parallelism: 2\nenvironments:\n  dev:\n    baseUrl: http://localhost:4310\n    allowlist: [localhost]\n    tlsInsecure: true\n',
+        'utf-8',
+      );
+
+      const result = await configShowTool.handler({});
+      process.chdir(originalCwd);
+
+      expect(result.localLayerPath).toBe('.qa/config.local.yaml');
+      expect(result.config.agents.parallelism).toBe(2);
+      expect(result.values).toContainEqual({
+        path: ['agents', 'parallelism'],
+        value: 2,
+        layer: 'local',
+      });
+      expect(result.values).toContainEqual({
+        path: ['testing', 'e2e'],
+        value: 'in-scope',
+        layer: 'committed',
+      });
+      expect(result.relaxations).toStrictEqual([
+        {
+          kind: 'allowlist-entry',
+          environment: 'dev',
+          hostname: 'localhost',
+          localLayerPath: '.qa/config.local.yaml',
+        },
+        { kind: 'tls-insecure', environment: 'dev', localLayerPath: '.qa/config.local.yaml' },
+      ]);
     });
   });
 

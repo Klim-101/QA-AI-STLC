@@ -279,8 +279,9 @@ Current phase: scope.
 process model any MCP-capable agent host already uses for a local tool, no Docker, no port, no
 process that outlives the session. It exposes one MCP tool per engine operation, each calling the
 exact same `packages/core`/`packages/explorer` function its CLI command calls, so a result from one
-is a result from the other: pipeline commands (`qa.doctor`, `qa.explore`, `qa.scope`, `qa.cases_add`,
-`qa.approve`, `qa.validate`, `qa.run`, `qa.report`, `qa.link`), interactive execution and generation
+is a result from the other: pipeline commands (`qa.doctor`, `qa.config_show`, `qa.explore`, `qa.scope`,
+`qa.cases_add`, `qa.approve`, `qa.validate`, `qa.run`, `qa.report`, `qa.link`), interactive execution
+and generation
 (`qa.browser_open`/`_navigate`/`_click`/`_fill`/`_snapshot`/`_close`, `qa.browser_accessibility_scan`,
 `qa.http_execute`, `qa.registry_execute_register`, `qa.case_result_register`,
 `qa.generation_spoke_input`, `qa.generation_proven_session`, `qa.generation_manual_regions_extract`/

@@ -8,6 +8,7 @@ import {
   runApprove,
   runCasesAdd,
   runCasesRender,
+  runConfigShow,
   runDoctor,
   runLink,
   runReport,
@@ -17,6 +18,9 @@ import {
   type ApproveResult,
   type CasesAddResult,
   type CasesRenderResult,
+  type ConfigShowResult,
+  type ConfigShowValue,
+  type ConfigValueLayer,
   type DoctorReport,
   type LinkResult,
   type ReportFormat,
@@ -26,9 +30,10 @@ import {
   type ValidateReport,
 } from '@qa-ai-stlc/core';
 import { TestTypeSchema, type TestingScopeDecision, type TestType } from '@qa-ai-stlc/schemas';
+import { stringify as stringifyYaml } from 'yaml';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
-import { printConfigRelaxations } from './config-relaxations.js';
+import { formatConfigRelaxation, printConfigRelaxations } from './config-relaxations.js';
 import {
   runConfigAddEnvironment,
   runConfigAddIdentity,
@@ -55,6 +60,7 @@ Commands:
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   config set    Change one testing.<type> scope decision after init
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
+  config show   Print the effective configuration and its relaxations: "config show [--explain]" also names the source layer of every value
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
   cases add     Validate and register a test case: "cases add --path <path>"
   cases render  Render a registered test case as Markdown: "cases render <id>"
@@ -225,8 +231,37 @@ async function dispatchConfig(rest: readonly string[], dependencies: RunCliDepen
   if (subcommand === 'add') {
     return await dispatchConfigAdd(subRest, dependencies);
   }
+  if (subcommand === 'show') {
+    return await dispatchConfigShow(subRest, dependencies);
+  }
   dependencies.io.stderr(`Unknown "qa config" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
   return EXIT_USAGE;
+}
+
+async function dispatchConfigShow(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    explain: { type: 'boolean', default: false },
+  });
+  const json = values.json === true;
+  const explain = values.explain === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runConfigShow(context);
+  const data = {
+    config: result.config,
+    localLayerPath: result.localLayerPath,
+    relaxations: result.relaxations,
+    ...(explain ? { values: result.values } : {}),
+  };
+  printResult(context.io, json, 'config-show', data, formatConfigShowResult(result, explain));
+  return EXIT_SUCCESS;
 }
 
 async function dispatchConfigSet(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
@@ -738,6 +773,41 @@ function formatConfigAddEnvironmentResult(result: ConfigAddEnvironmentResult): r
 
 function formatConfigAddIdentityResult(result: ConfigAddIdentityResult): readonly string[] {
   return [`Added identity "${result.name}": auth=${result.identity.auth}, secret=${result.identity.secret}`];
+}
+
+const COMMITTED_LAYER_LABEL = '.qa/config.yaml';
+
+// A value is only ever labeled "local" when `loadLayeredConfig` found a local layer file, so
+// `localLayerPath` is always defined here; both are set from the same condition (config-loader.ts).
+function describeConfigValueOrigin(layer: ConfigValueLayer, localLayerPath: string | undefined): string {
+  if (layer === 'committed') {
+    return COMMITTED_LAYER_LABEL;
+  }
+  if (layer === 'default') {
+    return 'default';
+  }
+  // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
+  return localLayerPath as string;
+}
+
+function formatConfigShowValue(value: ConfigShowValue, localLayerPath: string | undefined): string {
+  const origin = describeConfigValueOrigin(value.layer, localLayerPath);
+  return `${value.path.join('.')} = ${JSON.stringify(value.value)}  (${origin})`;
+}
+
+function formatConfigShowResult(result: ConfigShowResult, explain: boolean): readonly string[] {
+  const lines: string[] = [`Local layer: ${result.localLayerPath ?? 'none'}`];
+  if (explain) {
+    lines.push(...result.values.map((value) => formatConfigShowValue(value, result.localLayerPath)));
+  } else {
+    lines.push(stringifyYaml(result.config).trimEnd());
+  }
+  if (result.relaxations.length === 0) {
+    lines.push('No relaxations.');
+  } else {
+    lines.push(...result.relaxations.map((relaxation) => formatConfigRelaxation(relaxation)));
+  }
+  return lines;
 }
 
 function formatDoctorReport(report: DoctorReport): readonly string[] {
