@@ -1,5 +1,52 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.5.0
+
+### Minor Changes
+
+- 4da23d6: Add `qa config show [--explain]` and MCP `qa.config_show` (ADR-011): prints the effective configuration merged from `.qa/config.yaml` and its optional local layer, the local layer's path, and every relaxation it introduces. `--explain` also names the source layer (`committed`, `local` or a schema default) of every value. An identity's `secret` is always its environment-variable name; its value is never read or shown.
+- 08972c0: `qa init` writes a commented `.qa/config.local.yaml.example` showing the optional local configuration layer's syntax (ADR-011). `qa doctor` / `qa.doctor` now report every relaxation the local layer introduces (a widened allowlist entry or `tlsInsecure: true`), the same way `qa config show` / `qa.config_show` already do — `DoctorReport` gains a `relaxations` field. README and CONTRIBUTING describe the configuration layers.
+- a9488cb: `qa explore` / `qa.explore` now derives a discovered API surface from the crawl's own traffic and
+  writes it to `.qa/selectors/endpoints.json`, merging with anything already stored there: every
+  request is redacted, then collapsed onto a templated path (`/tasks/8213`, `/tasks/t-1` →
+  `/tasks/{id}`) with a capped sample of the raw paths it was collapsed from. `qa.explore`'s result
+  gains `endpointsPath` and `endpointCount`. `ApiEndpointSchema` (`@qa-ai-stlc/schemas`) gains an
+  optional `examples` field to hold that sample.
+
+### Patch Changes
+
+- 1e2ab70: Move six project-specific engine constants into config (P6-23), each defaulting to its former hardcoded value so behavior does not change without config:
+
+  - `selectors.stabilityViewports` — the viewports a locator candidate is scored at (was: desktop/tablet/mobile, unconditionally).
+  - `selectors.defaultLoginSelectors` — the generic login-form selectors used when an identity's own `selectors` names none.
+  - `selectors.extraStableAttributes` — attributes, beyond `testIdAttribute`, synthesized as an extra CSS candidate when an element carries one.
+  - `selectors.generatedIdPatterns` — regular expressions an `id` is checked against before it is used as a CSS fallback candidate, so a framework-generated id (React's `useId`, a CSS-module hash) is never picked.
+  - `environments.<name>.navigationTimeoutMs` / `actionTimeoutMs` — Playwright's navigation and action timeouts for `qa.browser_navigate`/`_click`/`_fill`, per ADR-011 a field of the environment rather than a generic overrides block.
+  - `evidence.httpBodyPreviewMaxLength` — the cap on a stored HTTP response-body preview (`qa.http_execute`), was a hardcoded 4000.
+
+  `navigationTimeoutMs`/`actionTimeoutMs` apply to the interactive `qa.browser_*` session only; explorer's own crawl, analysis and registry-build navigation, and scripted login, are unchanged and still use Playwright's default. `extraStableAttributes` is not available during manual pick mode, which has no live DOM read for an arbitrary attribute.
+
+- 21e7319: `qa.generation_register` no longer trusts a verification outcome supplied by the caller. `qa.generation_verify` now records every outcome as an engine-written, manifest-registered verification record under `.qa/verifications/` and returns its `verificationId`; `qa.generation_register` takes the `spec` and that `verificationId` instead of `result` and `contentSha256`. Registration is rejected with a coded error when no such record exists, the record was edited, it did not end `verified`, it was already used, or the spec's test case, file path or content differ from what was verified. Verification also requires the test case to be registered and unchanged. `qa init` adds `/verifications/` to `.qa/.gitignore`.
+- 84ed459: `qa.http_execute` no longer accepts a `tlsInsecure` input: certificate validation now follows the
+  resolved environment's `tlsInsecure` in `config.yaml`, the same as `qa.browser_open`. Previously a
+  caller could disable validation for any call to an allowlisted host, and an environment configured
+  with `tlsInsecure: true` was not honored for HTTP calls unless the caller repeated it. A warning is
+  logged when the environment disables validation. `runHttpExecute`'s `tlsInsecure` option is removed.
+- Updated dependencies [4da23d6]
+- Updated dependencies [1e2ab70]
+- Updated dependencies [21e7319]
+- Updated dependencies [84ed459]
+- Updated dependencies [08972c0]
+- Updated dependencies [434e07f]
+- Updated dependencies [891c692]
+- Updated dependencies [a9488cb]
+- Updated dependencies [16b80d4]
+- Updated dependencies [fbbbab7]
+  - @qa-ai-stlc/core@1.5.0
+  - @qa-ai-stlc/schemas@1.5.0
+  - @qa-ai-stlc/explorer@1.5.0
+  - @qa-ai-stlc/runner-playwright@1.5.0
+
 ## 1.4.0
 
 ### Minor Changes
