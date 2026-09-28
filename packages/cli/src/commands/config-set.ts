@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, QaStore, loadConfig } from '@qa-ai-stlc/core';
+import { QaError, QaStore, loadCommittedConfig } from '@qa-ai-stlc/core';
 import { ConfigSchema, TestingScopeDecisionSchema, type TestingScope } from '@qa-ai-stlc/schemas';
 import { parseDocument } from 'yaml';
 import { z } from 'zod';
@@ -58,7 +58,7 @@ export async function runConfigSet(
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   // Throws a coded QaError (CONFIG_MISSING/CONFIG_MALFORMED/CONFIG_INVALID) if there is nothing
   // valid to edit yet, rather than this command producing its own, differently-worded one.
-  await loadConfig(store);
+  await loadCommittedConfig(store);
 
   const raw = await store.readText('config.yaml');
   const document = parseDocument(raw);

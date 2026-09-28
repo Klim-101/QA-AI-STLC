@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, QaStore, loadConfig } from '@qa-ai-stlc/core';
+import { QaError, QaStore, loadCommittedConfig } from '@qa-ai-stlc/core';
 import {
   EnvironmentConfigSchema,
   IdentityConfigSchema,
@@ -76,7 +76,7 @@ export async function runConfigAddEnvironment(
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   // Throws a coded QaError (CONFIG_MISSING/CONFIG_MALFORMED/CONFIG_INVALID) if there is nothing
   // valid to edit yet, rather than this command producing its own, differently-worded one.
-  const config = await loadConfig(store);
+  const config = await loadCommittedConfig(store);
   if (options.force !== true && name in config.environments) {
     throw new QaError('CONFIG_ADD_NAME_EXISTS', `Environment "${name}" already exists`, {
       remediation: 'Choose a different name, or pass --force to overwrite it.',
@@ -125,7 +125,7 @@ export async function runConfigAddIdentity(
   }
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadCommittedConfig(store);
   if (options.force !== true && name in config.identities) {
     throw new QaError('CONFIG_ADD_NAME_EXISTS', `Identity "${name}" already exists`, {
       remediation: 'Choose a different name, or pass --force to overwrite it.',

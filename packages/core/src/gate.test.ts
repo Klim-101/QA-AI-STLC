@@ -18,13 +18,16 @@ const FIXED_TIME = new Date('2026-09-20T12:00:00.000Z');
 const fixedClock: Clock = { now: () => FIXED_TIME };
 
 function createGateStateMachine(): { store: QaStore; manifest: ManifestStore; gates: GateStateMachine } {
-  const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
+  const projectRoot = join('project');
+  const fs = createFakeFileSystem();
+  const store = new QaStore({ projectRoot, fs });
   const manifest = new ManifestStore({ store, clock: fixedClock });
   const gates = new GateStateMachine({
     store,
     stateStore: new PipelineStateStore({ store }),
     ledger: new ApprovalLedgerStore({ store, manifest }),
     manifest,
+    configSource: { projectRoot, fs, env: {} },
     clock: fixedClock,
   });
   return { store, manifest, gates };
@@ -500,13 +503,16 @@ describe('GateStateMachine', () => {
   });
 
   it('defaults to the system clock when none is provided', async () => {
-    const store = new QaStore({ projectRoot: join('project'), fs: createFakeFileSystem() });
+    const projectRoot = join('project');
+    const fs = createFakeFileSystem();
+    const store = new QaStore({ projectRoot, fs });
     const manifest = new ManifestStore({ store });
     const gates = new GateStateMachine({
       store,
       stateStore: new PipelineStateStore({ store }),
       ledger: new ApprovalLedgerStore({ store, manifest }),
       manifest,
+      configSource: { projectRoot, fs, env: {} },
     });
     await writeAndRegister(store, manifest, 'artifacts/scope.json', { requirements: [] });
 

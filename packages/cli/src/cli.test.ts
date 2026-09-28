@@ -1733,3 +1733,101 @@ describe('runCli', () => {
     expect(stdout.join('\n')).toContain('# Run summary: run-1');
   });
 });
+
+describe('configuration relaxations', () => {
+  const LOCAL_PATH = join(PROJECT_ROOT, '.qa', 'config.local.yaml');
+  const RELAXING_LOCAL_YAML = [
+    'environments:',
+    '  dev:',
+    '    baseUrl: http://localhost:4310',
+    '    allowlist: [localhost]',
+    '    tlsInsecure: true',
+    '',
+  ].join('\n');
+
+  it('prints every relaxation from the local layer to stderr, one line each', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [LOCAL_PATH]: RELAXING_LOCAL_YAML }),
+    });
+
+    await runCli(['validate', '--json'], deps);
+
+    const warnings = deps.stderr.filter((line) => line.startsWith('warning: CONFIG_RELAXATION'));
+    expect(warnings).toStrictEqual([
+      'warning: CONFIG_RELAXATION .qa/config.local.yaml adds "localhost" to the allowlist of environment "dev", which .qa/config.yaml does not list',
+      'warning: CONFIG_RELAXATION .qa/config.local.yaml disables TLS certificate validation (tlsInsecure) for environment "dev", which .qa/config.yaml does not',
+    ]);
+    expect(deps.stdout.join('\n')).not.toContain('CONFIG_RELAXATION');
+  });
+
+  it('names the file QA_CONFIG_LOCAL selects', async () => {
+    const ciPath = join(PROJECT_ROOT, 'ci', 'qa.local.yaml');
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [ciPath]: RELAXING_LOCAL_YAML }),
+      env: { QA_CONFIG_LOCAL: 'ci/qa.local.yaml' },
+    });
+
+    await runCli(['validate'], deps);
+
+    expect(deps.stderr[0]).toContain('CONFIG_RELAXATION ci/qa.local.yaml adds "localhost"');
+  });
+
+  it('prints nothing when there is no local layer', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+    await runCli(['validate'], deps);
+
+    expect(deps.stderr.join('\n')).not.toContain('CONFIG_RELAXATION');
+  });
+
+  it('prints nothing for init, which writes the configuration rather than reading it', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [LOCAL_PATH]: RELAXING_LOCAL_YAML }),
+    });
+
+    const exitCode = await runCli(['init'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stderr).toStrictEqual([]);
+  });
+
+  it('leaves an invalid local layer for the command itself to report', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [LOCAL_PATH]: 'testing:\n  e2e: out-of-scope\n',
+      }),
+    });
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.filter((line) => line.includes('"testing"'))).toHaveLength(1);
+    expect(deps.stderr[0]).toContain('error:');
+  });
+
+  it('defaults the project root to the current working directory when checking for relaxations', async () => {
+    const fs = createFakeFileSystem({
+      [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML,
+      [join(process.cwd(), '.qa', 'config.local.yaml')]: RELAXING_LOCAL_YAML,
+    });
+    const { io, stderr } = captureIO();
+
+    await runCli(['validate'], { io, fs, env: {} });
+
+    expect(stderr.some((line) => line.startsWith('warning: CONFIG_RELAXATION'))).toBe(true);
+  });
+
+  it('reports an unexpected failure while checking for relaxations as the command error', async () => {
+    const failing: FileSystem = {
+      ...createFakeFileSystem(),
+      pathExists: () => Promise.reject(new Error('disk unreadable')),
+    };
+    const deps = dependencies({ fs: failing });
+
+    const exitCode = await runCli(['validate'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr).toStrictEqual(['error: disk unreadable']);
+  });
+});

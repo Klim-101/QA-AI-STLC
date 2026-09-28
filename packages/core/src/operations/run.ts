@@ -105,7 +105,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
   const absoluteSpecFiles = specFiles.map((specFile) => resolveRelativePath(context.projectRoot, specFile));
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const environment = resolveBrowserEnvironment(config, options.environment);
 
   const idGenerator = options.idGenerator ?? randomIdGenerator;

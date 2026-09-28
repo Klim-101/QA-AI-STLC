@@ -138,6 +138,7 @@ export async function runValidate(
     stateStore: new PipelineStateStore({ store }),
     ledger,
     manifest,
+    configSource: context,
     clock: context.clock,
   });
 
@@ -155,7 +156,7 @@ export async function runValidate(
 
   const { unlinkedCases, unresolvedTestData, cases } = await findCaseLinkIssues(context, store);
   const tamperedArtifacts = await findTamperedArtifacts(context, store, manifest);
-  const caseSetStatusByType = await computeCaseSetStatusByType(store, cases);
+  const caseSetStatusByType = await computeCaseSetStatusByType(context, store, cases);
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
   const runResultIssues =
     options.checkRuns === true ? await findRunResultIssues(store, evidenceStore) : undefined;
@@ -295,6 +296,7 @@ async function findCaseLinkIssues(context: EngineContext, store: QaStore): Promi
  * in-scope type" (P2-16) against, distinct from a project that has decided every type.
  */
 async function computeCaseSetStatusByType(
+  context: EngineContext,
   store: QaStore,
   cases: readonly TestCase[],
 ): Promise<Readonly<Record<string, CaseSetTypeStatus>> | undefined> {
@@ -302,7 +304,7 @@ async function computeCaseSetStatusByType(
   if (!configExists) {
     return undefined;
   }
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   return checkCaseSetCompleteness(config.testing, cases).statusByType;
 }
 

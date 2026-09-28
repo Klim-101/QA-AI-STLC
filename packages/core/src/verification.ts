@@ -280,7 +280,7 @@ export async function verifyGeneratedTestSpec(
       return { status: 'typecheck_failed', verificationId, issues: typecheckIssues };
     }
 
-    const config = await loadConfig(store);
+    const config = await loadConfig(context);
     const environment = resolveBrowserEnvironment(config, options.environment);
     const runId = `verify-${idGenerator.next()}`;
 

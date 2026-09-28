@@ -7,7 +7,6 @@ import { createBrowserSafeModeRouteHandler } from '../browser-safe-mode.js';
 import type { BrowserSession } from '../browser-session-store.js';
 import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
-import { QaStore } from '../qa-store.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
@@ -80,8 +79,7 @@ export async function runBrowserOpen(
   context: BrowserOperationContext,
   options: BrowserOpenOptions = {},
 ): Promise<BrowserOpenResult> {
-  const store = new QaStore({ projectRoot: context.engine.projectRoot, fs: context.engine.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context.engine);
   const environment = resolveBrowserEnvironment(config, options.environment);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
 

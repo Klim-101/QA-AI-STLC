@@ -123,6 +123,36 @@ describe('runInit', () => {
     expect(await context.fs.readFile(join(QA_DIR, 'config.yaml'))).toBe('custom: true');
   });
 
+  it('adds the local configuration layer to an existing .gitignore that lacks it', async () => {
+    const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: 'custom: true',
+      [join(QA_DIR, '.gitignore')]: '/runs/',
+    });
+    await runInit(context);
+
+    expect(await context.fs.readFile(join(QA_DIR, '.gitignore'))).toBe('/runs/\n/config.local.yaml\n');
+  });
+
+  it('appends the local layer entry without a blank line to a .gitignore ending in a newline or empty', async () => {
+    const endsInNewline = fakeContext({ [join(QA_DIR, '.gitignore')]: '/runs/\r\n' });
+    await runInit(endsInNewline, { testing: FULL_SCOPE });
+    const empty = fakeContext({ [join(QA_DIR, '.gitignore')]: '' });
+    await runInit(empty, { testing: FULL_SCOPE });
+
+    expect(await endsInNewline.fs.readFile(join(QA_DIR, '.gitignore'))).toBe(
+      '/runs/\r\n/config.local.yaml\n',
+    );
+    expect(await empty.fs.readFile(join(QA_DIR, '.gitignore'))).toBe('/config.local.yaml\n');
+  });
+
+  it('leaves an existing .gitignore that already ignores the local layer unchanged', async () => {
+    const gitignore = '/runs/\r\n/config.local.yaml\r\n';
+    const context = fakeContext({ [join(QA_DIR, '.gitignore')]: gitignore });
+    await runInit(context, { testing: FULL_SCOPE });
+
+    expect(await context.fs.readFile(join(QA_DIR, '.gitignore'))).toBe(gitignore);
+  });
+
   it('still creates the .qa/ layout when config.yaml already exists', async () => {
     const context = fakeContext({ [join(QA_DIR, 'config.yaml')]: 'custom: true' });
     await runInit(context);

@@ -54,6 +54,7 @@ export async function runApprove(context: EngineContext, options: ApproveOptions
     stateStore: new PipelineStateStore({ store }),
     ledger: new ApprovalLedgerStore({ store, manifest }),
     manifest,
+    configSource: context,
     clock: context.clock,
   });
 

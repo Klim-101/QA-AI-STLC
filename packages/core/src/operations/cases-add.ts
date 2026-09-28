@@ -61,7 +61,7 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   const testCase = await readJsonFile(context.fs, absolutePath, TestCaseSchema);
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
   const undecided = findUndecidedTestingTypes(config.testing);
   if (undecided.length > 0) {
     throw new QaError(

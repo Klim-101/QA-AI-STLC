@@ -83,4 +83,8 @@ describe('QA_GITIGNORE', () => {
     expect(QA_GITIGNORE).toContain('/auth/');
     expect(QA_GITIGNORE).toContain('/verifications/');
   });
+
+  it('ignores the local configuration layer', () => {
+    expect(QA_GITIGNORE).toContain('/config.local.yaml');
+  });
 });

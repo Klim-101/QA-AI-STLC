@@ -28,6 +28,7 @@ import {
 import { TestTypeSchema, type TestingScopeDecision, type TestType } from '@qa-ai-stlc/schemas';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
+import { printConfigRelaxations } from './config-relaxations.js';
 import {
   runConfigAddEnvironment,
   runConfigAddIdentity,
@@ -88,6 +89,13 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
   }
 
   try {
+    // `init` writes the configuration rather than reading it, so it has nothing to report.
+    if (command !== 'init') {
+      await printConfigRelaxations(
+        createCommandContext({ ...dependencies, projectRoot: dependencies.projectRoot ?? process.cwd() }),
+        io,
+      );
+    }
     switch (command) {
       case 'init':
         return await dispatchInit(rest, dependencies);

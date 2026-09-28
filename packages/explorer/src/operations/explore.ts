@@ -446,7 +446,7 @@ export async function runExplore(
 ): Promise<ExploreReport> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
-  const config = await loadConfig(store);
+  const config = await loadConfig(context);
 
   if (options.verify === true) {
     return runVerify(context, store, config, options);
