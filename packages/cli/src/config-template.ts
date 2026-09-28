@@ -62,6 +62,41 @@ flaky:
 }
 
 export const LOCAL_LAYER_IGNORE_ENTRY = '/config.local.yaml';
+export const CONFIG_LOCAL_EXAMPLE_PATH = 'config.local.yaml.example';
+
+// Every line commented out: this file is never read by the loader (only the exact name
+// "config.local.yaml", or the file QA_CONFIG_LOCAL names, is) and is committed for reference,
+// unlike the real local layer itself, which "qa init" adds to .qa/.gitignore. Shows only the
+// sections ADR-011 lets a local layer set (packages/schemas ConfigSchema's own classification).
+export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-011).
+#
+# Copy the lines you need into ".qa/config.local.yaml" (git-ignored) or a file named by the
+# QA_CONFIG_LOCAL environment variable. Only "environments", "identities", "source" and "agents"
+# may be set here; every other section belongs in the committed ".qa/config.yaml". Every command
+# that loads the configuration prints a warning for anything this layer makes less safe than the
+# committed file, such as a widened allowlist or "tlsInsecure: true".
+#
+# environments:
+#   staging:
+#     baseUrl: https://staging.example.com
+#     allowlist: [staging.example.com]
+#     tlsInsecure: false
+#     navigationTimeoutMs: 30000
+#     actionTimeoutMs: 30000
+#
+# identities:
+#   admin:
+#     auth: cdp-attach
+#     secret: QA_ADMIN_PASSWORD
+#
+# source:
+#   path: ../app
+#
+# agents:
+#   parallelism: 4
+#   spokeTimeoutSeconds: 300
+#   retries: 2
+`;
 
 // Runtime-only subdirectories (development plan section 3.2) and the machine-specific local
 // configuration layer (ADR-011): everything else under `.qa/` is meant to be committed.

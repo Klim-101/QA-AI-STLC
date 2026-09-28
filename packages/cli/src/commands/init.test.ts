@@ -33,7 +33,7 @@ describe('runInit', () => {
     const result = await runInit(context, { testing: FULL_SCOPE });
 
     expect(result.alreadyInitialized).toBe(false);
-    expect(result.created).toStrictEqual(['config.yaml', '.gitignore']);
+    expect(result.created).toStrictEqual(['config.yaml', '.gitignore', 'config.local.yaml.example']);
     expect(await context.fs.pathExists(join(QA_DIR, 'config.yaml'))).toBe(true);
     expect(await context.fs.pathExists(join(QA_DIR, '.gitignore'))).toBe(true);
   });
@@ -119,7 +119,7 @@ describe('runInit', () => {
     const result = await runInit(context);
 
     expect(result.alreadyInitialized).toBe(true);
-    expect(result.created).toStrictEqual(['.gitignore']);
+    expect(result.created).toStrictEqual(['.gitignore', 'config.local.yaml.example']);
     expect(await context.fs.readFile(join(QA_DIR, 'config.yaml'))).toBe('custom: true');
   });
 
@@ -165,7 +165,7 @@ describe('runInit', () => {
     const result = await runInit(context, { force: true, testing: FULL_SCOPE });
 
     expect(result.alreadyInitialized).toBe(false);
-    expect(result.created).toStrictEqual(['config.yaml', '.gitignore']);
+    expect(result.created).toStrictEqual(['config.yaml', '.gitignore', 'config.local.yaml.example']);
     expect(await context.fs.readFile(join(QA_DIR, 'config.yaml'))).not.toBe('custom: true');
   });
 
@@ -173,5 +173,36 @@ describe('runInit', () => {
     const context = fakeContext({ [join(QA_DIR, 'config.yaml')]: 'custom: true' });
 
     await expect(runInit(context, { force: true })).rejects.toThrow(QaError);
+  });
+
+  it('writes a commented config.local.yaml.example (P6-24, ADR-011)', async () => {
+    const context = fakeContext();
+
+    await runInit(context, { testing: FULL_SCOPE });
+
+    const example = await context.fs.readFile(join(QA_DIR, 'config.local.yaml.example'));
+    expect(example).toContain('environments:');
+    expect(example.split('\n').every((line) => line.trim().length === 0 || line.startsWith('#'))).toBe(true);
+  });
+
+  it('never overwrites an existing config.local.yaml.example without force', async () => {
+    const context = fakeContext({ [join(QA_DIR, 'config.local.yaml.example')]: '# my own notes\n' });
+
+    const result = await runInit(context, { testing: FULL_SCOPE });
+
+    expect(result.created).not.toContain('config.local.yaml.example');
+    expect(await context.fs.readFile(join(QA_DIR, 'config.local.yaml.example'))).toBe('# my own notes\n');
+  });
+
+  it('overwrites config.local.yaml.example when force is set', async () => {
+    const context = fakeContext({
+      [join(QA_DIR, 'config.yaml')]: 'custom: true',
+      [join(QA_DIR, 'config.local.yaml.example')]: '# my own notes\n',
+    });
+
+    const result = await runInit(context, { force: true, testing: FULL_SCOPE });
+
+    expect(result.created).toContain('config.local.yaml.example');
+    expect(await context.fs.readFile(join(QA_DIR, 'config.local.yaml.example'))).toContain('environments:');
   });
 });

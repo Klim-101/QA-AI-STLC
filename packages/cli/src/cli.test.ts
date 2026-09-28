@@ -14,6 +14,7 @@ import { runCli, type RunCliDependencies } from './cli.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { createFakeExploreBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-explore-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
+import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
 
 const PROJECT_ROOT = join('project');
 
@@ -316,6 +317,45 @@ describe('runCli', () => {
     const exitCode = await runCli(['doctor'], deps);
 
     expect(exitCode).toBe(EXIT_SUCCESS);
+  });
+
+  it('prints every relaxation the local configuration layer introduces (P6-24)', async () => {
+    const installed = Object.fromEntries(
+      SUPPORTED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),
+    );
+    const localYaml = [
+      'environments:',
+      '  dev:',
+      '    baseUrl: http://localhost:4310',
+      '    allowlist: [localhost]',
+      '',
+    ].join('\n');
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        ...installed,
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, '.qa', 'config.local.yaml')]: localYaml,
+      }),
+      httpClient: createFakeHttpClient({ ok: true, status: 200 }),
+    });
+
+    const exitCode = await runCli(['doctor'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(
+      deps.stdout.some((line) => line.includes('adds "localhost"') && line.includes('.qa/config.local.yaml')),
+    ).toBe(true);
+  });
+
+  it('prints no relaxation lines with no local configuration layer', async () => {
+    const installed = Object.fromEntries(
+      SUPPORTED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),
+    );
+    const deps = dependencies({ fs: createFakeFileSystem({ ...installed, [CONFIG_PATH]: CONFIG_YAML }) });
+
+    await runCli(['doctor'], deps);
+
+    expect(deps.stdout.some((line) => line.includes('adds "') || line.includes('disables TLS'))).toBe(false);
   });
 
   const EXPLORE_CONFIG = [
