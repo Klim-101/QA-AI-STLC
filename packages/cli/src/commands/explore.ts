@@ -67,7 +67,11 @@ async function runPickModeSession(
       `Pick mode: a browser window opened at ${options.pick}. Click every element to capture, then click "Finish picking".`,
     );
     const captures = await waitForPickModeCompletion(page);
-    const pickModeElements = await capturePickModeElements(page, options.pick, captures, { policy });
+    const pickModeElements = await capturePickModeElements(page, options.pick, captures, {
+      policy,
+      viewports: config.selectors.stabilityViewports,
+      generatedIdPatterns: config.selectors.generatedIdPatterns,
+    });
     const generatedAt = context.clock.now().toISOString();
     const elements = finalizeManualSelectorEntries(pickModeElements, new Map(), generatedAt);
     return { elements, blockedRequestCount: 0 };

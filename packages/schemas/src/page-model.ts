@@ -53,6 +53,9 @@ export const InteractiveElementSchema = z.object({
   htmlId: z.string().optional(),
   tagName: z.string().min(1),
   nthOfType: z.number().int().min(1),
+  // The value of every `config.selectors.extraStableAttributes` name this element carries (P6-23),
+  // for locator synthesis to prefer over a raw id or nth-of-type CSS fallback.
+  extraAttributeValues: z.record(z.string(), z.string()).optional(),
 });
 export type InteractiveElement = z.infer<typeof InteractiveElementSchema>;
 

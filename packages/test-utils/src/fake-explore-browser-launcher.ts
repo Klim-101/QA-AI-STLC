@@ -12,6 +12,7 @@ import type {
   PageRouteLike,
   RouteHandlerLike,
   StorageStateLike,
+  ViewportSizeLike,
 } from './fake-browser-launcher.js';
 
 const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
@@ -53,12 +54,19 @@ export interface FakeExplorePageOptions {
  * `evaluate()` call discards whatever it returns, so returning the same state for it too is
  * harmless.
  */
-export function createFakeExplorePage(options: FakeExplorePageOptions = {}): AuthPageLike {
+export interface FakeExplorePage extends AuthPageLike {
+  /** Every viewport size `setViewportSize()` was called with, in call order (P6-23). */
+  readonly viewportSizeCalls: ViewportSizeLike[];
+}
+
+export function createFakeExplorePage(options: FakeExplorePageOptions = {}): FakeExplorePage {
   let currentUrl: string | undefined;
   const routeHandlers: RouteHandlerLike[] = [];
   const locatorMethod = (): PageLocatorLike => ({ count: () => Promise.resolve(options.locatorCount ?? 1) });
+  const viewportSizeCalls: ViewportSizeLike[] = [];
 
   return {
+    viewportSizeCalls,
     goto: async (url) => {
       currentUrl = url;
       for (const subRequest of options.subRequestsByUrl?.[url] ?? []) {
@@ -93,7 +101,10 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Aut
     getByText: locatorMethod,
     locator: locatorMethod,
     reload: () => Promise.resolve(DEFAULT_RESPONSE),
-    setViewportSize: () => Promise.resolve(),
+    setViewportSize: (size) => {
+      viewportSizeCalls.push(size);
+      return Promise.resolve();
+    },
     viewportSize: () => null,
     url: () => currentUrl ?? 'about:blank',
     title: () => Promise.resolve(''),
@@ -106,7 +117,7 @@ export interface FakeExploreBrowserLauncherOptions extends FakeExplorePageOption
 }
 
 export interface FakeExploreBrowserLauncher extends BrowserLauncherLike {
-  readonly page: AuthPageLike;
+  readonly page: FakeExplorePage;
   readonly closedBrowsers: { count: number };
   /** Every `options` a caller passed to `launch()`, in call order — asserts headed vs headless. */
   readonly launchCalls: LaunchOptionsLike[];

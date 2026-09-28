@@ -35,7 +35,7 @@ export async function runBrowserFill(
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
 
-  await session.page.fill(options.selector, options.value);
+  await session.page.fill(options.selector, options.value, { timeout: session.actionTimeoutMs });
   const url = session.page.url();
 
   const evidence = await registerBrowserAction({

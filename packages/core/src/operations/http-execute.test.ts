@@ -169,6 +169,27 @@ describe('runHttpExecute', () => {
     expect(written.bodyPreview).toHaveLength(4000);
   });
 
+  it('honors a configured evidence.httpBodyPreviewMaxLength (P6-23), overriding the default 4000', async () => {
+    const shortPreviewConfigYaml = CONFIG_YAML.replace(
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+      [
+        'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+        'evidence: { httpBodyPreviewMaxLength: 10 }',
+      ].join('\n'),
+    );
+    const httpClient = createFakeHttpClient({ ok: true, status: 200, bodyText: 'x'.repeat(20) });
+    const { context, fs } = createContext(httpClient, shortPreviewConfigYaml);
+
+    const result = await runHttpExecute(context, { runId: 'run-1', url: 'https://staging.example.test/' });
+
+    const written = JSON.parse(String(fs.getRawFile(join('project', '.qa', result.evidence.path)))) as {
+      truncated: boolean;
+      bodyPreview: string;
+    };
+    expect(written.truncated).toBe(true);
+    expect(written.bodyPreview).toHaveLength(10);
+  });
+
   it('carries a stepId into the recorded evidence, for qa-generate-tests (P3-07) to recover later', async () => {
     const httpClient = createFakeHttpClient({ ok: true, status: 200, bodyText: 'ok' });
     const { context, fs } = createContext(httpClient);

@@ -27,6 +27,10 @@ export interface BuildSelectorRegistryOptions {
   readonly identity?: ExplorerIdentity;
   readonly policy?: LocatorPolicy;
   readonly viewports?: readonly ViewportSize[];
+  /** `config.selectors.extraStableAttributes` (P6-23). */
+  readonly extraStableAttributes?: readonly string[];
+  /** `config.selectors.generatedIdPatterns` (P6-23), as regular-expression source text. */
+  readonly generatedIdPatterns?: readonly string[];
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this scoring session (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
@@ -132,6 +136,8 @@ export async function buildSelectorRegistry(
 ): Promise<BuildSelectorRegistryResult> {
   const clock = options.clock ?? systemClock;
   const policy = options.policy ?? 'playwright-default';
+  const extraStableAttributes = options.extraStableAttributes ?? [];
+  const generatedIdPatterns = (options.generatedIdPatterns ?? []).map((source) => new RegExp(source));
   const storageState = await resolveStorageState(
     options.browserLauncher,
     options.identity,
@@ -165,7 +171,10 @@ export async function buildSelectorRegistry(
         page,
         pageModel.interactiveElements.map((interactiveElement) => ({
           interactiveElement,
-          candidates: synthesizeLocatorCandidates(interactiveElement, policy),
+          candidates: synthesizeLocatorCandidates(interactiveElement, policy, {
+            extraStableAttributes,
+            generatedIdPatterns,
+          }),
         })),
         options.viewports === undefined ? {} : { viewports: options.viewports },
       );

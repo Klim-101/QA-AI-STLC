@@ -13,9 +13,6 @@ import { ManifestStore } from '../manifest-store.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
 
-/** Response bodies longer than this are stored truncated, with `truncated: true` set. */
-const BODY_PREVIEW_MAX_LENGTH = 4000;
-
 export interface HttpExecuteOptions {
   readonly runId: Identifier;
   /** Environment name from config.yaml. Required only when the project defines more than one. */
@@ -77,7 +74,8 @@ export async function runHttpExecute(
     ...(isTlsInsecure ? { tlsInsecure: true } : {}),
   });
 
-  const truncated = response.bodyText.length > BODY_PREVIEW_MAX_LENGTH;
+  const bodyPreviewMaxLength = config.evidence.httpBodyPreviewMaxLength;
+  const truncated = response.bodyText.length > bodyPreviewMaxLength;
   const record = HttpRequestRecordSchema.parse({
     type: 'http-request',
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
@@ -85,7 +83,7 @@ export async function runHttpExecute(
     url: options.url,
     status: response.status,
     responseHeaders: response.headers,
-    bodyPreview: response.bodyText.slice(0, BODY_PREVIEW_MAX_LENGTH),
+    bodyPreview: response.bodyText.slice(0, bodyPreviewMaxLength),
     truncated,
     at: context.clock.now().toISOString(),
   });

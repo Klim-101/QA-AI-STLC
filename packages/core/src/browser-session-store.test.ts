@@ -60,6 +60,8 @@ async function storeWithSession(options: { readonly clock?: Clock; readonly idle
     ...parts,
     allowlist: ['staging.example.test'],
     baseUrl: 'https://staging.example.test/',
+    navigationTimeoutMs: 30_000,
+    actionTimeoutMs: 30_000,
     blockedRequests: [],
   });
   return { store, session, parts };
@@ -145,6 +147,8 @@ describe('BrowserSessionStore', () => {
       ...parts,
       allowlist: [],
       baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
       blockedRequests: [],
     });
 
@@ -157,8 +161,22 @@ describe('BrowserSessionStore', () => {
     const first = await fakeBrowserParts();
     const second = await fakeBrowserParts();
     const store = new BrowserSessionStore();
-    store.open({ ...first, allowlist: [], baseUrl: 'https://staging.example.test/', blockedRequests: [] });
-    store.open({ ...second, allowlist: [], baseUrl: 'https://staging.example.test/', blockedRequests: [] });
+    store.open({
+      ...first,
+      allowlist: [],
+      baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
+      blockedRequests: [],
+    });
+    store.open({
+      ...second,
+      allowlist: [],
+      baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
+      blockedRequests: [],
+    });
 
     await store.closeAll();
 
@@ -174,6 +192,8 @@ describe('BrowserSessionStore', () => {
       ...parts,
       allowlist: [],
       baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
       blockedRequests: [],
     });
 

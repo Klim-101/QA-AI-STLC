@@ -5,6 +5,7 @@ import type { Config, EnvironmentConfig, Evidence } from '@qa-ai-stlc/schemas';
 import type { BlockedRequest } from '../browser-safe-mode.js';
 import { createBrowserSafeModeRouteHandler } from '../browser-safe-mode.js';
 import type { BrowserSession } from '../browser-session-store.js';
+import { resolveBrowserTimeouts } from '../browser-timeouts.js';
 import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
 import type { BrowserOperationContext } from './browser-context.js';
@@ -110,12 +111,15 @@ export async function runBrowserOpen(
         { allowMutations: options.executionMode === true },
       ),
     );
+    const timeouts = resolveBrowserTimeouts(environment.config);
     session = context.sessions.open({
       browser,
       context: browserContext,
       page,
       allowlist: environment.config.allowlist,
       baseUrl: environment.config.baseUrl,
+      navigationTimeoutMs: timeouts.navigationTimeoutMs,
+      actionTimeoutMs: timeouts.actionTimeoutMs,
       blockedRequests,
     });
   } catch (error) {

@@ -293,6 +293,12 @@ export interface PickModeElement {
 export interface CapturePickModeElementsOptions {
   readonly policy?: LocatorPolicy;
   readonly viewports?: readonly ViewportSize[];
+  /**
+   * `config.selectors.generatedIdPatterns` (P6-23), as regular-expression source text. Pick mode
+   * does not capture `config.selectors.extraStableAttributes` values: a human-picked element has
+   * no live DOM read for an arbitrary attribute the way a crawl's own extraction does.
+   */
+  readonly generatedIdPatterns?: readonly string[];
 }
 
 function toInteractiveElement(capture: PickModeCapture): InteractiveElement {
@@ -336,12 +342,13 @@ export async function capturePickModeElements(
   options: CapturePickModeElementsOptions = {},
 ): Promise<PickModeElement[]> {
   const policy = options.policy ?? 'playwright-default';
+  const generatedIdPatterns = (options.generatedIdPatterns ?? []).map((source) => new RegExp(source));
   const elements: PickModeElement[] = [];
   const assignElementId = createElementIdAssigner();
 
   for (const capture of captures) {
     const interactiveElement = toInteractiveElement(capture);
-    const candidates = synthesizeLocatorCandidates(interactiveElement, policy);
+    const candidates = synthesizeLocatorCandidates(interactiveElement, policy, { generatedIdPatterns });
     const primary = candidates[0];
     const stabilityScore =
       primary === undefined
