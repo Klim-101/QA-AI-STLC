@@ -26,6 +26,7 @@ describe('createBuiltinTools', () => {
       'qa.browser_close',
     ]);
     expect(names).toContain('qa.registry_execute_register');
+    expect(names).toContain('qa.config_show');
   });
 
   it('gives every tool a unique name', () => {

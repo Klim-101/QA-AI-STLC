@@ -13,6 +13,7 @@ import { createBrowserSnapshotTool } from './browser-snapshot.js';
 import { caseResultRegisterTool } from './case-result-register.js';
 import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
+import { configShowTool } from './config-show.js';
 import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
 import { generationManualRegionsApplyTool } from './generation-manual-regions-apply.js';
@@ -36,6 +37,7 @@ import type { ToolDefinition } from '../tool.js';
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   pingTool,
   doctorTool,
+  configShowTool,
   exploreTool,
   scopeTool,
   casesAddTool,

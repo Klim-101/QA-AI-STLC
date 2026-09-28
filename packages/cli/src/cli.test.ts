@@ -1831,3 +1831,122 @@ describe('configuration relaxations', () => {
     expect(deps.stderr).toStrictEqual(['error: disk unreadable']);
   });
 });
+
+describe('"config show"', () => {
+  const LOCAL_PATH = join(PROJECT_ROOT, '.qa', 'config.local.yaml');
+  const LOCAL_YAML = [
+    'environments:',
+    '  dev:',
+    '    baseUrl: http://localhost:4310',
+    '    allowlist: [localhost]',
+    '',
+  ].join('\n');
+
+  it('prints the effective configuration as YAML, with no local layer', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+    const exitCode = await runCli(['config', 'show'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Local layer: none');
+    expect(deps.stdout.some((line) => line.includes('e2e: in-scope'))).toBe(true);
+    expect(deps.stdout).toContain('No relaxations.');
+  });
+
+  it('names the local layer and lists its relaxations', async () => {
+    const relaxingLocal = [
+      'environments:',
+      '  dev:',
+      '    baseUrl: http://localhost:4310',
+      '    allowlist: [localhost]',
+      '    tlsInsecure: true',
+      '',
+    ].join('\n');
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [LOCAL_PATH]: relaxingLocal }),
+    });
+
+    const exitCode = await runCli(['config', 'show'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('Local layer: .qa/config.local.yaml');
+    expect(
+      deps.stdout.some(
+        (line) => line.includes('disables TLS certificate validation') && line.includes('dev'),
+      ),
+    ).toBe(true);
+  });
+
+  it('with --explain, names the source layer of every value', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [LOCAL_PATH]: LOCAL_YAML }),
+    });
+
+    const exitCode = await runCli(['config', 'show', '--explain'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout).toContain('testing.e2e = "in-scope"  (.qa/config.yaml)');
+    expect(deps.stdout).toContain(
+      'environments.dev.baseUrl = "http://localhost:4310"  (.qa/config.local.yaml)',
+    );
+    expect(deps.stdout).toContain('flaky.historyWindow = 10  (default)');
+  });
+
+  it('without --explain, does not name the source layer of any value', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [LOCAL_PATH]: LOCAL_YAML }),
+    });
+
+    const exitCode = await runCli(['config', 'show'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.some((line) => line.includes('(.qa/config.yaml)'))).toBe(false);
+  });
+
+  it('prints machine-readable JSON with --json, including values only with --explain', async () => {
+    const withoutExplain = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+    const withExplain = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+    await runCli(['config', 'show', '--json'], withoutExplain);
+    await runCli(['config', 'show', '--explain', '--json'], withExplain);
+
+    const plain = JSON.parse(withoutExplain.stdout[0] ?? '') as { data: Record<string, unknown> };
+    expect(plain.data.config).toBeDefined();
+    expect(plain.data.localLayerPath).toBeUndefined();
+    expect(plain.data.relaxations).toStrictEqual([]);
+    expect(plain.data.values).toBeUndefined();
+
+    const explained = JSON.parse(withExplain.stdout[0] ?? '') as { data: Record<string, unknown> };
+    expect(Array.isArray(explained.data.values)).toBe(true);
+    expect(explained.data.values).toContainEqual({
+      path: ['testing', 'e2e'],
+      value: 'in-scope',
+      layer: 'committed',
+    });
+  });
+
+  it('never prints an identity secret value, only its environment-variable name', async () => {
+    const configWithIdentity = CONFIG_YAML.replace(
+      'identities: {}',
+      'identities:\n  admin: { auth: cdp-attach, secret: QA_ADMIN_PASSWORD }',
+    );
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [CONFIG_PATH]: configWithIdentity }),
+      env: { QA_ADMIN_PASSWORD: 'super-secret-value' },
+    });
+
+    const exitCode = await runCli(['config', 'show', '--explain'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).not.toContain('super-secret-value');
+  });
+
+  it('defaults the project root to the current working directory', async () => {
+    const { io, stdout } = captureIO();
+
+    const exitCode = await runCli(['config', 'show'], { io, fs: createFakeFileSystem(), env: {} });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stdout).toStrictEqual([]);
+  });
+});

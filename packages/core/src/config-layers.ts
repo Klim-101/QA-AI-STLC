@@ -26,6 +26,15 @@ export interface MergedConfigLayers {
   readonly sources: readonly ConfigValueSource[];
 }
 
+export type ConfigValueLayer = ConfigLayerName | 'default';
+
+/** One leaf of the effective configuration and where it came from, for `qa config show --explain`. */
+export interface ConfigShowValue {
+  readonly path: readonly string[];
+  readonly value: unknown;
+  readonly layer: ConfigValueLayer;
+}
+
 export function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -117,6 +126,40 @@ function readCommittedEnvironment(
   }
   const environment = committed.environments[name];
   return isPlainObject(environment) ? environment : undefined;
+}
+
+function pathsEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((segment, index) => segment === b[index]);
+}
+
+function collectShowValues(
+  value: unknown,
+  path: readonly string[],
+  sources: readonly ConfigValueSource[],
+  values: ConfigShowValue[],
+): void {
+  if (!isPlainObject(value)) {
+    const matched = sources.find((source) => pathsEqual(source.path, path));
+    values.push({ path, value, layer: matched?.layer ?? 'default' });
+    return;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    collectShowValues(child, [...path, key], sources, values);
+  }
+}
+
+/**
+ * Every leaf of the effective configuration, with the layer it came from: `committed` or `local`
+ * when the raw layer set it, `default` when only `ConfigSchema`'s own default filled it in (for
+ * example an omitted `schemaVersion` or `flaky`). Sorted by path for stable output (AGENTS.md 12.6).
+ */
+export function buildConfigShowValues(
+  config: Config,
+  sources: readonly ConfigValueSource[],
+): readonly ConfigShowValue[] {
+  const values: ConfigShowValue[] = [];
+  collectShowValues(config, [], sources, values);
+  return values.toSorted((a, b) => a.path.join('.').localeCompare(b.path.join('.')));
 }
 
 /**

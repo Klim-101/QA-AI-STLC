@@ -11,7 +11,13 @@ export * from './ports/logger.js';
 export * from './qa-store.js';
 export * from './manifest-store.js';
 export * from './config-loader.js';
-export type { ConfigLayerName, ConfigRelaxation, ConfigValueSource } from './config-layers.js';
+export type {
+  ConfigLayerName,
+  ConfigRelaxation,
+  ConfigShowValue,
+  ConfigValueLayer,
+  ConfigValueSource,
+} from './config-layers.js';
 export * from './ports/http-client.js';
 export * from './ports/process-runner.js';
 export * from './browser-doctor.js';
@@ -38,6 +44,7 @@ export * from './engine-context.js';
 export * from './runner.js';
 export * from './step-ids.js';
 export * from './operations/doctor.js';
+export * from './operations/config-show.js';
 export * from './operations/scope.js';
 export * from './operations/cases-add.js';
 export * from './operations/cases-render.js';
