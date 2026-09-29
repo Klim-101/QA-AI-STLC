@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
+import { A11yConformanceLevelSchema, A11yExceptionSchema, A11yWcagVersionSchema } from './config.js';
 import { IdentifierSchema, IsoDateTimeSchema, RelativePathSchema, Sha256HexSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
@@ -59,6 +60,39 @@ export const HttpRequestRecordSchema = z.object({
   at: IsoDateTimeSchema,
 });
 export type HttpRequestRecord = z.infer<typeof HttpRequestRecordSchema>;
+
+// One axe-core rule result; only the rule id is read back, the rest of the raw result is kept as is.
+const AxeRuleResultSchema = z.looseObject({ id: z.string().min(1) });
+
+// The body of an `other`-kind evidence record `runBrowserAccessibilityScan` writes for the `a11y`
+// test type (P6-26, P6-28): what the scan ran with and what axe-core decided per rule. `passes`
+// and `inapplicable` are kept as rule ids only, which is all the conformance report needs.
+export const A11yScanRecordSchema = z.object({
+  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+  type: z.literal('a11y-scan'),
+  axeVersion: z.string().min(1),
+  configHash: Sha256HexSchema,
+  wcagVersion: A11yWcagVersionSchema,
+  level: A11yConformanceLevelSchema,
+  bestPractices: z.boolean(),
+  tags: z.array(z.string()),
+  include: z.array(z.string()),
+  exclude: z.array(z.string()),
+  violations: z.array(AxeRuleResultSchema),
+  excepted: z.array(
+    z.object({
+      ruleId: z.string().min(1),
+      reason: z.string().min(1),
+      expires: z.iso.date().optional(),
+      violation: z.unknown(),
+    }),
+  ),
+  expiredExceptions: z.array(A11yExceptionSchema),
+  uncertain: z.array(AxeRuleResultSchema),
+  passedRuleIds: z.array(z.string().min(1)),
+  inapplicableRuleIds: z.array(z.string().min(1)),
+});
+export type A11yScanRecord = z.infer<typeof A11yScanRecordSchema>;
 
 // Evidence is created and hashed by the engine only (AGENTS.md 2.5, 12.5); an agent can reference
 // a file here but cannot register one that the engine did not itself write and scan.

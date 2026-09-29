@@ -920,7 +920,11 @@ function formatRunSummary(summary: RunSummary): readonly string[] {
 }
 
 function formatReportResult(result: ReportResult): readonly string[] {
-  return [...result.runSummary.split('\n'), '', ...result.traceabilityMatrix.split('\n')];
+  const sections = [result.runSummary, result.traceabilityMatrix];
+  if (result.a11yConformance !== undefined) {
+    sections.push(result.a11yConformance);
+  }
+  return sections.flatMap((section, index) => [...(index === 0 ? [] : ['']), ...section.split('\n')]);
 }
 
 function formatApproveResult(result: ApproveResult): readonly string[] {

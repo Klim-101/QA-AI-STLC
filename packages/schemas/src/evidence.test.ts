@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  A11yScanRecordSchema,
   BrowserActionSchema,
   EvidenceQuarantineReceiptSchema,
   EvidenceSchema,
@@ -202,5 +203,40 @@ describe('EvidenceKindSchema', () => {
       redacted: false,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('A11yScanRecordSchema', () => {
+  const validRecord = {
+    type: 'a11y-scan',
+    axeVersion: '4.13.0',
+    configHash: validHash,
+    wcagVersion: '2.1',
+    level: 'AA',
+    bestPractices: false,
+    tags: ['wcag2a'],
+    include: [],
+    exclude: [],
+    violations: [{ id: 'image-alt', nodes: [] }],
+    excepted: [{ ruleId: 'label', reason: 'Legacy form', violation: { id: 'label' } }],
+    expiredExceptions: [],
+    uncertain: [{ id: 'color-contrast' }],
+    passedRuleIds: ['html-has-lang'],
+    inapplicableRuleIds: ['video-caption'],
+  };
+
+  it('accepts a scan record and keeps the extra fields of a raw rule result', () => {
+    const result = A11yScanRecordSchema.safeParse(validRecord);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.violations[0]).toMatchObject({ id: 'image-alt', nodes: [] });
+  });
+
+  it('rejects a record of another evidence type', () => {
+    expect(A11yScanRecordSchema.safeParse({ ...validRecord, type: 'http-request' }).success).toBe(false);
+  });
+
+  it('rejects a rule result without an id', () => {
+    expect(A11yScanRecordSchema.safeParse({ ...validRecord, uncertain: [{}] }).success).toBe(false);
   });
 });

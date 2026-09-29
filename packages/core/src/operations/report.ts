@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RunRecordSchema, type Identifier, type RelativePath, type RunRecord } from '@qa-ai-stlc/schemas';
+import { buildA11yConformanceReport, type A11yConformanceReport } from '../a11y-conformance.js';
+import { listA11yScans } from '../a11y-scan-store.js';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
@@ -26,6 +28,8 @@ export interface ReportResult {
   readonly format: ReportFormat;
   readonly runSummary: string;
   readonly traceabilityMatrix: string;
+  /** Rendered accessibility conformance section; present only when accessibility testing is in scope. */
+  readonly a11yConformance?: string;
 }
 
 /**
@@ -68,7 +72,25 @@ export async function runReport(context: EngineContext, options: ReportOptions):
       ? renderMarkdownArtifact('traceability-matrix', matrix)
       : renderHtmlArtifact('traceability-matrix', matrix);
 
-  return { runId, runRecordPath, format, runSummary, traceabilityMatrix };
+  const a11yConformance =
+    config.testing.a11y === 'in-scope'
+      ? renderA11yConformance(buildA11yConformanceReport(config.a11y, await listA11yScans(store)), format)
+      : undefined;
+
+  return {
+    runId,
+    runRecordPath,
+    format,
+    runSummary,
+    traceabilityMatrix,
+    ...(a11yConformance === undefined ? {} : { a11yConformance }),
+  };
+}
+
+function renderA11yConformance(report: A11yConformanceReport, format: ReportFormat): string {
+  return format === 'markdown'
+    ? renderMarkdownArtifact('a11y-conformance', report)
+    : renderHtmlArtifact('a11y-conformance', report);
 }
 
 /** The run whose `RunRecord.startedAt` is latest, or `undefined` when no run has been recorded yet. */

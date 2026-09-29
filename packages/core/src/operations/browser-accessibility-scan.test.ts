@@ -80,6 +80,8 @@ describe('runBrowserAccessibilityScan', () => {
         evaluateResult: {
           violations: [{ id: 'image-alt' }, { id: 'label' }],
           incomplete: [{ id: 'color-contrast' }],
+          passes: [{ id: 'html-has-lang' }],
+          inapplicable: [{ id: 'video-caption' }],
         },
       },
     });
@@ -90,7 +92,16 @@ describe('runBrowserAccessibilityScan', () => {
     expect(result).toMatchObject({ violationCount: 1, exceptedCount: 1, uncertainCount: 1 });
     const written = JSON.parse(
       String(harness.fs.getRawFile(join('project', '.qa', result.evidence.path))),
-    ) as { excepted: { ruleId: string; reason: string }[]; uncertain: unknown[] };
+    ) as {
+      type: string;
+      excepted: { ruleId: string; reason: string }[];
+      uncertain: unknown[];
+      passedRuleIds: string[];
+      inapplicableRuleIds: string[];
+    };
+    expect(written.type).toBe('a11y-scan');
+    expect(written.passedRuleIds).toEqual(['html-has-lang']);
+    expect(written.inapplicableRuleIds).toEqual(['video-caption']);
     expect(written.excepted).toEqual([
       expect.objectContaining({ ruleId: 'image-alt', reason: 'Legacy logo' }),
     ]);

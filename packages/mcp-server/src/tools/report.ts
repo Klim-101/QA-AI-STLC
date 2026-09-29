@@ -20,6 +20,10 @@ const OutputSchema = z.object({
   format: z.enum(['markdown', 'html']),
   runSummary: z.string(),
   traceabilityMatrix: z.string(),
+  a11yConformance: z
+    .string()
+    .optional()
+    .describe('Per-criterion accessibility conformance section; present only when a11y testing is in scope.'),
 });
 
 /**
@@ -47,6 +51,7 @@ export const reportTool: ToolDefinition<typeof InputSchema, typeof OutputSchema>
       format: result.format,
       runSummary: result.runSummary,
       traceabilityMatrix: result.traceabilityMatrix,
+      ...(result.a11yConformance === undefined ? {} : { a11yConformance: result.a11yConformance }),
     };
   },
 };

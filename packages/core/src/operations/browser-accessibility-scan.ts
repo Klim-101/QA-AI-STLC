@@ -13,6 +13,7 @@ import { hashText } from '../hash.js';
 import { toCanonicalJson } from '../json-file.js';
 import {
   classifyAxeResult,
+  listRuleIds,
   planAxeRun,
   toAxeContext,
   type AxeContext,
@@ -68,6 +69,7 @@ export async function runBrowserAccessibilityScan(
     kind: 'other',
     fileExtension: 'json',
     content: toCanonicalJson({
+      type: 'a11y-scan',
       axeVersion: axeCore.version,
       configHash,
       wcagVersion: a11y.wcagVersion,
@@ -80,6 +82,8 @@ export async function runBrowserAccessibilityScan(
       excepted: classified.excepted,
       expiredExceptions: classified.expiredExceptions,
       uncertain: classified.uncertain,
+      passedRuleIds: listRuleIds(scanResult, 'passes'),
+      inapplicableRuleIds: listRuleIds(scanResult, 'inapplicable'),
     }),
   });
 
