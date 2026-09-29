@@ -89,12 +89,17 @@ export const DEFAULT_LOGIN_SELECTORS: DefaultLoginSelectors = {
   submit: 'button[type="submit"], input[type="submit"]',
 };
 
+// The name of an environment variable holding a credential, never the credential itself
+// (AGENTS.md 5.8, 14): for example `QA_ADMIN_PASSWORD`. A literal secret cannot match this shape
+// by accident, so writing one into the configuration fails validation.
+export const QaVariableNameSchema = z
+  .string()
+  .regex(/^QA_[A-Z0-9_]+$/, 'must be a QA_-prefixed environment variable name');
+
 export const IdentityConfigSchema = z
   .object({
     auth: IdentityAuthSchema,
-    // The name of an environment variable holding the credential, never the credential itself
-    // (AGENTS.md 5.8, 14): for example `QA_ADMIN_PASSWORD`.
-    secret: z.string().regex(/^QA_[A-Z0-9_]+$/, 'must be a QA_-prefixed environment variable name'),
+    secret: QaVariableNameSchema,
     // Scripted login only ("storage-state" auth, development plan section 6.2); "cdp-attach"
     // reuses a session the operator already signed into and needs neither.
     loginUrl: z.string().min(1).optional(),
@@ -242,6 +247,87 @@ export const DEFAULT_A11Y_CONFIG: A11yConfig = {
   exceptions: [],
 };
 
+// RFC 9110 token characters: what a header name may contain.
+const HEADER_NAME_PATTERN = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;
+const HeaderNameSchema = z.string().regex(HEADER_NAME_PATTERN, 'must be a valid HTTP header name');
+const QueryParameterNameSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9._~-]+$/, 'must be a plain query parameter name');
+
+// Where the engine reads a token from a live browser session, the way an operator would in
+// developer tools (ADR-0012). `jsonPath` is a dot-separated path into a JSON value.
+export const BrowserTokenSourceSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('cookie'), name: z.string().min(1) }),
+  z.object({
+    kind: z.literal('local-storage'),
+    key: z.string().min(1),
+    jsonPath: z.string().min(1).optional(),
+  }),
+  z.object({
+    kind: z.literal('session-storage'),
+    key: z.string().min(1),
+    jsonPath: z.string().min(1).optional(),
+  }),
+  z.object({
+    kind: z.literal('request-header'),
+    header: HeaderNameSchema.default('Authorization'),
+  }),
+]);
+export type BrowserTokenSource = z.infer<typeof BrowserTokenSourceSchema>;
+
+// A named way to authenticate an API call (ADR-0012). Every secret is the name of a `QA_*`
+// variable, never a value; the engine resolves it at request time and an agent refers to the
+// profile by name only.
+export const ApiAuthProfileSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('none') }),
+  z.object({
+    type: z.literal('basic'),
+    usernameVariable: QaVariableNameSchema,
+    passwordVariable: QaVariableNameSchema,
+  }),
+  z.object({ type: z.literal('bearer'), tokenVariable: QaVariableNameSchema }),
+  z
+    .object({
+      type: z.literal('api-key'),
+      keyVariable: QaVariableNameSchema,
+      in: z.enum(['header', 'query']),
+      name: z.string().min(1),
+    })
+    // A header name and a query parameter name follow different grammars.
+    .refine(
+      (profile) =>
+        (profile.in === 'header' ? HeaderNameSchema : QueryParameterNameSchema).safeParse(profile.name)
+          .success,
+      { message: '"name" is not a valid name for where the key is sent', path: ['name'] },
+    ),
+  z.object({
+    type: z.literal('custom-headers'),
+    headers: z
+      .record(HeaderNameSchema, QaVariableNameSchema)
+      .refine((headers) => Object.keys(headers).length > 0, {
+        message: 'must name at least one header',
+      }),
+  }),
+  z.object({
+    type: z.literal('oauth2-client-credentials'),
+    tokenUrl: z.url({ protocol: /^https?$/ }),
+    clientIdVariable: QaVariableNameSchema,
+    clientSecretVariable: QaVariableNameSchema,
+    scope: z.string().min(1).optional(),
+  }),
+  z.object({ type: z.literal('from-browser'), source: BrowserTokenSourceSchema }),
+]);
+export type ApiAuthProfile = z.infer<typeof ApiAuthProfileSchema>;
+
+export const ApiAuthConfigSchema = z.object({
+  profiles: z.record(z.string().min(1), ApiAuthProfileSchema).default({}),
+  // The profile an environment's API calls use when the caller names none, keyed by environment.
+  defaults: z.record(z.string().min(1), z.string().min(1)).default({}),
+});
+export type ApiAuthConfig = z.infer<typeof ApiAuthConfigSchema>;
+
+export const DEFAULT_API_AUTH_CONFIG: ApiAuthConfig = { profiles: {}, defaults: {} };
+
 export const ConfigSchema = z
   .object({
     schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
@@ -256,6 +342,7 @@ export const ConfigSchema = z
     flaky: FlakyDetectionConfigSchema.default({ historyWindow: 10, minStatusChanges: 2 }),
     evidence: EvidenceConfigSchema.default(DEFAULT_EVIDENCE_CONFIG),
     a11y: A11yConfigSchema.default(DEFAULT_A11Y_CONFIG),
+    apiAuth: ApiAuthConfigSchema.default(DEFAULT_API_AUTH_CONFIG),
   })
   // The testing scope survey (development plan section 2.7) is the single source of truth for
   // whether a contract or a source checkout is required; a config that claims API is in scope
@@ -264,6 +351,24 @@ export const ConfigSchema = z
   .refine((config) => config.testing.api !== 'in-scope' || config.api !== undefined, {
     message: '"api" is required when testing.api is "in-scope"',
     path: ['api'],
+  })
+  .superRefine((config, context) => {
+    for (const [environmentName, profileName] of Object.entries(config.apiAuth.defaults)) {
+      if (!(environmentName in config.environments)) {
+        context.addIssue({
+          code: 'custom',
+          message: `"${environmentName}" is not a configured environment`,
+          path: ['apiAuth', 'defaults', environmentName],
+        });
+      }
+      if (!(profileName in config.apiAuth.profiles)) {
+        context.addIssue({
+          code: 'custom',
+          message: `"${profileName}" is not a configured apiAuth profile`,
+          path: ['apiAuth', 'defaults', environmentName],
+        });
+      }
+    }
   });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -289,6 +394,9 @@ export const CONFIG_SECTION_LAYERING: Readonly<Record<ConfigSectionName, ConfigS
   evidence: 'committed-only',
   // Sets what an accessibility report claims and feeds its hash, so every machine must agree.
   a11y: 'committed-only',
+  // Names the variables, token endpoint and headers a credential is read from and sent to, so an
+  // override file must not be able to redirect one (ADR-0012).
+  apiAuth: 'committed-only',
 };
 
 /** True when `key` is a known section the local layer may set; unknown keys are never overridable. */

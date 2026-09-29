@@ -4,6 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   A11yConfigSchema,
+  ApiAuthProfileSchema,
+  DEFAULT_API_AUTH_CONFIG,
   CONFIG_SECTION_LAYERING,
   ConfigSchema,
   DEFAULT_A11Y_CONFIG,
@@ -363,5 +365,134 @@ describe('a11y config (P6-25)', () => {
 
   it('is committed-only, since it sets what a report claims', () => {
     expect(isLocalOverridableConfigSection('a11y')).toBe(false);
+  });
+});
+
+describe('apiAuth config (P6-30)', () => {
+  const VALID_PROFILES: Readonly<Record<string, unknown>> = {
+    none: { type: 'none' },
+    basic: { type: 'basic', usernameVariable: 'QA_API_USER', passwordVariable: 'QA_API_PASSWORD' },
+    bearer: { type: 'bearer', tokenVariable: 'QA_API_TOKEN' },
+    headerKey: { type: 'api-key', keyVariable: 'QA_API_KEY', in: 'header', name: 'X-Api-Key' },
+    queryKey: { type: 'api-key', keyVariable: 'QA_API_KEY', in: 'query', name: 'api_key' },
+    custom: {
+      type: 'custom-headers',
+      headers: { 'X-Tenant-Token': 'QA_TENANT_TOKEN', 'X-Signature': 'QA_SIGNATURE' },
+    },
+    oauth: {
+      type: 'oauth2-client-credentials',
+      tokenUrl: 'https://auth.example.com/token',
+      clientIdVariable: 'QA_CLIENT_ID',
+      clientSecretVariable: 'QA_CLIENT_SECRET',
+      scope: 'read',
+    },
+    cookie: { type: 'from-browser', source: { kind: 'cookie', name: 'session' } },
+    localStorage: {
+      type: 'from-browser',
+      source: { kind: 'local-storage', key: 'auth', jsonPath: 'data.accessToken' },
+    },
+    sessionStorage: { type: 'from-browser', source: { kind: 'session-storage', key: 'token' } },
+    requestHeader: { type: 'from-browser', source: { kind: 'request-header', header: 'X-Auth' } },
+  };
+
+  it('defaults to no profiles and no defaults', () => {
+    expect(ConfigSchema.parse(validConfig()).apiAuth).toStrictEqual(DEFAULT_API_AUTH_CONFIG);
+  });
+
+  it.each(Object.entries(VALID_PROFILES))('accepts a %s profile', (_name, profile) => {
+    expect(ApiAuthProfileSchema.safeParse(profile).success).toBe(true);
+  });
+
+  it('defaults a request-header source to the Authorization header', () => {
+    const profile = ApiAuthProfileSchema.parse({
+      type: 'from-browser',
+      source: { kind: 'request-header' },
+    });
+
+    expect(profile).toStrictEqual({
+      type: 'from-browser',
+      source: { kind: 'request-header', header: 'Authorization' },
+    });
+  });
+
+  it.each([
+    ['basic password', { type: 'basic', usernameVariable: 'QA_USER', passwordVariable: 'hunter2' }],
+    ['bearer token', { type: 'bearer', tokenVariable: 'eyJhbGciOiJIUzI1NiJ9.payload.sig' }],
+    ['api key', { type: 'api-key', keyVariable: 'sk_live_abc', in: 'header', name: 'X-Api-Key' }],
+    ['custom header value', { type: 'custom-headers', headers: { 'X-Token': 'plain-secret' } }],
+    [
+      'client secret',
+      {
+        type: 'oauth2-client-credentials',
+        tokenUrl: 'https://auth.example.com/token',
+        clientIdVariable: 'QA_CLIENT_ID',
+        clientSecretVariable: 'literal-secret',
+      },
+    ],
+  ])('rejects a literal secret in place of a variable name (%s)', (_name, profile) => {
+    const result = ApiAuthProfileSchema.safeParse(profile);
+
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain('QA_-prefixed environment variable name');
+  });
+
+  it('rejects a profile with an unknown type', () => {
+    expect(ApiAuthProfileSchema.safeParse({ type: 'digest' }).success).toBe(false);
+  });
+
+  it('rejects custom-headers with no header, or an invalid header name', () => {
+    expect(ApiAuthProfileSchema.safeParse({ type: 'custom-headers', headers: {} }).success).toBe(false);
+    expect(
+      ApiAuthProfileSchema.safeParse({ type: 'custom-headers', headers: { 'Bad Header': 'QA_X' } }).success,
+    ).toBe(false);
+  });
+
+  it('checks an api-key name against the grammar of where it is sent', () => {
+    const key = { type: 'api-key', keyVariable: 'QA_API_KEY' };
+
+    expect(ApiAuthProfileSchema.safeParse({ ...key, in: 'header', name: 'bad name' }).success).toBe(false);
+    expect(ApiAuthProfileSchema.safeParse({ ...key, in: 'query', name: 'X-Api-Key' }).success).toBe(true);
+    expect(ApiAuthProfileSchema.safeParse({ ...key, in: 'query', name: 'a=b' }).success).toBe(false);
+  });
+
+  it('requires an http(s) token URL', () => {
+    const oauth = {
+      type: 'oauth2-client-credentials',
+      clientIdVariable: 'QA_CLIENT_ID',
+      clientSecretVariable: 'QA_CLIENT_SECRET',
+    };
+
+    expect(ApiAuthProfileSchema.safeParse({ ...oauth, tokenUrl: 'not a url' }).success).toBe(false);
+    expect(ApiAuthProfileSchema.safeParse({ ...oauth, tokenUrl: 'ftp://auth.example.com/t' }).success).toBe(
+      false,
+    );
+  });
+
+  it('accepts a default profile per configured environment', () => {
+    const config = {
+      ...validConfig(),
+      apiAuth: { profiles: { staging: VALID_PROFILES.bearer }, defaults: { staging: 'staging' } },
+    };
+
+    expect(ConfigSchema.parse(config).apiAuth.defaults).toStrictEqual({ staging: 'staging' });
+  });
+
+  it('rejects a default that names an unknown profile or an unknown environment', () => {
+    const unknownProfile = ConfigSchema.safeParse({
+      ...validConfig(),
+      apiAuth: { profiles: {}, defaults: { staging: 'missing' } },
+    });
+    const unknownEnvironment = ConfigSchema.safeParse({
+      ...validConfig(),
+      apiAuth: { profiles: { main: VALID_PROFILES.none }, defaults: { production: 'main' } },
+    });
+
+    expect(unknownProfile.error?.issues[0]?.message).toContain('not a configured apiAuth profile');
+    expect(unknownProfile.error?.issues[0]?.path).toStrictEqual(['apiAuth', 'defaults', 'staging']);
+    expect(unknownEnvironment.error?.issues[0]?.message).toContain('not a configured environment');
+  });
+
+  it('is committed-only, since it names where a credential is read from and sent to', () => {
+    expect(isLocalOverridableConfigSection('apiAuth')).toBe(false);
   });
 });
