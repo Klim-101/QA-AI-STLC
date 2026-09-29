@@ -1,5 +1,26 @@
 # @qa-ai-stlc/runner-playwright
 
+## 1.5.0
+
+### Patch Changes
+
+- fbbbab7: Fixed `config.yaml`'s `selectors.testIdAttribute` being silently ignored: the crawler, pick mode
+  and static source analysis all hardcoded `data-testid` regardless of what was configured, so an
+  application using a different stable test attribute (e.g. `data-ui-id`) got no test-id locator
+  signal at all. The configured attribute is now read consistently by exploration, and by Playwright
+  itself (`getByTestId()`) during both live stability scoring and generated test execution.
+- Updated dependencies [4da23d6]
+- Updated dependencies [1e2ab70]
+- Updated dependencies [21e7319]
+- Updated dependencies [84ed459]
+- Updated dependencies [08972c0]
+- Updated dependencies [434e07f]
+- Updated dependencies [a9488cb]
+- Updated dependencies [16b80d4]
+- Updated dependencies [fbbbab7]
+  - @qa-ai-stlc/core@1.5.0
+  - @qa-ai-stlc/schemas@1.5.0
+
 ## 1.4.0
 
 ### Patch Changes
