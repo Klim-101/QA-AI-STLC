@@ -28,8 +28,15 @@ import {
   type ScopeResult,
   type TestDataAddResult,
   type ValidateReport,
+  type A11yTargetAnswers,
 } from '@qa-ai-stlc/core';
-import { TestTypeSchema, type TestingScopeDecision, type TestType } from '@qa-ai-stlc/schemas';
+import {
+  A11yConformanceLevelSchema,
+  A11yWcagVersionSchema,
+  TestTypeSchema,
+  type TestingScopeDecision,
+  type TestType,
+} from '@qa-ai-stlc/schemas';
 import { stringify as stringifyYaml } from 'yaml';
 import type { CliIO } from './cli-io.js';
 import { createCommandContext, type CreateCommandContextOptions } from './command-context.js';
@@ -181,6 +188,29 @@ function parseTestingScopeFlag(value: string | undefined, flag: string): Testing
   return value;
 }
 
+function parseA11yTarget(values: Record<string, unknown>): Partial<A11yTargetAnswers> | undefined {
+  const rawVersion = values['a11y-wcag-version'];
+  const rawLevel = values['a11y-level'];
+  const version = typeof rawVersion === 'string' ? A11yWcagVersionSchema.safeParse(rawVersion) : undefined;
+  const level = typeof rawLevel === 'string' ? A11yConformanceLevelSchema.safeParse(rawLevel) : undefined;
+  if (version?.success === false) {
+    throw new QaError('INIT_OPTION_INVALID', `"${String(rawVersion)}" is not valid for --a11y-wcag-version`, {
+      remediation: 'Use one of: 2.0, 2.1, 2.2.',
+    });
+  }
+  if (level?.success === false) {
+    throw new QaError('INIT_OPTION_INVALID', `"${String(rawLevel)}" is not valid for --a11y-level`, {
+      remediation: 'Use one of: A, AA, AAA.',
+    });
+  }
+  const target: Partial<A11yTargetAnswers> = {
+    ...(version?.success === true ? { wcagVersion: version.data } : {}),
+    ...(level?.success === true ? { level: level.data } : {}),
+    ...(values['a11y-best-practices'] === true ? { bestPractices: true } : {}),
+  };
+  return Object.keys(target).length === 0 ? undefined : target;
+}
+
 async function dispatchInit(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const values = parseCommandArgs(rest, {
     json: { type: 'boolean', default: false },
@@ -192,6 +222,9 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     security: { type: 'string' },
     'source-path': { type: 'string' },
     'api-source': { type: 'string' },
+    'a11y-wcag-version': { type: 'string' },
+    'a11y-level': { type: 'string' },
+    'a11y-best-practices': { type: 'boolean', default: false },
   });
   const json = values.json === true;
   const context = createCommandContext({
@@ -199,6 +232,7 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     projectRoot: dependencies.projectRoot ?? process.cwd(),
     json,
   });
+  const a11yTarget = parseA11yTarget(values);
   const e2e = parseTestingScopeFlag(typeof values.e2e === 'string' ? values.e2e : undefined, '--e2e');
   const api = parseTestingScopeFlag(typeof values.api === 'string' ? values.api : undefined, '--api');
   const a11y = parseTestingScopeFlag(typeof values.a11y === 'string' ? values.a11y : undefined, '--a11y');
@@ -218,6 +252,7 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     testing,
     ...(typeof values['source-path'] === 'string' ? { sourcePath: values['source-path'] } : {}),
     ...(typeof values['api-source'] === 'string' ? { apiSource: values['api-source'] } : {}),
+    ...(a11yTarget !== undefined ? { a11yTarget } : {}),
   });
   printResult(context.io, json, 'init', result, formatInitResult(result));
   return EXIT_SUCCESS;

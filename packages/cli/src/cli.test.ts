@@ -173,6 +173,70 @@ describe('runCli', () => {
     expect(deps.stderr.join('\n')).toContain('is not valid for --e2e');
   });
 
+  describe('accessibility target flags (P6-25)', () => {
+    const SCOPE = ['--e2e', 'out-of-scope', '--api', 'out-of-scope', '--security', 'out-of-scope'];
+
+    it('records the default WCAG 2.1 AA target when --a11y is in-scope and no target flag is given', async () => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(['init', ...SCOPE, '--a11y', 'in-scope'], deps);
+      const config = await deps.fs?.readFile(CONFIG_PATH);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(config).toContain('wcagVersion: "2.1"');
+      expect(config).toContain('level: AA');
+      expect(config).toContain('bestPractices: false');
+    });
+
+    it('records --a11y-wcag-version, --a11y-level and --a11y-best-practices', async () => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(
+        [
+          'init',
+          ...SCOPE,
+          '--a11y',
+          'in-scope',
+          '--a11y-wcag-version',
+          '2.2',
+          '--a11y-level',
+          'AAA',
+          '--a11y-best-practices',
+        ],
+        deps,
+      );
+      const config = await deps.fs?.readFile(CONFIG_PATH);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(config).toContain('wcagVersion: "2.2"');
+      expect(config).toContain('level: AAA');
+      expect(config).toContain('bestPractices: true');
+    });
+
+    it.each([
+      ['--a11y-wcag-version', '3.0'],
+      ['--a11y-level', 'AAAA'],
+    ])('fails init with a coded error when %s is %s', async (flag, value) => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(['init', ...SCOPE, '--a11y', 'in-scope', flag, value], deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stderr).toContain(`error: "${value}" is not valid for ${flag}`);
+    });
+
+    it('refuses a target when --a11y is not in-scope', async () => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(['init', ...SCOPE, '--a11y', 'out-of-scope', '--a11y-level', 'AA'], deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stderr).toContain(
+        'error: An accessibility target was given but a11y testing is not in-scope',
+      );
+    });
+  });
+
   it('accepts --source-path and --api-source, writing both into config.yaml', async () => {
     const deps = dependencies();
 

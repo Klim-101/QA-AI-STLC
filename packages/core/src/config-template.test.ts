@@ -4,7 +4,12 @@
 import { ConfigSchema, isLocalOverridableConfigSection, type TestingScope } from '@qa-ai-stlc/schemas';
 import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
-import { CONFIG_LOCAL_EXAMPLE, QA_GITIGNORE, renderConfigYaml } from './config-template.js';
+import {
+  CONFIG_LOCAL_EXAMPLE,
+  DEFAULT_A11Y_TARGET_ANSWERS,
+  QA_GITIGNORE,
+  renderConfigYaml,
+} from './config-template.js';
 
 const ALL_UNDECIDED: TestingScope = {
   e2e: 'undecided',
@@ -73,6 +78,30 @@ describe('renderConfigYaml', () => {
     );
 
     expect(parsed.source).toStrictEqual({ path: 'weird: "path"' });
+  });
+});
+
+describe('renderConfigYaml a11y block (P6-25)', () => {
+  it('omits the a11y block by default, leaving the schema defaults', () => {
+    const parsed: unknown = parseYaml(renderConfigYaml({ testing: ALL_UNDECIDED }));
+
+    expect(parsed).not.toHaveProperty('a11y');
+  });
+
+  it('writes the answered target and reads it back as the same strings and boolean', () => {
+    const yaml = renderConfigYaml({
+      testing: ALL_UNDECIDED,
+      a11y: { wcagVersion: '2.2', level: 'AAA', bestPractices: true },
+    });
+    const result = ConfigSchema.parse(parseYaml(yaml));
+
+    expect(result.a11y).toMatchObject({ wcagVersion: '2.2', level: 'AAA', bestPractices: true });
+  });
+
+  it('round-trips the default target, keeping the version a string', () => {
+    const yaml = renderConfigYaml({ testing: ALL_UNDECIDED, a11y: DEFAULT_A11Y_TARGET_ANSWERS });
+
+    expect(ConfigSchema.parse(parseYaml(yaml)).a11y).toMatchObject({ wcagVersion: '2.1', level: 'AA' });
   });
 });
 

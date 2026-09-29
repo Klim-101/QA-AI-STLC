@@ -3,7 +3,11 @@
 
 import { resolve } from 'node:path';
 import { QaError, planProjectInit, runInit } from '@qa-ai-stlc/core';
-import { TestingScopeDecisionSchema } from '@qa-ai-stlc/schemas';
+import {
+  A11yConformanceLevelSchema,
+  A11yWcagVersionSchema,
+  TestingScopeDecisionSchema,
+} from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
@@ -20,6 +24,16 @@ const InputSchema = z.object({
     })
     .describe(
       'The operator answer per testing type: "in-scope", "out-of-scope", or "undecided" to defer it.',
+    ),
+  a11y: z
+    .object({
+      wcagVersion: A11yWcagVersionSchema.optional(),
+      level: A11yConformanceLevelSchema.optional(),
+      bestPractices: z.boolean().optional(),
+    })
+    .optional()
+    .describe(
+      'Only when testing.a11y is "in-scope": the WCAG version (2.0, 2.1, 2.2; default 2.1), the cumulative conformance level (A, AA, AAA; default AA) and whether axe best-practice rules run (default off). Ask the operator; an omitted part records its default.',
     ),
   confirmedRoot: z
     .string()
@@ -78,6 +92,15 @@ export const initTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> =
     const result = await runInit(context, {
       deferScope: true,
       testing: input.testing,
+      ...(input.a11y !== undefined
+        ? {
+            a11yTarget: {
+              ...(input.a11y.wcagVersion !== undefined ? { wcagVersion: input.a11y.wcagVersion } : {}),
+              ...(input.a11y.level !== undefined ? { level: input.a11y.level } : {}),
+              ...(input.a11y.bestPractices !== undefined ? { bestPractices: input.a11y.bestPractices } : {}),
+            },
+          }
+        : {}),
       ...(input.sourcePath !== undefined ? { sourcePath: input.sourcePath } : {}),
       ...(input.apiSource !== undefined ? { apiSource: input.apiSource } : {}),
     });

@@ -3,8 +3,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  A11yConfigSchema,
   CONFIG_SECTION_LAYERING,
   ConfigSchema,
+  DEFAULT_A11Y_CONFIG,
   DEFAULT_EVIDENCE_CONFIG,
   DEFAULT_LOGIN_SELECTORS,
   DEFAULT_STABILITY_VIEWPORTS,
@@ -13,6 +15,7 @@ import {
   FlakyDetectionConfigSchema,
   SelectorsConfigSchema,
   isLocalOverridableConfigSection,
+  listA11yLevelsUpTo,
 } from './config.js';
 
 function validConfig() {
@@ -300,5 +303,65 @@ describe('isLocalOverridableConfigSection', () => {
   it('rejects an unknown key, including an inherited object property name', () => {
     expect(isLocalOverridableConfigSection('enviroments')).toBe(false);
     expect(isLocalOverridableConfigSection('toString')).toBe(false);
+  });
+});
+
+describe('a11y config (P6-25)', () => {
+  it('defaults to WCAG 2.1 level AA, best practices off, no selectors or exceptions', () => {
+    const result = ConfigSchema.parse(validConfig());
+
+    expect(result.a11y).toStrictEqual(DEFAULT_A11Y_CONFIG);
+    expect(result.a11y).toStrictEqual({
+      wcagVersion: '2.1',
+      level: 'AA',
+      bestPractices: false,
+      include: [],
+      exclude: [],
+      exceptions: [],
+    });
+  });
+
+  it('fills the defaults of a partially given block', () => {
+    const result = A11yConfigSchema.parse({ level: 'AAA', exclude: ['#cookie-banner'] });
+
+    expect(result).toStrictEqual({ ...DEFAULT_A11Y_CONFIG, level: 'AAA', exclude: ['#cookie-banner'] });
+  });
+
+  it('accepts an exception with a reason and an optional expiry', () => {
+    const result = A11yConfigSchema.parse({
+      exceptions: [
+        { ruleId: 'color-contrast', reason: 'Brand palette under review', expires: '2026-12-31' },
+        { ruleId: 'region', reason: 'Legacy layout' },
+      ],
+    });
+
+    expect(result.exceptions).toHaveLength(2);
+    expect(result.exceptions[1]?.expires).toBeUndefined();
+  });
+
+  it.each([
+    ['a missing reason', { ruleId: 'region' }],
+    ['an empty reason', { ruleId: 'region', reason: '' }],
+    ['an empty rule id', { ruleId: '', reason: 'x' }],
+    ['a malformed expiry', { ruleId: 'region', reason: 'x', expires: 'next year' }],
+  ])('rejects an exception with %s', (_name, exception) => {
+    expect(A11yConfigSchema.safeParse({ exceptions: [exception] }).success).toBe(false);
+  });
+
+  it('rejects an unknown level and an unquoted (numeric) WCAG version', () => {
+    expect(A11yConfigSchema.safeParse({ level: 'AAAA' }).success).toBe(false);
+    const numeric = A11yConfigSchema.safeParse({ wcagVersion: 2.1 });
+    expect(numeric.success).toBe(false);
+    expect(numeric.error?.issues[0]?.message).toContain('quoted');
+  });
+
+  it('treats conformance levels as cumulative', () => {
+    expect(listA11yLevelsUpTo('A')).toStrictEqual(['A']);
+    expect(listA11yLevelsUpTo('AA')).toStrictEqual(['A', 'AA']);
+    expect(listA11yLevelsUpTo('AAA')).toStrictEqual(['A', 'AA', 'AAA']);
+  });
+
+  it('is committed-only, since it sets what a report claims', () => {
+    expect(isLocalOverridableConfigSection('a11y')).toBe(false);
   });
 });

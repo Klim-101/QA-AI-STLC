@@ -194,6 +194,54 @@ export type EvidenceConfig = z.infer<typeof EvidenceConfigSchema>;
 
 export const DEFAULT_EVIDENCE_CONFIG: EvidenceConfig = { httpBodyPreviewMaxLength: 4000 };
 
+// YAML reads an unquoted 2.1 as a number, so the message tells the author to quote it.
+export const A11yWcagVersionSchema = z.enum(['2.0', '2.1', '2.2'], {
+  error: 'must be the quoted string "2.0", "2.1" or "2.2"',
+});
+export type A11yWcagVersion = z.infer<typeof A11yWcagVersionSchema>;
+
+export const A11yConformanceLevelSchema = z.enum(['A', 'AA', 'AAA']);
+export type A11yConformanceLevel = z.infer<typeof A11yConformanceLevelSchema>;
+
+const A11Y_LEVELS_ASCENDING: readonly A11yConformanceLevel[] = ['A', 'AA', 'AAA'];
+
+/**
+ * Conformance levels are cumulative: a target of `AA` covers every level A and level AA criterion,
+ * so the levels a scan must check are all of them up to and including the target.
+ */
+export function listA11yLevelsUpTo(level: A11yConformanceLevel): readonly A11yConformanceLevel[] {
+  return A11Y_LEVELS_ASCENDING.slice(0, A11Y_LEVELS_ASCENDING.indexOf(level) + 1);
+}
+
+// A known accessibility issue the team has accepted for now. It stays visible in reports as
+// excepted rather than disappearing, and stops applying after `expires` (an ISO date, inclusive).
+export const A11yExceptionSchema = z.object({
+  ruleId: z.string().min(1),
+  reason: z.string().min(1),
+  expires: z.iso.date().optional(),
+});
+export type A11yException = z.infer<typeof A11yExceptionSchema>;
+
+export const A11yConfigSchema = z.object({
+  wcagVersion: A11yWcagVersionSchema.default('2.1'),
+  level: A11yConformanceLevelSchema.default('AA'),
+  // axe-core best-practice rules go beyond WCAG success criteria; off unless asked for.
+  bestPractices: z.boolean().default(false),
+  include: z.array(z.string().min(1)).default([]),
+  exclude: z.array(z.string().min(1)).default([]),
+  exceptions: z.array(A11yExceptionSchema).default([]),
+});
+export type A11yConfig = z.infer<typeof A11yConfigSchema>;
+
+export const DEFAULT_A11Y_CONFIG: A11yConfig = {
+  wcagVersion: '2.1',
+  level: 'AA',
+  bestPractices: false,
+  include: [],
+  exclude: [],
+  exceptions: [],
+};
+
 export const ConfigSchema = z
   .object({
     schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
@@ -207,6 +255,7 @@ export const ConfigSchema = z
     agents: AgentsConfigSchema,
     flaky: FlakyDetectionConfigSchema.default({ historyWindow: 10, minStatusChanges: 2 }),
     evidence: EvidenceConfigSchema.default(DEFAULT_EVIDENCE_CONFIG),
+    a11y: A11yConfigSchema.default(DEFAULT_A11Y_CONFIG),
   })
   // The testing scope survey (development plan section 2.7) is the single source of truth for
   // whether a contract or a source checkout is required; a config that claims API is in scope
@@ -238,6 +287,8 @@ export const CONFIG_SECTION_LAYERING: Readonly<Record<ConfigSectionName, ConfigS
   agents: 'local-overridable',
   flaky: 'committed-only',
   evidence: 'committed-only',
+  // Sets what an accessibility report claims and feeds its hash, so every machine must agree.
+  a11y: 'committed-only',
 };
 
 /** True when `key` is a known section the local layer may set; unknown keys are never overridable. */
