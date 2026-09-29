@@ -18,6 +18,10 @@ const OutputSchema = z.object({
   url: z.string(),
   evidence: EvidenceSchema,
   violationCount: z.number(),
+  exceptedCount: z.number(),
+  uncertainCount: z.number(),
+  axeVersion: z.string(),
+  configHash: z.string(),
 });
 
 /**
