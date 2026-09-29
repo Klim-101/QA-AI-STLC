@@ -8,7 +8,8 @@ that into a structured `CallToolResult` carrying a stable `code` and, when there
 agent host's own model over the MCP protocol.
 
 `qa-mcp-server` starts the stdio server with the built-in tools: `qa.ping` (a health check that
-does not touch `.qa/`) and one tool per engine operation — `qa.doctor`, `qa.config_show`,
+does not touch `.qa/`) and one tool per engine operation — `qa.doctor`, `qa.init`, `qa.config_show`,
+`qa.config_set`, `qa.config_add`,
 `qa.explore`, `qa.scope`, `qa.cases_add`, `qa.cases_render`, `qa.approve`, `qa.validate`, `qa.run`,
 `qa.report` — each
 calling the exact same `packages/core` or `packages/explorer` function its CLI counterpart calls

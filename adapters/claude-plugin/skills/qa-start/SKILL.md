@@ -31,16 +31,17 @@ than continuing past it.
 
 1. **Confirm the project root.** Look for `.qa/` from the current working directory upward and
    state the resolved path back to the operator explicitly — never assume it silently. If none is
-   found, say so and stop: creating `.qa/` (`qa init`) is a deliberate operator action, not
-   something this skill invents on the operator's behalf.
+   found, say so and stop: creating `.qa/` is a deliberate operator action (`qa.init` writes it only
+   after the operator confirms the project root it returns), not something this skill invents on the
+   operator's behalf. The MCP tools resolve the root the same way, so they act on this directory.
 2. **Check the environment.** Call `qa.doctor`. If `ok` is `false`, show every `fail` check with its
    `remediation` and stop — do not proceed to a phase against an environment the engine itself
    reports as broken.
 3. **Check the testing scope.** Read `.qa/config.yaml`'s `testing` block. For any type still
    `undecided`, ask the operator to resolve it as `in-scope` or `out-of-scope` (never leave it
    `undecided` and continue — the engine blocks `qa scope` and later phases on an undecided type,
-   P2-16). Resolving it is `qa config set testing.<type> <value>`, run by the operator; this skill
-   has no tool that writes `config.yaml` itself. An explicit `out-of-scope` answer is a real
+   P2-16). Resolve it with `qa.config_set` (`key: testing.<type>`, `value`) using the operator's
+   answer, never one you chose yourself. An explicit `out-of-scope` answer is a real
    decision — that type is recorded `not-applicable` and takes no further part in the session, it is
    not silently skipped.
 4. **Resume or start.** Read `.qa/state.json`. If it does not exist, the session starts at the first

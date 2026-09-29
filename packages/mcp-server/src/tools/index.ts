@@ -13,6 +13,8 @@ import { createBrowserSnapshotTool } from './browser-snapshot.js';
 import { caseResultRegisterTool } from './case-result-register.js';
 import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
+import { configAddTool } from './config-add.js';
+import { configSetTool } from './config-set.js';
 import { configShowTool } from './config-show.js';
 import { doctorTool } from './doctor.js';
 import { exploreTool } from './explore.js';
@@ -23,6 +25,7 @@ import { generationRegisterTool } from './generation-register.js';
 import { generationSpokeInputTool } from './generation-spoke-input.js';
 import { generationVerifyTool } from './generation-verify.js';
 import { httpExecuteTool } from './http-execute.js';
+import { initTool } from './init.js';
 import { linkTool } from './link.js';
 import { pingTool } from './ping.js';
 import { createRegistryExecuteRegisterTool } from './registry-execute-register.js';
@@ -37,7 +40,10 @@ import type { ToolDefinition } from '../tool.js';
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   pingTool,
   doctorTool,
+  initTool,
   configShowTool,
+  configSetTool,
+  configAddTool,
   exploreTool,
   scopeTool,
   casesAddTool,
