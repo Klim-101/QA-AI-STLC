@@ -1761,6 +1761,23 @@ describe('runCli', () => {
     expect(deps.stdout.join('\n')).toContain('# Traceability matrix');
   });
 
+  it('appends the accessibility conformance section to "report" when a11y testing is in scope', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML.replace('a11y: out-of-scope', 'a11y: in-scope'),
+        [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
+          'run-1',
+          '2026-09-25T10:00:00.000Z',
+        ),
+      }),
+    });
+
+    const exitCode = await runCli(['report', '--run', 'run-1'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('## Accessibility conformance: WCAG 2.1 level AA');
+  });
+
   it('runs "report --format html" end to end', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({

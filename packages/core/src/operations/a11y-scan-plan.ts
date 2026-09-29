@@ -74,7 +74,9 @@ export function toAxeContext(plan: AxeRunPlan): AxeContext | undefined {
   };
 }
 
-function readEntries(scanResult: unknown, key: 'violations' | 'incomplete'): readonly unknown[] {
+type AxeResultKey = 'violations' | 'incomplete' | 'passes' | 'inapplicable';
+
+function readEntries(scanResult: unknown, key: AxeResultKey): readonly unknown[] {
   if (typeof scanResult !== 'object' || scanResult === null || !(key in scanResult)) {
     return [];
   }
@@ -94,9 +96,9 @@ function isActive(exception: A11yException, today: string): boolean {
   return exception.expires === undefined || today <= exception.expires;
 }
 
-/** Rule ids axe-core could not decide (its `incomplete` results), without duplicates. */
-export function listIncompleteRuleIds(scanResult: unknown): readonly string[] {
-  const ruleIds = readEntries(scanResult, 'incomplete').flatMap((entry) => readRuleId(entry) ?? []);
+/** The distinct rule ids axe-core reported under one result key (`incomplete`, `passes`, ...). */
+export function listRuleIds(scanResult: unknown, key: AxeResultKey): readonly string[] {
+  const ruleIds = readEntries(scanResult, key).flatMap((entry) => readRuleId(entry) ?? []);
   return [...new Set(ruleIds)];
 }
 

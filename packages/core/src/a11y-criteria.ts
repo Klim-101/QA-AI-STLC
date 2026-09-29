@@ -11,7 +11,7 @@ import { OPERABLE_CRITERIA } from './a11y-criteria/operable.js';
 import { PERCEIVABLE_CRITERIA } from './a11y-criteria/perceivable.js';
 import type { WcagCriterion } from './a11y-criteria/types.js';
 import { UNDERSTANDABLE_ROBUST_CRITERIA } from './a11y-criteria/understandable-robust.js';
-import { listIncompleteRuleIds } from './operations/a11y-scan-plan.js';
+import { listRuleIds } from './operations/a11y-scan-plan.js';
 
 export type { WcagCoverage, WcagCriterion } from './a11y-criteria/types.js';
 
@@ -74,7 +74,7 @@ export interface ManualChecklist {
  * a passing partial rule does not establish the criterion.
  */
 export function buildManualChecklist(target: WcagTarget, scanResult?: unknown): ManualChecklist {
-  const incomplete = new Set(scanResult === undefined ? [] : listIncompleteRuleIds(scanResult));
+  const incomplete = new Set(scanResult === undefined ? [] : listRuleIds(scanResult, 'incomplete'));
   const items: ManualChecklistItem[] = [];
   const undecidedAutomatedCriterionIds: string[] = [];
   for (const criterion of listApplicableCriteria(target)) {

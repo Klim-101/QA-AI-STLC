@@ -1037,12 +1037,21 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       );
 
       const result = await reportTool.handler({ runId: 'run-1' });
+      await writeFile(
+        join(projectRoot, '.qa', 'config.yaml'),
+        CONFIG_YAML.replace('a11y: out-of-scope', 'a11y: in-scope'),
+        'utf-8',
+      );
+      const a11yResult = await reportTool.handler({ runId: 'run-1' });
+      await writeConfig(projectRoot);
       const htmlResult = await reportTool.handler({ format: 'html' });
       const notFoundError = await reportTool.handler({ runId: 'missing' }).catch((caught: unknown) => caught);
       process.chdir(originalCwd);
 
       expect(result.runId).toBe('run-1');
       expect(result.format).toBe('markdown');
+      expect(result.a11yConformance).toBeUndefined();
+      expect(a11yResult.a11yConformance).toContain('## Accessibility conformance: WCAG 2.1 level AA');
       expect(result.runSummary).toContain('# Run summary: run-1');
       expect(result.traceabilityMatrix).toContain('Log in with valid credentials (login-case) | passed |');
       expect(htmlResult).toMatchObject({ runId: 'run-1', format: 'html' });

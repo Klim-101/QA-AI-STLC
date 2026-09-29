@@ -133,4 +133,62 @@ describe('runReport', () => {
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('REPORT_RUN_NOT_FOUND');
   });
+
+  describe('accessibility conformance section', () => {
+    const A11Y_CONFIG_YAML = CONFIG_YAML.replace('a11y: undecided', 'a11y: in-scope');
+    const RUN_FILES = {
+      [join(QA_DIR, 'runs', 'run-1', 'run.json')]: runRecordJson({
+        id: 'run-1',
+        startedAt: '2026-09-25T10:00:00.000Z',
+      }),
+    };
+    const SCAN_JSON = JSON.stringify({
+      type: 'a11y-scan',
+      axeVersion: '4.13.0',
+      configHash: 'a'.repeat(64),
+      wcagVersion: '2.1',
+      level: 'AA',
+      bestPractices: false,
+      tags: [],
+      include: [],
+      exclude: [],
+      violations: [],
+      excepted: [],
+      expiredExceptions: [],
+      uncertain: [],
+      passedRuleIds: ['html-has-lang'],
+      inapplicableRuleIds: [],
+    });
+
+    it('is left out when accessibility testing is not in scope', async () => {
+      const context = fakeContext({ [join(QA_DIR, 'config.yaml')]: CONFIG_YAML, ...RUN_FILES });
+
+      const result = await runReport(context, { runId: 'run-1' });
+
+      expect(result.a11yConformance).toBeUndefined();
+    });
+
+    it('is rendered from the recorded scans when accessibility testing is in scope', async () => {
+      const context = fakeContext({
+        [join(QA_DIR, 'config.yaml')]: A11Y_CONFIG_YAML,
+        [join(QA_DIR, 'evidence', 'run-1', 'evidence-1.json')]: SCAN_JSON,
+        ...RUN_FILES,
+      });
+
+      const result = await runReport(context, { runId: 'run-1' });
+
+      expect(result.a11yConformance).toContain('## Accessibility conformance: WCAG 2.1 level AA');
+      expect(result.a11yConformance).toContain('| 3.1.1 Page language declared | A | passed | evidence-1 |');
+    });
+
+    it('is rendered as HTML when asked, and lists every criterion as unproven without a scan', async () => {
+      const context = fakeContext({ [join(QA_DIR, 'config.yaml')]: A11Y_CONFIG_YAML, ...RUN_FILES });
+
+      const result = await runReport(context, { runId: 'run-1', format: 'html' });
+
+      expect(result.a11yConformance).toContain('<h1>Accessibility conformance: WCAG 2.1 level AA</h1>');
+      expect(result.a11yConformance).toContain('<td>0</td>');
+      expect(result.a11yConformance).toContain('needs manual check');
+    });
+  });
 });
