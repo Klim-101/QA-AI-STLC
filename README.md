@@ -83,16 +83,23 @@ Read this before adopting the framework.
 
 ## Quick start
 
+In Claude Code, install the plugin and ask: "set up QA-AI-STLC for this repo". The `qa-start` skill
+states the project root it will use, asks you whether Web E2E, API, accessibility and security
+testing are in scope, writes `.qa/config.yaml` through the engine, offers to add an environment and
+an identity (you name a `QA_*` variable; you set its value yourself) and runs `qa.doctor`. No
+terminal command is needed.
+
+For CI or a shell, the CLI does the same with flags:
+
 ```sh
 npx @qa-ai-stlc/cli init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope
 npx @qa-ai-stlc/cli doctor
 ```
 
-`qa init` runs a short scope survey — each of Web E2E, API, accessibility and security testing is
-answered `in-scope`, `out-of-scope` or (with `--defer-scope`) left `undecided` for later. Passing
-the answers as flags, as above, skips the interactive prompts; change a decision later with
-`qa config set testing.<type> <value>`. `qa doctor` checks Node, installed browsers, identities and
-environment reachability.
+`qa init` takes no interactive prompts: each of Web E2E, API, accessibility and security testing must
+be given as `in-scope` or `out-of-scope` (or `undecided` with `--defer-scope`); without the flags it
+fails with `INIT_SCOPE_UNDECIDED`. Change a decision later with `qa config set testing.<type>
+<value>`. `qa doctor` checks Node, installed browsers, identities and environment reachability.
 
 ![qa explore --verify catching a stale selector, from a real run against examples/demo-app](docs/public/media/qa-explore-demo.svg)
 

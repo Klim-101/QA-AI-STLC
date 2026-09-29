@@ -12,6 +12,7 @@ triggers:
   - 'where did we leave off with QA'
   - 'what phase are we in'
   - 'set up QA-AI-STLC for this repo'
+  - 'initialize QA for this new project'
 nonTriggers:
   - 'explore the app and build the selector registry'
   - 'write test cases for the login flow'
@@ -30,10 +31,9 @@ Run these in order, every time. Stop and report to the operator at the first fai
 than continuing past it.
 
 1. **Confirm the project root.** Look for `.qa/` from the current working directory upward and
-   state the resolved path back to the operator explicitly — never assume it silently. If none is
-   found, say so and stop: creating `.qa/` is a deliberate operator action (`qa.init` writes it only
-   after the operator confirms the project root it returns), not something this skill invents on the
-   operator's behalf. The MCP tools resolve the root the same way, so they act on this directory.
+   state the resolved path back to the operator explicitly � never assume it silently. The MCP
+   tools resolve the root the same way, so they act on this directory. If none is found, say so and
+   run [First-time setup](#first-time-setup) below instead of stopping.
 2. **Check the environment.** Call `qa.doctor`. If `ok` is `false`, show every `fail` check with its
    `remediation` and stop — do not proceed to a phase against an environment the engine itself
    reports as broken.
@@ -53,11 +53,31 @@ than continuing past it.
    `currentPhase`'s own phase prompt states it (see
    [`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)).
 
+## First-time setup
+
+Runs only when step 1 found no `.qa/`. The operator never needs a terminal.
+
+1. Call `qa.init` with any placeholder answers and **no** `confirmedRoot` to get the `projectRoot` it
+   would use (nothing is written). If it refuses because `.qa/` already exists in a parent
+   directory, relay its message and stop: that is another project.
+2. State `projectRoot` to the operator and ask them to confirm it. If it is wrong, stop and tell
+   them to restart the session from the right directory.
+3. Ask each question through the host's question UI, one at a time: Web E2E, API, accessibility and
+   security testing, each `in-scope`, `out-of-scope` or `undecided` (defer). Then ask for the
+   optional source path of the application under test and, when API is `in-scope`, the API contract
+   source (a file, a URL, `discover` or `synthesize`).
+4. Call `qa.init` again with the literal answers and `confirmedRoot` set to `projectRoot`.
+5. Offer to add an environment (`qa.config_add`, `kind: environment`: name, base URL, allowlist) and
+   an identity (`kind: identity`). For an identity ask only for the `QA_*` variable **name** and tell
+   the operator to set its value in their own shell; never ask for, accept or repeat a password or
+   token.
+6. Continue with step 2 of the sequence (`qa.doctor`).
+
 ## What this skill does not do
 
-- It does not re-implement gate approval, phase ordering or evidence rules — those are state-machine
+- It does not re-implement gate approval, phase ordering or evidence rules � those are state-machine
   behavior the engine enforces (AGENTS.md 12.1); this skill only reads their current state.
 - It does not perform exploration or case-design work itself. Once the phase is known, dispatch to
   the skill or phase prompt that owns that work.
-- It does not decide a testing-scope type on the operator's behalf, and it does not write
-  `config.yaml`. It surfaces what is undecided and names the command the operator runs.
+- It never answers a scope question on the operator's behalf, and it never writes `.qa/` by hand:
+  every write goes through `qa.init`, `qa.config_set` or `qa.config_add`.
