@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Accessibility fixture</title>
+    <style>
+      .low-contrast {
+        color: #aaaaaa;
+        background: #ffffff;
+      }
+      .aa-only-passes-aaa-fails {
+        color: #767676;
+        background: #ffffff;
+      }
+      .over-gradient {
+        color: #222222;
+        background-image: linear-gradient(#ffffff, #dddddd);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Accessibility fixture</h1>
+      <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
+      <p class="low-contrast">Text that fails the AA contrast ratio.</p>
+      <p class="aa-only-passes-aaa-fails">Text that passes AA contrast but fails AAA.</p>
+      <p class="over-gradient">Text over a gradient, which axe-core cannot decide automatically.</p>
+    </main>
+  </body>
+</html>

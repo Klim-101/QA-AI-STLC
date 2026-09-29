@@ -8,7 +8,16 @@ import axeCore from 'axe-core';
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerEvidenceOrThrow } from './browser-evidence.js';
+import { loadConfig } from '../config-loader.js';
+import { hashText } from '../hash.js';
 import { toCanonicalJson } from '../json-file.js';
+import {
+  classifyAxeResult,
+  planAxeRun,
+  toAxeContext,
+  type AxeContext,
+  type AxeRunPlan,
+} from './a11y-scan-plan.js';
 
 export interface BrowserAccessibilityScanOptions {
   readonly sessionId: string;
@@ -18,16 +27,15 @@ export interface BrowserAccessibilityScanResult {
   readonly sessionId: string;
   readonly url: string;
   readonly evidence: Evidence;
-  /** A count, not a verdict — the case's expected result is interpreted by whoever executes it. */
+  /** Violations no active exception covers; a count, not a verdict — the case's expected result is interpreted by whoever executes it. */
   readonly violationCount: number;
-}
-
-function countViolations(scanResult: unknown): number {
-  if (typeof scanResult === 'object' && scanResult !== null && 'violations' in scanResult) {
-    const { violations } = scanResult;
-    return Array.isArray(violations) ? violations.length : 0;
-  }
-  return 0;
+  /** Violations an active configured exception covers; still listed in the evidence. */
+  readonly exceptedCount: number;
+  /** axe-core `incomplete` results that need manual review; never to be reported as passed. */
+  readonly uncertainCount: number;
+  readonly axeVersion: string;
+  /** SHA-256 of the effective `a11y` configuration the scan ran with. */
+  readonly configHash: string;
 }
 
 /**
@@ -44,14 +52,14 @@ export async function runBrowserAccessibilityScan(
 ): Promise<BrowserAccessibilityScanResult> {
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
+  const { a11y } = await loadConfig(context.engine);
+  const plan = planAxeRun(a11y);
+  const configHash = hashText(toCanonicalJson(a11y));
 
   await session.page.addScriptTag({ content: axeCore.source });
-  // Runs inside the real browser's page context (a real `AuthPage.evaluate`, not this process),
-  // so Node-side coverage instrumentation never sees this callback execute even against a real
-  // page — the same class of gap `ports/process-runner.ts` already documents this way.
-  /* v8 ignore next */
-  const runAxe = () => (globalThis as unknown as { axe: { run: () => Promise<unknown> } }).axe.run();
-  const scanResult = await session.page.evaluate(runAxe);
+  const scanResult = await session.page.evaluate(runAxeInPage, buildRunArgument(plan));
+  const today = context.engine.clock.now().toISOString().slice(0, 10);
+  const classified = classifyAxeResult(scanResult, a11y.exceptions, today);
 
   const url = session.page.url();
   const evidence = await registerEvidenceOrThrow(evidenceStore, {
@@ -59,8 +67,60 @@ export async function runBrowserAccessibilityScan(
     runId: session.runId,
     kind: 'other',
     fileExtension: 'json',
-    content: toCanonicalJson(scanResult),
+    content: toCanonicalJson({
+      axeVersion: axeCore.version,
+      configHash,
+      wcagVersion: a11y.wcagVersion,
+      level: a11y.level,
+      bestPractices: a11y.bestPractices,
+      tags: plan.tags,
+      include: plan.include,
+      exclude: plan.exclude,
+      violations: classified.violations,
+      excepted: classified.excepted,
+      expiredExceptions: classified.expiredExceptions,
+      uncertain: classified.uncertain,
+    }),
   });
 
-  return { sessionId: session.sessionId, url, evidence, violationCount: countViolations(scanResult) };
+  return {
+    sessionId: session.sessionId,
+    url,
+    evidence,
+    violationCount: classified.violations.length,
+    exceptedCount: classified.excepted.length,
+    uncertainCount: classified.uncertain.length,
+    axeVersion: axeCore.version,
+    configHash,
+  };
+}
+
+interface AxeRunArgument {
+  readonly context: AxeContext | undefined;
+  readonly options: {
+    readonly runOnly: { readonly type: 'tag'; readonly values: readonly string[] };
+    readonly rules: Readonly<Record<string, { readonly enabled: true }>>;
+  };
+}
+
+function buildRunArgument(plan: AxeRunPlan): AxeRunArgument {
+  return {
+    context: toAxeContext(plan),
+    options: {
+      runOnly: { type: 'tag', values: plan.tags },
+      rules: Object.fromEntries(plan.ruleIds.map((ruleId) => [ruleId, { enabled: true as const }])),
+    },
+  };
+}
+
+// Runs inside the real browser's page context (a real `AuthPage.evaluate`, not this process),
+// so Node-side coverage instrumentation never sees this callback execute even against a real
+// page — the same class of gap `ports/process-runner.ts` already documents this way.
+/* v8 ignore next 4 */
+function runAxeInPage(argument: AxeRunArgument): Promise<unknown> {
+  const { axe, document } = globalThis as unknown as {
+    axe: { run: (...args: unknown[]) => Promise<unknown> };
+    document: unknown;
+  };
+  return axe.run(argument.context ?? document, argument.options);
 }
