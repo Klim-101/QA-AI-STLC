@@ -3,7 +3,7 @@
 
 import { DEFAULT_A11Y_CONFIG, type A11yConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
-import { classifyAxeResult, planAxeRun, toAxeContext } from './a11y-scan-plan.js';
+import { classifyAxeResult, listIncompleteRuleIds, planAxeRun, toAxeContext } from './a11y-scan-plan.js';
 
 function configWith(overrides: Partial<A11yConfig>): A11yConfig {
   return { ...DEFAULT_A11Y_CONFIG, ...overrides };
@@ -137,5 +137,18 @@ describe('classifyAxeResult', () => {
     );
 
     expect(classified.violations).toHaveLength(1);
+  });
+});
+
+describe('listIncompleteRuleIds', () => {
+  it('lists each incomplete rule once and ignores entries without an id', () => {
+    const scanResult = { incomplete: [{ id: 'label' }, { id: 'label' }, { nope: 1 }, { id: 7 }] };
+
+    expect(listIncompleteRuleIds(scanResult)).toEqual(['label']);
+  });
+
+  it('is empty when the result has no incomplete entries', () => {
+    expect(listIncompleteRuleIds({})).toEqual([]);
+    expect(listIncompleteRuleIds(null)).toEqual([]);
   });
 });

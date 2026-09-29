@@ -71,6 +71,7 @@ export * from './operations/browser-click.js';
 export * from './operations/browser-fill.js';
 export * from './operations/browser-snapshot.js';
 export * from './operations/browser-close.js';
+export * from './a11y-criteria.js';
 export * from './operations/browser-accessibility-scan.js';
 export * from './operations/registry-execute-register.js';
 export * from './operations/case-result-register.js';
