@@ -204,4 +204,51 @@ describe('runInit', () => {
     expect(result.created).toContain('config.local.yaml.example');
     expect(await context.fs.readFile(join(QA_DIR, 'config.local.yaml.example'))).toContain('environments:');
   });
+
+  describe('accessibility target (P6-25)', () => {
+    const A11Y_IN_SCOPE = { ...FULL_SCOPE, a11y: 'in-scope' } as const;
+
+    async function readA11y(context: ReturnType<typeof fakeContext>): Promise<unknown> {
+      const written = parseYaml(await context.fs.readFile(join(QA_DIR, 'config.yaml'))) as { a11y?: unknown };
+      return written.a11y;
+    }
+
+    it('records the default WCAG 2.1 AA target when a11y is in scope and nothing was answered', async () => {
+      const context = fakeContext();
+      await runInit(context, { testing: A11Y_IN_SCOPE });
+
+      expect(await readA11y(context)).toStrictEqual({
+        wcagVersion: '2.1',
+        level: 'AA',
+        bestPractices: false,
+      });
+    });
+
+    it('records the answered target, defaulting the parts left out', async () => {
+      const context = fakeContext();
+      await runInit(context, { testing: A11Y_IN_SCOPE, a11yTarget: { level: 'AAA', wcagVersion: '2.2' } });
+
+      expect(await readA11y(context)).toStrictEqual({
+        wcagVersion: '2.2',
+        level: 'AAA',
+        bestPractices: false,
+      });
+    });
+
+    it('writes no a11y block when a11y is out of scope', async () => {
+      const context = fakeContext();
+      await runInit(context, { testing: FULL_SCOPE });
+
+      expect(await readA11y(context)).toBeUndefined();
+    });
+
+    it('rejects a target when a11y is not in scope, and writes nothing', async () => {
+      const context = fakeContext();
+
+      await expect(
+        runInit(context, { testing: FULL_SCOPE, a11yTarget: { level: 'AAA' } }),
+      ).rejects.toMatchObject({ code: 'INIT_A11Y_NOT_IN_SCOPE' });
+      expect(await context.fs.pathExists(join(QA_DIR, 'config.yaml'))).toBe(false);
+    });
+  });
 });

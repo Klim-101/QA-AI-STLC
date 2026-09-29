@@ -99,7 +99,7 @@ npx @qa-ai-stlc/cli doctor
 `qa init` takes no interactive prompts: each of Web E2E, API, accessibility and security testing must
 be given as `in-scope` or `out-of-scope` (or `undecided` with `--defer-scope`); without the flags it
 fails with `INIT_SCOPE_UNDECIDED`. Change a decision later with `qa config set testing.<type>
-<value>`. `qa doctor` checks Node, installed browsers, identities and environment reachability.
+<value>`. When a11y is `in-scope`, `--a11y-wcag-version` (2.0, 2.1 or 2.2), `--a11y-level` (A, AA or AAA, cumulative) and `--a11y-best-practices` set the accessibility target; the default is WCAG 2.1 AA with best-practice rules off, and it is written to the `a11y` block of `.qa/config.yaml`. `qa doctor` checks Node, installed browsers, identities and environment reachability.
 
 ![qa explore --verify catching a stale selector, from a real run against examples/demo-app](docs/public/media/qa-explore-demo.svg)
 

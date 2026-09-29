@@ -8,6 +8,7 @@ import type { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeEngineContext } from '../src/engine-context.js';
 import { configAddTool } from '../src/tools/config-add.js';
+import { configShowTool } from '../src/tools/config-show.js';
 import { configSetTool } from '../src/tools/config-set.js';
 import { initTool } from '../src/tools/init.js';
 
@@ -238,6 +239,71 @@ describe('init and config tools (real filesystem, temp project directory)', () =
       await configAddTool.handler({ ...identity, secret: 'QA_OTHER_PASSWORD', force: true });
 
       expect(await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8')).toContain('QA_OTHER_PASSWORD');
+    });
+  });
+
+  it('qa.init records the default WCAG 2.1 AA target when a11y is in scope and none was answered', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({
+        testing: { ...OUT_OF_SCOPE, a11y: 'in-scope' },
+        confirmedRoot: projectRoot,
+      });
+      const config = await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8');
+
+      expect(config).toContain('wcagVersion: "2.1"');
+      expect(config).toContain('level: AA');
+    });
+  });
+
+  it('qa.init records the answered accessibility target', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({
+        testing: { ...OUT_OF_SCOPE, a11y: 'in-scope' },
+        a11y: { wcagVersion: '2.2', level: 'AAA', bestPractices: true },
+        confirmedRoot: projectRoot,
+      });
+      const config = await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8');
+
+      expect(config).toContain('wcagVersion: "2.2"');
+      expect(config).toContain('level: AAA');
+      expect(config).toContain('bestPractices: true');
+    });
+  });
+
+  it('qa.init rejects an accessibility target when a11y is not in scope', async () => {
+    await withProject(async (projectRoot) => {
+      await expect(
+        initTool.handler({ testing: OUT_OF_SCOPE, a11y: { level: 'AAA' }, confirmedRoot: projectRoot }),
+      ).rejects.toMatchObject({ code: 'INIT_A11Y_NOT_IN_SCOPE' });
+    });
+  });
+
+  it('qa.config_show reports a11y exceptions from the committed config', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: { ...OUT_OF_SCOPE, a11y: 'in-scope' }, confirmedRoot: projectRoot });
+      const path = join(projectRoot, '.qa', 'config.yaml');
+      const config = await readFile(path, 'utf-8');
+      await writeFile(
+        path,
+        config.replace(
+          'bestPractices: false',
+          [
+            'bestPractices: false',
+            '  exceptions:',
+            '    - { ruleId: color-contrast, reason: Brand palette, expires: 2026-12-31 }',
+          ].join('\n'),
+        ),
+        'utf-8',
+      );
+
+      const result = await configShowTool.handler({});
+
+      expect(result.config.a11y.exceptions).toStrictEqual([
+        { ruleId: 'color-contrast', reason: 'Brand palette', expires: '2026-12-31' },
+      ]);
+      expect(result.values.find((value) => value.path.join('.') === 'a11y.exceptions')?.layer).toBe(
+        'committed',
+      );
     });
   });
 });

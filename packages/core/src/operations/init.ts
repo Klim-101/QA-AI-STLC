@@ -7,11 +7,13 @@ import { findUndecidedTestingTypes } from '../testing-scope.js';
 import type { TestingScope, TestingScopeDecision } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
 import {
+  DEFAULT_A11Y_TARGET_ANSWERS,
   CONFIG_LOCAL_EXAMPLE,
   CONFIG_LOCAL_EXAMPLE_PATH,
   LOCAL_LAYER_IGNORE_ENTRY,
   QA_GITIGNORE,
   renderConfigYaml,
+  type A11yTargetAnswers,
 } from '../config-template.js';
 
 export interface TestingScopeAnswers {
@@ -28,6 +30,8 @@ export interface InitOptions {
   readonly testing?: TestingScopeAnswers;
   readonly sourcePath?: string;
   readonly apiSource?: string;
+  /** Parts of the accessibility target the operator answered; only valid when `testing.a11y` is in scope. */
+  readonly a11yTarget?: Partial<A11yTargetAnswers>;
 }
 
 export interface InitResult {
@@ -99,6 +103,14 @@ export async function runInit(context: EngineContext, options: InitOptions = {})
       );
     }
 
+    if (options.a11yTarget !== undefined && testing.a11y !== 'in-scope') {
+      throw new QaError(
+        'INIT_A11Y_NOT_IN_SCOPE',
+        'An accessibility target was given but a11y testing is not in-scope',
+        { remediation: 'Answer --a11y in-scope, or drop the accessibility target options.' },
+      );
+    }
+
     // `testing` is already a valid TestingScope, `api` was already checked above against
     // ConfigSchema's one refine (api required when testing.api is in-scope), and sourcePath/
     // apiSource are safely quoted by renderConfigYaml — nothing left that could make the
@@ -107,6 +119,10 @@ export async function runInit(context: EngineContext, options: InitOptions = {})
       testing,
       ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
       ...(options.apiSource !== undefined ? { apiSource: options.apiSource } : {}),
+      // An in-scope a11y type always records its target, so the chosen defaults are visible in the file.
+      ...(testing.a11y === 'in-scope'
+        ? { a11y: { ...DEFAULT_A11Y_TARGET_ANSWERS, ...options.a11yTarget } }
+        : {}),
     });
 
     await store.ensureLayout();

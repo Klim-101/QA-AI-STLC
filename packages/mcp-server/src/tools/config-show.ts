@@ -12,12 +12,19 @@ const InputSchema = z.object({});
 
 const ViewportSizeValueSchema = z.object({ width: z.number(), height: z.number() });
 
+const A11yExceptionValueSchema = z.object({
+  ruleId: z.string(),
+  reason: z.string(),
+  expires: z.string().optional(),
+});
+
 const ConfigValueSchema = z.union([
   z.string(),
   z.number(),
   z.boolean(),
   z.array(z.string()),
   z.array(ViewportSizeValueSchema),
+  z.array(A11yExceptionValueSchema),
 ]);
 
 const ConfigShowValueSchema = z.object({

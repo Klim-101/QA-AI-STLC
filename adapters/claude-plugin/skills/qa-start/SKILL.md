@@ -31,7 +31,7 @@ Run these in order, every time. Stop and report to the operator at the first fai
 than continuing past it.
 
 1. **Confirm the project root.** Look for `.qa/` from the current working directory upward and
-   state the resolved path back to the operator explicitly � never assume it silently. The MCP
+   state the resolved path back to the operator explicitly — never assume it silently. The MCP
    tools resolve the root the same way, so they act on this directory. If none is found, say so and
    run [First-time setup](#first-time-setup) below instead of stopping.
 2. **Check the environment.** Call `qa.doctor`. If `ok` is `false`, show every `fail` check with its
@@ -66,6 +66,9 @@ Runs only when step 1 found no `.qa/`. The operator never needs a terminal.
    security testing, each `in-scope`, `out-of-scope` or `undecided` (defer). Then ask for the
    optional source path of the application under test and, when API is `in-scope`, the API contract
    source (a file, a URL, `discover` or `synthesize`).
+   When accessibility is `in-scope`, also ask for the WCAG version (2.0, 2.1 or 2.2; suggest 2.1), the
+   conformance level (A, AA or AAA; suggest AA, which includes A) and whether axe best-practice rules
+   should run (suggest no), and pass them as `a11y`.
 4. Call `qa.init` again with the literal answers and `confirmedRoot` set to `projectRoot`.
 5. Offer to add an environment (`qa.config_add`, `kind: environment`: name, base URL, allowlist) and
    an identity (`kind: identity`). For an identity ask only for the `QA_*` variable **name** and tell
@@ -75,7 +78,7 @@ Runs only when step 1 found no `.qa/`. The operator never needs a terminal.
 
 ## What this skill does not do
 
-- It does not re-implement gate approval, phase ordering or evidence rules � those are state-machine
+- It does not re-implement gate approval, phase ordering or evidence rules — those are state-machine
   behavior the engine enforces (AGENTS.md 12.1); this skill only reads their current state.
 - It does not perform exploration or case-design work itself. Once the phase is known, dispatch to
   the skill or phase prompt that owns that work.
