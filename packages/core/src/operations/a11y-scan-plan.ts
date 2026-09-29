@@ -94,6 +94,12 @@ function isActive(exception: A11yException, today: string): boolean {
   return exception.expires === undefined || today <= exception.expires;
 }
 
+/** Rule ids axe-core could not decide (its `incomplete` results), without duplicates. */
+export function listIncompleteRuleIds(scanResult: unknown): readonly string[] {
+  const ruleIds = readEntries(scanResult, 'incomplete').flatMap((entry) => readRuleId(entry) ?? []);
+  return [...new Set(ruleIds)];
+}
+
 export function classifyAxeResult(
   scanResult: unknown,
   exceptions: readonly A11yException[],
