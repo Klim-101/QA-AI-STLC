@@ -4,6 +4,7 @@
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
+import type { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeEngineContext } from '../src/engine-context.js';
 import { configAddTool } from '../src/tools/config-add.js';
@@ -152,12 +153,12 @@ describe('init and config tools (real filesystem, temp project directory)', () =
   it('qa.config_add adds an environment and rejects an existing name without force', async () => {
     await withProject(async (projectRoot) => {
       await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
-      const environment = {
+      const environment: z.infer<typeof configAddTool.inputSchema> = {
         kind: 'environment',
         name: 'staging',
         baseUrl: 'https://staging.example.com',
         allowlist: ['staging.example.com'],
-      } as const;
+      };
 
       const added = await configAddTool.handler(environment);
       await expect(configAddTool.handler(environment)).rejects.toMatchObject({
