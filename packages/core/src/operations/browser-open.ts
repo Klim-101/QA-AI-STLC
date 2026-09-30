@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Config, EnvironmentConfig, Evidence } from '@qa-ai-stlc/schemas';
+import { collectObservedRequestHeaderNames } from '../api-auth.js';
+import { observeRequestHeaders } from '../browser-request-observer.js';
 import type { BlockedRequest } from '../browser-safe-mode.js';
 import { createBrowserSafeModeRouteHandler } from '../browser-safe-mode.js';
 import type { BrowserSession } from '../browser-session-store.js';
@@ -96,21 +98,29 @@ export async function runBrowserOpen(
 
   const browser = await context.engine.browserLauncher.launch();
   const blockedRequests: BlockedRequest[] = [];
+  const observedRequestHeaders = new Map<string, string>();
+  const observedHeaderNames = collectObservedRequestHeaderNames(config.apiAuth);
   let session: BrowserSession;
   try {
     const browserContext = await browser.newContext(
       environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {},
     );
     const page = await browserContext.newPage();
-    await page.route(
-      ALL_REQUESTS_PATTERN,
-      createBrowserSafeModeRouteHandler(
-        environment.config.allowlist,
-        environment.config.baseUrl,
-        (request) => blockedRequests.push(request),
-        { allowMutations: options.executionMode === true },
-      ),
+    const safeModeHandler = createBrowserSafeModeRouteHandler(
+      environment.config.allowlist,
+      environment.config.baseUrl,
+      (request) => blockedRequests.push(request),
+      { allowMutations: options.executionMode === true },
     );
+    await page.route(ALL_REQUESTS_PATTERN, async (route) => {
+      await observeRequestHeaders(
+        route.request(),
+        observedHeaderNames,
+        environment.config,
+        observedRequestHeaders,
+      );
+      await safeModeHandler(route);
+    });
     const timeouts = resolveBrowserTimeouts(environment.config);
     session = context.sessions.open({
       browser,
@@ -121,6 +131,7 @@ export async function runBrowserOpen(
       navigationTimeoutMs: timeouts.navigationTimeoutMs,
       actionTimeoutMs: timeouts.actionTimeoutMs,
       blockedRequests,
+      observedRequestHeaders,
     });
   } catch (error) {
     await browser.close();

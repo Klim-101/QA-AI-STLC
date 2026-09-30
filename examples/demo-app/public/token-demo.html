@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Token demo</title>
+  </head>
+  <body>
+    <h1>Token demo</h1>
+    <p>
+      Keeps an access token where a single-page application would: a cookie, localStorage and sessionStorage.
+    </p>
+    <script>
+      // Stands in for a single-page application that signed in and now calls its API with a bearer
+      // token; the API-auth tests read that token back out of this page (not a catalogued bug).
+      fetch('/oauth/demo-token')
+        .then((response) => response.json())
+        .then((token) => {
+          document.cookie = 'api_token=' + token.access_token + '; path=/';
+          localStorage.setItem('auth', JSON.stringify({ token: { access: token.access_token } }));
+          sessionStorage.setItem('sessionToken', token.access_token);
+          return fetch('/api/whoami', { headers: { Authorization: 'Bearer ' + token.access_token } });
+        })
+        .then((response) => {
+          document.body.dataset.ready = String(response.status);
+        });
+    </script>
+  </body>
+</html>

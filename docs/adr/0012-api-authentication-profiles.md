@@ -91,8 +91,12 @@ this does not reopen the safe-mode rules of exploration and pick mode, and ADR-0
 **Token from the browser session.** The `from-browser` profile names a source the engine reads from
 a live session, the way an operator would in developer tools: a cookie, a `localStorage` key with an
 optional JSON path, a `sessionStorage` key, or the `Authorization` header of an observed request to
-an allowlisted host. The session is an engine browser session or an attached one. The token stays in
-engine memory, is re-read once when a request returns 401, and follows rules 1 to 4 above. A source
+an allowlisted host. The caller names where to read from: the id of an open engine browser session
+of the same environment, or a configured identity with a saved storage state (which an attached
+browser can produce); reading live from an attached browser is not supported yet. The token stays in
+engine memory, is read again at request time on every call (it is never cached, so a token the
+application rotated is picked up immediately and there is no stale copy for a 401 to expose), and
+follows rules 1 to 4 above. A source
 that the session cannot provide (for example `sessionStorage` from a saved storage-state file) fails
 with a coded error rather than falling back silently. This complements the manual path, where the
 operator copies a token into a `QA_*` variable used by a `bearer` profile.
@@ -118,7 +122,7 @@ today's.
 Each enforcement point below has to be tested on every path that can reach it, per AGENTS.md 12.7,
 not only the obvious one: credential-header rejection in `qa.http_execute` and in the API runner;
 the allowlist check on the request URL and on the token URL; redaction of URL, response headers and
-body; the process-memory-only guarantee; and the 401 re-read for browser-derived tokens.
+body; the process-memory-only guarantee; and the environment check on a session that supplies a browser-derived token.
 
 Rejected alternatives:
 

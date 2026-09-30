@@ -4,6 +4,7 @@
 import type { ApiAuthConfig, ApiAuthProfile } from '@qa-ai-stlc/schemas';
 import type { SensitiveNames } from './api-auth-redaction.js';
 import { assertUrlAllowed } from './browser-allowlist.js';
+import { readBrowserToken, type BrowserTokenOrigin } from './browser-token-source.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
 
@@ -70,6 +71,8 @@ export interface ResolveApiAuthOptions {
     readonly tlsInsecure?: boolean | undefined;
   };
   readonly tokenCache: ApiAuthTokenCache;
+  /** Where a `from-browser` profile reads from; required for that profile type and ignored otherwise. */
+  readonly browserTokenOrigin?: BrowserTokenOrigin;
   readonly signal?: AbortSignal;
 }
 
@@ -105,6 +108,17 @@ export function selectApiAuthProfileName(
  * Header and query-parameter names that any configured profile uses to carry a credential. They
  * are redacted by name wherever a request or response is stored, whichever profile the call used.
  */
+/** The request headers a `from-browser` profile replays, lower-cased: what a live session must remember. */
+export function collectObservedRequestHeaderNames(apiAuth: ApiAuthConfig): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const profile of Object.values(apiAuth.profiles)) {
+    if (profile.type === 'from-browser' && profile.source.kind === 'request-header') {
+      names.add(profile.source.header.toLowerCase());
+    }
+  }
+  return names;
+}
+
 export function collectSensitiveNames(apiAuth: ApiAuthConfig): SensitiveNames {
   const headers = new Set<string>();
   const queryParameters = new Set<string>();
@@ -119,8 +133,10 @@ export function collectSensitiveNames(apiAuth: ApiAuthConfig): SensitiveNames {
       case 'basic':
       case 'bearer':
       case 'oauth2-client-credentials':
-      case 'from-browser':
         headers.add('Authorization');
+        break;
+      case 'from-browser':
+        headers.add(profile.source.kind === 'request-header' ? profile.source.header : 'Authorization');
         break;
       case 'none':
         break;
@@ -310,12 +326,27 @@ export async function resolveApiAuth(
         secretValues: [token],
       };
     }
-    case 'from-browser':
-      throw new QaError(
-        'API_AUTH_PROFILE_UNSUPPORTED',
-        `Profile "${options.profileName}" reads its token from a browser session, which this engine version cannot do yet`,
-        { remediation: 'Copy the token into a QA_* variable and use a "bearer" profile instead.' },
-      );
+    case 'from-browser': {
+      if (options.browserTokenOrigin === undefined) {
+        throw new QaError(
+          'API_AUTH_SESSION_REQUIRED',
+          `Profile "${options.profileName}" reads its token from a browser session, and none was given`,
+          {
+            remediation:
+              'Pass the id of an open, signed-in browser session, or the name of an identity with a saved storage state.',
+          },
+        );
+      }
+      // Read at request time, every time: nothing is cached, so a token the application rotated is
+      // picked up on the next call and there is no stale copy for a 401 to expose.
+      const token = await readBrowserToken(profile.source, options.browserTokenOrigin);
+      return {
+        ...base,
+        headers: { [token.headerName]: token.headerValue },
+        queryParameters: {},
+        secretValues: token.secretValues,
+      };
+    }
     default:
       return assertNever(profile);
   }

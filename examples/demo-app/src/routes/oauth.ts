@@ -13,6 +13,8 @@ const DEFAULT_TOKEN_TTL_SECONDS = 3600;
  * State lives in the returned router, so every app instance starts with no tokens issued.
  *
  * - `POST /oauth/token` issues an opaque bearer token for the demo client.
+ * - `GET /oauth/demo-token` issues a token without a form post, for `public/token-demo.html`, a page
+ *   that keeps it in a cookie, localStorage and sessionStorage the way a single-page app would.
  * - `GET /api/whoami` accepts a live token and, on purpose, echoes it back so tests can prove the
  *   engine scrubs an echoed credential from evidence.
  * - `POST /oauth/revoke-all` drops every live token, which makes the next `whoami` answer 401.
@@ -25,6 +27,13 @@ export function createOAuthRouter(): Router {
   let issuedCount = 0;
   const ttlSeconds = Number(process.env.DEMO_TOKEN_TTL_SECONDS ?? DEFAULT_TOKEN_TTL_SECONDS);
 
+  function issueToken(): string {
+    issuedCount += 1;
+    const token = `demo-token-${String(issuedCount)}`;
+    liveTokens.set(token, Date.now() + ttlSeconds * 1000);
+    return token;
+  }
+
   router.post('/oauth/token', (request, response) => {
     const body = request.body as Record<string, unknown>;
     if (body.grant_type !== 'client_credentials') {
@@ -35,10 +44,11 @@ export function createOAuthRouter(): Router {
       response.status(401).json({ error: 'invalid_client' });
       return;
     }
-    issuedCount += 1;
-    const token = `demo-token-${String(issuedCount)}`;
-    liveTokens.set(token, Date.now() + ttlSeconds * 1000);
-    response.json({ access_token: token, token_type: 'Bearer', expires_in: ttlSeconds });
+    response.json({ access_token: issueToken(), token_type: 'Bearer', expires_in: ttlSeconds });
+  });
+
+  router.get('/oauth/demo-token', (_request, response) => {
+    response.json({ access_token: issueToken() });
   });
 
   router.get('/api/whoami', (request, response) => {
