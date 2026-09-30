@@ -147,7 +147,7 @@ export function collectSensitiveNames(apiAuth: ApiAuthConfig): SensitiveNames {
   return { headers: [...headers], queryParameters: [...queryParameters] };
 }
 
-const BUILT_IN_CREDENTIAL_HEADER_NAMES: readonly string[] = ['authorization', 'cookie'];
+export const BUILT_IN_CREDENTIAL_HEADER_NAMES: readonly string[] = ['authorization', 'cookie'];
 
 /**
  * Rejects a credential the caller supplied itself: an `Authorization` or `Cookie` header, or any

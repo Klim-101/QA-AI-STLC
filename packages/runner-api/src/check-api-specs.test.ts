@@ -10,6 +10,7 @@ import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-l
 import { describe, expect, it } from 'vitest';
 import { assertApiSpecsInContract } from './check-api-specs.js';
 
+const NO_NAMES = { headers: [], queryParameters: [] };
 const SPEC_PATH = join('project', 'tests', 'api.spec.ts');
 
 const document = {
@@ -74,7 +75,7 @@ describe('assertApiSpecsInContract', () => {
     const [casePath, caseJson] = caseFile('case-ok');
     const engine = engineWith({ [SPEC_PATH]: annotated('case-ok'), [casePath]: caseJson });
 
-    await expect(assertApiSpecsInContract(engine, [SPEC_PATH], contract)).resolves.toBeUndefined();
+    await expect(assertApiSpecsInContract(engine, [SPEC_PATH], contract, NO_NAMES)).resolves.toBeUndefined();
   });
 
   it('rejects a case for an endpoint the contract lacks, naming it and the contract source', async () => {
@@ -86,7 +87,7 @@ describe('assertApiSpecsInContract', () => {
     });
     const engine = engineWith({ [SPEC_PATH]: annotated('case-missing'), [casePath]: caseJson });
 
-    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract));
+    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract, NO_NAMES));
 
     expect(error).toMatchObject({
       code: 'API_CASE_NOT_IN_CONTRACT',
@@ -112,7 +113,9 @@ describe('assertApiSpecsInContract', () => {
       },
     ],
   ])('rejects %s as invalid', async (_label, files) => {
-    const error = await rejection(assertApiSpecsInContract(engineWith(files()), [SPEC_PATH], contract));
+    const error = await rejection(
+      assertApiSpecsInContract(engineWith(files()), [SPEC_PATH], contract, NO_NAMES),
+    );
 
     expect(error).toMatchObject({ code: 'API_CASE_INVALID' });
   });
@@ -122,7 +125,7 @@ describe('assertApiSpecsInContract', () => {
     const stamped = `export const CONTRACT_SHA256 = "${'0'.repeat(64)}";\n${annotated('case-stale')}`;
     const engine = engineWith({ [SPEC_PATH]: stamped, [casePath]: caseJson });
 
-    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract));
+    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract, NO_NAMES));
 
     expect(error).toMatchObject({ code: 'API_SPEC_CONTRACT_CHANGED' });
     expect((error as Error).message).toContain(contract.sha256);
@@ -133,7 +136,7 @@ describe('assertApiSpecsInContract', () => {
     const stamped = `export const CONTRACT_SHA256 = "${contract.sha256}";\n${annotated('case-fresh')}`;
     const engine = engineWith({ [SPEC_PATH]: stamped, [casePath]: caseJson });
 
-    await expect(assertApiSpecsInContract(engine, [SPEC_PATH], contract)).resolves.toBeUndefined();
+    await expect(assertApiSpecsInContract(engine, [SPEC_PATH], contract, NO_NAMES)).resolves.toBeUndefined();
   });
 
   it('reports the contract violation code when a set has both kinds of problem', async () => {
@@ -145,7 +148,7 @@ describe('assertApiSpecsInContract', () => {
       [badPath]: badJson,
     });
 
-    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract));
+    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract, NO_NAMES));
 
     expect(error).toMatchObject({ code: 'API_CASE_NOT_IN_CONTRACT' });
     expect((error as Error).message.split('\n')).toHaveLength(2);
@@ -154,8 +157,26 @@ describe('assertApiSpecsInContract', () => {
   it('propagates CASE_NOT_FOUND when a spec names an unregistered case', async () => {
     const engine = engineWith({ [SPEC_PATH]: annotated('case-ghost') });
 
-    expect(await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract))).toMatchObject({
+    expect(await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract, NO_NAMES))).toMatchObject({
       code: 'CASE_NOT_FOUND',
     });
+  });
+
+  it('rejects a spec that carries a credential of its own, naming the file', async () => {
+    const [casePath, caseJson] = caseFile('case-ok');
+    const engine = engineWith({
+      [SPEC_PATH]: `${annotated('case-ok')}\nconst options = { headers: { 'X-Api-Key': 'k' } };`,
+      [casePath]: caseJson,
+    });
+
+    const error = await rejection(
+      assertApiSpecsInContract(engine, [SPEC_PATH], contract, {
+        headers: ['X-Api-Key'],
+        queryParameters: [],
+      }),
+    );
+
+    expect(error).toMatchObject({ code: 'HTTP_CREDENTIAL_INPUT_REJECTED' });
+    expect((error as Error).message).toContain(SPEC_PATH);
   });
 });

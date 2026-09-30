@@ -27,6 +27,7 @@ export * from './evidence-store.js';
 export * from './ports/browser-launcher.js';
 export * from './ports/id-generator.js';
 export * from './api-auth.js';
+export * from './api-auth-module.js';
 export * from './api-auth-redaction.js';
 export * from './browser-allowlist.js';
 export * from './browser-timeouts.js';

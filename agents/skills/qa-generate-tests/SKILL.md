@@ -54,7 +54,11 @@ page) from those operations' definitions and the proven session, and add
 spec that does not declare that exact hash, and `qa run` refuses one whose hash no longer matches
 the live contract: when that happens the contract changed, so regenerate from a fresh
 `qa.generation_spoke_input` instead of editing the hash by hand. Authenticate only through an
-`apiAuth` profile, never a literal credential in the spec.
+`apiAuth` profile, never a literal credential in the spec: `import { apiAuth } from '<relative path to tests/qa/api-auth.js>'`
+and pass `apiAuth('<profile>')` as the options of the request call. The profile name must be a string
+literal from `.qa/config.yaml`; the engine writes `tests/qa/api-auth.ts` when it builds the spoke input.
+A spec that writes an `Authorization`/`Cookie` header or a profile's header, query parameter or a
+`Bearer` value itself is rejected (`HTTP_CREDENTIAL_INPUT_REJECTED`).
 
 ## Writing the spec
 

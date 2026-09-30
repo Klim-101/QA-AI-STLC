@@ -53,4 +53,20 @@ describe('generateSpecConfigSource', () => {
 
     expect(source).toContain('"testIdAttribute": "data-ui-id"');
   });
+
+  it.each([
+    [undefined, 'retain-on-failure'],
+    [true, 'retain-on-failure'],
+    [false, 'off'],
+  ])('sets the trace mode for isTraceEnabled=%s', (isTraceEnabled, expected) => {
+    const { source } = generateSpecConfigSource({
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+      ...(isTraceEnabled !== undefined ? { isTraceEnabled } : {}),
+    });
+
+    expect(source).toContain(`"trace": "${expected}"`);
+  });
 });

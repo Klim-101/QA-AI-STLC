@@ -43,6 +43,12 @@ export interface SpecConfigOptions {
   readonly outputDir: string;
   /** The attribute `getByTestId()` resolves against; defaults to Playwright's own `'data-testid'`. */
   readonly testIdAttribute?: string;
+  /**
+   * Whether a failing test keeps a Playwright trace (default true). A trace is a zip of every request
+   * with its headers, so a run that carries a credential turns it off: the evidence scan cannot see
+   * inside a compressed archive.
+   */
+  readonly isTraceEnabled?: boolean;
 }
 
 const DEFAULT_TEST_ID_ATTRIBUTE = 'data-testid';
@@ -76,7 +82,7 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
       baseURL: options.baseUrl,
       testIdAttribute: options.testIdAttribute ?? DEFAULT_TEST_ID_ATTRIBUTE,
       screenshot: 'only-on-failure',
-      trace: 'retain-on-failure',
+      trace: options.isTraceEnabled === false ? 'off' : 'retain-on-failure',
     },
     reporter: [['json', { outputFile: options.reportPath }]],
   };

@@ -16,6 +16,7 @@ import {
   type VerificationId,
   type VerificationRecord,
 } from '@qa-ai-stlc/schemas';
+import { ensureApiAuthModule } from './api-auth-module.js';
 import { extractContractSha256 } from './api-contract.js';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
@@ -288,6 +289,10 @@ export async function verifyGeneratedTestSpec(
   await context.fs.writeFile(scratchAbsolutePath, options.spec.content);
 
   try {
+    if (options.testCase.testType === 'api') {
+      // The spec imports this helper, so typechecking needs it in place and current.
+      await ensureApiAuthModule(context, (await loadConfig(context)).apiAuth);
+    }
     const typecheckIssues = await runTypecheck(context, {
       absoluteFilePath: scratchAbsolutePath,
       displayPath: options.spec.filePath,

@@ -11,6 +11,8 @@ export interface ProcessResult {
 
 export interface ProcessRunOptions {
   readonly signal?: AbortSignal;
+  /** Variables added to the child's environment, over what it inherits; never written to disk. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -29,7 +31,10 @@ export interface ProcessRunner {
 export const nodeProcessRunner: ProcessRunner = {
   run: (command, args, options) =>
     new Promise((resolve, reject) => {
-      const child = spawn(command, args, { signal: options?.signal });
+      const child = spawn(command, args, {
+        signal: options?.signal,
+        ...(options?.env !== undefined ? { env: { ...process.env, ...options.env } } : {}),
+      });
       let stdout = '';
       let stderr = '';
       let settled = false;

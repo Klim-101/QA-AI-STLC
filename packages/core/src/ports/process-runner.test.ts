@@ -26,4 +26,14 @@ describe('nodeProcessRunner', () => {
 
     expect(result).toEqual({ exitCode: 0, stdout: '', stderr: 'oops\n' });
   });
+
+  it('adds the given variables to the child environment without replacing what it inherits', async () => {
+    const result = await nodeProcessRunner.run(
+      process.execPath,
+      ['-e', 'console.log(process.env.QA_TEST_ADDED + ":" + typeof process.env.PATH)'],
+      { env: { QA_TEST_ADDED: 'yes' } },
+    );
+
+    expect(result.stdout).toBe('yes:string\n');
+  });
 });
