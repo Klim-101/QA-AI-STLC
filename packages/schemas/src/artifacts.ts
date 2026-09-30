@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApiDiffReportSchema } from './api-diff.js';
 import { ApiSurfaceSchema } from './api-surface.js';
 import { ApprovalLedgerSchema } from './approval-ledger.js';
 import { CasesIndexSchema, FeatureCaseIndexSchema } from './case-index.js';
@@ -41,6 +42,7 @@ export const artifactSchemas = {
   'selector-registry': SelectorRegistrySchema,
   'missing-test-id-report': MissingTestIdReportSchema,
   'api-surface': ApiSurfaceSchema,
+  'api-diff': ApiDiffReportSchema,
   'approval-ledger': ApprovalLedgerSchema,
   manifest: ManifestSchema,
   state: PipelineStateSchema,

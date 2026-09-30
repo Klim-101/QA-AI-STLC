@@ -12,6 +12,7 @@ import { casesAddTool } from '../src/tools/cases-add.js';
 import { casesRenderTool } from '../src/tools/cases-render.js';
 import { configShowTool } from '../src/tools/config-show.js';
 import { doctorTool } from '../src/tools/doctor.js';
+import { apiDiffTool } from '../src/tools/api-diff.js';
 import { exploreTool } from '../src/tools/explore.js';
 import { generationProvenSessionTool } from '../src/tools/generation-proven-session.js';
 import { generationRegisterTool } from '../src/tools/generation-register.js';
@@ -229,6 +230,21 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(errorWithNoOptions).toMatchObject({ code: 'CONFIG_MISSING' });
       expect(errorWithEveryOption).toMatchObject({ code: 'CONFIG_MISSING' });
+    });
+  });
+
+  it('qa.api_diff throws CONFIG_MISSING in a project with no .qa/ store, with or without an environment', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+
+      const withoutOptions = await apiDiffTool.handler({}).catch((caught: unknown) => caught);
+      const withEnvironment = await apiDiffTool
+        .handler({ environment: 'staging' })
+        .catch((caught: unknown) => caught);
+      process.chdir(originalCwd);
+
+      expect(withoutOptions).toMatchObject({ code: 'CONFIG_MISSING' });
+      expect(withEnvironment).toMatchObject({ code: 'CONFIG_MISSING' });
     });
   });
 

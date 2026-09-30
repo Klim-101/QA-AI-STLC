@@ -543,6 +543,57 @@ describe('runCli', () => {
     expect(stdout.join('\n') + stderr.join('\n')).toContain('config.yaml');
   });
 
+  describe('"api-diff" (P6-02)', () => {
+    const API_DIFF_CONFIG = `${EXPLORE_CONFIG}api: { contract: openapi, source: openapi.json }\n`;
+    const SPEC = JSON.stringify({ openapi: '3.0.3', paths: { '/tasks/{taskId}': { get: {} } } });
+    const ENDPOINTS = JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: '2026-09-30T11:00:00Z',
+      endpoints: [{ method: 'GET', path: '/tasks/{id}', source: 'discovered' }],
+    });
+
+    async function apiDiffDeps() {
+      const fs = createFakeFileSystem();
+      const deps = dependencies({ fs });
+      await runCli(['init', '--defer-scope'], deps);
+      await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), API_DIFF_CONFIG);
+      await fs.writeFile(join(PROJECT_ROOT, 'openapi.json'), SPEC);
+      await fs.mkdir(join(PROJECT_ROOT, '.qa', 'selectors'));
+      await fs.writeFile(join(PROJECT_ROOT, '.qa', 'selectors', 'endpoints.json'), ENDPOINTS);
+      deps.stdout.length = 0;
+      return { fs, deps };
+    }
+
+    it('writes the diff report and prints a human-readable summary', async () => {
+      const { deps } = await apiDiffDeps();
+
+      const exitCode = await runCli(['api-diff', '--environment', 'staging'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout.some((line) => line.includes('Wrote selectors/api-diff.json'))).toBe(true);
+      expect(deps.stdout.some((line) => line.includes('1 matched, 0 undocumented'))).toBe(true);
+    });
+
+    it('prints a single JSON line with --json', async () => {
+      const { deps } = await apiDiffDeps();
+
+      const exitCode = await runCli(['api-diff', '--json'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toHaveLength(1);
+      expect((JSON.parse(deps.stdout[0] ?? '{}') as { command: string }).command).toBe('api-diff');
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io, stdout, stderr } = captureIO();
+
+      const exitCode = await runCli(['api-diff'], { io, fs: createFakeFileSystem(), env: {} });
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(`${stdout.join('\n')}${stderr.join('\n')}`).toContain('config.yaml');
+    });
+  });
+
   it('forwards --environment, --identity, --cdp-endpoint, --policy and --pick to runExplore', async () => {
     const { fs, deps } = exploreDeps({
       pickModeState: { done: true, captures: [] },

@@ -8,6 +8,7 @@ import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { createOAuthRouter } from './routes/oauth.js';
+import { createOpenApiRouter } from './routes/openapi.js';
 import { tasksRouter } from './routes/tasks.js';
 
 export function createApp(): express.Express {
@@ -35,6 +36,7 @@ export function createApp(): express.Express {
   app.use(tasksRouter);
   app.use(adminRouter);
   app.use(createOAuthRouter());
+  app.use(createOpenApiRouter());
 
   app.use((_request, response) => {
     response.status(404).render('error', { message: 'Page not found.' });

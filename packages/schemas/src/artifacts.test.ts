@@ -10,6 +10,7 @@ describe('artifactSchemas', () => {
     expect(Object.keys(artifactSchemas).sort()).toEqual(
       [
         'api-surface',
+        'api-diff',
         'approval-ledger',
         'browser-action',
         'case-index',
