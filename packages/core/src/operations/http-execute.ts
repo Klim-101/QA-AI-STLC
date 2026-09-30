@@ -3,6 +3,7 @@
 
 import { HttpRequestRecordSchema, type Evidence, type Identifier } from '@qa-ai-stlc/schemas';
 import {
+  assertNoCredentialInputs,
   collectSensitiveNames,
   createApiAuthTokenCache,
   resolveApiAuth,
@@ -57,6 +58,9 @@ export interface HttpExecuteResult {
  * can be called, never which method: a real POST/PUT/DELETE against an allowed host is exactly
  * what proving the `api` test type actually works requires (ADR-0009's reasoning, applied here).
  *
+ * A raw credential in `headers` or in the URL query is rejected (`HTTP_CREDENTIAL_INPUT_REJECTED`): the
+ * credential must come from a profile, so it never crosses the tool boundary.
+ *
  * A call authenticates through a named `apiAuth` profile, never through a credential the caller
  * supplies (ADR-0012). The profile is resolved only after `url` passed the allowlist, so a token is
  * never fetched for or sent to a host outside it, and redirects are not followed while a credential
@@ -76,6 +80,8 @@ export async function runHttpExecute(
   const config = await loadConfig(context);
   const environment = resolveBrowserEnvironment(config, options.environment);
   assertUrlAllowed(options.url, environment.config.allowlist, environment.config.baseUrl);
+  const sensitiveNames = collectSensitiveNames(config.apiAuth);
+  assertNoCredentialInputs(options.url, options.headers, sensitiveNames);
 
   const isTlsInsecure = environment.config.tlsInsecure === true;
   if (isTlsInsecure) {
@@ -110,7 +116,6 @@ export async function runHttpExecute(
     ...(hasCredential ? { redirect: 'manual' as const } : {}),
   });
 
-  const sensitiveNames = collectSensitiveNames(config.apiAuth);
   const secretValues = [...(auth?.secretValues ?? []), ...tokenCache.values()];
   const bodyPreviewMaxLength = config.evidence.httpBodyPreviewMaxLength;
   const scrubbedBody = scrubSecretValues(response.bodyText, secretValues);
@@ -153,13 +158,10 @@ function withQueryParameters(url: string, auth: ResolvedApiAuth | undefined): st
   return target.toString();
 }
 
-// The profile's credential wins over a same-named header the caller passed, compared
-// case-insensitively because HTTP header names are.
 function mergeHeaders(
   callerHeaders: Readonly<Record<string, string>> | undefined,
   auth: ResolvedApiAuth | undefined,
 ): Record<string, string> {
-  const resolvedNames = new Set(Object.keys(auth?.headers ?? {}).map((name) => name.toLowerCase()));
-  const kept = Object.entries(callerHeaders ?? {}).filter(([name]) => !resolvedNames.has(name.toLowerCase()));
-  return { ...Object.fromEntries(kept), ...auth?.headers };
+  // A caller header that a profile also sets is rejected earlier, so the two never collide.
+  return { ...callerHeaders, ...auth?.headers };
 }

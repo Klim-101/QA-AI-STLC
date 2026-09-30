@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { runHttpExecute } from '@qa-ai-stlc/core';
+import { createApiAuthTokenCache, runHttpExecute } from '@qa-ai-stlc/core';
 import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
@@ -15,7 +15,18 @@ const InputSchema = z.object({
     .describe('Environment name from config.yaml. Required when there is more than one.'),
   url: z.string().describe("The URL to call. Must be on the resolved environment's domain allowlist."),
   method: z.string().optional().describe('HTTP method. Defaults to GET.'),
-  headers: z.record(z.string(), z.string()).optional(),
+  headers: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe(
+      'Extra request headers. Never put a credential here: an Authorization or Cookie header, or any header an apiAuth profile declares, is rejected. Use auth instead.',
+    ),
+  auth: z
+    .string()
+    .optional()
+    .describe(
+      'Name of an apiAuth profile from config.yaml. The engine adds the credential itself; you never see or pass it. Defaults to the environment default profile, if it has one.',
+    ),
   body: z.string().optional(),
   stepId: z
     .string()
@@ -29,6 +40,10 @@ const OutputSchema = z.object({
   status: z.number(),
   evidence: EvidenceSchema,
 });
+
+// One cache for the life of the engine process (ADR-0012): an OAuth token is fetched once and reused,
+// while the engine context is rebuilt on every tool call.
+const authTokenCache = createApiAuthTokenCache();
 
 /**
  * `qa.http_execute` (P3-14/P3-15): makes one real HTTP call for the "api" test type, no browser
@@ -46,7 +61,8 @@ export const httpExecuteTool: ToolDefinition<typeof InputSchema, typeof OutputSc
     'Makes one real HTTP call — any method, including a real POST/PUT/DELETE — to a URL on the ' +
     "resolved environment's domain allowlist, and registers the request/response as evidence, " +
     'for the "api" test type. Returns the status code only — compare it and the recorded ' +
-    "evidence against the case's expected result yourself; the engine never decides pass or fail.",
+    "evidence against the case's expected result yourself; the engine never decides pass or fail. " +
+    'To call a protected API pass auth (an apiAuth profile name); credentials are never accepted in headers or the URL.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   handler: (input) =>
@@ -56,6 +72,8 @@ export const httpExecuteTool: ToolDefinition<typeof InputSchema, typeof OutputSc
       ...(input.environment !== undefined ? { environment: input.environment } : {}),
       ...(input.method !== undefined ? { method: input.method } : {}),
       ...(input.headers !== undefined ? { headers: input.headers } : {}),
+      authTokenCache,
+      ...(input.auth !== undefined ? { auth: input.auth } : {}),
       ...(input.body !== undefined ? { body: input.body } : {}),
       ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
     }),
