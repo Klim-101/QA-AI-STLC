@@ -4,6 +4,7 @@
 import {
   GeneratedTestSpecSchema,
   GenerationSpokeInputSchema,
+  type ApiContractSlice,
   type GeneratedTestSpec,
   type GenerationSpokeInput,
   type Identifier,
@@ -78,6 +79,27 @@ export function buildGenerationSpokeInput(options: BuildGenerationSpokeInputOpti
     testCase: options.testCase,
     registrySlice,
     locatorModule: { generatorVersion: options.locatorModuleGeneratorVersion, exports },
+    ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
+  });
+}
+
+export interface BuildApiGenerationSpokeInputOptions {
+  readonly testCase: TestCase;
+  readonly apiContract: ApiContractSlice;
+  readonly provenSession?: ProvenSession;
+}
+
+/**
+ * The spoke input for an `api` case (P6-13): the case plus the contract operations it names,
+ * with no registry slice or locator module because an API spec touches no DOM. The contract hash is
+ * part of the input, so `isGeneratedTestSpecStale` also flags a spec once the contract changes.
+ */
+export function buildApiGenerationSpokeInput(
+  options: BuildApiGenerationSpokeInputOptions,
+): GenerationSpokeInput {
+  return GenerationSpokeInputSchema.parse({
+    testCase: options.testCase,
+    apiContract: options.apiContract,
     ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
   });
 }

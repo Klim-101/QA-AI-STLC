@@ -16,6 +16,7 @@ import {
   type VerificationId,
   type VerificationRecord,
 } from '@qa-ai-stlc/schemas';
+import { extractContractSha256 } from './api-contract.js';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
@@ -172,6 +173,12 @@ export interface VerifyGeneratedTestSpecOptions {
   readonly runner: Runner;
   readonly environment?: string;
   readonly idGenerator?: IdGenerator;
+  /**
+   * The contract hash an `api` spec was generated against (`GenerationSpokeInput.apiContract`).
+   * When given, the spec must declare the same value as `CONTRACT_SHA256`, so a spec that was not
+   * written against this contract cannot be verified, let alone registered (P6-13).
+   */
+  readonly contractSha256?: string;
 }
 
 export type VerificationOutcome =
@@ -252,6 +259,20 @@ export async function verifyGeneratedTestSpec(
     );
   }
 
+  if (
+    options.contractSha256 !== undefined &&
+    extractContractSha256(options.spec.content) !== options.contractSha256
+  ) {
+    throw new QaError(
+      'core.verification.contract_stamp_mismatch',
+      `The spec for "${options.spec.testCaseId}" does not declare CONTRACT_SHA256 = "${options.contractSha256}".`,
+      {
+        remediation:
+          'Add `export const CONTRACT_SHA256 = "<hash>";` with the apiContract.sha256 from qa.generation_spoke_input.',
+      },
+    );
+  }
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const verificationId = VerificationIdSchema.parse(`verification-${idGenerator.next()}`);
   const recordBase = {
@@ -287,6 +308,7 @@ export async function verifyGeneratedTestSpec(
     const outcomes = await options.runner.run(context, {
       runId,
       baseUrl: environment.config.baseUrl,
+      environment: environment.name,
       specFiles: [scratchAbsolutePath],
       idGenerator,
       requiredStepIds: canonicalStepIds(registeredTestCase),

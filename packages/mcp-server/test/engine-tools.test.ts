@@ -977,7 +977,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       process.chdir(originalCwd);
 
       expect(input.testCase.id).toBe('login-case');
-      expect(input.registrySlice.elements).toEqual([]);
+      expect(input.registrySlice?.elements).toEqual([]);
       expect(input.locatorModule).toEqual({ generatorVersion: '1.3.0', exports: [] });
       expect(input.provenSession?.runResultId).toBe('run-result-1');
     });
@@ -990,10 +990,10 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           schemaVersion: 1,
           testCase: {
             schemaVersion: 1,
-            id: 'api-case',
+            id: 'a11y-case',
             feature: 'billing',
             requirementIds: ['req-1'],
-            testType: 'api',
+            testType: 'a11y',
             title: 'Fetches the invoice',
             steps: [{ description: 'GET /invoice' }],
             expectedResult: 'Returns 200',

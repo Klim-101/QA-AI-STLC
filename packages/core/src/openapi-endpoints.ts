@@ -29,18 +29,24 @@ export function parseOpenApiDocument(text: string): Record<string, unknown> | un
   return parsed;
 }
 
+export interface OpenApiOperation {
+  readonly endpoint: ApiEndpoint;
+  /** The operation object as the contract wrote it (parameters, request body, responses). */
+  readonly definition: Record<string, unknown>;
+}
+
 /**
- * Lists the operations a contract declares as `openapi` endpoints. Paths keep the contract's own
+ * Lists the operations a contract declares, each with its definition. Paths keep the contract's own
  * parameter names; comparison with observed traffic is name-insensitive (`api-diff.ts`).
  */
-export function listOpenApiEndpoints(document: Record<string, unknown>): ApiEndpoint[] {
+export function listOpenApiOperations(document: Record<string, unknown>): OpenApiOperation[] {
   const paths = document.paths;
   if (!isRecord(paths)) {
     throw new QaError('OPENAPI_NO_PATHS', 'The OpenAPI document has no "paths" object', {
       remediation: 'Supply a contract that declares at least one path.',
     });
   }
-  const endpoints: ApiEndpoint[] = [];
+  const operations: OpenApiOperation[] = [];
   for (const [path, item] of Object.entries(paths)) {
     if (!isRecord(item)) {
       continue;
@@ -51,15 +57,26 @@ export function listOpenApiEndpoints(document: Record<string, unknown>): ApiEndp
         continue;
       }
       const operationId = operation.operationId;
-      endpoints.push({
-        method: method.data,
-        path,
-        source: 'openapi',
-        ...(typeof operationId === 'string' && operationId !== '' ? { operationId } : {}),
+      operations.push({
+        endpoint: {
+          method: method.data,
+          path,
+          source: 'openapi',
+          ...(typeof operationId === 'string' && operationId !== '' ? { operationId } : {}),
+        },
+        definition: operation,
       });
     }
   }
-  return endpoints.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+  return operations.sort(
+    (a, b) =>
+      a.endpoint.path.localeCompare(b.endpoint.path) || a.endpoint.method.localeCompare(b.endpoint.method),
+  );
+}
+
+/** Lists the operations a contract declares as `openapi` endpoints. */
+export function listOpenApiEndpoints(document: Record<string, unknown>): ApiEndpoint[] {
+  return listOpenApiOperations(document).map((operation) => operation.endpoint);
 }
 
 /**

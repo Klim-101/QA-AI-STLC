@@ -117,6 +117,25 @@ describe('assertApiSpecsInContract', () => {
     expect(error).toMatchObject({ code: 'API_CASE_INVALID' });
   });
 
+  it('rejects a spec stamped with a contract hash the live contract no longer has', async () => {
+    const [casePath, caseJson] = caseFile('case-stale');
+    const stamped = `export const CONTRACT_SHA256 = "${'0'.repeat(64)}";\n${annotated('case-stale')}`;
+    const engine = engineWith({ [SPEC_PATH]: stamped, [casePath]: caseJson });
+
+    const error = await rejection(assertApiSpecsInContract(engine, [SPEC_PATH], contract));
+
+    expect(error).toMatchObject({ code: 'API_SPEC_CONTRACT_CHANGED' });
+    expect((error as Error).message).toContain(contract.sha256);
+  });
+
+  it('accepts a spec stamped with the live contract hash', async () => {
+    const [casePath, caseJson] = caseFile('case-fresh');
+    const stamped = `export const CONTRACT_SHA256 = "${contract.sha256}";\n${annotated('case-fresh')}`;
+    const engine = engineWith({ [SPEC_PATH]: stamped, [casePath]: caseJson });
+
+    await expect(assertApiSpecsInContract(engine, [SPEC_PATH], contract)).resolves.toBeUndefined();
+  });
+
   it('reports the contract violation code when a set has both kinds of problem', async () => {
     const [okPath, okJson] = caseFile('case-bare', { endpoints: undefined });
     const [badPath, badJson] = caseFile('case-absent', { endpoints: [{ method: 'PUT', path: '/nope' }] });

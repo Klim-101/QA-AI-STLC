@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { QaError, stampGeneratedTestSpec, verifyGeneratedTestSpec, type Runner } from '@qa-ai-stlc/core';
+import { apiRunner } from '@qa-ai-stlc/runner-api';
 import { playwrightRunner } from '@qa-ai-stlc/runner-playwright';
 import {
   GeneratedTestSpecSchema,
@@ -16,11 +17,12 @@ import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
 
-// Only `e2e` has a runner today (`@qa-ai-stlc/runner-playwright`, P3-01); `api`/`a11y` runners are
-// later Phase 6 tasks. Keyed by `TestType` so a future runner is one entry, not a new dispatch
+// `e2e` and `api` have runners today (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`,
+// P6-04); the `a11y` runner is a later Phase 6 task. Keyed by `TestType` so a future runner is one entry, not a new dispatch
 // shape — the same table `qa.run`/`qa run` each keep their own copy of.
 const RUNNERS_BY_TEST_TYPE: Partial<Record<TestType, Runner>> = {
   e2e: playwrightRunner,
+  api: apiRunner,
 };
 
 function resolveRunner(testType: TestType): Runner {
@@ -82,7 +84,9 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
     'Typechecks a candidate generated spec and, only if that passes, executes it once through the ' +
     'real runner against a scratch copy that never touches the real project tree. Returns ' +
     '"typecheck_failed"/"execution_failed" with issues to fix, or "verified" with a spec and ' +
-    'verificationId to pass, unmodified, to qa.generation_register. The test case must be registered ' +
+    'verificationId to pass, unmodified, to qa.generation_register. An api spec must declare the ' +
+    'contract hash from the input (export const CONTRACT_SHA256) and is rejected once the live ' +
+    'contract hashes differently. The test case must be registered ' +
     'and unchanged since qa.generation_spoke_input built the input.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
@@ -100,6 +104,7 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
       spec,
       testCase: input.input.testCase,
       runner,
+      ...(input.input.apiContract !== undefined ? { contractSha256: input.input.apiContract.sha256 } : {}),
       ...(input.environment !== undefined ? { environment: input.environment } : {}),
     });
 

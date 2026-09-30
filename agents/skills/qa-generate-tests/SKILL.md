@@ -44,6 +44,18 @@ detect or announce a stale spec — that stays the hub's/a future `qa-regression
    never guess a locator. Pass the proven session itself as `provenSession`, so it becomes part of
    `sourceHash` and a later `qa-execute` re-run is detected as drift.
 
+## API cases
+
+An `api` case has no DOM, so its spoke input carries `apiContract` (the contract operations the
+case's `endpoints` name, with the contract `sha256`) instead of a registry slice; pass no
+`elementIds`. Generate a Playwright `APIRequestContext` spec (`request.get(...)`, never a browser
+page) from those operations' definitions and the proven session, and add
+`export const CONTRACT_SHA256 = "<apiContract.sha256>";` to it. `qa.generation_verify` refuses a
+spec that does not declare that exact hash, and `qa run` refuses one whose hash no longer matches
+the live contract: when that happens the contract changed, so regenerate from a fresh
+`qa.generation_spoke_input` instead of editing the hash by hand. Authenticate only through an
+`apiAuth` profile, never a literal credential in the spec.
+
 ## Writing the spec
 
 Follow [`references/generation-standards.md`](references/generation-standards.md) for the

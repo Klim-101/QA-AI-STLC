@@ -5,6 +5,7 @@ import {
   QaError,
   QaStore,
   comparableApiPath,
+  extractContractSha256,
   extractSpecTestCaseIds,
   findCasePath,
   listOpenApiEndpoints,
@@ -13,8 +14,17 @@ import {
 } from '@qa-ai-stlc/core';
 import { TestCaseSchema } from '@qa-ai-stlc/schemas';
 
+// Most specific first: a spec that is stale against the contract is reported as such even when it
+// also has a structural problem.
+const VIOLATION_CODES_BY_PRIORITY = [
+  'API_CASE_NOT_IN_CONTRACT',
+  'API_SPEC_CONTRACT_CHANGED',
+  'API_CASE_INVALID',
+] as const;
+type ViolationCode = (typeof VIOLATION_CODES_BY_PRIORITY)[number];
+
 interface Violation {
-  readonly code: 'API_CASE_INVALID' | 'API_CASE_NOT_IN_CONTRACT';
+  readonly code: ViolationCode;
   readonly message: string;
 }
 
@@ -39,7 +49,15 @@ export async function assertApiSpecsInContract(
   const violations: Violation[] = [];
 
   for (const specFile of specFiles) {
-    const caseIds = extractSpecTestCaseIds(await engine.fs.readFile(specFile));
+    const specSource = await engine.fs.readFile(specFile);
+    const stampedSha256 = extractContractSha256(specSource);
+    if (stampedSha256 !== undefined && stampedSha256 !== contract.sha256) {
+      violations.push({
+        code: 'API_SPEC_CONTRACT_CHANGED',
+        message: `${specFile} was generated against contract ${stampedSha256}, but ${contract.source} now hashes to ${contract.sha256}.`,
+      });
+    }
+    const caseIds = extractSpecTestCaseIds(specSource);
     if (caseIds.length === 0) {
       violations.push({
         code: 'API_CASE_INVALID',
@@ -71,14 +89,14 @@ export async function assertApiSpecsInContract(
     }
   }
 
-  const [first] = violations;
-  if (first !== undefined) {
-    const code = violations.some((violation) => violation.code === 'API_CASE_NOT_IN_CONTRACT')
-      ? 'API_CASE_NOT_IN_CONTRACT'
-      : first.code;
+  if (violations.length > 0) {
+    const code =
+      VIOLATION_CODES_BY_PRIORITY.find((candidate) =>
+        violations.some((violation) => violation.code === candidate),
+      ) ?? 'API_CASE_INVALID';
     throw new QaError(code, violations.map((violation) => violation.message).join('\n'), {
       remediation:
-        'API cases come from the configured contract only: fix the endpoints the case lists, or add the operation to the contract.',
+        'API cases come from the configured contract only: fix the endpoints the case lists, add the operation to the contract, or regenerate a spec stamped with an old contract hash.',
     });
   }
 }

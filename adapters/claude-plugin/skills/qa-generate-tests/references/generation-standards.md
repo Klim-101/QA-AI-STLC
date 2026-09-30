@@ -51,6 +51,20 @@ a mechanism the engine gates on.
   level: a `test.step()` asserts the one outcome its case step names, not several unrelated
   conditions bundled together.
 
+## API specs and the contract hash
+
+An `api` spec is written against the contract operations its case names, not against the DOM: it
+uses Playwright's `APIRequestContext`, asserts status and the response fields the operation's
+definition declares, and follows the same traceability and independence rules as an `e2e` spec
+(one `test.step([id] ...)` with an explicit assertion per case step).
+
+What differs is what the spec is bound to. The spoke input's `apiContract.sha256` is the hash of the
+exact contract text; the spec declares it as `export const CONTRACT_SHA256 = "<hash>";`. The engine
+enforces both ends (AGENTS.md 12.1): `verifyGeneratedTestSpec` rejects a spec that does not declare
+the input's hash, and `runner-api` rejects a spec whose declared hash differs from the contract it
+loads now (`API_SPEC_CONTRACT_CHANGED`). The hash is also part of `sourceHash`, so
+`isGeneratedTestSpecStale` flags the spec as soon as the contract changes.
+
 ## What this file is not
 
 It does not define the shared case-design/defect-report structure — that is

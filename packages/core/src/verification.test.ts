@@ -265,6 +265,63 @@ describe('verifyGeneratedTestSpec', () => {
     expect(receivedInput?.requiredStepIds).toEqual(['step-1', 'step-2', 'expected-result']);
   });
 
+  it('passes the runner the environment name, for runners that read project configuration', async () => {
+    const { context } = createContext();
+    let receivedInput: RunnerInput | undefined;
+    const runner = createFakeRunner((input) => {
+      receivedInput = input;
+      return [{ result: fakeResult({ status: 'passed' }), evidence: [] }];
+    });
+
+    await verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator });
+
+    expect(receivedInput?.environment).toBe('staging');
+  });
+
+  describe('contract stamp (P6-13)', () => {
+    const CONTRACT_SHA256 = 'e'.repeat(64);
+
+    it('verifies a spec that declares the contract hash it was generated against', async () => {
+      const { context } = createContext();
+      const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
+      const spec = { ...SPEC, content: `export const CONTRACT_SHA256 = "${CONTRACT_SHA256}";` };
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec,
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+        contractSha256: CONTRACT_SHA256,
+      });
+
+      expect(outcome.status).toBe('verified');
+    });
+
+    it.each([
+      ['declares none', 'export const GENERATOR_VERSION = "0.1.0";'],
+      ['declares a different hash', `export const CONTRACT_SHA256 = "${'f'.repeat(64)}";`],
+    ])('rejects a spec that %s, before anything runs or is written', async (_label, content) => {
+      const { context, fs } = createContext();
+      let runnerCalled = false;
+      const runner = createFakeRunner(() => {
+        runnerCalled = true;
+        return [];
+      });
+
+      const rejected = await verifyGeneratedTestSpec(context, {
+        spec: { ...SPEC, content },
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+        contractSha256: CONTRACT_SHA256,
+      }).catch((caught: unknown) => caught);
+
+      expect(rejected).toMatchObject({ code: 'core.verification.contract_stamp_mismatch' });
+      expect(runnerCalled).toBe(false);
+      expect(await fs.pathExists(join('project', '.qa', 'verifications'))).toBe(false);
+    });
+  });
+
   it('throws when testCase does not match the spec it is verifying', async () => {
     const { context } = createContext();
     const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);

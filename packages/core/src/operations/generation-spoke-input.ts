@@ -10,10 +10,13 @@ import {
   type ProvenSession,
   type RelativePath,
   type SelectorRegistry,
+  type TestCase,
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
-import { buildGenerationSpokeInput } from '../generation-contract.js';
+import { loadApiContract, selectContractOperations } from '../api-contract.js';
+import { loadConfig } from '../config-loader.js';
+import { buildApiGenerationSpokeInput, buildGenerationSpokeInput } from '../generation-contract.js';
 import { resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findCasePath } from './cases-render.js';
@@ -44,9 +47,32 @@ function parseGeneratorVersion(source: string): string | undefined {
   return source.slice(valueStart, valueEnd);
 }
 
+async function buildApiSpokeInput(
+  context: EngineContext,
+  testCase: TestCase,
+  options: GenerationSpokeInputOptions,
+): Promise<GenerationSpokeInput> {
+  if (testCase.endpoints === undefined) {
+    throw new QaError(
+      'API_CASE_INVALID',
+      `Case "${testCase.id}" lists no "endpoints", so no contract operations can be selected for it.`,
+      { remediation: 'Add the contract operations the case exercises to its "endpoints".' },
+    );
+  }
+  const contract = await loadApiContract(context, await loadConfig(context), options.environment);
+  return buildApiGenerationSpokeInput({
+    testCase,
+    apiContract: selectContractOperations(contract, testCase.endpoints),
+    ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
+  });
+}
+
 export interface GenerationSpokeInputOptions {
   readonly testCaseId: Identifier;
+  /** Registry element ids an `e2e` case needs; an `api` case has none and ignores it. */
   readonly elementIds: readonly Identifier[];
+  /** Which environment's contract to load for an `api` case; required when there is more than one. */
+  readonly environment?: string;
   /** The case's proven `qa-execute` session (`findLatestProvenSession`), when one exists. */
   readonly provenSession?: ProvenSession;
 }
@@ -65,6 +91,10 @@ export async function runBuildGenerationSpokeInput(
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const casePath = await findCasePath(store, options.testCaseId);
   const testCase = await store.readJson(casePath, TestCaseSchema);
+
+  if (testCase.testType === 'api') {
+    return buildApiSpokeInput(context, testCase, options);
+  }
 
   const registryExists = await store.pathExists(REGISTRY_PATH);
   const registry: SelectorRegistry = registryExists
