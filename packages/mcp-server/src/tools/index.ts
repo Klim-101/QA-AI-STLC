@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { apiDiffTool } from './api-diff.js';
 import { approveTool } from './approve.js';
 import { createBrowserAccessibilityScanTool } from './browser-accessibility-scan.js';
 import { createBrowserClickTool } from './browser-click.js';
@@ -45,6 +46,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   configSetTool,
   configAddTool,
   exploreTool,
+  apiDiffTool,
   scopeTool,
   casesAddTool,
   casesRenderTool,

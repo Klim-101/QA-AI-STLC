@@ -17,6 +17,7 @@ export * from './run-record.js';
 export * from './defect.js';
 export * from './rca.js';
 export * from './selector-registry.js';
+export * from './api-diff.js';
 export * from './api-surface.js';
 export * from './approval-ledger.js';
 export * from './manifest.js';

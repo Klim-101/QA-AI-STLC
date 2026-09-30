@@ -48,6 +48,7 @@ import {
   type ConfigAddIdentityResult,
 } from './commands/config-add.js';
 import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
+import { runApiDiff, type ApiDiffSummary } from './commands/api-diff.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
 import { runRun, type RunSummary } from './commands/run.js';
@@ -65,6 +66,7 @@ Commands:
   init          Create the .qa/ store and run the testing scope survey
   doctor        Check Node, browsers, identities and environment reachability
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
+  api-diff      Compare the OpenAPI contract with the endpoints the last explore observed: "api-diff [--environment <name>]"
   config set    Change one testing.<type> scope decision after init
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
   config show   Print the effective configuration and its relaxations: "config show [--explain]" also names the source layer of every value
@@ -116,6 +118,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchDoctor(rest, dependencies);
       case 'explore':
         return await dispatchExplore(rest, dependencies);
+      case 'api-diff':
+        return await dispatchApiDiff(rest, dependencies);
       case 'config':
         return await dispatchConfig(rest, dependencies);
       case 'scope':
@@ -483,6 +487,24 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
   });
   printResult(context.io, json, 'explore', report, formatExploreReport(report));
   return report.degraded.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+async function dispatchApiDiff(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    environment: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const summary = await runApiDiff(context, {
+    ...(typeof values.environment === 'string' ? { environment: values.environment } : {}),
+  });
+  printResult(context.io, json, 'api-diff', summary, formatApiDiffSummary(summary));
+  return EXIT_SUCCESS;
 }
 
 async function dispatchScope(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
@@ -874,6 +896,15 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
       `${String(report.added)} added, ${String(report.removed)} removed, ${String(report.degraded.length)} degraded).`,
     `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
     `${String(report.blockedRequestCount)} non-GET request(s) blocked by safe mode.`,
+  ];
+}
+
+function formatApiDiffSummary(summary: ApiDiffSummary): readonly string[] {
+  const { counts } = summary;
+  return [
+    `Wrote ${summary.reportPath} against ${summary.contractSource} (sha256 ${summary.contractSha256}).`,
+    `${String(counts.matched)} matched, ${String(counts.undocumented)} undocumented, ` +
+      `${String(counts.methodNotDocumented)} method not documented, ${String(counts.unobserved)} unobserved.`,
   ];
 }
 

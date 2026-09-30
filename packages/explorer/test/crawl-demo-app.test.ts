@@ -3,10 +3,13 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
+import { fetchHttpClient, playwrightBrowserLauncher } from '@qa-ai-stlc/core';
 import type { IdentityConfig, LocatorCandidate } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { diffApiSurface } from '../src/api-diff.js';
 import { buildApiSurface } from '../src/api-surface.js';
+import { discoverOpenApiContract } from '../src/openapi-discovery.js';
+import { listOpenApiEndpoints } from '../src/openapi-endpoints.js';
 import { analyzePages } from '../src/analyze-pages.js';
 import { buildSelectorRegistry, diffSelectorRegistry } from '../src/build-selector-registry.js';
 import { crawl } from '../src/crawl.js';
@@ -130,6 +133,43 @@ describe('crawl (demo app)', () => {
     expect(apiSurface.endpoints).toContainEqual(
       expect.objectContaining({ method: 'GET', path: '/tasks/new' }),
     );
+  }, 30_000);
+});
+
+// P6-02's exit criterion against the real app: the demo app serves an intentionally imperfect
+// contract at /openapi.json, so a diff of a real crawl must produce a matched finding under a
+// differently named path parameter and one undocumented and one unobserved finding.
+describe('API diff (demo app)', () => {
+  it('discovers the served contract and classifies its discrepancies against a real crawl', async () => {
+    const result = await crawl({
+      startUrl: `${BASE_URL}/dashboard`,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+      identity: {
+        config: {
+          auth: 'storage-state',
+          secret: 'QA_DEMO_ADMIN_PASSWORD',
+          loginUrl: `${BASE_URL}/login`,
+          username: 'admin@example.com',
+        },
+        env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' },
+      },
+    });
+    const observed = buildApiSurface(result.requestLogHar, result.routeMap.generatedAt);
+
+    const contract = await discoverOpenApiContract({
+      baseUrl: BASE_URL,
+      allowlist: ['localhost'],
+      httpClient: fetchHttpClient,
+    });
+    expect(contract?.url).toBe(`${BASE_URL}/openapi.json`);
+    const findings = diffApiSurface(listOpenApiEndpoints(contract?.document ?? {}), observed);
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({ kind: 'matched', path: '/tasks/{id}', contractPath: '/tasks/{taskId}' }),
+    );
+    expect(findings).toContainEqual({ kind: 'unobserved', method: 'POST', path: '/oauth/revoke-all' });
+    expect(findings).toContainEqual(expect.objectContaining({ kind: 'undocumented', path: '/tasks' }));
   }, 30_000);
 });
 
