@@ -25,6 +25,7 @@ export interface ApiAuthTokenCache {
   get(profileName: string, nowMs: number): string | undefined;
   set(profileName: string, token: string, expiresAtMs: number | undefined): void;
   /** Every live token, so a response that echoes one can be scrubbed. */
+  delete(profileName: string): void;
   values(): readonly string[];
 }
 
@@ -42,6 +43,9 @@ export function createApiAuthTokenCache(): ApiAuthTokenCache {
     set: (profileName, token, expiresAtMs) => {
       tokens.set(profileName, { value: token, expiresAtMs });
     },
+    delete: (profileName) => {
+      tokens.delete(profileName);
+    },
     values: () => [...tokens.values()].map((cached) => cached.value),
   };
 }
@@ -53,6 +57,8 @@ export interface ResolvedApiAuth {
   readonly queryParameters: Readonly<Record<string, string>>;
   /** Every credential value this resolution used; never returned to the agent. */
   readonly secretValues: readonly string[];
+  /** True when the credential came from the cache, so a 401 may mean it went stale and a new one is worth trying once. */
+  readonly isReused: boolean;
 }
 
 export interface ResolveApiAuthOptions {
@@ -230,14 +236,14 @@ async function resolveOAuthToken(
   context: EngineContext,
   options: ResolveApiAuthOptions,
   profile: Extract<ApiAuthProfile, { type: 'oauth2-client-credentials' }>,
-): Promise<string> {
+): Promise<{ readonly token: string; readonly isReused: boolean }> {
   const cached = options.tokenCache.get(options.profileName, context.clock.now().getTime());
   if (cached !== undefined) {
-    return cached;
+    return { token: cached, isReused: true };
   }
   const fetched = await fetchOAuthToken(context, options, profile);
   options.tokenCache.set(options.profileName, fetched.token, fetched.expiresAtMs);
-  return fetched.token;
+  return { token: fetched.token, isReused: false };
 }
 
 /**
@@ -254,7 +260,7 @@ export async function resolveApiAuth(
   if (profile === undefined) {
     throw unknownProfileError(options.apiAuth, options.profileName);
   }
-  const base = { profileName: options.profileName, profileType: profile.type };
+  const base = { profileName: options.profileName, profileType: profile.type, isReused: false };
   switch (profile.type) {
     case 'none':
       return { ...base, headers: {}, queryParameters: {}, secretValues: [] };
@@ -295,9 +301,10 @@ export async function resolveApiAuth(
       return { ...base, headers, queryParameters: {}, secretValues: Object.values(headers) };
     }
     case 'oauth2-client-credentials': {
-      const token = await resolveOAuthToken(context, options, profile);
+      const { token, isReused } = await resolveOAuthToken(context, options, profile);
       return {
         ...base,
+        isReused,
         headers: { Authorization: `Bearer ${token}` },
         queryParameters: {},
         secretValues: [token],

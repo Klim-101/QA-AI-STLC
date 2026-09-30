@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { HttpResponseDetails } from '../ports/http-client.js';
 import { HttpRequestRecordSchema, type Evidence, type Identifier } from '@qa-ai-stlc/schemas';
 import {
   assertNoCredentialInputs,
@@ -93,30 +94,48 @@ export async function runHttpExecute(
 
   const tokenCache = options.authTokenCache ?? createApiAuthTokenCache();
   const profileName = selectApiAuthProfileName(config.apiAuth, environment.name, options.auth);
-  const auth =
-    profileName === undefined
-      ? undefined
-      : await resolveApiAuth(context, {
-          profileName,
-          apiAuth: config.apiAuth,
-          environment: environment.config,
-          tokenCache,
-        });
-  const hasCredential = auth !== undefined && auth.profileType !== 'none';
-
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const method = options.method ?? 'GET';
-  const response = await context.httpClient.request(withQueryParameters(options.url, auth), {
-    method,
-    ...(options.headers !== undefined || auth !== undefined
-      ? { headers: mergeHeaders(options.headers, auth) }
-      : {}),
-    ...(options.body !== undefined ? { body: options.body } : {}),
-    ...(isTlsInsecure ? { tlsInsecure: true } : {}),
-    ...(hasCredential ? { redirect: 'manual' as const } : {}),
-  });
 
-  const secretValues = [...(auth?.secretValues ?? []), ...tokenCache.values()];
+  const send = async (): Promise<{
+    readonly auth: ResolvedApiAuth | undefined;
+    readonly response: HttpResponseDetails;
+  }> => {
+    const auth =
+      profileName === undefined
+        ? undefined
+        : await resolveApiAuth(context, {
+            profileName,
+            apiAuth: config.apiAuth,
+            environment: environment.config,
+            tokenCache,
+          });
+    const hasCredential = auth !== undefined && auth.profileType !== 'none';
+    const response = await context.httpClient.request(withQueryParameters(options.url, auth), {
+      method,
+      ...(options.headers !== undefined || auth !== undefined
+        ? { headers: mergeHeaders(options.headers, auth) }
+        : {}),
+      ...(options.body !== undefined ? { body: options.body } : {}),
+      ...(isTlsInsecure ? { tlsInsecure: true } : {}),
+      ...(hasCredential ? { redirect: 'manual' as const } : {}),
+    });
+    return { auth, response };
+  };
+
+  let attempt = await send();
+  const usedCredentials = [...(attempt.auth?.secretValues ?? [])];
+  // A cached token the server no longer accepts (expired early, revoked) is dropped and replaced
+  // once. A token that was just fetched is never retried: a second 401 means the credentials are
+  // wrong, not stale.
+  if (attempt.response.status === 401 && attempt.auth?.isReused === true && profileName !== undefined) {
+    tokenCache.delete(profileName);
+    attempt = await send();
+    usedCredentials.push(...(attempt.auth?.secretValues ?? []));
+  }
+  const { response } = attempt;
+
+  const secretValues = [...usedCredentials, ...tokenCache.values()];
   const bodyPreviewMaxLength = config.evidence.httpBodyPreviewMaxLength;
   const scrubbedBody = scrubSecretValues(response.bodyText, secretValues);
   const truncated = scrubbedBody.length > bodyPreviewMaxLength;

@@ -61,7 +61,7 @@ interface Reply {
 }
 
 function createAuthContext(
-  respond: (url: string) => Reply,
+  respond: (url: string, options: Sent['options']) => Reply,
   extraConfig = '',
 ): { readonly context: EngineContext; readonly fs: FakeFileSystem; readonly sent: Sent[] } {
   const sent: Sent[] = [];
@@ -69,7 +69,7 @@ function createAuthContext(
     get: () => Promise.reject(new Error('get() is not used')),
     request: (url, options) => {
       sent.push({ url, options });
-      const reply = respond(url);
+      const reply = respond(url, options);
       return Promise.resolve({
         ok: reply.status < 400,
         status: reply.status,
@@ -317,5 +317,75 @@ describe('runHttpExecute with an auth profile', () => {
 
       expect(sent).toHaveLength(1);
     });
+  });
+});
+
+describe('runHttpExecute refreshing a stale OAuth token', () => {
+  function createServerSideContext(isAccepted: (authorization: string | undefined) => boolean) {
+    let issued = 0;
+    return createAuthContext((url, options) => {
+      if (url.endsWith('/token')) {
+        issued += 1;
+        return { status: 200, bodyText: JSON.stringify({ access_token: `oauth-tok-${String(issued)}` }) };
+      }
+      const authorization = options?.headers?.Authorization;
+      return isAccepted(authorization)
+        ? { status: 200, bodyText: `hello ${authorization ?? ''}` }
+        : { status: 401, bodyText: 'invalid_token' };
+    });
+  }
+
+  it('drops a cached token that gets a 401, fetches a new one and retries once', async () => {
+    let accepted = 'Bearer oauth-tok-1';
+    const { context, sent, fs } = createServerSideContext((authorization) => authorization === accepted);
+    const authTokenCache = createApiAuthTokenCache();
+    const call = () =>
+      runHttpExecute(context, { runId: 'run-1', url: URL_ON_ALLOWLIST, auth: 'oauth', authTokenCache });
+
+    const first = await call();
+    accepted = 'Bearer oauth-tok-2';
+    const second = await call();
+
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect(sent.map((call) => call.url.endsWith('/token'))).toEqual([true, false, false, true, false]);
+    expect(authTokenCache.values()).toEqual(['oauth-tok-2']);
+    const record = readRecord(fs, second.evidence.path);
+    expect(record).not.toContain('oauth-tok-1');
+    expect(record).not.toContain('oauth-tok-2');
+  });
+
+  it('does not retry a token that was just fetched', async () => {
+    const { context, sent } = createServerSideContext(() => false);
+
+    const result = await runHttpExecute(context, { runId: 'run-1', url: URL_ON_ALLOWLIST, auth: 'oauth' });
+
+    expect(result.status).toBe(401);
+    expect(sent).toHaveLength(2);
+  });
+
+  it('returns the second 401 when the refreshed token is refused as well', async () => {
+    const { context, sent } = createServerSideContext(() => false);
+    const authTokenCache = createApiAuthTokenCache();
+    authTokenCache.set('oauth', 'stale-token', undefined);
+
+    const result = await runHttpExecute(context, {
+      runId: 'run-1',
+      url: URL_ON_ALLOWLIST,
+      auth: 'oauth',
+      authTokenCache,
+    });
+
+    expect(result.status).toBe(401);
+    expect(sent.filter((call) => call.url.endsWith('/token'))).toHaveLength(1);
+    expect(sent.filter((call) => !call.url.endsWith('/token'))).toHaveLength(2);
+  });
+
+  it('does not retry a 401 for a profile that has no token to refresh', async () => {
+    const { context, sent } = createServerSideContext(() => false);
+
+    const result = await runHttpExecute(context, { runId: 'run-1', url: URL_ON_ALLOWLIST, auth: 'account' });
+
+    expect(result.status).toBe(401);
+    expect(sent).toHaveLength(1);
   });
 });
