@@ -123,17 +123,15 @@ export async function runHttpExecute(
     return { auth, response };
   };
 
-  let attempt = await send();
-  const usedCredentials = [...(attempt.auth?.secretValues ?? [])];
-  // A cached token the server no longer accepts (expired early, revoked) is dropped and replaced
-  // once. A token that was just fetched is never retried: a second 401 means the credentials are
-  // wrong, not stale.
-  if (attempt.response.status === 401 && attempt.auth?.isReused === true && profileName !== undefined) {
+  const first = await send();
+  const shouldRefresh =
+    first.response.status === 401 && first.auth?.isReused === true && profileName !== undefined;
+  if (shouldRefresh) {
     tokenCache.delete(profileName);
-    attempt = await send();
-    usedCredentials.push(...(attempt.auth?.secretValues ?? []));
   }
-  const { response } = attempt;
+  const retried = shouldRefresh ? await send() : undefined;
+  const { response } = retried ?? first;
+  const usedCredentials = [...credentialsOf(first), ...(retried === undefined ? [] : credentialsOf(retried))];
 
   const secretValues = [...usedCredentials, ...tokenCache.values()];
   const bodyPreviewMaxLength = config.evidence.httpBodyPreviewMaxLength;
@@ -183,4 +181,8 @@ function mergeHeaders(
 ): Record<string, string> {
   // A caller header that a profile also sets is rejected earlier, so the two never collide.
   return { ...callerHeaders, ...auth?.headers };
+}
+
+function credentialsOf(attempt: { readonly auth: ResolvedApiAuth | undefined }): readonly string[] {
+  return attempt.auth?.secretValues ?? [];
 }
