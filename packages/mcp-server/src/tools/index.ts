@@ -24,7 +24,7 @@ import { generationProvenSessionTool } from './generation-proven-session.js';
 import { generationRegisterTool } from './generation-register.js';
 import { generationSpokeInputTool } from './generation-spoke-input.js';
 import { generationVerifyTool } from './generation-verify.js';
-import { httpExecuteTool } from './http-execute.js';
+import { createHttpExecuteTool } from './http-execute.js';
 import { initTool } from './init.js';
 import { linkTool } from './link.js';
 import { pingTool } from './ping.js';
@@ -51,7 +51,6 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   testDataAddTool,
   approveTool,
   validateTool,
-  httpExecuteTool,
   caseResultRegisterTool,
   generationProvenSessionTool,
   generationSpokeInputTool,
@@ -64,7 +63,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   reportTool,
 ];
 
-/** The eight `qa.browser_*`/`qa.registry_execute_register` tools sharing one session store (ADR-005, P2-06). */
+/** The `qa.browser_*`/`qa.registry_execute_register` tools, and `qa.http_execute`, which can read a token from one of their sessions, sharing one session store (ADR-005, P2-06). */
 export function createBrowserTools(dependencies: BrowserToolDependencies): readonly ToolDefinition[] {
   return [
     createBrowserOpenTool(dependencies),
@@ -75,6 +74,7 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
     createBrowserAccessibilityScanTool(dependencies),
     createRegistryExecuteRegisterTool(dependencies),
     createBrowserCloseTool(dependencies),
+    createHttpExecuteTool(dependencies),
   ];
 }
 

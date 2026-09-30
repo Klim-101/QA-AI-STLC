@@ -31,6 +31,11 @@ export interface BrowserSession {
   readonly lastActivityAt: Date;
   /** Every non-GET request safe mode aborted during this session, in order. */
   readonly blockedRequests: readonly BlockedRequest[];
+  /**
+   * The latest value of each request header a `from-browser` profile replays (lower-cased name),
+   * seen on a request to an allowlisted host. In memory only (ADR-0012).
+   */
+  readonly observedRequestHeaders: ReadonlyMap<string, string>;
 }
 
 type MutableSession = { -readonly [Key in keyof BrowserSession]: BrowserSession[Key] };
@@ -51,6 +56,8 @@ export interface OpenBrowserSessionOptions {
   readonly actionTimeoutMs: number;
   /** The array safe mode's route handler pushes into, so the session can report what it blocked. */
   readonly blockedRequests: readonly BlockedRequest[];
+  /** The map the request observer writes into; a fresh empty one when omitted. */
+  readonly observedRequestHeaders?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -95,6 +102,7 @@ export class BrowserSessionStore {
       createdAt: now,
       lastActivityAt: now,
       blockedRequests: options.blockedRequests,
+      observedRequestHeaders: options.observedRequestHeaders ?? new Map<string, string>(),
     };
     this.sessions.set(session.sessionId, session);
     return session;

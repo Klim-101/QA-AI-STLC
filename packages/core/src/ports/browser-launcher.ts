@@ -18,6 +18,8 @@ export interface PageResponse {
 export interface RouteRequest {
   method(): string;
   url(): string;
+  /** The complete header set, security-related headers included; absent on test doubles. */
+  allHeaders?(): Promise<Record<string, string>>;
 }
 
 /** The narrow slice of Playwright's `Route` API safe mode needs to allow or cancel a request. */

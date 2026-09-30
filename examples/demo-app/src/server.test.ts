@@ -217,6 +217,18 @@ describe('fake OAuth2 token endpoint', () => {
     expect([missing.status, unknown.status, revoked.status]).toEqual([401, 401, 401]);
   });
 
+  it('hands the token demo page a live token', async () => {
+    const app = createApp();
+    const issued = await request(app).get('/oauth/demo-token');
+    const token = (issued.body as { access_token: string }).access_token;
+    const whoami = await request(app).get('/api/whoami').set('Authorization', `Bearer ${token}`);
+    const page = await request(app).get('/token-demo.html');
+
+    expect(whoami.status).toBe(200);
+    expect(page.status).toBe(200);
+    expect(page.text).toContain('sessionStorage.setItem');
+  });
+
   it('counts the tokens it has issued', async () => {
     const app = createApp();
     await request(app).post('/oauth/token').type('form').send(credentials);

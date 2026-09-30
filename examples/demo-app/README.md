@@ -29,7 +29,9 @@ The app listens on `http://localhost:4310` (override with `DEMO_APP_PORT`).
 
 For the API-auth tests the app also serves a fake OAuth2 client-credentials endpoint (not one of the
 catalogued bugs): `POST /oauth/token` (client `demo-client` / `demo-secret`), `GET /api/whoami` (bearer
-protected, echoes the token), `POST /oauth/revoke-all` and `GET /oauth/issued`. `DEMO_TOKEN_TTL_SECONDS`
+protected, echoes the token), `POST /oauth/revoke-all`, `GET /oauth/issued` and `GET /oauth/demo-token`. The page `/token-demo.html` keeps a
+token in a cookie, localStorage and sessionStorage and calls `/api/whoami` with it, for the
+`from-browser` auth profile tests. `DEMO_TOKEN_TTL_SECONDS`
 sets the token lifetime (default 3600).
 
 ## Tests

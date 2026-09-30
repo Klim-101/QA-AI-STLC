@@ -17,13 +17,16 @@ import { generationProvenSessionTool } from '../src/tools/generation-proven-sess
 import { generationRegisterTool } from '../src/tools/generation-register.js';
 import { generationSpokeInputTool } from '../src/tools/generation-spoke-input.js';
 import { generationVerifyTool } from '../src/tools/generation-verify.js';
-import { httpExecuteTool } from '../src/tools/http-execute.js';
+import { createBrowserToolDependencies } from '../src/tools/browser-dependencies.js';
+import { createHttpExecuteTool } from '../src/tools/http-execute.js';
 import { linkTool } from '../src/tools/link.js';
 import { reportTool } from '../src/tools/report.js';
 import { runTool } from '../src/tools/run.js';
 import { scopeTool } from '../src/tools/scope.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
+
+const httpExecuteTool = createHttpExecuteTool(createBrowserToolDependencies());
 
 /** Starts a real local HTTP server on an OS-assigned port, so `qa.http_execute` makes a real call
  * without depending on the network or the demo app (that heavier exercise already lives in
@@ -645,6 +648,50 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         );
       } finally {
         delete process.env.QA_MCP_TEST_TOKEN;
+        process.chdir(originalCwd);
+      }
+    });
+  });
+
+  it('qa.http_execute passes sessionId and identity on to a from-browser profile', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      try {
+        await mkdir(join(projectRoot, '.qa'), { recursive: true });
+        await writeFile(
+          join(projectRoot, '.qa', 'config.yaml'),
+          [
+            'schemaVersion: 1',
+            'testing: { e2e: undecided, api: out-of-scope, a11y: undecided, security: undecided }',
+            'environments:',
+            '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+            'identities: {}',
+            'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+            'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+            'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+            'apiAuth:',
+            '  profiles:',
+            '    spa: { type: from-browser, source: { kind: cookie, name: api_token } }',
+            '',
+          ].join('\n'),
+          'utf-8',
+        );
+        const url = 'https://staging.example.test/api';
+
+        const noSession = await httpExecuteTool
+          .handler({ runId: 'run-1', url, auth: 'spa' })
+          .catch((caught: unknown) => caught);
+        const unknownSession = await httpExecuteTool
+          .handler({ runId: 'run-1', url, auth: 'spa', sessionId: 'nope' })
+          .catch((caught: unknown) => caught);
+        const unknownIdentity = await httpExecuteTool
+          .handler({ runId: 'run-1', url, auth: 'spa', identity: 'nobody' })
+          .catch((caught: unknown) => caught);
+
+        expect(noSession).toMatchObject({ code: 'API_AUTH_SESSION_REQUIRED' });
+        expect(unknownSession).toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
+        expect(unknownIdentity).toMatchObject({ code: 'API_AUTH_IDENTITY_UNKNOWN' });
+      } finally {
         process.chdir(originalCwd);
       }
     });

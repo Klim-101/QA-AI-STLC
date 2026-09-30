@@ -17,6 +17,7 @@ import { assertUrlAllowed } from '../browser-allowlist.js';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { EvidenceStore } from '../evidence-store.js';
+import { resolveBrowserTokenOrigin, type BrowserOriginOptions } from './http-execute-browser-origin.js';
 import { registerEvidenceOrThrow } from './browser-evidence.js';
 import { resolveBrowserEnvironment } from './browser-open.js';
 import { toCanonicalJson } from '../json-file.js';
@@ -24,7 +25,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
 
-export interface HttpExecuteOptions {
+export interface HttpExecuteOptions extends BrowserOriginOptions {
   readonly runId: Identifier;
   /** Environment name from config.yaml. Required only when the project defines more than one. */
   readonly environment?: string;
@@ -97,6 +98,12 @@ export async function runHttpExecute(
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const method = options.method ?? 'GET';
 
+  const isBrowserProfile =
+    profileName !== undefined && config.apiAuth.profiles[profileName]?.type === 'from-browser';
+  const browserTokenOrigin = isBrowserProfile
+    ? await resolveBrowserTokenOrigin(options, environment.config, config, store)
+    : undefined;
+
   const send = async (): Promise<{
     readonly auth: ResolvedApiAuth | undefined;
     readonly response: HttpResponseDetails;
@@ -109,6 +116,7 @@ export async function runHttpExecute(
             apiAuth: config.apiAuth,
             environment: environment.config,
             tokenCache,
+            ...(browserTokenOrigin !== undefined ? { browserTokenOrigin } : {}),
           });
     const hasCredential = auth !== undefined && auth.profileType !== 'none';
     const response = await context.httpClient.request(withQueryParameters(options.url, auth), {

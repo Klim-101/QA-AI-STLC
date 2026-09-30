@@ -4,6 +4,7 @@
 import type { ApiAuthConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import {
+  collectObservedRequestHeaderNames,
   collectSensitiveNames,
   createApiAuthTokenCache,
   resolveApiAuth,
@@ -163,10 +164,28 @@ describe('resolveApiAuth', () => {
     expect((error as QaError).code).toBe('API_AUTH_PROFILE_UNKNOWN');
   });
 
-  it('cannot read a token from a browser session yet and says so', async () => {
+  it('needs a browser session or identity for a from-browser profile and says so', async () => {
     const error = await resolve(createContext().context, 'session').catch((caught: unknown) => caught);
 
-    expect((error as QaError).code).toBe('API_AUTH_PROFILE_UNSUPPORTED');
+    expect((error as QaError).code).toBe('API_AUTH_SESSION_REQUIRED');
+  });
+
+  it('replays the observed request header of a from-browser profile and reports every secret in it', async () => {
+    const result = await resolve(createContext().context, 'session', {
+      browserTokenOrigin: {
+        description: 'a test origin',
+        ...ENVIRONMENT,
+        loadStorageState: () => Promise.resolve({ cookies: [], origins: [] }),
+        readObservedRequestHeader: () => 'Bearer observed-1',
+      },
+    });
+
+    expect(result).toMatchObject({
+      profileType: 'from-browser',
+      headers: { Authorization: 'Bearer observed-1' },
+      secretValues: ['Bearer observed-1', 'observed-1'],
+      isReused: false,
+    });
   });
 });
 
@@ -304,6 +323,18 @@ describe('collectSensitiveNames', () => {
     expect(names.queryParameters).toEqual(['api_key']);
   });
 
+  it('includes the header a from-browser profile replays, and Authorization for its other sources', () => {
+    const replaying: ApiAuthConfig = {
+      profiles: {
+        a: { type: 'from-browser', source: { kind: 'request-header', header: 'X-Auth-Token' } },
+        b: { type: 'from-browser', source: { kind: 'cookie', name: 'c' } },
+      },
+      defaults: {},
+    };
+
+    expect(collectSensitiveNames(replaying).headers).toEqual(['X-Auth-Token', 'Authorization']);
+  });
+
   it('is empty when no profile carries a credential', () => {
     expect(collectSensitiveNames({ profiles: { open: { type: 'none' } }, defaults: {} })).toEqual({
       headers: [],
@@ -323,6 +354,15 @@ describe('an unrecognized profile type (schema drift)', () => {
       /Unhandled apiAuth profile/u,
     );
     expect(() => collectSensitiveNames(drifted)).toThrow(/Unhandled apiAuth profile/u);
+  });
+});
+
+describe('collectObservedRequestHeaderNames', () => {
+  it('lists, lower-cased, only the headers a from-browser profile replays', () => {
+    expect([...collectObservedRequestHeaderNames(API_AUTH)]).toEqual(['authorization']);
+    expect([
+      ...collectObservedRequestHeaderNames({ profiles: { open: { type: 'none' } }, defaults: {} }),
+    ]).toEqual([]);
   });
 });
 
