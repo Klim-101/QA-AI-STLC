@@ -25,6 +25,13 @@ The app listens on `http://localhost:4310` (override with `DEMO_APP_PORT`).
 - 12 catalogued bugs spanning functional, accessibility and security categories (see
   `bugs.json`), each pointing at the file and route where it lives.
 
+## Fake OAuth2 server
+
+For the API-auth tests the app also serves a fake OAuth2 client-credentials endpoint (not one of the
+catalogued bugs): `POST /oauth/token` (client `demo-client` / `demo-secret`), `GET /api/whoami` (bearer
+protected, echoes the token), `POST /oauth/revoke-all` and `GET /oauth/issued`. `DEMO_TOKEN_TTL_SECONDS`
+sets the token lifetime (default 3600).
+
 ## Tests
 
 `npm test --workspace @qa-ai-stlc/demo-app` runs a smoke suite (`src/server.test.ts`) covering the

@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { DEMO_CLIENT_ID, DEMO_CLIENT_SECRET } from './routes/oauth.js';
 import { createApp } from './server.js';
 
 function adminAgent() {
@@ -166,5 +167,61 @@ describe('BUG-012: the session cookie is missing HttpOnly', () => {
       .send({ email: 'admin@example.com', password: 'admin123' });
     const setCookie = response.headers['set-cookie'] as unknown as string[];
     expect(setCookie[0]).not.toMatch(/HttpOnly/i);
+  });
+});
+
+describe('fake OAuth2 token endpoint', () => {
+  const credentials = {
+    grant_type: 'client_credentials',
+    client_id: DEMO_CLIENT_ID,
+    client_secret: DEMO_CLIENT_SECRET,
+  };
+
+  it('issues a token for the demo client and accepts it on the protected route', async () => {
+    const app = createApp();
+    const token = await request(app).post('/oauth/token').type('form').send(credentials);
+    const accessToken = (token.body as { access_token: string }).access_token;
+    const whoami = await request(app).get('/api/whoami').set('Authorization', `Bearer ${accessToken}`);
+
+    expect(token.status).toBe(200);
+    expect(token.body).toMatchObject({ token_type: 'Bearer', expires_in: 3600 });
+    expect(whoami.status).toBe(200);
+    expect(whoami.body).toEqual({ client: DEMO_CLIENT_ID, token: accessToken });
+  });
+
+  it('rejects an unsupported grant and wrong client credentials', async () => {
+    const app = createApp();
+    const grant = await request(app)
+      .post('/oauth/token')
+      .type('form')
+      .send({ ...credentials, grant_type: 'password' });
+    const client = await request(app)
+      .post('/oauth/token')
+      .type('form')
+      .send({ ...credentials, client_secret: 'wrong' });
+
+    expect(grant.status).toBe(400);
+    expect(client.status).toBe(401);
+  });
+
+  it('answers 401 without a token, with an unknown token, and after every token is revoked', async () => {
+    const app = createApp();
+    const token = await request(app).post('/oauth/token').type('form').send(credentials);
+    const auth = { Authorization: `Bearer ${(token.body as { access_token: string }).access_token}` };
+
+    const missing = await request(app).get('/api/whoami');
+    const unknown = await request(app).get('/api/whoami').set('Authorization', 'Bearer nope');
+    await request(app).post('/oauth/revoke-all');
+    const revoked = await request(app).get('/api/whoami').set(auth);
+
+    expect([missing.status, unknown.status, revoked.status]).toEqual([401, 401, 401]);
+  });
+
+  it('counts the tokens it has issued', async () => {
+    const app = createApp();
+    await request(app).post('/oauth/token').type('form').send(credentials);
+    await request(app).post('/oauth/token').type('form').send(credentials);
+
+    expect((await request(app).get('/oauth/issued')).body).toEqual({ issued: 2 });
   });
 });

@@ -106,6 +106,7 @@ describe('resolveApiAuth', () => {
       headers: {},
       queryParameters: {},
       secretValues: [],
+      isReused: false,
     });
   });
 
@@ -177,6 +178,7 @@ describe('resolveApiAuth with oauth2-client-credentials', () => {
     const first = await resolve(context, 'oauth', { tokenCache });
     const second = await resolve(context, 'oauth', { tokenCache });
 
+    expect([first.isReused, second.isReused]).toEqual([false, true]);
     expect(first.headers).toEqual({ Authorization: 'Bearer oauth-token-1' });
     expect(second.headers).toEqual(first.headers);
     expect(calls).toHaveLength(1);
@@ -325,6 +327,15 @@ describe('an unrecognized profile type (schema drift)', () => {
 });
 
 describe('createApiAuthTokenCache', () => {
+  it('forgets a deleted token', () => {
+    const cache = createApiAuthTokenCache();
+    cache.set('x', 'value', undefined);
+    cache.delete('x');
+
+    expect(cache.get('x', NOW.getTime())).toBeUndefined();
+    expect(cache.values()).toEqual([]);
+  });
+
   it('returns nothing for a profile that was never stored', () => {
     expect(createApiAuthTokenCache().get('x', NOW.getTime())).toBeUndefined();
   });
