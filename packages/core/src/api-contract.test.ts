@@ -6,7 +6,12 @@ import { ConfigSchema } from '@qa-ai-stlc/schemas';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
-import { loadApiContract, snapshotApiContract } from './api-contract.js';
+import {
+  extractContractSha256,
+  loadApiContract,
+  selectContractOperations,
+  snapshotApiContract,
+} from './api-contract.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
@@ -154,5 +159,72 @@ describe('snapshotApiContract', () => {
       artifacts: Record<string, { sha256: string }>;
     };
     expect(manifest.artifacts['artifacts/api-contract.txt']?.sha256).toBe(contract.sha256);
+  });
+});
+
+describe('selectContractOperations', () => {
+  const document = {
+    openapi: '3.0.3',
+    paths: {
+      '/tasks/{taskId}': { get: { operationId: 'getTask', responses: { '200': {} } }, delete: {} },
+      '/huge': { get: { description: 'x'.repeat(9000) } },
+    },
+  };
+  const contract = {
+    source: 'openapi.json',
+    text: JSON.stringify(document),
+    sha256: hashText(JSON.stringify(document)),
+    document,
+  };
+
+  it('returns the named operations in the contract spelling, ignoring parameter names', () => {
+    const slice = selectContractOperations(contract, [{ method: 'GET', path: '/tasks/{id}' }]);
+
+    expect(slice).toEqual({
+      source: 'openapi.json',
+      sha256: contract.sha256,
+      operations: [
+        {
+          method: 'GET',
+          path: '/tasks/{taskId}',
+          operationId: 'getTask',
+          definition: '{"operationId":"getTask","responses":{"200":{}}}',
+          truncated: false,
+        },
+      ],
+    });
+  });
+
+  it('omits operationId when the operation has none and truncates an oversized definition', () => {
+    const [huge] = selectContractOperations(contract, [{ method: 'GET', path: '/huge' }]).operations;
+
+    expect(huge?.operationId).toBeUndefined();
+    expect(huge?.truncated).toBe(true);
+    expect(huge?.definition).toHaveLength(8000);
+  });
+
+  it('fails loudly, naming every operation the contract lacks', () => {
+    const select = () =>
+      selectContractOperations(contract, [
+        { method: 'GET', path: '/tasks/{id}' },
+        { method: 'PUT', path: '/tasks/{id}' },
+        { method: 'GET', path: '/nope' },
+      ]);
+
+    expect(select).toThrow(QaError);
+    expect(select).toThrow('PUT /tasks/{id}, GET /nope');
+  });
+});
+
+describe('extractContractSha256', () => {
+  it('reads the hash a generated spec declares', () => {
+    expect(extractContractSha256('export const CONTRACT_SHA256 = "abc123";\nmore')).toBe('abc123');
+  });
+
+  it.each([
+    ['no declaration', "test('x', () => {});"],
+    ['an unterminated declaration', 'export const CONTRACT_SHA256 = "abc'],
+  ])('returns undefined for %s', (_label, source) => {
+    expect(extractContractSha256(source)).toBeUndefined();
   });
 });

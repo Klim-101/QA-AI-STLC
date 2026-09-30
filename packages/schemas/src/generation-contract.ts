@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
+import { HttpMethodSchema } from './api-surface.js';
 import { IdentifierSchema, RelativePathSchema, Sha256HexSchema, IsoDateTimeSchema } from './primitives.js';
 import { ProvenSessionSchema } from './proven-session.js';
 import { RunResultSchema } from './run-result.js';
@@ -19,27 +20,74 @@ export const LocatorModuleExportSchema = z.object({
 });
 export type LocatorModuleExport = z.infer<typeof LocatorModuleExportSchema>;
 
+// One contract operation an `api` case exercises, as a spoke needs it to write assertions:
+// `definition` is the operation object from the OpenAPI document (parameters, request body,
+// responses) as canonical JSON, capped so one large operation cannot blow up a spoke's context.
+export const ApiContractOperationSchema = z.object({
+  method: HttpMethodSchema,
+  path: z.string().startsWith('/'),
+  operationId: z.string().min(1).optional(),
+  definition: z.string(),
+  truncated: z.boolean(),
+});
+export type ApiContractOperation = z.infer<typeof ApiContractOperationSchema>;
+
+// The contract an `api` spec is generated from (P6-13). `sha256` is the hash of the exact
+// contract text; the generated spec must declare it as `CONTRACT_SHA256`, and `runner-api`
+// rejects the spec once the live contract no longer hashes to it.
+export const ApiContractSliceSchema = z.object({
+  source: z.string().min(1),
+  sha256: Sha256HexSchema,
+  operations: z.array(ApiContractOperationSchema).min(1),
+});
+export type ApiContractSlice = z.infer<typeof ApiContractSliceSchema>;
+
 // What a `qa-generate-tests` spoke task (P3-07) receives: the case to codify, the slice of the
 // selector registry its steps are expected to need, and the generated locator module's own current
 // API surface, so the spoke never has to inline a selector or guess an export name (ADR-006).
-export const GenerationSpokeInputSchema = z.object({
-  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
-  testCase: TestCaseSchema,
-  // A subset of a real `SelectorRegistry` (`buildRegistrySlice`, `@qa-ai-stlc/core`): same shape,
-  // `elements` filtered to only the ids the caller identified as relevant to this case. Not the
-  // whole project registry, so a spoke's context stays bounded to one case at a time.
-  registrySlice: SelectorRegistrySchema,
-  locatorModule: z.object({
-    generatorVersion: z.string().min(1),
-    exports: z.array(LocatorModuleExportSchema),
-  }),
-  // The case's most recent passing `qa-execute` session (P3-15), when one exists
-  // (`findLatestProvenSession`, `@qa-ai-stlc/core`) — what `qa-generate-tests` (P3-07) actually
-  // codifies. Included here, not passed alongside the input, specifically so it is part of
-  // `sourceHash`: re-running `qa-execute` for the case changes this field and therefore the hash,
-  // so `isGeneratedTestSpecStale` catches that drift with no separate detection mechanism.
-  provenSession: ProvenSessionSchema.optional(),
-});
+export const GenerationSpokeInputSchema = z
+  .object({
+    schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+    testCase: TestCaseSchema,
+    // A subset of a real `SelectorRegistry` (`buildRegistrySlice`, `@qa-ai-stlc/core`): same shape,
+    // `elements` filtered to only the ids the caller identified as relevant to this case. Not the
+    // whole project registry, so a spoke's context stays bounded to one case at a time.
+    // Present for an `e2e` case; an `api` case has no DOM, so its spoke gets `apiContract` instead
+    // (enforced by the refinement below).
+    registrySlice: SelectorRegistrySchema.optional(),
+    locatorModule: z
+      .object({
+        generatorVersion: z.string().min(1),
+        exports: z.array(LocatorModuleExportSchema),
+      })
+      .optional(),
+    apiContract: ApiContractSliceSchema.optional(),
+    // The case's most recent passing `qa-execute` session (P3-15), when one exists
+    // (`findLatestProvenSession`, `@qa-ai-stlc/core`) — what `qa-generate-tests` (P3-07) actually
+    // codifies. Included here, not passed alongside the input, specifically so it is part of
+    // `sourceHash`: re-running `qa-execute` for the case changes this field and therefore the hash,
+    // so `isGeneratedTestSpecStale` catches that drift with no separate detection mechanism.
+    provenSession: ProvenSessionSchema.optional(),
+  })
+  .superRefine((input, context) => {
+    if (input.testCase.testType === 'api') {
+      if (input.apiContract === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['apiContract'],
+          message: 'An api case needs the contract slice it is generated from.',
+        });
+      }
+      return;
+    }
+    if (input.registrySlice === undefined || input.locatorModule === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['registrySlice'],
+        message: 'A non-api case needs a registry slice and the locator module surface.',
+      });
+    }
+  });
 export type GenerationSpokeInput = z.infer<typeof GenerationSpokeInputSchema>;
 
 // A `// qa:manual:start <id>` / `// qa:manual:end <id>` block a human edited inside a previously

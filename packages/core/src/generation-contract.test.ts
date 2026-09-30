@@ -9,6 +9,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import {
+  buildApiGenerationSpokeInput,
   buildGenerationSpokeInput,
   buildRegistrySlice,
   isGeneratedTestSpecStale,
@@ -94,8 +95,8 @@ describe('buildGenerationSpokeInput', () => {
       locatorModuleGeneratorVersion: '0.7.0',
     });
 
-    expect(input.locatorModule.exports).toEqual([{ elementId: 'el-1', name: 'checkoutButton' }]);
-    expect(input.registrySlice.elements).toHaveLength(3);
+    expect(input.locatorModule?.exports).toEqual([{ elementId: 'el-1', name: 'checkoutButton' }]);
+    expect(input.registrySlice?.elements).toHaveLength(3);
   });
 
   it('sorts multiple exports by elementId', () => {
@@ -106,7 +107,7 @@ describe('buildGenerationSpokeInput', () => {
       locatorModuleGeneratorVersion: '0.7.0',
     });
 
-    expect(input.locatorModule.exports).toEqual([
+    expect(input.locatorModule?.exports).toEqual([
       { elementId: 'el-1', name: 'checkoutButton' },
       { elementId: 'el-4', name: 'appHeader' },
     ]);
@@ -120,7 +121,7 @@ describe('buildGenerationSpokeInput', () => {
       locatorModuleGeneratorVersion: '0.7.0',
     });
 
-    expect(input.locatorModule.exports).toEqual([]);
+    expect(input.locatorModule?.exports).toEqual([]);
   });
 
   it('omits provenSession when none is given', () => {
@@ -266,5 +267,62 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
     });
 
     expect(isGeneratedTestSpecStale(spec, reExecutedInput)).toBe(true);
+  });
+});
+
+describe('buildApiGenerationSpokeInput', () => {
+  const apiContract = {
+    source: 'openapi.json',
+    sha256: 'c'.repeat(64),
+    operations: [{ method: 'GET' as const, path: '/tasks/{taskId}', definition: '{}', truncated: false }],
+  };
+  const apiCase: TestCase = { ...testCase, id: 'case-api', testType: 'api' };
+
+  it('builds an input with the contract slice and no registry slice or locator module', () => {
+    const input = buildApiGenerationSpokeInput({ testCase: apiCase, apiContract });
+
+    expect(input.apiContract).toEqual(apiContract);
+    expect(input.registrySlice).toBeUndefined();
+    expect(input.locatorModule).toBeUndefined();
+    expect(input.provenSession).toBeUndefined();
+  });
+
+  it('carries a proven session and changes sourceHash when the contract hash changes', () => {
+    const before = buildApiGenerationSpokeInput({ testCase: apiCase, apiContract });
+    const after = buildApiGenerationSpokeInput({
+      testCase: apiCase,
+      apiContract: { ...apiContract, sha256: 'd'.repeat(64) },
+      provenSession: {
+        schemaVersion: SCHEMA_VERSION,
+        testCaseId: 'case-api',
+        runResultId: 'run-result-1',
+        steps: [
+          {
+            stepId: 'step-1',
+            description: 'call it',
+            actions: [
+              {
+                schemaVersion: SCHEMA_VERSION,
+                type: 'click',
+                sessionId: 'session-1',
+                stepId: 'step-1',
+                at: '2026-09-25T09:59:30.000Z',
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const spec = stampGeneratedTestSpec({
+      input: before,
+      content: 'x',
+      filePath: 'tests/qa/api/case.spec.ts',
+      generatorVersion: '1',
+      clock: fixedClock,
+    });
+
+    expect(after.provenSession?.testCaseId).toBe('case-api');
+    expect(isGeneratedTestSpecStale(spec, after)).toBe(true);
+    expect(isGeneratedTestSpecStale(spec, before)).toBe(false);
   });
 });

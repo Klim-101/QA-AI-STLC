@@ -104,6 +104,47 @@ describe('GenerationSpokeInputSchema', () => {
   });
 });
 
+describe('GenerationSpokeInputSchema for an api case (P6-13)', () => {
+  const apiCase = { ...testCase, id: 'case-api', testType: 'api' as const };
+  const apiContract = {
+    source: 'openapi.json',
+    sha256: 'b'.repeat(64),
+    operations: [
+      {
+        method: 'GET' as const,
+        path: '/tasks/{taskId}',
+        operationId: 'getTask',
+        definition: '{"responses":{"200":{}}}',
+        truncated: false,
+      },
+    ],
+  };
+
+  it('accepts the case with its contract slice and no registry slice or locator module', () => {
+    expect(GenerationSpokeInputSchema.safeParse({ testCase: apiCase, apiContract }).success).toBe(true);
+  });
+
+  it('rejects an api case with no contract slice', () => {
+    const result = GenerationSpokeInputSchema.safeParse({ testCase: apiCase });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['apiContract']);
+  });
+
+  it('rejects a contract slice with no operations', () => {
+    const result = GenerationSpokeInputSchema.safeParse({
+      testCase: apiCase,
+      apiContract: { ...apiContract, operations: [] },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an e2e case with no registry slice or locator module', () => {
+    const result = GenerationSpokeInputSchema.safeParse({ testCase });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['registrySlice']);
+  });
+});
+
 describe('ManualRegionSchema', () => {
   it('accepts an id and its preserved content', () => {
     const result = ManualRegionSchema.safeParse({ id: 'custom-assertion', content: 'expect(x).toBe(1);' });

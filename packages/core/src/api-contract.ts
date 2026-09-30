@@ -1,19 +1,21 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Config, EnvironmentConfig } from '@qa-ai-stlc/schemas';
+import type { ApiContractSlice, Config, EnvironmentConfig, TestCaseEndpoint } from '@qa-ai-stlc/schemas';
 import { isUrlAllowed } from './browser-allowlist.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
 import { hashText } from './hash.js';
+import { toCanonicalJson } from './json-file.js';
 import { ManifestStore } from './manifest-store.js';
 import { discoverOpenApiContract } from './openapi-discovery.js';
-import { parseOpenApiDocument } from './openapi-endpoints.js';
+import { comparableApiPath, listOpenApiOperations, parseOpenApiDocument } from './openapi-endpoints.js';
 import { resolveBrowserEnvironment } from './operations/browser-open.js';
 import { resolveRelativePath } from './paths.js';
 import { QaStore } from './qa-store.js';
 
 const FETCH_TIMEOUT_MS = 10_000;
+const MAX_OPERATION_DEFINITION_CHARS = 8000;
 const CONTRACT_SNAPSHOT_PATH = 'artifacts/api-contract.txt';
 
 export interface ApiContract {
@@ -131,4 +133,65 @@ export async function snapshotApiContract(context: EngineContext, contract: ApiC
   const manifest = new ManifestStore({ store, clock: context.clock });
   await store.writeText(CONTRACT_SNAPSHOT_PATH, contract.text);
   await manifest.register(CONTRACT_SNAPSHOT_PATH, contract.text);
+}
+
+/**
+ * Narrows a contract to the operations a case names, for a spec-generating spoke. Matching ignores
+ * path parameter names, as everywhere else; an operation the contract lacks fails loudly instead of
+ * being dropped, because a slice that silently omits one would let a spoke invent it.
+ */
+export function selectContractOperations(
+  contract: ApiContract,
+  endpoints: readonly TestCaseEndpoint[],
+): ApiContractSlice {
+  const declared = listOpenApiOperations(contract.document);
+  const missing: string[] = [];
+  const operations: ApiContractSlice['operations'] = endpoints.flatMap((endpoint) => {
+    const match = declared.find(
+      ({ endpoint: candidate }) =>
+        candidate.method === endpoint.method &&
+        comparableApiPath(candidate.path) === comparableApiPath(endpoint.path),
+    );
+    if (match === undefined) {
+      missing.push(`${endpoint.method} ${endpoint.path}`);
+      return [];
+    }
+    // Canonical key order keeps the slice, and so sourceHash, deterministic; compact keeps a
+    // spoke's context small.
+    const definition = JSON.stringify(JSON.parse(toCanonicalJson(match.definition)));
+    const truncated = definition.length > MAX_OPERATION_DEFINITION_CHARS;
+    return [
+      {
+        method: match.endpoint.method,
+        path: match.endpoint.path,
+        ...(match.endpoint.operationId === undefined ? {} : { operationId: match.endpoint.operationId }),
+        definition: truncated ? definition.slice(0, MAX_OPERATION_DEFINITION_CHARS) : definition,
+        truncated,
+      },
+    ];
+  });
+  if (missing.length > 0) {
+    throw new QaError(
+      'API_CASE_NOT_IN_CONTRACT',
+      `The contract (${contract.source}) has no operation for: ${missing.join(', ')}.`,
+      { remediation: "Fix the case's endpoints, or add the operation to the contract." },
+    );
+  }
+  return { source: contract.source, sha256: contract.sha256, operations };
+}
+
+// Plain string search, not a capturing regex: `noUncheckedIndexedAccess` would type a capture group
+// `string | undefined` even though the pattern guarantees it (the same reasoning
+// `parseGeneratorVersion` documents).
+const CONTRACT_SHA256_PREFIX = 'export const CONTRACT_SHA256 = "';
+
+/** The contract hash a generated `api` spec declares it was written against, if it declares one. */
+export function extractContractSha256(specSource: string): string | undefined {
+  const prefixIndex = specSource.indexOf(CONTRACT_SHA256_PREFIX);
+  if (prefixIndex === -1) {
+    return undefined;
+  }
+  const valueStart = prefixIndex + CONTRACT_SHA256_PREFIX.length;
+  const valueEnd = specSource.indexOf('"', valueStart);
+  return valueEnd === -1 ? undefined : specSource.slice(valueStart, valueEnd);
 }

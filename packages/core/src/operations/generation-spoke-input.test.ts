@@ -83,7 +83,7 @@ describe('runBuildGenerationSpokeInput', () => {
     });
 
     expect(input.testCase).toEqual(TEST_CASE);
-    expect(input.registrySlice.elements.map((element) => element.elementId)).toEqual(['el-1']);
+    expect(input.registrySlice?.elements.map((element) => element.elementId)).toEqual(['el-1']);
     expect(input.locatorModule).toEqual({
       generatorVersion: '1.3.0',
       exports: [{ elementId: 'el-1', name: 'checkoutButton' }],
@@ -132,7 +132,7 @@ describe('runBuildGenerationSpokeInput', () => {
 
     const input = await runBuildGenerationSpokeInput(context, { testCaseId: TEST_CASE.id, elementIds: [] });
 
-    expect(input.registrySlice.elements).toEqual([]);
+    expect(input.registrySlice?.elements).toEqual([]);
   });
 
   it('throws when an elementId does not resolve in the registry', async () => {
@@ -185,5 +185,109 @@ describe('runBuildGenerationSpokeInput', () => {
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('GENERATION_LOCATOR_MODULE_VERSION_MISSING');
+  });
+});
+
+describe('runBuildGenerationSpokeInput for an api case (P6-13)', () => {
+  const CONTRACT = JSON.stringify({
+    openapi: '3.0.3',
+    paths: { '/tasks/{taskId}': { get: { operationId: 'getTask' } } },
+  });
+  const CONFIG_YAML = [
+    'schemaVersion: 1',
+    'testing: { e2e: undecided, api: in-scope, a11y: undecided, security: undecided }',
+    'environments:\n  staging: { baseUrl: "https://staging.example.test", allowlist: ["staging.example.test"] }',
+    'identities: {}',
+    'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+    'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+    'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+    'api: { contract: openapi, source: openapi.json }',
+    '',
+  ].join('\n');
+
+  async function seedApiProject(fs: FakeFileSystem, endpoints: TestCase['endpoints']): Promise<void> {
+    await fs.mkdir(join('project', '.qa', 'artifacts', 'cases', 'tasks'));
+    await fs.writeFile(
+      join('project', '.qa', 'artifacts', 'cases', 'tasks', 'api-case.json'),
+      JSON.stringify({
+        ...TEST_CASE,
+        id: 'api-case',
+        feature: 'tasks',
+        testType: 'api',
+        ...(endpoints === undefined ? {} : { endpoints }),
+      }),
+    );
+    await fs.writeFile(join('project', '.qa', 'config.yaml'), CONFIG_YAML);
+    await fs.writeFile(join('project', 'openapi.json'), CONTRACT);
+  }
+
+  it('builds the input from the contract, needing neither a registry nor a locator module', async () => {
+    const { context, fs } = createContext();
+    await seedApiProject(fs, [{ method: 'GET', path: '/tasks/{id}' }]);
+
+    const input = await runBuildGenerationSpokeInput(context, { testCaseId: 'api-case', elementIds: [] });
+
+    expect(input.registrySlice).toBeUndefined();
+    expect(input.locatorModule).toBeUndefined();
+    expect(input.apiContract?.source).toBe('openapi.json');
+    expect(input.apiContract?.operations.map((operation) => operation.path)).toEqual(['/tasks/{taskId}']);
+  });
+
+  it('passes a proven session and the environment name through', async () => {
+    const { context, fs } = createContext();
+    await seedApiProject(fs, [{ method: 'GET', path: '/tasks/{id}' }]);
+    const provenSession = {
+      schemaVersion: SCHEMA_VERSION as 1,
+      testCaseId: 'api-case',
+      runResultId: 'run-result-1',
+      steps: [
+        {
+          stepId: 'step-1',
+          description: 'call it',
+          actions: [
+            {
+              schemaVersion: SCHEMA_VERSION as 1,
+              type: 'click' as const,
+              sessionId: 'session-1',
+              stepId: 'step-1',
+              at: '2026-09-25T09:59:30.000Z',
+            },
+          ],
+        },
+      ],
+    };
+
+    const input = await runBuildGenerationSpokeInput(context, {
+      testCaseId: 'api-case',
+      elementIds: [],
+      environment: 'staging',
+      provenSession,
+    });
+
+    expect(input.provenSession).toEqual(provenSession);
+  });
+
+  it('rejects an api case that lists no endpoints', async () => {
+    const { context, fs } = createContext();
+    await seedApiProject(fs, undefined);
+
+    const rejected = await runBuildGenerationSpokeInput(context, {
+      testCaseId: 'api-case',
+      elementIds: [],
+    }).catch((caught: unknown) => caught);
+
+    expect(rejected).toMatchObject({ code: 'API_CASE_INVALID' });
+  });
+
+  it('rejects an api case naming an operation the contract lacks', async () => {
+    const { context, fs } = createContext();
+    await seedApiProject(fs, [{ method: 'DELETE', path: '/tasks/{id}' }]);
+
+    const rejected = await runBuildGenerationSpokeInput(context, {
+      testCaseId: 'api-case',
+      elementIds: [],
+    }).catch((caught: unknown) => caught);
+
+    expect(rejected).toMatchObject({ code: 'API_CASE_NOT_IN_CONTRACT' });
   });
 });

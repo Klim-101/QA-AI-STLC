@@ -43,13 +43,14 @@ const PROJECT_ROOT = join(REPO_ROOT, '.generation-demo-app-scratch');
 
 const CONFIG_YAML = [
   'schemaVersion: 1',
-  'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+  'testing: { e2e: in-scope, api: in-scope, a11y: out-of-scope, security: out-of-scope }',
   'environments:',
   `  staging: { baseUrl: "${BASE_URL}login", allowlist: ["localhost"] }`,
   'identities: {}',
   'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
   'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
   'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+  'api: { contract: openapi, source: openapi.json }',
   '',
 ].join('\n');
 
@@ -94,6 +95,30 @@ beforeAll(async () => {
     'utf-8',
   );
   await casesAddTool.handler({ path: 'login-generated.json' });
+
+  // The contract the demo app serves, copied into the project so a later test can change it.
+  await writeFile(
+    join(PROJECT_ROOT, 'openapi.json'),
+    await (await fetch(`${BASE_URL}openapi.json`)).text(),
+    'utf-8',
+  );
+  await writeFile(
+    join(PROJECT_ROOT, 'whoami-api.json'),
+    JSON.stringify({
+      id: 'whoami-api',
+      feature: 'auth',
+      requirementIds: ['login'],
+      testType: 'api',
+      title: 'whoami rejects a request with no token',
+      steps: [{ description: 'Call GET /api/whoami with no Authorization header' }],
+      expectedResult: 'The API answers 401',
+      endpoints: [{ method: 'GET', path: '/api/whoami' }],
+      status: 'approved',
+      createdAt: '2026-09-30T09:00:00Z',
+    }),
+    'utf-8',
+  );
+  await casesAddTool.handler({ path: 'whoami-api.json' });
 
   // A real crawl against the real running demo app, the same call `qa explore` makes, so
   // `tests/qa/locators.ts` carries a real `GENERATOR_VERSION` stamp qa.generation_spoke_input reads
@@ -153,7 +178,7 @@ describe('generation verification loop (demo app, no LLM)', () => {
         input: spokeInput,
         content,
         filePath: 'tests/qa/generated/login-verified.spec.ts',
-        generatorVersion: spokeInput.locatorModule.generatorVersion,
+        generatorVersion: spokeInput.locatorModule?.generatorVersion ?? 'unknown',
       });
 
       expect(outcome.status).toBe('verified');
@@ -209,11 +234,106 @@ describe('generation verification loop (demo app, no LLM)', () => {
         input: spokeInput,
         content,
         filePath: 'tests/qa/generated/login-empty.spec.ts',
-        generatorVersion: spokeInput.locatorModule.generatorVersion,
+        generatorVersion: spokeInput.locatorModule?.generatorVersion ?? 'unknown',
       });
 
       expect(outcome.status).not.toBe('verified');
       expect(outcome.issues?.length).toBeGreaterThan(0);
+    },
+    STARTUP_TIMEOUT_MS,
+  );
+});
+
+// P6-13's exit criterion against the real app: a generated API spec for a demo-app endpoint passes
+// the verification loop, and is rejected once the contract it was generated against changes.
+describe('api spec generation (demo app, no LLM)', () => {
+  function apiSpecContent(contractSha256: string): string {
+    return [
+      "import { expect, test } from '@playwright/test';",
+      '',
+      `export const CONTRACT_SHA256 = "${contractSha256}";`,
+      '',
+      'test(',
+      "  'whoami rejects a request with no token',",
+      '  {',
+      '    annotation: [',
+      "      { type: 'testCaseId', description: 'whoami-api' },",
+      "      { type: 'stepIds', description: 'step-1,expected-result' },",
+      '    ],',
+      '  },',
+      '  async ({ request }) => {',
+      "    const response = await test.step('[step-1] Call GET /api/whoami with no Authorization header', async () =>",
+      "      request.get('/api/whoami'),",
+      '    );',
+      "    await test.step('[expected-result] The API answers 401', async () => {",
+      '      expect(response.status()).toBe(401);',
+      '    });',
+      '  },',
+      ');',
+      '',
+    ].join('\n');
+  }
+
+  it(
+    'verifies and registers a spec stamped with the contract hash, then rejects it once the contract changes',
+    async () => {
+      const spokeInput = await generationSpokeInputTool.handler({
+        testCaseId: 'whoami-api',
+        elementIds: [],
+      });
+      const contractSha256 = spokeInput.apiContract?.sha256;
+      if (contractSha256 === undefined) {
+        throw new Error('Expected the api spoke input to carry the contract hash.');
+      }
+      expect(spokeInput.registrySlice).toBeUndefined();
+      expect(spokeInput.apiContract?.operations.map((operation) => operation.path)).toEqual(['/api/whoami']);
+
+      const outcome = await generationVerifyTool.handler({
+        input: spokeInput,
+        content: apiSpecContent(contractSha256),
+        filePath: 'tests/qa/generated/whoami-api.spec.ts',
+        generatorVersion: '1',
+      });
+
+      expect(outcome.status).toBe('verified');
+      if (outcome.status !== 'verified' || outcome.spec === undefined) {
+        throw new Error('Expected a verified outcome with a spec.');
+      }
+      const registered = await generationRegisterTool.handler({
+        spec: outcome.spec,
+        verificationId: outcome.verificationId,
+      });
+      expect(registered.filePath).toBe('tests/qa/generated/whoami-api.spec.ts');
+
+      // A spec that does not declare the hash it was generated against is refused outright.
+      const unstamped = await generationVerifyTool
+        .handler({
+          input: spokeInput,
+          content: apiSpecContent(contractSha256).replace(contractSha256, 'f'.repeat(64)),
+          filePath: 'tests/qa/generated/whoami-api.spec.ts',
+          generatorVersion: '1',
+        })
+        .catch((caught: unknown) => caught);
+      expect(unstamped).toMatchObject({ code: 'core.verification.contract_stamp_mismatch' });
+
+      // The contract changes after the spec was generated: the same spec is now rejected.
+      await writeFile(
+        join(PROJECT_ROOT, 'openapi.json'),
+        JSON.stringify({
+          openapi: '3.0.3',
+          paths: { '/api/whoami': { get: { operationId: 'whoami', description: 'changed' } } },
+        }),
+        'utf-8',
+      );
+      const stale = await generationVerifyTool
+        .handler({
+          input: spokeInput,
+          content: apiSpecContent(contractSha256),
+          filePath: 'tests/qa/generated/whoami-api.spec.ts',
+          generatorVersion: '1',
+        })
+        .catch((caught: unknown) => caught);
+      expect(stale).toMatchObject({ code: 'API_SPEC_CONTRACT_CHANGED' });
     },
     STARTUP_TIMEOUT_MS,
   );

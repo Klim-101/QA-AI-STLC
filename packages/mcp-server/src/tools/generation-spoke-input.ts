@@ -11,8 +11,15 @@ const InputSchema = z.object({
   testCaseId: z.string().describe('The id of the registered test case to generate a spec for.'),
   elementIds: z
     .array(IdentifierSchema)
+    .default([])
     .describe(
-      "Registry element ids the case's steps actually need — fails loudly on one that does not resolve.",
+      "Registry element ids an e2e case's steps actually need — fails loudly on one that does not resolve. Omit for an api case.",
+    ),
+  environment: z
+    .string()
+    .optional()
+    .describe(
+      'Environment whose contract an api case is generated from. Required when there is more than one.',
     ),
   provenSession: ProvenSessionSchema.optional().describe(
     "The case's proven qa-execute session, from qa.generation_proven_session, when one exists.",
@@ -32,13 +39,16 @@ export const generationSpokeInputTool: ToolDefinition<typeof InputSchema, typeof
     description:
       "Assembles a generate-test-spec spoke task's input: the registered case, a registry slice " +
       'narrowed to "elementIds", and the locator module\'s real GENERATOR_VERSION stamp. Pass a ' +
-      'proven qa-execute session (qa.generation_proven_session) as "provenSession" when one exists.',
+      'proven qa-execute session (qa.generation_proven_session) as "provenSession" when one exists. ' +
+      'For an api case, "elementIds" is ignored and the input carries the contract operations the case ' +
+      'names (apiContract, with the contract sha256) instead of a registry slice.',
     inputSchema: InputSchema,
     outputSchema: GenerationSpokeInputSchema,
     handler: (input) =>
       runBuildGenerationSpokeInput(createNodeEngineContext(), {
         testCaseId: input.testCaseId,
         elementIds: input.elementIds,
+        ...(input.environment !== undefined ? { environment: input.environment } : {}),
         ...(input.provenSession !== undefined ? { provenSession: input.provenSession } : {}),
       }),
   };
