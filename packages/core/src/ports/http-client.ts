@@ -12,6 +12,12 @@ export interface HttpRequestOptions {
   readonly signal?: AbortSignal;
   /** Bypasses TLS certificate validation for this request (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /**
+   * `manual` returns a 3xx response as is instead of following it. A request that carries a
+   * credential uses it so the credential is never replayed to a host nobody checked against the
+   * allowlist.
+   */
+  readonly redirect?: 'follow' | 'manual';
 }
 
 export interface HttpRequestDetailsOptions extends HttpRequestOptions {
@@ -55,6 +61,7 @@ async function performRequest(url: string, options: HttpRequestDetailsOptions) {
     ...(options.headers !== undefined ? { headers: options.headers } : {}),
     ...(options.body !== undefined ? { body: options.body } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
+    ...(options.redirect !== undefined ? { redirect: options.redirect } : {}),
   };
   // Node's own global `fetch()` types its `dispatcher` option against a vendored copy of undici's
   // types that does not structurally match the real `undici` package's `Agent` (TS2379), so the

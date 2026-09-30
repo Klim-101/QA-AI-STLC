@@ -2,6 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { HttpRequestRecordSchema, type Evidence, type Identifier } from '@qa-ai-stlc/schemas';
+import {
+  collectSensitiveNames,
+  createApiAuthTokenCache,
+  resolveApiAuth,
+  selectApiAuthProfileName,
+  type ApiAuthTokenCache,
+  type ResolvedApiAuth,
+} from '../api-auth.js';
+import { redactHeaderValues, redactUrl, scrubSecretValues } from '../api-auth-redaction.js';
 import { assertUrlAllowed } from '../browser-allowlist.js';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
@@ -21,6 +30,10 @@ export interface HttpExecuteOptions {
   readonly method?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly body?: string;
+  /** An `apiAuth` profile name from config.yaml; the environment's default profile when omitted. */
+  readonly auth?: string;
+  /** Tokens shared across calls in one engine process; a call given none never reuses a token. */
+  readonly authTokenCache?: ApiAuthTokenCache;
   readonly idGenerator?: IdGenerator;
   /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
   readonly stepId?: Identifier;
@@ -44,6 +57,13 @@ export interface HttpExecuteResult {
  * can be called, never which method: a real POST/PUT/DELETE against an allowed host is exactly
  * what proving the `api` test type actually works requires (ADR-0009's reasoning, applied here).
  *
+ * A call authenticates through a named `apiAuth` profile, never through a credential the caller
+ * supplies (ADR-0012). The profile is resolved only after `url` passed the allowlist, so a token is
+ * never fetched for or sent to a host outside it, and redirects are not followed while a credential
+ * is attached. Every resolved value, and every header and query-parameter name a profile declares,
+ * is scrubbed from the stored record � the body before it is truncated, so a token cut by the
+ * preview limit cannot survive as a fragment.
+ *
  * Certificate validation follows the resolved environment's `tlsInsecure` only, never the caller
  * (ADR-011): like the allowlist, it is a boundary the operator configures, not one an agent can
  * relax per call.
@@ -65,25 +85,44 @@ export async function runHttpExecute(
     });
   }
 
+  const tokenCache = options.authTokenCache ?? createApiAuthTokenCache();
+  const profileName = selectApiAuthProfileName(config.apiAuth, environment.name, options.auth);
+  const auth =
+    profileName === undefined
+      ? undefined
+      : await resolveApiAuth(context, {
+          profileName,
+          apiAuth: config.apiAuth,
+          environment: environment.config,
+          tokenCache,
+        });
+  const hasCredential = auth !== undefined && auth.profileType !== 'none';
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const method = options.method ?? 'GET';
-  const response = await context.httpClient.request(options.url, {
+  const response = await context.httpClient.request(withQueryParameters(options.url, auth), {
     method,
-    ...(options.headers !== undefined ? { headers: options.headers } : {}),
+    ...(options.headers !== undefined || auth !== undefined
+      ? { headers: mergeHeaders(options.headers, auth) }
+      : {}),
     ...(options.body !== undefined ? { body: options.body } : {}),
     ...(isTlsInsecure ? { tlsInsecure: true } : {}),
+    ...(hasCredential ? { redirect: 'manual' as const } : {}),
   });
 
+  const sensitiveNames = collectSensitiveNames(config.apiAuth);
+  const secretValues = [...(auth?.secretValues ?? []), ...tokenCache.values()];
   const bodyPreviewMaxLength = config.evidence.httpBodyPreviewMaxLength;
-  const truncated = response.bodyText.length > bodyPreviewMaxLength;
+  const scrubbedBody = scrubSecretValues(response.bodyText, secretValues);
+  const truncated = scrubbedBody.length > bodyPreviewMaxLength;
   const record = HttpRequestRecordSchema.parse({
     type: 'http-request',
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
     method,
-    url: options.url,
+    url: redactUrl(options.url, sensitiveNames, secretValues),
     status: response.status,
-    responseHeaders: response.headers,
-    bodyPreview: response.bodyText.slice(0, bodyPreviewMaxLength),
+    responseHeaders: redactHeaderValues(response.headers, sensitiveNames, secretValues),
+    bodyPreview: scrubbedBody.slice(0, bodyPreviewMaxLength),
     truncated,
     at: context.clock.now().toISOString(),
   });
@@ -100,4 +139,27 @@ export async function runHttpExecute(
   });
 
   return { status: response.status, evidence };
+}
+
+function withQueryParameters(url: string, auth: ResolvedApiAuth | undefined): string {
+  const entries = Object.entries(auth?.queryParameters ?? {});
+  if (entries.length === 0) {
+    return url;
+  }
+  const target = new URL(url);
+  for (const [name, value] of entries) {
+    target.searchParams.set(name, value);
+  }
+  return target.toString();
+}
+
+// The profile's credential wins over a same-named header the caller passed, compared
+// case-insensitively because HTTP header names are.
+function mergeHeaders(
+  callerHeaders: Readonly<Record<string, string>> | undefined,
+  auth: ResolvedApiAuth | undefined,
+): Record<string, string> {
+  const resolvedNames = new Set(Object.keys(auth?.headers ?? {}).map((name) => name.toLowerCase()));
+  const kept = Object.entries(callerHeaders ?? {}).filter(([name]) => !resolvedNames.has(name.toLowerCase()));
+  return { ...Object.fromEntries(kept), ...auth?.headers };
 }

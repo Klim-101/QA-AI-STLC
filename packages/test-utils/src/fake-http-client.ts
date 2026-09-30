@@ -20,6 +20,7 @@ export interface HttpRequestDetailsOptionsLike {
   readonly body?: string;
   readonly signal?: AbortSignal;
   readonly tlsInsecure?: boolean;
+  readonly redirect?: 'follow' | 'manual';
 }
 
 export interface HttpResponseDetailsLike {
