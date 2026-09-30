@@ -1,9 +1,9 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError } from '@qa-ai-stlc/core';
 import { HttpMethodSchema, type ApiEndpoint } from '@qa-ai-stlc/schemas';
 import { parse as parseYaml } from 'yaml';
+import { QaError } from './errors.js';
 
 const OPENAPI_VERSION = /^3\.\d+(\.\d+)?/u;
 
@@ -60,4 +60,13 @@ export function listOpenApiEndpoints(document: Record<string, unknown>): ApiEndp
     }
   }
   return endpoints.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+}
+
+/**
+ * Collapses every `{...}` path parameter to `{}`, so a contract's `/tasks/{taskId}` and an
+ * observed or case-declared `/tasks/{id}` compare equal: parameter names are not part of an
+ * operation's identity.
+ */
+export function comparableApiPath(path: string): string {
+  return path.replace(/[{][^}/]*[}]/gu, '{}');
 }

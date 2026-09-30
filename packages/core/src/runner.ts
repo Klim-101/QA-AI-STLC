@@ -12,6 +12,8 @@ import type { IdGenerator } from './ports/id-generator.js';
 export interface RunnerInput {
   readonly runId: Identifier;
   readonly baseUrl: string;
+  /** The environment `baseUrl` belongs to; a runner that reads project configuration uses it to pick the same one. */
+  readonly environment?: string;
   readonly specFiles: readonly string[];
   readonly idGenerator?: IdGenerator;
   /**

@@ -1760,12 +1760,12 @@ describe('runCli', () => {
     });
 
     const exitCode = await runCli(
-      ['run', '--spec', 'tests/login.playwright-spec.ts', '--test-type', 'api'],
+      ['run', '--spec', 'tests/login.playwright-spec.ts', '--test-type', 'a11y'],
       deps,
     );
 
     expect(exitCode).toBe(EXIT_FAILURE);
-    expect(deps.stderr.join('\n')).toContain('No runner is available yet for test type "api"');
+    expect(deps.stderr.join('\n')).toContain('No runner is available yet for test type "a11y"');
   });
 
   it('wires "run" through to the real Playwright runner, which reports a coded error when the process produced no report', async () => {

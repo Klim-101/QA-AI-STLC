@@ -29,8 +29,7 @@
   },
   "dependencies": {
     "@qa-ai-stlc/core": "1.5.0",
-    "@qa-ai-stlc/schemas": "1.5.0",
-    "yaml": "2.9.1"
+    "@qa-ai-stlc/schemas": "1.5.0"
   },
   "devDependencies": {
     "@qa-ai-stlc/test-utils": "0.0.0"

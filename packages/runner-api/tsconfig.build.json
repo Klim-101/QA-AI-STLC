@@ -3,12 +3,10 @@
   "compilerOptions": {
     "rootDir": "src"
   },
-  "exclude": ["src/**/*.test.ts", "src/test-support/**", "test"],
+  "exclude": ["src/**/*.test.ts", "test"],
   "references": [
     { "path": "../schemas/tsconfig.build.json" },
     { "path": "../core/tsconfig.build.json" },
-    { "path": "../explorer/tsconfig.build.json" },
-    { "path": "../runner-api/tsconfig.build.json" },
     { "path": "../runner-playwright/tsconfig.build.json" }
   ]
 }

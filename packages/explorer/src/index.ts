@@ -15,8 +15,6 @@ export * from './generate-locator-module.js';
 export * from './identity.js';
 export * from './naming.js';
 export * from './normalize.js';
-export * from './openapi-discovery.js';
-export * from './openapi-endpoints.js';
 export * from './api-diff.js';
 export * from './operations/api-diff.js';
 export * from './operations/explore.js';

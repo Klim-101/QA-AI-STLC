@@ -14,6 +14,7 @@ import {
   type EvidenceKind,
   type Identifier,
   type RunResultStatus,
+  type TestType,
 } from '@qa-ai-stlc/schemas';
 import {
   collectSpecs,
@@ -71,7 +72,7 @@ function parseDeclaredStepIds(description: string | undefined): readonly string[
 export interface MapReportOptions {
   readonly report: PlaywrightJsonReport;
   readonly runId: Identifier;
-  readonly testType: 'e2e';
+  readonly testType: TestType;
   readonly fs: FileSystem;
   readonly idGenerator?: IdGenerator;
   /** See `RunnerInput.requiredStepIds` (`@qa-ai-stlc/core`, P3-20). */
