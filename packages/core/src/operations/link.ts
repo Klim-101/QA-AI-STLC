@@ -19,18 +19,13 @@ import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
+import { extractSpecTestCaseIds } from '../spec-case-ids.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 import { findUndecidedTestingTypes } from '../testing-scope.js';
 import { regenerateCaseIndexes } from './cases-index.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 const DEFAULT_SCOPE_GENERATED_AT = new Date(0).toISOString();
-
-// Matches Playwright's `test(title, { annotation: { type: 'testCaseId', description: '<id>' } },
-// ...)` convention (runner-playwright's map-result.ts, the only place a run result's testCaseId is
-// ever read from) so a hand-written spec that already declares its own case id is linked under
-// that same id, instead of a fresh one disconnected from what a later `qa run` will report.
-const TEST_CASE_ID_ANNOTATION = /type:\s*(['"])testCaseId\1\s*,\s*description:\s*(['"])([^'"]+)\2/;
 
 export interface LinkOptions {
   readonly specFile?: string;
@@ -113,10 +108,10 @@ export async function runLink(context: EngineContext, options: LinkOptions): Pro
   }
 
   const specContent = await context.fs.readFile(absoluteSpecPath);
-  const annotation = TEST_CASE_ID_ANNOTATION.exec(specContent);
+  const [declaredTestCaseId] = extractSpecTestCaseIds(specContent);
   const idGenerator = options.idGenerator ?? randomIdGenerator;
-  const annotationFound = annotation !== null;
-  const testCaseId = annotation?.[3] ?? `test-case-${idGenerator.next()}`;
+  const annotationFound = declaredTestCaseId !== undefined;
+  const testCaseId = declaredTestCaseId ?? `test-case-${idGenerator.next()}`;
 
   const parsed = TestCaseSchema.safeParse({
     id: testCaseId,

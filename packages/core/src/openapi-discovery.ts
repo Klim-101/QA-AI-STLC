@@ -1,9 +1,9 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { HttpClient } from '@qa-ai-stlc/core';
-import { isAllowedUrl } from './allowlist.js';
+import { isUrlAllowed } from './browser-allowlist.js';
 import { parseOpenApiDocument } from './openapi-endpoints.js';
+import type { HttpClient } from './ports/http-client.js';
 
 export const OPENAPI_PROBE_PATHS: readonly string[] = [
   '/openapi.json',
@@ -43,7 +43,7 @@ export async function discoverOpenApiContract(
 ): Promise<DiscoveredContract | undefined> {
   for (const probePath of OPENAPI_PROBE_PATHS) {
     const url = new URL(probePath, options.baseUrl).toString();
-    if (!isAllowedUrl(url, options.allowlist)) {
+    if (!isUrlAllowed(url, options.allowlist, options.baseUrl)) {
       continue;
     }
     const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS);

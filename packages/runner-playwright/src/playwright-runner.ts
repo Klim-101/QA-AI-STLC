@@ -11,6 +11,7 @@ import {
   type RunnerInput,
   type RunnerOutcome,
 } from '@qa-ai-stlc/core';
+import type { TestType } from '@qa-ai-stlc/schemas';
 import { randomUUID } from 'node:crypto';
 import { PlaywrightJsonReportSchema } from './json-report.js';
 import { mapReportToRunResults } from './map-result.js';
@@ -21,7 +22,16 @@ import { generateSpecConfigSource } from './spec-config.js';
 // published, inside an operator's project, and needs no shell or PATH lookup (AGENTS.md 5.6).
 const cliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
 
-async function runOnce(engine: EngineContext, input: RunnerInput): Promise<readonly RunnerOutcome[]> {
+/**
+ * Executes `input.specFiles` through Playwright Test and attributes every result to `testType`.
+ * `runner-api` runs its `APIRequestContext` specs through the same mechanics, so the spawn, report
+ * parsing and evidence mapping live in one place.
+ */
+export async function runPlaywrightSpecs(
+  engine: EngineContext,
+  input: RunnerInput,
+  testType: TestType,
+): Promise<readonly RunnerOutcome[]> {
   const runDir = join(tmpdir(), 'qa-ai-stlc-runner-playwright', randomUUID());
   const configPath = join(runDir, 'playwright.config.mjs');
   const reportPath = join(runDir, 'report.json');
@@ -53,7 +63,7 @@ async function runOnce(engine: EngineContext, input: RunnerInput): Promise<reado
   return mapReportToRunResults({
     report,
     runId: input.runId,
-    testType: 'e2e',
+    testType,
     fs: engine.fs,
     ...(input.idGenerator !== undefined ? { idGenerator: input.idGenerator } : {}),
     ...(input.requiredStepIds !== undefined ? { requiredStepIds: input.requiredStepIds } : {}),
@@ -68,5 +78,5 @@ async function runOnce(engine: EngineContext, input: RunnerInput): Promise<reado
  */
 export const playwrightRunner: Runner = {
   testType: 'e2e',
-  run: runOnce,
+  run: (engine, input) => runPlaywrightSpecs(engine, input, 'e2e'),
 };

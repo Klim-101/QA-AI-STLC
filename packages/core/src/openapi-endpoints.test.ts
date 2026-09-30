@@ -1,9 +1,9 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
-import { listOpenApiEndpoints, parseOpenApiDocument } from './openapi-endpoints.js';
+import { QaError } from './errors.js';
+import { comparableApiPath, listOpenApiEndpoints, parseOpenApiDocument } from './openapi-endpoints.js';
 
 describe('parseOpenApiDocument', () => {
   it('parses a JSON OpenAPI 3.x document', () => {
@@ -54,5 +54,16 @@ describe('listOpenApiEndpoints', () => {
   it('throws OPENAPI_NO_PATHS when the document has no paths object', () => {
     expect(() => listOpenApiEndpoints({ openapi: '3.0.3' })).toThrow(QaError);
     expect(() => listOpenApiEndpoints({ openapi: '3.0.3', paths: [] })).toThrow(/no "paths"/u);
+  });
+});
+
+describe('comparableApiPath', () => {
+  it('ignores path parameter names', () => {
+    expect(comparableApiPath('/tasks/{taskId}/notes/{noteId}')).toBe('/tasks/{}/notes/{}');
+    expect(comparableApiPath('/tasks/{id}')).toBe(comparableApiPath('/tasks/{taskId}'));
+  });
+
+  it('leaves a path with no parameters unchanged', () => {
+    expect(comparableApiPath('/oauth/token')).toBe('/oauth/token');
   });
 });

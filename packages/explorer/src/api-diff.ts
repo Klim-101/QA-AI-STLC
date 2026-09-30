@@ -1,13 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ApiDiffFinding, type ApiEndpoint, type ApiSurface } from '@qa-ai-stlc/schemas';
-
-// Parameter names differ between a contract (`{taskId}`) and a templated observation (`{id}`), so
-// the comparison key collapses every `{...}` segment to `{}`.
-function comparablePath(path: string): string {
-  return path.replace(/\{[^}/]*\}/gu, '{}');
-}
+import { comparableApiPath } from '@qa-ai-stlc/core';
+import type { ApiDiffFinding, ApiEndpoint, ApiSurface } from '@qa-ai-stlc/schemas';
 
 function compareFindings(a: ApiDiffFinding, b: ApiDiffFinding): number {
   return a.path.localeCompare(b.path) || a.method.localeCompare(b.method);
@@ -23,7 +18,7 @@ export function diffApiSurface(contract: readonly ApiEndpoint[], observed: ApiSu
   const contractByKey = new Map<string, ApiEndpoint>();
   const contractPaths = new Set<string>();
   for (const endpoint of contract) {
-    const path = comparablePath(endpoint.path);
+    const path = comparableApiPath(endpoint.path);
     contractByKey.set(`${endpoint.method} ${path}`, endpoint);
     contractPaths.add(path);
   }
@@ -31,7 +26,7 @@ export function diffApiSurface(contract: readonly ApiEndpoint[], observed: ApiSu
   const findings: ApiDiffFinding[] = [];
   const seen = new Set<string>();
   for (const endpoint of observed.endpoints) {
-    const path = comparablePath(endpoint.path);
+    const path = comparableApiPath(endpoint.path);
     const key = `${endpoint.method} ${path}`;
     seen.add(key);
     const inContract = contractByKey.get(key);

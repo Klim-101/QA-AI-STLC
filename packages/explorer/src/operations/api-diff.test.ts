@@ -182,17 +182,21 @@ describe('runApiDiff', () => {
   });
 
   it.each([
-    ['API_DIFF_NO_CONTRACT_CONFIG', undefined, {}],
-    ['API_DIFF_SYNTHESIZE_UNSUPPORTED', 'synthesize', {}],
-    ['API_DIFF_DISCOVERY_FAILED', 'discover', {}],
-    ['API_DIFF_URL_NOT_ALLOWED', 'https://elsewhere.example.org/spec.json', {}],
+    ['API_CONTRACT_NOT_CONFIGURED', undefined, {}],
+    ['API_CONTRACT_SYNTHESIZE_UNSUPPORTED', 'synthesize', {}],
+    ['API_CONTRACT_DISCOVERY_FAILED', 'discover', {}],
+    ['API_CONTRACT_URL_NOT_ALLOWED', 'https://elsewhere.example.org/spec.json', {}],
     [
-      'API_DIFF_CONTRACT_UNREADABLE',
+      'API_CONTRACT_UNREADABLE',
       `${BASE_URL}/missing.json`,
       { routes: { [`${BASE_URL}/missing.json`]: { status: 404, bodyText: '' } } },
     ],
-    ['API_DIFF_CONTRACT_UNREADABLE', 'absent.json', {}],
-    ['API_DIFF_NOT_OPENAPI', 'page.html', { files: { [join(PROJECT_ROOT, 'page.html')]: '<html></html>' } }],
+    ['API_CONTRACT_UNREADABLE', 'absent.json', {}],
+    [
+      'API_CONTRACT_NOT_OPENAPI',
+      'page.html',
+      { files: { [join(PROJECT_ROOT, 'page.html')]: '<html></html>' } },
+    ],
     ['API_DIFF_NO_ENDPOINTS', 'openapi.json', { endpoints: false }],
   ])('throws %s', async (code, apiSource, options) => {
     expect(await codeOf(runApiDiff(fakeContext(apiSource, options)))).toBe(code);

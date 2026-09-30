@@ -2,17 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { QaError, runTestRun, type Runner } from '@qa-ai-stlc/core';
+import { apiRunner } from '@qa-ai-stlc/runner-api';
 import { playwrightRunner } from '@qa-ai-stlc/runner-playwright';
 import { RunResultStatusSchema, TestTypeSchema, type TestType } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
 
-// Only `e2e` has a runner today (`@qa-ai-stlc/runner-playwright`, P3-01); `api`/`a11y` runners are
-// later Phase 6 tasks (P6-04, P6-05). Keyed by `TestType` so a future runner is one entry, not a
+// `e2e` and `api` have runners today (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`,
+// P6-04); the `a11y` runner is a later Phase 6 task (P6-05). Keyed by `TestType` so a future runner is one entry, not a
 // new dispatch shape — the same table `packages/cli/src/commands/run.ts` keeps for the CLI.
 const RUNNERS_BY_TEST_TYPE: Partial<Record<TestType, Runner>> = {
   e2e: playwrightRunner,
+  api: apiRunner,
 };
 
 function resolveRunner(testType: TestType): Runner {

@@ -1085,7 +1085,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
   it('qa.run rejects a test type with no runner yet, before touching the project at all', async () => {
     const rejected = await runTool
-      .handler({ specFiles: ['tests/login.playwright-spec.ts'], testType: 'api' })
+      .handler({ specFiles: ['tests/login.playwright-spec.ts'], testType: 'a11y' })
       .catch((caught: unknown) => caught);
 
     expect(rejected).toMatchObject({ code: 'RUN_TEST_TYPE_UNSUPPORTED' });

@@ -3,13 +3,16 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { fetchHttpClient, playwrightBrowserLauncher } from '@qa-ai-stlc/core';
+import {
+  discoverOpenApiContract,
+  fetchHttpClient,
+  listOpenApiEndpoints,
+  playwrightBrowserLauncher,
+} from '@qa-ai-stlc/core';
 import type { IdentityConfig, LocatorCandidate } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { diffApiSurface } from '../src/api-diff.js';
 import { buildApiSurface } from '../src/api-surface.js';
-import { discoverOpenApiContract } from '../src/openapi-discovery.js';
-import { listOpenApiEndpoints } from '../src/openapi-endpoints.js';
 import { analyzePages } from '../src/analyze-pages.js';
 import { buildSelectorRegistry, diffSelectorRegistry } from '../src/build-selector-registry.js';
 import { crawl } from '../src/crawl.js';

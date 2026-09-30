@@ -166,6 +166,40 @@ describe('TestCaseSchema', () => {
   });
 });
 
+describe('TestCaseSchema endpoints', () => {
+  const apiCase = {
+    id: 'case-4',
+    feature: 'tasks',
+    requirementIds: ['req-1'],
+    testType: 'api',
+    title: 'Get a task',
+    steps: [{ description: 'GET the task' }],
+    expectedResult: '200',
+    status: 'draft',
+    createdAt: '2026-09-16T12:00:00Z',
+  };
+
+  it('accepts the contract operations an api case exercises', () => {
+    const result = TestCaseSchema.safeParse({
+      ...apiCase,
+      endpoints: [{ method: 'GET', path: '/tasks/{taskId}' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a case with no endpoints, for hand-linked specs', () => {
+    expect(TestCaseSchema.safeParse(apiCase).success).toBe(true);
+  });
+
+  it.each([
+    ['an empty list', []],
+    ['a path without a leading slash', [{ method: 'GET', path: 'tasks' }]],
+    ['an unsupported method', [{ method: 'TRACE', path: '/tasks' }]],
+  ])('rejects %s', (_label, endpoints) => {
+    expect(TestCaseSchema.safeParse({ ...apiCase, endpoints }).success).toBe(false);
+  });
+});
+
 describe('REGRESSION_TIERS', () => {
   it('orders tiers from narrowest to widest run, smoke first and extended last', () => {
     expect(REGRESSION_TIERS).toEqual(['smoke', 'critical-path', 'regression', 'extended']);

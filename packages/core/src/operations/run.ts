@@ -115,6 +115,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
   const outcomes = await options.runner.run(context, {
     runId,
     baseUrl: environment.config.baseUrl,
+    environment: environment.name,
     specFiles: absoluteSpecFiles,
     idGenerator,
     testIdAttribute: config.selectors.testIdAttribute,

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
+import { HttpMethodSchema } from './api-surface.js';
 import { FeatureIdSchema, IdentifierSchema, IsoDateTimeSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
@@ -26,6 +27,15 @@ export type TestCaseStatus = z.infer<typeof TestCaseStatusSchema>;
 export const REGRESSION_TIERS = ['smoke', 'critical-path', 'regression', 'extended'] as const;
 export const RegressionTierSchema = z.enum(REGRESSION_TIERS);
 export type RegressionTier = z.infer<typeof RegressionTierSchema>;
+
+// The contract operation an `api` case exercises, in the contract's own path template
+// (`/tasks/{taskId}`). `runner-api` (P6-04) checks every one against the configured OpenAPI
+// contract before a spec runs and rejects a case that names an operation the contract lacks.
+export const TestCaseEndpointSchema = z.object({
+  method: HttpMethodSchema,
+  path: z.string().startsWith('/'),
+});
+export type TestCaseEndpoint = z.infer<typeof TestCaseEndpointSchema>;
 
 export const TestCaseSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
@@ -52,6 +62,9 @@ export const TestCaseSchema = z.object({
   // inlining values another case could share. Optional: a case with no data dependency has none.
   // `qa validate` rejects an id here that does not resolve to a registered `TestDataSchema` set.
   testDataRefs: z.array(IdentifierSchema).optional(),
+  // Only meaningful for `testType: 'api'`; optional so a hand-linked case (`qa link`) still
+  // validates, while `runner-api` rejects an `api` case that has none.
+  endpoints: z.array(TestCaseEndpointSchema).min(1).optional(),
   status: TestCaseStatusSchema,
   createdAt: IsoDateTimeSchema,
 });

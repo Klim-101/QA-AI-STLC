@@ -1,8 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { HttpClient, HttpRequestDetailsOptions } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
+import type { HttpClient, HttpRequestDetailsOptions } from './ports/http-client.js';
 import { discoverOpenApiContract, OPENAPI_PROBE_PATHS } from './openapi-discovery.js';
 
 const SPEC = '{"openapi":"3.0.3","paths":{}}';
