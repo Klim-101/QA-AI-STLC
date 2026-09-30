@@ -50,6 +50,15 @@ describe('fetchHttpClient', () => {
     });
   });
 
+  it('passes the redirect mode through', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 302 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchHttpClient.get('https://example.com', { redirect: 'manual' });
+
+    expect(fetchMock).toHaveBeenCalledWith('https://example.com', { method: 'GET', redirect: 'manual' });
+  });
+
   it("uses undici's own fetch with an insecure dispatcher when tlsInsecure is true (P2-18)", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
