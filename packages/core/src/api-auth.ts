@@ -125,6 +125,41 @@ export function collectSensitiveNames(apiAuth: ApiAuthConfig): SensitiveNames {
   return { headers: [...headers], queryParameters: [...queryParameters] };
 }
 
+const BUILT_IN_CREDENTIAL_HEADER_NAMES: readonly string[] = ['authorization', 'cookie'];
+
+/**
+ * Rejects a credential the caller supplied itself: an `Authorization` or `Cookie` header, or any
+ * header or query-parameter name a profile declares. Credentials come from a profile so the value
+ * never passes through a tool argument (ADR-0012); throws `HTTP_CREDENTIAL_INPUT_REJECTED`.
+ */
+export function assertNoCredentialInputs(
+  url: string,
+  headers: Readonly<Record<string, string>> | undefined,
+  names: SensitiveNames,
+): void {
+  const headerNames = new Set([
+    ...BUILT_IN_CREDENTIAL_HEADER_NAMES,
+    ...names.headers.map((name) => name.toLowerCase()),
+  ]);
+  const queryNames = new Set(names.queryParameters.map((name) => name.toLowerCase()));
+  const header = Object.keys(headers ?? {}).find((name) => headerNames.has(name.toLowerCase()));
+  const queryParameter = [...new URL(url).searchParams.keys()].find((name) =>
+    queryNames.has(name.toLowerCase()),
+  );
+  const offender =
+    header !== undefined
+      ? `header "${header}"`
+      : queryParameter !== undefined
+        ? `query parameter "${queryParameter}"`
+        : undefined;
+  if (offender !== undefined) {
+    throw new QaError('HTTP_CREDENTIAL_INPUT_REJECTED', `The ${offender} carries a credential`, {
+      remediation:
+        'Pass "auth" with the name of an apiAuth profile from .qa/config.yaml instead; the engine adds the credential itself.',
+    });
+  }
+}
+
 function readVariable(context: EngineContext, variableName: string): string {
   const value = context.env[variableName];
   if (value === undefined || value.length === 0) {

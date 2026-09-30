@@ -591,6 +591,65 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('qa.http_execute authenticates through a profile and rejects a credential passed in headers', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      process.env.QA_MCP_TEST_TOKEN = 'token-for-mcp-test';
+      const received: (string | undefined)[] = [];
+
+      try {
+        await withLocalServer(
+          (req, res) => {
+            received.push(req.headers.authorization);
+            res.writeHead(200, { 'content-type': 'text/plain' });
+            // Echoes the credential back, the way a misbehaving API might.
+            res.end(`you sent ${req.headers.authorization ?? 'nothing'}`);
+          },
+          async (baseUrl) => {
+            await mkdir(join(projectRoot, '.qa'), { recursive: true });
+            await writeFile(
+              join(projectRoot, '.qa', 'config.yaml'),
+              [
+                'schemaVersion: 1',
+                'testing: { e2e: undecided, api: out-of-scope, a11y: undecided, security: undecided }',
+                'environments:',
+                `  local: { baseUrl: "${baseUrl}", allowlist: ["127.0.0.1"] }`,
+                'identities: {}',
+                'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+                'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+                'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+                'apiAuth:',
+                '  profiles:',
+                '    service: { type: bearer, tokenVariable: QA_MCP_TEST_TOKEN }',
+                '',
+              ].join('\n'),
+              'utf-8',
+            );
+
+            const result = await httpExecuteTool.handler({ runId: 'run-1', url: baseUrl, auth: 'service' });
+            const rejected = await httpExecuteTool
+              .handler({ runId: 'run-1', url: baseUrl, headers: { Authorization: 'Bearer x' } })
+              .catch((caught: unknown) => caught);
+            const unknownProfile = await httpExecuteTool
+              .handler({ runId: 'run-1', url: baseUrl, auth: 'nope' })
+              .catch((caught: unknown) => caught);
+
+            expect(received).toEqual(['Bearer token-for-mcp-test']);
+            expect(result.status).toBe(200);
+            const stored = await readFile(join(projectRoot, '.qa', result.evidence.path), 'utf-8');
+            expect(stored).not.toContain('token-for-mcp-test');
+            expect(stored).toContain('you sent Bearer [REDACTED]');
+            expect(rejected).toMatchObject({ code: 'HTTP_CREDENTIAL_INPUT_REJECTED' });
+            expect(unknownProfile).toMatchObject({ code: 'API_AUTH_PROFILE_UNKNOWN' });
+          },
+        );
+      } finally {
+        delete process.env.QA_MCP_TEST_TOKEN;
+        process.chdir(originalCwd);
+      }
+    });
+  });
+
   it('qa.http_execute has no TLS input, so a caller cannot turn certificate validation off', () => {
     // The MCP SDK validates input against this schema's shape, which strips unknown keys; a
     // caller-supplied tlsInsecure therefore never reaches the handler (ADR-011).

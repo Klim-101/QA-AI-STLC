@@ -102,7 +102,7 @@ describe('runHttpExecute with an auth profile', () => {
     expect(sent[0]?.options?.redirect).toBe('manual');
   });
 
-  it('applies a named basic, api-key or custom-headers profile over a same-named caller header', async () => {
+  it('applies a named basic, api-key or custom-headers profile merged with caller headers', async () => {
     const { context, sent } = createAuthContext(() => ({ status: 200 }));
     const url = URL_ON_ALLOWLIST;
 
@@ -110,7 +110,7 @@ describe('runHttpExecute with an auth profile', () => {
       runId: 'run-1',
       url,
       auth: 'account',
-      headers: { authorization: 'x', Accept: 'a' },
+      headers: { Accept: 'a' },
     });
     await runHttpExecute(context, { runId: 'run-1', url, auth: 'keyHeader' });
     await runHttpExecute(context, { runId: 'run-1', url, auth: 'custom' });
@@ -259,5 +259,63 @@ describe('runHttpExecute with an auth profile', () => {
     }).catch((caught: unknown) => caught);
 
     expect((error as QaError).code).toBe('API_AUTH_PROFILE_UNKNOWN');
+  });
+
+  describe('raw credential inputs', () => {
+    it.each([
+      ['Authorization', { Authorization: 'Bearer x' }],
+      ['a lower-case cookie', { cookie: 'sid=1' }],
+      ['a configured api-key header', { 'x-api-key': 'k' }],
+      ['a configured custom header', { 'X-Tenant': 't' }],
+    ])('rejects %s in headers before any request is made', async (_label, headers) => {
+      const { context, sent } = createAuthContext(() => ({ status: 200 }));
+
+      const error = await runHttpExecute(context, { runId: 'run-1', url: URL_ON_ALLOWLIST, headers }).catch(
+        (caught: unknown) => caught,
+      );
+
+      expect((error as QaError).code).toBe('HTTP_CREDENTIAL_INPUT_REJECTED');
+      expect((error as QaError).remediation).toContain('"auth"');
+      expect(sent).toHaveLength(0);
+    });
+
+    it('rejects a configured query parameter in the URL, whatever its case', async () => {
+      const { context, sent } = createAuthContext(() => ({ status: 200 }));
+
+      const error = await runHttpExecute(context, {
+        runId: 'run-1',
+        url: `${URL_ON_ALLOWLIST}?API_KEY=abc`,
+      }).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('HTTP_CREDENTIAL_INPUT_REJECTED');
+      expect((error as QaError).message).not.toContain('abc');
+      expect(sent).toHaveLength(0);
+    });
+
+    it('rejects a raw credential even when the caller also names a profile', async () => {
+      const { context } = createAuthContext(() => ({ status: 200 }));
+
+      const error = await runHttpExecute(context, {
+        runId: 'run-1',
+        url: URL_ON_ALLOWLIST,
+        auth: 'open',
+        headers: { Authorization: 'x' },
+      }).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('HTTP_CREDENTIAL_INPUT_REJECTED');
+    });
+
+    it('still allows an ordinary header and query parameter', async () => {
+      const { context, sent } = createAuthContext(() => ({ status: 200 }));
+
+      await runHttpExecute(context, {
+        runId: 'run-1',
+        url: `${URL_ON_ALLOWLIST}?page=2`,
+        auth: 'open',
+        headers: { Accept: 'application/json' },
+      });
+
+      expect(sent).toHaveLength(1);
+    });
   });
 });
