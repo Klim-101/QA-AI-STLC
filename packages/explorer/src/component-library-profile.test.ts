@@ -10,6 +10,7 @@ import {
   resolveComponentLibraryProfile,
   waitUntilLibraryReady,
 } from './component-library-profile.js';
+import { KENDO_JQUERY_PROFILE } from './profiles/kendo-jquery.js';
 import { createLocatorMethods } from './test-support/locator-stub.js';
 import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
 
@@ -33,7 +34,11 @@ function recordingPage(calls: unknown[]): AuthPage {
 describe('resolveComponentLibraryProfile', () => {
   it('returns no profile when none is selected or shipped', () => {
     expect(resolveComponentLibraryProfile('none')).toBeUndefined();
-    expect(resolveComponentLibraryProfile('kendo-jquery', BUILT_IN_PROFILES)).toBeUndefined();
+    expect(resolveComponentLibraryProfile('kendo-angular', BUILT_IN_PROFILES)).toBeUndefined();
+  });
+
+  it('ships the Kendo UI for jQuery profile', () => {
+    expect(resolveComponentLibraryProfile('kendo-jquery')).toBe(KENDO_JQUERY_PROFILE);
   });
 
   it('returns the profile registered for the selected library', () => {

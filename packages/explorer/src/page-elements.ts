@@ -201,11 +201,39 @@ async function readRawPageElements(
 
       // A popup is usually attached to `body`, not nested in its widget, so the only reliable link
       // is the id the widget (or its focusable part) names in `aria-controls` or `aria-owns`.
-      function popupId(element: Element): string | undefined {
+      function popupId(element: Element, inner: readonly Element[]): string | undefined {
         const holder = element.matches('[aria-controls], [aria-owns]')
           ? element
-          : element.querySelector('[aria-controls], [aria-owns]');
+          : inner.find((control) => control.matches('[aria-controls], [aria-owns]'));
         return holder?.getAttribute('aria-controls') ?? holder?.getAttribute('aria-owns') ?? undefined;
+      }
+
+      // A wrapper's text content is its popup items and hidden options, not its name, so a widget
+      // is named only by an explicit label: `aria-labelledby`, `aria-label`, or the label of a
+      // control inside it.
+      function widgetLabel(wrapper: Element, inner: readonly Element[]): string | undefined {
+        const holder = wrapper.matches('[aria-labelledby]')
+          ? wrapper
+          : inner.find((control) => control.hasAttribute('aria-labelledby'));
+        const labelled = (holder?.getAttribute('aria-labelledby') ?? '')
+          .split(/s+/)
+          .map((id) => document.getElementById(id)?.textContent.trim() ?? '')
+          .filter((text) => text.length > 0)
+          .join(' ');
+        if (labelled.length > 0) {
+          return labelled;
+        }
+        const ariaLabel = wrapper.getAttribute('aria-label')?.trim();
+        if (ariaLabel !== undefined && ariaLabel.length > 0) {
+          return ariaLabel;
+        }
+        for (const control of inner) {
+          const text = labelText(control);
+          if (text !== undefined) {
+            return text;
+          }
+        }
+        return undefined;
       }
 
       // A native control that only backs a recognized widget is represented by the widget's
@@ -237,13 +265,21 @@ async function readRawPageElements(
             return [];
           }
           seenWrappers.add(wrapper);
+          // Only the controls that back the widget are searched: a tab strip or grid also contains
+          // unrelated content whose labels and `aria-controls` must not leak into its own.
+          const inner =
+            widget.nativeControlSelector === undefined
+              ? []
+              : Array.from(wrapper.querySelectorAll(widget.nativeControlSelector));
           const described = describe(wrapper, 'widget');
           return [
             {
               ...described,
+              accessibleName: undefined,
+              label: widgetLabel(wrapper, inner),
               role: described.role ?? widget.role,
               widgetKind: widget.widgetKind,
-              popupId: popupId(wrapper),
+              popupId: popupId(wrapper, inner),
             },
           ];
         }),

@@ -166,4 +166,33 @@ describe('synthesizeLocatorCandidates', () => {
       expect(candidate.fragile).toBe(candidate.strategy === 'css');
     }
   });
+
+  it('locates a widget through its popup id instead of its position (P6-40)', () => {
+    const candidates = synthesizeLocatorCandidates(
+      element({ kind: 'widget', widgetKind: 'dropdownlist', popupId: 'status_listbox', nthOfType: 4 }),
+      'playwright-default',
+    );
+
+    expect(candidates).toEqual([
+      {
+        strategy: 'css',
+        value: '[aria-controls="status_listbox"], [aria-owns="status_listbox"]',
+        fragile: true,
+      },
+    ]);
+  });
+
+  it('escapes a quote in a popup id and skips a generated one', () => {
+    const quoted = synthesizeLocatorCandidates(element({ popupId: 'a"b' }), 'strict-no-css');
+    const quotedCss = synthesizeLocatorCandidates(element({ popupId: 'a"b' }), 'playwright-default');
+    const generated = synthesizeLocatorCandidates(
+      element({ popupId: 'syn-4821', nthOfType: 2 }),
+      'playwright-default',
+      { generatedIdPatterns: [/^syn-\d+$/] },
+    );
+
+    expect(quoted).toEqual([]);
+    expect(quotedCss[0]?.value).toBe('[aria-controls="a\\"b"], [aria-owns="a\\"b"]');
+    expect(generated[0]?.value).toBe('input:nth-of-type(2)');
+  });
 });
