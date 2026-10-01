@@ -22,6 +22,13 @@ import { generateSpecConfigSource } from './spec-config.js';
 // published, inside an operator's project, and needs no shell or PATH lookup (AGENTS.md 5.6).
 const cliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
 
+export interface RunPlaywrightSpecsOptions {
+  /** Added to the Playwright process's environment only; how a run hands it credentials it must not write to disk. */
+  readonly env?: Readonly<Record<string, string>>;
+  /** See `SpecConfigOptions.isTraceEnabled`. */
+  readonly isTraceEnabled?: boolean;
+}
+
 /**
  * Executes `input.specFiles` through Playwright Test and attributes every result to `testType`.
  * `runner-api` runs its `APIRequestContext` specs through the same mechanics, so the spawn, report
@@ -31,6 +38,7 @@ export async function runPlaywrightSpecs(
   engine: EngineContext,
   input: RunnerInput,
   testType: TestType,
+  options: RunPlaywrightSpecsOptions = {},
 ): Promise<readonly RunnerOutcome[]> {
   const runDir = join(tmpdir(), 'qa-ai-stlc-runner-playwright', randomUUID());
   const configPath = join(runDir, 'playwright.config.mjs');
@@ -44,10 +52,15 @@ export async function runPlaywrightSpecs(
     reportPath,
     outputDir,
     ...(input.testIdAttribute !== undefined ? { testIdAttribute: input.testIdAttribute } : {}),
+    ...(options.isTraceEnabled !== undefined ? { isTraceEnabled: options.isTraceEnabled } : {}),
   });
   await engine.fs.writeFile(configPath, source);
 
-  await engine.processRunner.run(process.execPath, [cliPath, 'test', `--config=${configPath}`]);
+  await engine.processRunner.run(
+    process.execPath,
+    [cliPath, 'test', `--config=${configPath}`],
+    options.env !== undefined ? { env: options.env } : undefined,
+  );
 
   const reportExists = await engine.fs.pathExists(reportPath);
   if (!reportExists) {

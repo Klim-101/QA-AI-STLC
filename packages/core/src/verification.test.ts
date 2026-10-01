@@ -278,6 +278,45 @@ describe('verifyGeneratedTestSpec', () => {
     expect(receivedInput?.environment).toBe('staging');
   });
 
+  describe('api auth helper (P6-35)', () => {
+    const helperPath = join('project', 'tests', 'qa', 'api-auth.ts');
+
+    it('writes the helper before typechecking an api spec, so the spec can import it', async () => {
+      const apiCase: TestCase = { ...TEST_CASE, testType: 'api' };
+      const { context, fs } = createContext({
+        fs: createFakeFileSystem({
+          [join('project', '.qa', 'config.yaml')]: CONFIG_YAML,
+          ...registeredCaseFiles(apiCase),
+        }),
+      });
+      const order: string[] = [];
+      const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
+      const originalRun = context.processRunner.run.bind(context.processRunner);
+      context.processRunner.run = async (...args) => {
+        order.push(`tsc:${String(await fs.pathExists(helperPath))}`);
+        return originalRun(...args);
+      };
+
+      await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: apiCase,
+        runner,
+        idGenerator,
+      });
+
+      expect(order[0]).toBe('tsc:true');
+    });
+
+    it('leaves an e2e verification without an api auth helper', async () => {
+      const { context, fs } = createContext();
+      const runner = createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
+
+      await verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator });
+
+      expect(await fs.pathExists(helperPath)).toBe(false);
+    });
+  });
+
   describe('contract stamp (P6-13)', () => {
     const CONTRACT_SHA256 = 'e'.repeat(64);
 

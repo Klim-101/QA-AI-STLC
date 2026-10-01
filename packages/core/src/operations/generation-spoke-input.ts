@@ -14,6 +14,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
+import { ensureApiAuthModule } from '../api-auth-module.js';
 import { loadApiContract, selectContractOperations } from '../api-contract.js';
 import { loadConfig } from '../config-loader.js';
 import { buildApiGenerationSpokeInput, buildGenerationSpokeInput } from '../generation-contract.js';
@@ -59,7 +60,11 @@ async function buildApiSpokeInput(
       { remediation: 'Add the contract operations the case exercises to its "endpoints".' },
     );
   }
-  const contract = await loadApiContract(context, await loadConfig(context), options.environment);
+  const config = await loadConfig(context);
+  // The spoke writes its spec against this helper, so it has to exist (and list the current profiles)
+  // before the spoke runs.
+  await ensureApiAuthModule(context, config.apiAuth);
+  const contract = await loadApiContract(context, config, options.environment);
   return buildApiGenerationSpokeInput({
     testCase,
     apiContract: selectContractOperations(contract, testCase.endpoints),

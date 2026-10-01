@@ -9,6 +9,13 @@ contract lacks rejects the whole run (`API_CASE_NOT_IN_CONTRACT`) before a reque
 contract text is stored as `artifacts/api-contract.txt` and registered in the manifest, so the
 SHA-256 a run relied on is on record.
 
+A spec authenticates only through an `apiAuth` profile from `config.yaml` (ADR-0012): it imports the
+generated `tests/qa/api-auth.ts` and calls `request.get(url, apiAuth('<profile>'))`. The runner resolves
+the profiles a spec names, passes them to the Playwright process through its environment only, and
+scrubs their values from reported failures. A spec that writes a credential itself is rejected before
+it runs (`HTTP_CREDENTIAL_INPUT_REJECTED`), and a run that carries a credential keeps no Playwright
+trace, since a trace archive holds request headers.
+
 The specs themselves are ordinary Playwright Test files using `APIRequestContext`; execution and
 result mapping reuse `@qa-ai-stlc/runner-playwright`.
 

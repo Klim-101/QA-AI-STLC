@@ -233,6 +233,17 @@ describe('runBuildGenerationSpokeInput for an api case (P6-13)', () => {
     expect(input.apiContract?.operations.map((operation) => operation.path)).toEqual(['/tasks/{taskId}']);
   });
 
+  it('writes the api auth helper the spec will import, listing the configured profiles', async () => {
+    const { context, fs } = createContext();
+    await seedApiProject(fs, [{ method: 'GET', path: '/tasks/{id}' }]);
+
+    await runBuildGenerationSpokeInput(context, { testCaseId: 'api-case', elementIds: [] });
+
+    expect(await fs.readFile(join('project', 'tests', 'qa', 'api-auth.ts'))).toContain(
+      'export type ApiAuthProfileName = never;',
+    );
+  });
+
   it('passes a proven session and the environment name through', async () => {
     const { context, fs } = createContext();
     await seedApiProject(fs, [{ method: 'GET', path: '/tasks/{id}' }]);

@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import type { EngineContext, RunnerOutcome } from '@qa-ai-stlc/core';
+import {
+  API_AUTH_ENVIRONMENT_VARIABLE,
+  API_AUTH_MODULE_PATH,
+  type EngineContext,
+  type RunnerOutcome,
+} from '@qa-ai-stlc/core';
 import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
@@ -19,7 +24,16 @@ const { apiRunner } = await import('./api-runner.js');
 const SPEC_PATH = join('project', 'tests', 'api.spec.ts');
 const SPEC = JSON.stringify({ openapi: '3.0.3', paths: { '/tasks/{taskId}': { get: {} } } });
 
-function engineWith(endpointPath: string): EngineContext {
+interface EngineOptions {
+  readonly specSource?: string;
+  readonly env?: Record<string, string>;
+  readonly apiAuthYaml?: string;
+}
+
+const DEFAULT_SPEC_SOURCE =
+  "test('t', { annotation: { type: 'testCaseId', description: 'case-1' } }, async () => {});";
+
+function engineWith(endpointPath: string, options: EngineOptions = {}): EngineContext {
   return {
     projectRoot: 'project',
     fs: createFakeFileSystem({
@@ -32,11 +46,11 @@ function engineWith(endpointPath: string): EngineContext {
         'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
         'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
         'api: { contract: openapi, source: openapi.json }',
+        ...(options.apiAuthYaml !== undefined ? [options.apiAuthYaml] : []),
         '',
       ].join('\n'),
       [join('project', 'openapi.json')]: SPEC,
-      [SPEC_PATH]:
-        "test('t', { annotation: { type: 'testCaseId', description: 'case-1' } }, async () => {});",
+      [SPEC_PATH]: options.specSource ?? DEFAULT_SPEC_SOURCE,
       [join('project', '.qa', 'artifacts', 'cases', 'tasks', 'case-1.json')]: JSON.stringify({
         schemaVersion: 1,
         id: 'case-1',
@@ -56,7 +70,7 @@ function engineWith(endpointPath: string): EngineContext {
     processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
     httpClient: createFakeHttpClient({ ok: true, status: 200 }),
     browserLauncher: createFakeBrowserLauncher(),
-    env: {},
+    env: options.env ?? {},
   };
 }
 
@@ -94,5 +108,130 @@ describe('apiRunner', () => {
     expect(rejected).toMatchObject({ code: 'API_CASE_NOT_IN_CONTRACT' });
     expect(runPlaywrightSpecs).not.toHaveBeenCalled();
     expect(await engine.fs.pathExists(join('project', '.qa', 'manifest.json'))).toBe(false);
+  });
+
+  describe('authentication through apiAuth profiles', () => {
+    const AUTH_SPEC = `${DEFAULT_SPEC_SOURCE}\nconst options = apiAuth('service');`;
+    const PROFILES_YAML =
+      'apiAuth: { profiles: { service: { type: bearer, tokenVariable: QA_SERVICE_TOKEN } }, defaults: {} }';
+    const authOptions = {
+      specSource: AUTH_SPEC,
+      apiAuthYaml: PROFILES_YAML,
+      env: { QA_SERVICE_TOKEN: 'super-secret-token' },
+    };
+
+    function outcomeWith(
+      status: 'failed' | 'passed',
+      message: string,
+      evidence: RunnerOutcome['evidence'] = [],
+    ): RunnerOutcome {
+      return {
+        result: {
+          schemaVersion: 1,
+          id: 'run-result-1',
+          runId: 'run-1',
+          testCaseId: 'case-1',
+          testType: 'api',
+          status,
+          startedAt: '2026-09-30T12:00:00Z',
+          finishedAt: '2026-09-30T12:00:01Z',
+          evidenceIds: [],
+          ...(status === 'failed' ? { failure: { message } } : {}),
+        },
+        evidence,
+      };
+    }
+
+    it('writes the helper and hands only the named profile to the spec process, with no trace', async () => {
+      const engine = engineWith('/tasks/{id}', authOptions);
+
+      await apiRunner.run(engine, input);
+
+      expect(await engine.fs.readFile(join('project', ...API_AUTH_MODULE_PATH.split('/')))).toContain(
+        '"service"',
+      );
+      const [, , testType, runOptions] = runPlaywrightSpecs.mock.calls[0] as unknown as [
+        unknown,
+        unknown,
+        string,
+        { env: Record<string, string>; isTraceEnabled: boolean },
+      ];
+      expect(testType).toBe('api');
+      expect(runOptions.isTraceEnabled).toBe(false);
+      expect(JSON.parse(runOptions.env[API_AUTH_ENVIRONMENT_VARIABLE] ?? '')).toEqual({
+        service: { headers: { Authorization: 'Bearer super-secret-token' }, params: {} },
+      });
+    });
+
+    it('scrubs the credential from a failure and keeps the failure backed by evidence', async () => {
+      runPlaywrightSpecs.mockResolvedValue([
+        outcomeWith('failed', 'expected 200, got 401 for Bearer super-secret-token'),
+      ]);
+
+      const outcomes = await apiRunner.run(engineWith('/tasks/{id}', authOptions), input);
+
+      expect(outcomes[0]?.result.failure?.message).toBe('expected 200, got 401 for Bearer [REDACTED]');
+      expect(outcomes[0]?.evidence).toEqual([
+        { kind: 'other', content: 'expected 200, got 401 for Bearer [REDACTED]' },
+      ]);
+    });
+
+    it('leaves evidence the runner already captured and passing results untouched', async () => {
+      const captured = [{ kind: 'screenshot' as const, content: new Uint8Array([1]) }];
+      runPlaywrightSpecs.mockResolvedValue([outcomeWith('failed', 'x', captured), outcomeWith('passed', '')]);
+
+      const outcomes = await apiRunner.run(engineWith('/tasks/{id}', authOptions), input);
+
+      expect(outcomes[0]?.evidence).toBe(captured);
+      expect(outcomes[1]?.result.status).toBe('passed');
+    });
+
+    it('refuses to resolve a profile for a base URL outside the allowlist', async () => {
+      const rejected = await apiRunner
+        .run(engineWith('/tasks/{id}', authOptions), { ...input, baseUrl: 'https://elsewhere.example.org' })
+        .catch((caught: unknown) => caught);
+
+      expect(rejected).toBeInstanceOf(Error);
+      expect(runPlaywrightSpecs).not.toHaveBeenCalled();
+    });
+
+    it('fails naming the variable, not its value, when the profile cannot be resolved', async () => {
+      const rejected = await apiRunner
+        .run(engineWith('/tasks/{id}', { ...authOptions, env: {} }), input)
+        .catch((caught: unknown) => caught);
+
+      expect(rejected).toMatchObject({ code: 'API_AUTH_VARIABLE_MISSING' });
+      expect((rejected as Error).message).toContain('QA_SERVICE_TOKEN');
+      expect(runPlaywrightSpecs).not.toHaveBeenCalled();
+    });
+
+    it('rejects a profile the configuration does not define', async () => {
+      const rejected = await apiRunner
+        .run(
+          engineWith('/tasks/{id}', {
+            ...authOptions,
+            apiAuthYaml: 'apiAuth: { profiles: {}, defaults: {} }',
+          }),
+          input,
+        )
+        .catch((caught: unknown) => caught);
+
+      expect(rejected).toMatchObject({ code: 'API_AUTH_PROFILE_UNKNOWN' });
+    });
+
+    it('rejects a spec that writes a credential header itself', async () => {
+      const rejected = await apiRunner
+        .run(
+          engineWith('/tasks/{id}', {
+            ...authOptions,
+            specSource: `${AUTH_SPEC}\nconst headers = { Authorization: 'Bearer abcdefghij' };`,
+          }),
+          input,
+        )
+        .catch((caught: unknown) => caught);
+
+      expect(rejected).toMatchObject({ code: 'HTTP_CREDENTIAL_INPUT_REJECTED' });
+      expect(runPlaywrightSpecs).not.toHaveBeenCalled();
+    });
   });
 });

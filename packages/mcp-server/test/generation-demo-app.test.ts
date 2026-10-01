@@ -51,6 +51,10 @@ const CONFIG_YAML = [
   'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
   'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
   'api: { contract: openapi, source: openapi.json }',
+  'apiAuth:',
+  '  profiles:',
+  `    demo-oauth: { type: oauth2-client-credentials, tokenUrl: "${BASE_URL}oauth/token", clientIdVariable: QA_DEMO_CLIENT_ID, clientSecretVariable: QA_DEMO_CLIENT_SECRET }`,
+  '  defaults: {}',
   '',
 ].join('\n');
 
@@ -68,6 +72,8 @@ beforeAll(async () => {
   });
   await waitForServer(`${BASE_URL}login`, STARTUP_TIMEOUT_MS);
 
+  process.env.QA_DEMO_CLIENT_ID = 'demo-client';
+  process.env.QA_DEMO_CLIENT_SECRET = 'demo-secret';
   originalCwd = process.cwd();
   await rm(PROJECT_ROOT, { recursive: true, force: true });
   await mkdir(join(PROJECT_ROOT, '.qa'), { recursive: true });
@@ -273,6 +279,148 @@ describe('api spec generation (demo app, no LLM)', () => {
       '',
     ].join('\n');
   }
+
+  // P6-35's exit criterion against the real app: a generated API spec for an authenticated
+  // endpoint passes, and nothing in the spec source (or the helper it imports) is a credential.
+  describe('authenticated api spec', () => {
+    function authSpecContent(contractSha256: string, assertion: string): string {
+      return [
+        "import { expect, test } from '@playwright/test';",
+        "import { apiAuth } from '../api-auth.js';",
+        '',
+        `export const CONTRACT_SHA256 = "${contractSha256}";`,
+        '',
+        'test(',
+        "  'whoami accepts the demo client',",
+        '  {',
+        '    annotation: [',
+        "      { type: 'testCaseId', description: 'whoami-authenticated-api' },",
+        "      { type: 'stepIds', description: 'step-1,expected-result' },",
+        '    ],',
+        '  },',
+        '  async ({ request }) => {',
+        "    const response = await test.step('[step-1] Call GET /api/whoami as the demo client', async () =>",
+        "      request.get('/api/whoami', apiAuth('demo-oauth')),",
+        '    );',
+        "    await test.step('[expected-result] The API identifies the demo client', async () => {",
+        `      ${assertion}`,
+        '    });',
+        '  },',
+        ');',
+        '',
+      ].join('\n');
+    }
+
+    interface Prepared {
+      readonly input: Awaited<ReturnType<typeof generationSpokeInputTool.handler>>;
+      readonly sha: string;
+    }
+    let prepared: Prepared | undefined;
+
+    async function prepare(): Promise<Prepared> {
+      if (prepared !== undefined) {
+        return prepared;
+      }
+      await writeFile(
+        join(PROJECT_ROOT, 'whoami-authenticated-api.json'),
+        JSON.stringify({
+          id: 'whoami-authenticated-api',
+          feature: 'auth',
+          requirementIds: ['login'],
+          testType: 'api',
+          title: 'whoami accepts the demo client',
+          steps: [{ description: 'Call GET /api/whoami as the demo client' }],
+          expectedResult: 'The API identifies the demo client',
+          endpoints: [{ method: 'GET', path: '/api/whoami' }],
+          status: 'approved',
+          createdAt: '2026-09-30T09:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'whoami-authenticated-api.json' });
+      const input = await generationSpokeInputTool.handler({
+        testCaseId: 'whoami-authenticated-api',
+        elementIds: [],
+      });
+      const sha = input.apiContract?.sha256;
+      if (sha === undefined) {
+        throw new Error('Expected the api spoke input to carry the contract hash.');
+      }
+      prepared = { input, sha };
+      return prepared;
+    }
+
+    it(
+      'verifies and registers a spec that authenticates through a profile, with no credential in its source',
+      async () => {
+        const { input, sha } = await prepare();
+        const content = authSpecContent(
+          sha,
+          "expect(await response.json()).toMatchObject({ client: 'demo-client' });",
+        );
+
+        const outcome = await generationVerifyTool.handler({
+          input,
+          content,
+          filePath: 'tests/qa/generated/whoami-authenticated-api.spec.ts',
+          generatorVersion: '1',
+        });
+
+        expect(outcome.issues).toBeUndefined();
+        expect(outcome.status).toBe('verified');
+        const helper = await readFile(join(PROJECT_ROOT, 'tests', 'qa', 'api-auth.ts'), 'utf-8');
+        for (const source of [content, helper, JSON.stringify(outcome)]) {
+          expect(source).not.toContain('demo-secret');
+          expect(source).not.toMatch(/demo-token-\d/u);
+          expect(source).not.toMatch(/Bearer\s/u);
+        }
+      },
+      STARTUP_TIMEOUT_MS,
+    );
+
+    it(
+      'scrubs a token the API echoes back from the failure the agent receives',
+      async () => {
+        const { input, sha } = await prepare();
+
+        const outcome = await generationVerifyTool.handler({
+          input,
+          content: authSpecContent(sha, "expect(await response.text()).toBe('nothing');"),
+          filePath: 'tests/qa/generated/whoami-authenticated-echo.spec.ts',
+          generatorVersion: '1',
+        });
+
+        expect(outcome.status).toBe('execution_failed');
+        const reported = JSON.stringify(outcome);
+        expect(reported).not.toMatch(/demo-token-\d/u);
+        expect(reported).toContain('[REDACTED]');
+      },
+      STARTUP_TIMEOUT_MS,
+    );
+
+    it(
+      'rejects a spec that writes its own Authorization header before it runs',
+      async () => {
+        const { input, sha } = await prepare();
+        const content = authSpecContent(sha, 'expect(response.ok()).toBe(true);').replace(
+          "apiAuth('demo-oauth')",
+          "{ headers: { Authorization: 'Bearer abcdefghij' } }",
+        );
+
+        const rejected = await generationVerifyTool
+          .handler({
+            input,
+            content,
+            filePath: 'tests/qa/generated/whoami-authenticated-literal.spec.ts',
+            generatorVersion: '1',
+          })
+          .catch((caught: unknown) => caught);
+
+        expect(rejected).toMatchObject({ code: 'HTTP_CREDENTIAL_INPUT_REJECTED' });
+      },
+      STARTUP_TIMEOUT_MS,
+    );
+  });
 
   it(
     'verifies and registers a spec stamped with the contract hash, then rejects it once the contract changes',
