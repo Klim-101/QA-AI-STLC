@@ -216,7 +216,7 @@ async function readRawPageElements(
           ? wrapper
           : inner.find((control) => control.hasAttribute('aria-labelledby'));
         const labelled = (holder?.getAttribute('aria-labelledby') ?? '')
-          .split(/s+/)
+          .split(/\s+/)
           .map((id) => document.getElementById(id)?.textContent.trim() ?? '')
           .filter((text) => text.length > 0)
           .join(' ');

@@ -3,6 +3,7 @@
 
 import type { AuthPage } from '@qa-ai-stlc/core';
 import type { UiComponentLibrary } from '@qa-ai-stlc/schemas';
+import { KENDO_ANGULAR_PROFILE } from './profiles/kendo-angular.js';
 import { KENDO_JQUERY_PROFILE } from './profiles/kendo-jquery.js';
 
 /**
@@ -39,7 +40,10 @@ export interface ComponentLibraryProfile {
 
 export type ComponentLibraryProfiles = Readonly<Partial<Record<UiComponentLibrary, ComponentLibraryProfile>>>;
 
-export const BUILT_IN_PROFILES: ComponentLibraryProfiles = { 'kendo-jquery': KENDO_JQUERY_PROFILE };
+export const BUILT_IN_PROFILES: ComponentLibraryProfiles = {
+  'kendo-jquery': KENDO_JQUERY_PROFILE,
+  'kendo-angular': KENDO_ANGULAR_PROFILE,
+};
 
 /** The profile for `ui.componentLibrary`, or `undefined` when none is selected or shipped. */
 export function resolveComponentLibraryProfile(
