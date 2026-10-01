@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kendo UI for jQuery fixture</title>
+    <link rel="stylesheet" href="/vendor/kendo-theme/all.css" />
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/kendo-jquery.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Kendo UI for jQuery fixture</h1>
+      <p>Widgets from Kendo UI Core, plus two grids built for this fixture (see the README).</p>
+
+      <div id="tabs">
+        <ul>
+          <li class="k-active">Details</li>
+          <li>History</li>
+        </ul>
+        <div>
+          <form id="details-form" autocomplete="off">
+            <div class="field">
+              <label>Priority</label>
+              <select id="priority" name="priority">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="assignee">Assignee</label>
+              <input id="assignee" name="assignee" />
+            </div>
+            <div class="field">
+              <label for="tags">Tags</label>
+              <select id="tags" name="tags" multiple>
+                <option>backend</option>
+                <option>frontend</option>
+                <option>billing</option>
+                <option>urgent</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="due-date">Due date (today or later)</label>
+              <input id="due-date" name="dueDate" />
+            </div>
+            <div class="field">
+              <label for="estimate">Estimate (hours, 0 to 40)</label>
+              <input id="estimate" name="estimate" />
+            </div>
+            <button type="button" id="open-edit-window">Edit details</button>
+            <p id="selection-summary" role="status">Nothing selected.</p>
+          </form>
+        </div>
+        <div>
+          <p id="history-panel">No history yet.</p>
+        </div>
+      </div>
+
+      <div id="edit-window">
+        <label for="window-note">Note</label>
+        <input id="window-note" name="note" />
+        <button type="button" id="window-apply">Apply</button>
+        <button type="button" id="window-cancel">Cancel</button>
+      </div>
+      <p id="applied-note" role="status">No note applied.</p>
+
+      <h2>People (paged)</h2>
+      <div id="paged-grid"></div>
+
+      <h2>People (virtual scrolling)</h2>
+      <div id="virtual-grid"></div>
+    </main>
+
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/kendo/kendo.ui.core.min.js"></script>
+    <script src="/kendo-jquery.js"></script>
+  </body>
+</html>

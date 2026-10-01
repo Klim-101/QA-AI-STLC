@@ -22,7 +22,7 @@ The app listens on `http://localhost:4310` (override with `DEMO_APP_PORT`).
   `employee@example.com` / `employee123`.
 - A dashboard, a task table with a status filter and a sort link, a new-task form, a task detail
   page with an edit `<dialog>`, and an admin-only user list.
-- 12 catalogued bugs spanning functional, accessibility and security categories (see
+- 16 catalogued bugs spanning functional, accessibility and security categories (see
   `bugs.json`), each pointing at the file and route where it lives.
 
 ## Fake OAuth2 server
@@ -33,6 +33,19 @@ protected, echoes the token), `POST /oauth/revoke-all`, `GET /oauth/issued` and 
 token in a cookie, localStorage and sessionStorage and calls `/api/whoami` with it, for the
 `from-browser` auth profile tests. `DEMO_TOKEN_TTL_SECONDS`
 sets the token lifetime (default 3600).
+
+## Kendo UI for jQuery fixture
+
+`/kendo-jquery.html` exercises component-library support (P6-37, P6-40): a TabStrip, DropDownList,
+ComboBox, MultiSelect, DatePicker, NumericTextBox and a modal Window from Kendo UI Core, plus two
+grids (paged, and virtual scrolling) fed by `GET /api/kendo/people`. Kendo UI Core has no Grid, so
+the grids are plain DOM written for this fixture; they use Kendo-style roles and class names but
+no Kendo code. BUG-013 to BUG-016 live here.
+
+Kendo UI Core (Apache-2.0), its theme (Apache-2.0) and jQuery (MIT) are dev dependencies served
+from `node_modules` under `/vendor/`; nothing is copied into the repository or shipped. They are
+pinned to a Kendo UI Core release that bundles its own drawing code: later releases require the
+commercially licensed `@progress/kendo-drawing`, which the license policy does not allow.
 
 ## Tests
 
