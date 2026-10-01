@@ -12,6 +12,7 @@ import {
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
 import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
+import { SYNTHETIC_PROFILE } from '../test-support/synthetic-profile.js';
 import { resolveIdentity, runExplore } from './explore.js';
 
 const PROJECT_ROOT = join('project');
@@ -25,6 +26,8 @@ interface ConfigOptions {
   readonly policy?: string;
   /** A raw YAML flow-mapping fragment (e.g. `stabilityViewports: [...]`), appended to `selectors`. */
   readonly extraSelectorsFields?: string;
+  /** The `ui.componentLibrary` value; omitted, the config has no `ui` block. */
+  readonly componentLibrary?: string;
 }
 
 function configYaml(options: ConfigOptions = {}): string {
@@ -40,6 +43,7 @@ function configYaml(options: ConfigOptions = {}): string {
     'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
     `selectors: { policy: ${options.policy ?? 'playwright-default'}, testIdAttribute: data-testid${extraSelectorsFields} }`,
     'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+    options.componentLibrary === undefined ? '' : `ui: { componentLibrary: ${options.componentLibrary} }`,
   ]
     .filter((line) => line.length > 0)
     .join('\n')}\n`;
@@ -129,6 +133,35 @@ describe('runExplore', () => {
         'selectors/missing-test-ids.json',
         'selectors/endpoints.json',
       ]),
+    );
+  });
+
+  it('registers widgets through the profile of the configured component library (P6-37)', async () => {
+    const widget = {
+      kind: 'widget',
+      accessibleName: 'Status',
+      role: 'combobox',
+      tagName: 'span',
+      nthOfType: 1,
+      htmlId: 'syn-77',
+      widgetKind: 'dropdown',
+      popupId: 'syn-popup-1',
+    };
+    const context = fakeContext(
+      { elementsByUrl: { [START_URL]: { ...ONE_ELEMENT, interactiveElements: [widget] } }, locatorCount: 1 },
+      { componentLibrary: 'kendo-jquery' },
+    );
+
+    await runExplore(context, { profiles: { 'kendo-jquery': SYNTHETIC_PROFILE } });
+
+    const registry = JSON.parse(
+      await context.fs.readFile(join(QA_DIR, 'selectors', 'registry.json')),
+    ) as SelectorRegistry;
+    expect(registry.elements[0]).toEqual(
+      expect.objectContaining({ kind: 'dropdown', library: 'synthetic-ui', popupId: 'syn-popup-1' }),
+    );
+    expect(registry.elements[0]?.locatorCandidates.map((candidate) => candidate.value)).not.toContain(
+      '#syn-77',
     );
   });
 

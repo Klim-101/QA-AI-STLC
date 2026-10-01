@@ -38,7 +38,14 @@ export interface AccessibilityNode {
   children?: AccessibilityNode[] | undefined;
 }
 
-export const InteractiveElementKindSchema = z.enum(['button', 'link', 'input', 'select', 'textarea']);
+export const InteractiveElementKindSchema = z.enum([
+  'button',
+  'link',
+  'input',
+  'select',
+  'textarea',
+  'widget',
+]);
 export type InteractiveElementKind = z.infer<typeof InteractiveElementKindSchema>;
 
 // `tagName` and `nthOfType` carry no meaning to an agent; they exist so locator synthesis
@@ -56,6 +63,11 @@ export const InteractiveElementSchema = z.object({
   // The value of every `config.selectors.extraStableAttributes` name this element carries (P6-23),
   // for locator synthesis to prefer over a raw id or nth-of-type CSS fallback.
   extraAttributeValues: z.record(z.string(), z.string()).optional(),
+  // Set only on `kind: 'widget'`: the component-library widget a profile recognized (P6-37), e.g.
+  // `dropdown`, and the id of the popup it opens, read from `aria-controls`/`aria-owns` because
+  // the popup is usually attached to `body` rather than nested inside the widget.
+  widgetKind: z.string().min(1).optional(),
+  popupId: z.string().min(1).optional(),
 });
 export type InteractiveElement = z.infer<typeof InteractiveElementSchema>;
 

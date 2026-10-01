@@ -35,6 +35,10 @@ import {
   diffSelectorRegistry,
   mergeSelectorRegistry,
 } from '../build-selector-registry.js';
+import {
+  resolveComponentLibraryProfile,
+  type ComponentLibraryProfiles,
+} from '../component-library-profile.js';
 import { crawl } from '../crawl.js';
 import { generateLocatorModule } from '../generate-locator-module.js';
 import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
@@ -63,6 +67,8 @@ export interface ExploreOptions {
   readonly maxPages?: number;
   /** Re-checks the stored registry's candidates live instead of building a new one. */
   readonly verify?: boolean;
+  /** Overrides the shipped component-library profiles; a test seam, unset in production. */
+  readonly profiles?: ComponentLibraryProfiles;
 }
 
 export interface ExploreReport {
@@ -224,6 +230,7 @@ async function runCrawlAndBuild(
   const tlsInsecure = environment.config.tlsInsecure === true;
   warnIfTlsInsecure(context, environment.name, tlsInsecure);
   configureTestIdAttribute(config.selectors.testIdAttribute);
+  const profile = resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles);
 
   const crawlResult = await crawl({
     startUrl: environment.config.baseUrl,
@@ -243,6 +250,7 @@ async function runCrawlAndBuild(
     tlsInsecure,
     testIdAttribute: config.selectors.testIdAttribute,
     extraStableAttributes: config.selectors.extraStableAttributes,
+    ...(profile !== undefined ? { profile } : {}),
     ...(identity !== undefined ? { identity } : {}),
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
@@ -256,6 +264,7 @@ async function runCrawlAndBuild(
     viewports: config.selectors.stabilityViewports,
     extraStableAttributes: config.selectors.extraStableAttributes,
     generatedIdPatterns: config.selectors.generatedIdPatterns,
+    ...(profile !== undefined ? { profile } : {}),
   });
 
   const elements: SelectorElement[] = [...registry.elements];

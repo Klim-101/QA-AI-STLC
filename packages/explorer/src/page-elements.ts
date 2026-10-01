@@ -10,6 +10,7 @@ import type {
   InteractiveElementKind,
   Table,
 } from '@qa-ai-stlc/schemas';
+import type { WidgetRecognizer } from './component-library-profile.js';
 import { capArray, truncateText, type NormalizeLimits } from './normalize.js';
 
 interface RawPageElements {
@@ -33,6 +34,9 @@ interface RawInteractiveElement {
   // produced before P6-23 added it; `page.evaluate()`'s own result is `unknown` at this boundary,
   // so the type here does not guarantee the key was ever actually written.
   readonly extraAttributeValues?: Readonly<Record<string, string>>;
+  // Present only on a widget a component-library profile recognized (P6-37).
+  readonly widgetKind?: string;
+  readonly popupId?: string;
 }
 
 interface RawForm {
@@ -71,6 +75,7 @@ const INTERACTIVE_ELEMENT_KINDS: readonly InteractiveElementKind[] = [
   'input',
   'select',
   'textarea',
+  'widget',
 ];
 
 function isInteractiveElementKind(value: string): value is InteractiveElementKind {
@@ -86,16 +91,19 @@ interface ExtractionArgs {
   readonly testIdAttribute: string;
   /** `config.selectors.extraStableAttributes` (P6-23): read off each element, if present. */
   readonly extraStableAttributes: readonly string[];
+  /** Widget recognizers of the selected component-library profile (P6-37); empty without one. */
+  readonly widgets: readonly WidgetRecognizer[];
 }
 
 async function readRawPageElements(
   page: AuthPage,
   testIdAttribute: string,
   extraStableAttributes: readonly string[],
+  widgets: readonly WidgetRecognizer[],
 ): Promise<RawPageElements | undefined> {
-  /* v8 ignore next 96 -- runs in the browser's own V8 instance, invisible to Node coverage */
+  /* v8 ignore start -- runs in the browser's own V8 instance, invisible to Node coverage */
   const result = await page.evaluate(
-    ({ testIdAttribute, extraStableAttributes }: ExtractionArgs) => {
+    ({ testIdAttribute, extraStableAttributes, widgets }: ExtractionArgs) => {
       function accessibleName(element: Element): string | undefined {
         const ariaLabel = element.getAttribute('aria-label');
         if (ariaLabel !== null && ariaLabel.trim().length > 0) {
@@ -176,18 +184,7 @@ async function readRawPageElements(
         return values;
       }
 
-      const kindByTagName: Record<string, string> = {
-        a: 'link',
-        button: 'button',
-        input: 'input',
-        select: 'select',
-        textarea: 'textarea',
-      };
-      const interactiveElements = Array.from(
-        document.querySelectorAll('button, a[href], input, select, textarea'),
-      ).map((element) => {
-        const tagName = element.tagName.toLowerCase();
-        const kind = kindByTagName[tagName] ?? tagName;
+      function describe(element: Element, kind: string): Record<string, unknown> {
         return {
           kind,
           accessibleName: accessibleName(element),
@@ -196,11 +193,62 @@ async function readRawPageElements(
           label: labelText(element),
           placeholder: element.getAttribute('placeholder') ?? undefined,
           htmlId: element.getAttribute('id') ?? undefined,
-          tagName,
+          tagName: element.tagName.toLowerCase(),
           nthOfType: nthOfType(element),
           extraAttributeValues: extraAttributeValues(element),
         };
-      });
+      }
+
+      // A popup is usually attached to `body`, not nested in its widget, so the only reliable link
+      // is the id the widget (or its focusable part) names in `aria-controls` or `aria-owns`.
+      function popupId(element: Element): string | undefined {
+        const holder = element.matches('[aria-controls], [aria-owns]')
+          ? element
+          : element.querySelector('[aria-controls], [aria-owns]');
+        return holder?.getAttribute('aria-controls') ?? holder?.getAttribute('aria-owns') ?? undefined;
+      }
+
+      // A native control that only backs a recognized widget is represented by the widget's
+      // wrapper; registering it too would hand out a hidden element as a locator.
+      function isAbsorbedByWidget(element: Element): boolean {
+        return widgets.some(
+          (widget) =>
+            widget.nativeControlSelector !== undefined &&
+            element.matches(widget.nativeControlSelector) &&
+            element.closest(widget.wrapperSelector) !== null,
+        );
+      }
+
+      const kindByTagName: Record<string, string> = {
+        a: 'link',
+        button: 'button',
+        input: 'input',
+        select: 'select',
+        textarea: 'textarea',
+      };
+      const nativeElements = Array.from(document.querySelectorAll('button, a[href], input, select, textarea'))
+        .filter((element) => !isAbsorbedByWidget(element))
+        .map((element) => describe(element, kindByTagName[element.tagName.toLowerCase()] ?? 'unknown'));
+
+      const seenWrappers = new Set<Element>();
+      const widgetElements = widgets.flatMap((widget) =>
+        Array.from(document.querySelectorAll(widget.wrapperSelector)).flatMap((wrapper) => {
+          if (seenWrappers.has(wrapper)) {
+            return [];
+          }
+          seenWrappers.add(wrapper);
+          const described = describe(wrapper, 'widget');
+          return [
+            {
+              ...described,
+              role: described.role ?? widget.role,
+              widgetKind: widget.widgetKind,
+              popupId: popupId(wrapper),
+            },
+          ];
+        }),
+      );
+      const interactiveElements = [...nativeElements, ...widgetElements];
 
       const forms = Array.from(document.querySelectorAll('form')).map((form) => ({
         action: form.getAttribute('action') ?? undefined,
@@ -226,8 +274,9 @@ async function readRawPageElements(
 
       return { interactiveElements, forms, tables, dialogs };
     },
-    { testIdAttribute, extraStableAttributes },
+    { testIdAttribute, extraStableAttributes, widgets },
   );
+  /* v8 ignore stop */
   return isRawPageElements(result) ? result : undefined;
 }
 
@@ -259,6 +308,12 @@ function normalizeInteractiveElement(
     if (truncated) {
       onTruncated();
     }
+  }
+  if (raw.widgetKind !== undefined) {
+    element.widgetKind = raw.widgetKind;
+  }
+  if (raw.popupId !== undefined) {
+    element.popupId = raw.popupId;
   }
   if (raw.testId !== undefined) {
     element.testId = raw.testId;
@@ -364,8 +419,9 @@ export async function extractPageElements(
   limits: NormalizeLimits,
   testIdAttribute: string,
   extraStableAttributes: readonly string[] = [],
+  widgets: readonly WidgetRecognizer[] = [],
 ): Promise<PageElements> {
-  const raw = await readRawPageElements(page, testIdAttribute, extraStableAttributes);
+  const raw = await readRawPageElements(page, testIdAttribute, extraStableAttributes, widgets);
   if (raw === undefined) {
     return { interactiveElements: [], forms: [], tables: [], dialogs: [], truncated: true };
   }

@@ -7,8 +7,10 @@ import {
   capturePickModeElements,
   finalizeManualSelectorEntries,
   injectPickModeOverlay,
+  mergeGeneratedIdPatterns,
   persistExploreResult,
   resolveEnvironment,
+  resolveComponentLibraryProfile,
   resolveIdentity,
   resolvePolicy,
   resolveStorageState,
@@ -70,7 +72,10 @@ async function runPickModeSession(
     const pickModeElements = await capturePickModeElements(page, options.pick, captures, {
       policy,
       viewports: config.selectors.stabilityViewports,
-      generatedIdPatterns: config.selectors.generatedIdPatterns,
+      generatedIdPatterns: mergeGeneratedIdPatterns(
+        config.selectors.generatedIdPatterns,
+        resolveComponentLibraryProfile(config.ui.componentLibrary),
+      ),
     });
     const generatedAt = context.clock.now().toISOString();
     const elements = finalizeManualSelectorEntries(pickModeElements, new Map(), generatedAt);

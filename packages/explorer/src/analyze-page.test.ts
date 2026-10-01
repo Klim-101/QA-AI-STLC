@@ -5,16 +5,23 @@ import type { AuthPage } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
 import { analyzePage } from './analyze-page.js';
 import { DEFAULT_NORMALIZE_LIMITS } from './normalize.js';
+import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
 import { createLocatorMethods } from './test-support/locator-stub.js';
 
-function fakePage(options: { readonly ariaSnapshot?: unknown; readonly elements?: unknown }): AuthPage {
+function fakePage(
+  options: { readonly ariaSnapshot?: unknown; readonly elements?: unknown },
+  evaluateArgs: unknown[] = [],
+): AuthPage {
   return {
     goto: () => Promise.resolve(null),
     fill: () => Promise.resolve(),
     click: () => Promise.resolve(),
     waitForLoadState: () => Promise.resolve(),
     route: () => Promise.resolve(),
-    evaluate: () => Promise.resolve(options.elements),
+    evaluate: (_pageFunction, arg) => {
+      evaluateArgs.push(arg);
+      return Promise.resolve(options.elements);
+    },
     ariaSnapshotJSON: () => Promise.resolve(options.ariaSnapshot),
     addScriptTag: () => Promise.resolve(undefined),
     ...createLocatorMethods(),
@@ -78,5 +85,27 @@ describe('analyzePage', () => {
     const model = await analyzePage(page, 'https://staging.example.com/', 'data-testid');
 
     expect(model.truncated).toBe(false);
+  });
+
+  it('waits for the profile busy indicators, then reads the profile widgets (P6-37)', async () => {
+    const evaluateArgs: unknown[] = [];
+    const page = fakePage(
+      { elements: { interactiveElements: [], forms: [], tables: [], dialogs: [] } },
+      evaluateArgs,
+    );
+
+    await analyzePage(
+      page,
+      'https://staging.example.com/',
+      'data-testid',
+      DEFAULT_NORMALIZE_LIMITS,
+      [],
+      SYNTHETIC_PROFILE,
+    );
+
+    expect(evaluateArgs).toEqual([
+      { busySelectors: ['.syn-loading'], timeoutMs: 5000 },
+      { testIdAttribute: 'data-testid', extraStableAttributes: [], widgets: SYNTHETIC_PROFILE.widgets },
+    ]);
   });
 });
