@@ -103,6 +103,11 @@ function buildEvalCase(skillName, phrase, kind, index, files) {
   });
 }
 
+/** Reads a text file with LF endings so a Windows checkout (autocrlf) generates the same bytes as CI. */
+function readLfText(path) {
+  return readFileSync(path, 'utf8').replaceAll('\r\n', '\n');
+}
+
 async function buildFiles() {
   const files = new Map();
 
@@ -128,9 +133,9 @@ async function buildFiles() {
 
   // The plugin folder is what people install, so the directory's listing (README, license) has to
   // live inside it rather than only at the repository root.
-  files.set('README.md', { content: readFileSync(readmeSourcePath, 'utf8') });
-  files.set('LICENSE', { content: readFileSync(join(repoRoot, 'LICENSE'), 'utf8') });
-  files.set('NOTICE', { content: readFileSync(join(repoRoot, 'NOTICE'), 'utf8') });
+  files.set('README.md', { content: readLfText(readmeSourcePath) });
+  files.set('LICENSE', { content: readLfText(join(repoRoot, 'LICENSE')) });
+  files.set('NOTICE', { content: readLfText(join(repoRoot, 'NOTICE')) });
 
   const hooksJsonPath = join(outDir, 'hooks', 'hooks.json');
   files.set('hooks/hooks.json', {
