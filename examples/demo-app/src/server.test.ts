@@ -301,3 +301,54 @@ describe('Kendo UI for jQuery fixture', () => {
     expect(script).not.toContain('applied-note');
   });
 });
+
+describe('Kendo UI for Angular structure fixture', () => {
+  async function publicFile(name: string): Promise<string> {
+    return readFile(new URL(`../public/${name}`, import.meta.url), 'utf8');
+  }
+
+  it('serves the fixture page and its script', async () => {
+    const app = createApp();
+    const responses = await Promise.all(
+      ['/kendo-angular.html', '/kendo-angular.js', '/kendo-angular.css'].map((path) =>
+        request(app).get(path),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200]);
+  });
+
+  it('declares one custom element per widget kind', async () => {
+    const page = await publicFile('kendo-angular.html');
+
+    for (const tag of [
+      'kendo-tabstrip',
+      'kendo-dropdownlist',
+      'kendo-combobox',
+      'kendo-multiselect',
+      'kendo-datepicker',
+      'kendo-numerictextbox',
+      'kendo-grid',
+    ]) {
+      expect(page).toContain(`<${tag}`);
+    }
+  });
+
+  it('BUG-017: never writes the picked option into the dropdown text', async () => {
+    const script = await publicFile('kendo-angular.js');
+
+    expect(script).not.toContain('text.textContent');
+  });
+
+  it('BUG-018: commits a typed effort value without clamping it', async () => {
+    const script = await publicFile('kendo-angular.js');
+
+    expect(script).toContain('set(Number(input.value));');
+  });
+
+  it('BUG-019: creates the edit window dialog without a labelling title', async () => {
+    const script = await publicFile('kendo-angular.js');
+
+    expect(script).toContain("{ class: 'k-window k-window-md', role: 'dialog' }");
+  });
+});

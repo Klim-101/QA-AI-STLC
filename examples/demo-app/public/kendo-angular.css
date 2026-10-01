@@ -1,0 +1,112 @@
+kendo-dropdownlist,
+kendo-combobox,
+kendo-multiselect,
+kendo-datepicker,
+kendo-numerictextbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 14rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.field {
+  margin-bottom: 0.75rem;
+}
+
+.field > span:first-child {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.k-input-inner {
+  border: 0;
+  outline: 0;
+  flex: 1;
+}
+
+.k-chip {
+  margin-right: 0.25rem;
+  padding: 0 0.5rem;
+  border-radius: 1rem;
+  background: #ddd;
+}
+
+.k-animation-container {
+  position: fixed;
+  z-index: 10;
+  top: 4rem;
+  left: 2rem;
+  min-width: 14rem;
+  border: 1px solid #888;
+  background: #fff;
+}
+
+.k-list-ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.k-list-item {
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.k-tabstrip-items {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.k-tabstrip-items [aria-selected='true'] {
+  font-weight: bold;
+}
+
+.k-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+}
+
+.k-window {
+  position: fixed;
+  z-index: 20;
+  top: 20%;
+  left: 30%;
+  width: 22rem;
+  border: 1px solid #444;
+  background: #fff;
+}
+
+.k-window-titlebar {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: #eee;
+}
+
+.k-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.k-grid-table td,
+.k-grid-table th {
+  height: 32px;
+  padding: 0 0.5rem;
+  border-top: 1px solid #ddd;
+  text-align: left;
+}
+
+.k-pager {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem;
+}
