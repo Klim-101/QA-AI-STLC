@@ -21,6 +21,7 @@ export * from './operations/api-diff.js';
 export * from './operations/explore.js';
 export * from './page-elements.js';
 export * from './pick-mode.js';
+export * from './profiles/kendo-jquery.js';
 export * from './request-log.js';
 export * from './safe-mode.js';
 export * from './stability-scoring.js';

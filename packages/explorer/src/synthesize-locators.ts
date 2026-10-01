@@ -78,6 +78,16 @@ function buildCssCandidate(
       return { strategy: 'css', value: `[${attribute}="${escapeCssAttributeValue(value)}"]`, fragile: true };
     }
   }
+  // A widget's popup id is derived from the id of the control it replaces, so unlike the wrapper's
+  // position it survives layout changes.
+  const popupId = element.popupId;
+  if (popupId !== undefined && !isGeneratedId(popupId, options.generatedIdPatterns)) {
+    return {
+      strategy: 'css',
+      value: `[aria-controls="${escapeCssAttributeValue(popupId)}"], [aria-owns="${escapeCssAttributeValue(popupId)}"]`,
+      fragile: true,
+    };
+  }
   const htmlId = element.htmlId;
   const value =
     htmlId !== undefined && CSS_SAFE_ID.test(htmlId) && !isGeneratedId(htmlId, options.generatedIdPatterns)

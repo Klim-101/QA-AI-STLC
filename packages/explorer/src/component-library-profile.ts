@@ -3,6 +3,7 @@
 
 import type { AuthPage } from '@qa-ai-stlc/core';
 import type { UiComponentLibrary } from '@qa-ai-stlc/schemas';
+import { KENDO_JQUERY_PROFILE } from './profiles/kendo-jquery.js';
 
 /**
  * One kind of widget a component library renders. The wrapper is the element that carries the
@@ -38,8 +39,7 @@ export interface ComponentLibraryProfile {
 
 export type ComponentLibraryProfiles = Readonly<Partial<Record<UiComponentLibrary, ComponentLibraryProfile>>>;
 
-// Library profiles ship with their own tasks (P6-40, P6-41); this mechanism ships without one.
-export const BUILT_IN_PROFILES: ComponentLibraryProfiles = {};
+export const BUILT_IN_PROFILES: ComponentLibraryProfiles = { 'kendo-jquery': KENDO_JQUERY_PROFILE };
 
 /** The profile for `ui.componentLibrary`, or `undefined` when none is selected or shipped. */
 export function resolveComponentLibraryProfile(
