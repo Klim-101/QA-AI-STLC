@@ -22,7 +22,7 @@ The app listens on `http://localhost:4310` (override with `DEMO_APP_PORT`).
   `employee@example.com` / `employee123`.
 - A dashboard, a task table with a status filter and a sort link, a new-task form, a task detail
   page with an edit `<dialog>`, and an admin-only user list.
-- 16 catalogued bugs spanning functional, accessibility and security categories (see
+- 19 catalogued bugs spanning functional, accessibility and security categories (see
   `bugs.json`), each pointing at the file and route where it lives.
 
 ## Fake OAuth2 server
@@ -46,6 +46,15 @@ Kendo UI Core (Apache-2.0), its theme (Apache-2.0) and jQuery (MIT) are dev depe
 from `node_modules` under `/vendor/`; nothing is copied into the repository or shipped. They are
 pinned to a Kendo UI Core release that bundles its own drawing code: later releases require the
 commercially licensed `@progress/kendo-drawing`, which the license policy does not allow.
+
+## Kendo UI for Angular structure fixture
+
+Kendo UI for Angular is commercially licensed, so `/kendo-angular.html` reproduces the rendered
+structure of the same widget set without using or copying its code: custom `kendo-*` host elements,
+ids generated per page load, popups attached to `body` and linked to their widget by
+`aria-controls`, a tab strip, a modal window, and a paged and a virtual-scrolling grid fed by
+`GET /api/kendo/people`. It is plain script written from first principles, so its structure is a
+best reconstruction: P6-46 checks it against a real application. BUG-017 to BUG-019 live here.
 
 ## Tests
 

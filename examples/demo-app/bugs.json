@@ -128,6 +128,30 @@
       "severity": "major",
       "location": "public/kendo-jquery.js",
       "description": "The window's Apply button closes the window without copying the note out, so the \"applied note\" status never changes."
+    },
+    {
+      "id": "BUG-017",
+      "title": "Angular fixture status dropdown never shows the picked option",
+      "category": "functional",
+      "severity": "major",
+      "location": "public/kendo-angular.js",
+      "description": "Picking an option updates the summary line but not the dropdown's displayed value, which keeps reading \"Select...\"."
+    },
+    {
+      "id": "BUG-018",
+      "title": "Angular fixture effort field accepts values above its maximum",
+      "category": "functional",
+      "severity": "minor",
+      "location": "public/kendo-angular.js",
+      "description": "The spin buttons stop at 40, but a typed value is committed as is, so 99 is accepted."
+    },
+    {
+      "id": "BUG-019",
+      "title": "Angular fixture edit window has no accessible name",
+      "category": "accessibility",
+      "severity": "major",
+      "location": "public/kendo-angular.js",
+      "description": "The dialog is not labelled by its title bar, so a screen reader announces an unnamed dialog."
     }
   ]
 }

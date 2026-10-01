@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kendo UI for Angular structure fixture</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/kendo-angular.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Kendo UI for Angular structure fixture</h1>
+      <p>
+        Custom elements that reproduce the rendered structure of Angular component-library widgets. Written
+        for this fixture; no component-library code is used.
+      </p>
+
+      <kendo-tabstrip id="tabs"></kendo-tabstrip>
+
+      <div id="details-panel-content">
+        <div class="field">
+          <span id="status-label">Status</span>
+          <kendo-dropdownlist
+            aria-labelledby="status-label"
+            data-values="Open,In progress,Done"
+          ></kendo-dropdownlist>
+        </div>
+        <div class="field">
+          <span id="owner-label">Owner</span>
+          <kendo-combobox
+            aria-labelledby="owner-label"
+            data-values="Avery,Blake,Casey,Devon"
+          ></kendo-combobox>
+        </div>
+        <div class="field">
+          <span id="labels-label">Labels</span>
+          <kendo-multiselect
+            aria-labelledby="labels-label"
+            data-values="backend,frontend,billing,urgent"
+          ></kendo-multiselect>
+        </div>
+        <div class="field">
+          <span id="deadline-label">Deadline</span>
+          <kendo-datepicker aria-labelledby="deadline-label"></kendo-datepicker>
+        </div>
+        <div class="field">
+          <span id="effort-label">Effort (hours, 0 to 40)</span>
+          <kendo-numerictextbox
+            aria-labelledby="effort-label"
+            data-min="0"
+            data-max="40"
+          ></kendo-numerictextbox>
+        </div>
+        <button type="button" id="open-edit-window">Edit details</button>
+        <p id="selection-summary" role="status">Nothing selected.</p>
+      </div>
+
+      <h2>People (paged)</h2>
+      <kendo-grid id="paged-grid" aria-label="People (paged)"></kendo-grid>
+
+      <h2>People (virtual scrolling)</h2>
+      <kendo-grid id="virtual-grid" aria-label="People (virtual scrolling)"></kendo-grid>
+    </main>
+
+    <script src="/kendo-angular.js"></script>
+  </body>
+</html>
