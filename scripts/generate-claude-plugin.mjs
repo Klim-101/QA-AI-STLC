@@ -25,6 +25,7 @@ const repoRoot = join(import.meta.dirname, '..');
 const outDir = join(repoRoot, 'adapters', 'claude-plugin');
 const agentsDir = join(repoRoot, 'agents');
 const hookSourcePath = join(repoRoot, 'scripts', 'claude-plugin', 'block-qa-writes.mjs');
+const readmeSourcePath = join(repoRoot, 'scripts', 'claude-plugin', 'README.md');
 const marketplaceJsonPath = join(repoRoot, '.claude-plugin', 'marketplace.json');
 
 const { default: pluginConfig } = await import(pathToFileURL(join(repoRoot, 'plugin.config.ts')).href);
@@ -124,6 +125,12 @@ async function buildFiles() {
   copyDirectory(join(agentsDir, 'references'), 'references', files);
 
   files.set('hooks/block-qa-writes.mjs', { content: readFileSync(hookSourcePath, 'utf8') });
+
+  // The plugin folder is what people install, so the directory's listing (README, license) has to
+  // live inside it rather than only at the repository root.
+  files.set('README.md', { content: readFileSync(readmeSourcePath, 'utf8') });
+  files.set('LICENSE', { content: readFileSync(join(repoRoot, 'LICENSE'), 'utf8') });
+  files.set('NOTICE', { content: readFileSync(join(repoRoot, 'NOTICE'), 'utf8') });
 
   const hooksJsonPath = join(outDir, 'hooks', 'hooks.json');
   files.set('hooks/hooks.json', {
