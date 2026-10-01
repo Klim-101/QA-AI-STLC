@@ -50,6 +50,8 @@ export const SelectorElementSchema = z.object({
   source: SelectorElementSourceSchema,
   sourceLocation: SourceLocationSchema.optional(),
   pageUrl: z.string().min(1).optional(),
+  // The id of the popup a component-library widget opens (P6-37), for actions that must find it.
+  popupId: z.string().min(1).optional(),
   deprecatedAt: IsoDateTimeSchema.optional(),
 });
 export type SelectorElement = z.infer<typeof SelectorElementSchema>;

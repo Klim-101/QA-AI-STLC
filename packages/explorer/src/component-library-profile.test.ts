@@ -1,0 +1,74 @@
+// Copyright The QA-AI-STLC Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import type { AuthPage } from '@qa-ai-stlc/core';
+import { describe, expect, it } from 'vitest';
+import {
+  BUILT_IN_PROFILES,
+  DEFAULT_READY_TIMEOUT_MS,
+  mergeGeneratedIdPatterns,
+  resolveComponentLibraryProfile,
+  waitUntilLibraryReady,
+} from './component-library-profile.js';
+import { createLocatorMethods } from './test-support/locator-stub.js';
+import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
+
+function recordingPage(calls: unknown[]): AuthPage {
+  return {
+    goto: () => Promise.resolve(null),
+    fill: () => Promise.resolve(),
+    click: () => Promise.resolve(),
+    waitForLoadState: () => Promise.resolve(),
+    route: () => Promise.resolve(),
+    evaluate: (_pageFunction, arg) => {
+      calls.push(arg);
+      return Promise.resolve(undefined);
+    },
+    ariaSnapshotJSON: () => Promise.resolve(undefined),
+    addScriptTag: () => Promise.resolve(undefined),
+    ...createLocatorMethods(),
+  };
+}
+
+describe('resolveComponentLibraryProfile', () => {
+  it('returns no profile when none is selected or shipped', () => {
+    expect(resolveComponentLibraryProfile('none')).toBeUndefined();
+    expect(resolveComponentLibraryProfile('kendo-jquery', BUILT_IN_PROFILES)).toBeUndefined();
+  });
+
+  it('returns the profile registered for the selected library', () => {
+    expect(resolveComponentLibraryProfile('kendo-angular', { 'kendo-angular': SYNTHETIC_PROFILE })).toBe(
+      SYNTHETIC_PROFILE,
+    );
+  });
+});
+
+describe('mergeGeneratedIdPatterns', () => {
+  it('keeps the configured patterns when there is no profile', () => {
+    expect(mergeGeneratedIdPatterns(['^r-'], undefined)).toEqual(['^r-']);
+  });
+
+  it('adds the profile patterns after the configured ones, without repeats', () => {
+    expect(mergeGeneratedIdPatterns(['^r-', '^syn-\\d+$'], SYNTHETIC_PROFILE)).toEqual(['^r-', '^syn-\\d+$']);
+  });
+});
+
+describe('waitUntilLibraryReady', () => {
+  it('does nothing without a profile or without busy indicators', async () => {
+    const calls: unknown[] = [];
+    await waitUntilLibraryReady(recordingPage(calls), undefined);
+    await waitUntilLibraryReady(recordingPage(calls), { ...SYNTHETIC_PROFILE, busySelectors: [] });
+    expect(calls).toEqual([]);
+  });
+
+  it('waits in the page for the busy indicators, with the default or a given timeout', async () => {
+    const calls: unknown[] = [];
+    const page = recordingPage(calls);
+    await waitUntilLibraryReady(page, SYNTHETIC_PROFILE);
+    await waitUntilLibraryReady(page, SYNTHETIC_PROFILE, 250);
+    expect(calls).toEqual([
+      { busySelectors: ['.syn-loading'], timeoutMs: DEFAULT_READY_TIMEOUT_MS },
+      { busySelectors: ['.syn-loading'], timeoutMs: 250 },
+    ]);
+  });
+});

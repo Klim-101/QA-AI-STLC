@@ -4,6 +4,7 @@
 import { systemClock, type BrowserLauncher, type Clock } from '@qa-ai-stlc/core';
 import { SCHEMA_VERSION, type PageModel, type PageModelSet } from '@qa-ai-stlc/schemas';
 import { analyzePage } from './analyze-page.js';
+import type { ComponentLibraryProfile } from './component-library-profile.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { DEFAULT_NORMALIZE_LIMITS, type NormalizeLimits } from './normalize.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
@@ -21,6 +22,8 @@ export interface AnalyzePagesOptions {
   readonly testIdAttribute: string;
   /** `config.selectors.extraStableAttributes` (P6-23), read off each element when present. */
   readonly extraStableAttributes?: readonly string[];
+  /** Profile of `ui.componentLibrary` (P6-37): recognizes widgets and waits for the library to settle. */
+  readonly profile?: ComponentLibraryProfile;
   readonly limits?: NormalizeLimits;
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this analysis session (P2-18); off by default. */
@@ -66,7 +69,14 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
     for (const url of options.urls) {
       await page.goto(url);
       pages.push(
-        await analyzePage(page, url, options.testIdAttribute, limits, options.extraStableAttributes ?? []),
+        await analyzePage(
+          page,
+          url,
+          options.testIdAttribute,
+          limits,
+          options.extraStableAttributes ?? [],
+          options.profile,
+        ),
       );
     }
 

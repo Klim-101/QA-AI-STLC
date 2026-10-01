@@ -14,6 +14,7 @@ import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { createElementNamer } from './naming.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
 import { scorePageCandidates, type CandidateStabilityScore } from './stability-scoring.js';
+import { mergeGeneratedIdPatterns, type ComponentLibraryProfile } from './component-library-profile.js';
 import { synthesizeLocatorCandidates, type LocatorPolicy } from './synthesize-locators.js';
 
 export interface BuildSelectorRegistryOptions {
@@ -31,6 +32,8 @@ export interface BuildSelectorRegistryOptions {
   readonly extraStableAttributes?: readonly string[];
   /** `config.selectors.generatedIdPatterns` (P6-23), as regular-expression source text. */
   readonly generatedIdPatterns?: readonly string[];
+  /** Profile of `ui.componentLibrary` (P6-37): contributes generated-id patterns and names widgets' library. */
+  readonly profile?: ComponentLibraryProfile;
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this scoring session (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
@@ -137,7 +140,10 @@ export async function buildSelectorRegistry(
   const clock = options.clock ?? systemClock;
   const policy = options.policy ?? 'playwright-default';
   const extraStableAttributes = options.extraStableAttributes ?? [];
-  const generatedIdPatterns = (options.generatedIdPatterns ?? []).map((source) => new RegExp(source));
+  const generatedIdPatterns = mergeGeneratedIdPatterns(
+    options.generatedIdPatterns ?? [],
+    options.profile,
+  ).map((source) => new RegExp(source));
   const storageState = await resolveStorageState(
     options.browserLauncher,
     options.identity,
@@ -182,10 +188,15 @@ export async function buildSelectorRegistry(
       for (const { interactiveElement, scoredCandidates } of scored) {
         const { primaryCandidates, stabilityScore } = selectPrimaryCandidate(scoredCandidates);
 
+        const kind = interactiveElement.widgetKind ?? interactiveElement.kind;
         elements.push({
           elementId: assignElementId(pageModel.url, interactiveElement),
-          name: nameFor(elementNameForId(interactiveElement), interactiveElement.kind),
-          kind: interactiveElement.kind,
+          name: nameFor(elementNameForId(interactiveElement), kind),
+          kind,
+          ...(interactiveElement.widgetKind !== undefined && options.profile !== undefined
+            ? { library: options.profile.id }
+            : {}),
+          ...(interactiveElement.popupId === undefined ? {} : { popupId: interactiveElement.popupId }),
           locatorCandidates: primaryCandidates,
           stabilityScore,
           lastVerifiedAt: generatedAt,

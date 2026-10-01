@@ -4,6 +4,7 @@
 import type { AuthPage } from '@qa-ai-stlc/core';
 import type { PageModel } from '@qa-ai-stlc/schemas';
 import { normalizeAccessibilityTree } from './accessibility-tree.js';
+import { waitUntilLibraryReady, type ComponentLibraryProfile } from './component-library-profile.js';
 import { DEFAULT_NORMALIZE_LIMITS, type NormalizeLimits } from './normalize.js';
 import { extractPageElements } from './page-elements.js';
 
@@ -18,13 +19,21 @@ export async function analyzePage(
   testIdAttribute: string,
   limits: NormalizeLimits = DEFAULT_NORMALIZE_LIMITS,
   extraStableAttributes: readonly string[] = [],
+  profile?: ComponentLibraryProfile,
 ): Promise<PageModel> {
+  await waitUntilLibraryReady(page, profile);
   const rawAccessibilityTree = await page.ariaSnapshotJSON();
   const { tree, truncated: accessibilityTruncated } = normalizeAccessibilityTree(
     rawAccessibilityTree,
     limits,
   );
-  const elements = await extractPageElements(page, limits, testIdAttribute, extraStableAttributes);
+  const elements = await extractPageElements(
+    page,
+    limits,
+    testIdAttribute,
+    extraStableAttributes,
+    profile?.widgets ?? [],
+  );
 
   return {
     url,

@@ -17,6 +17,7 @@ import {
   diffSelectorRegistry,
   mergeSelectorRegistry,
 } from './build-selector-registry.js';
+import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
 import { createFakeCrawlBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-crawl-browser-launcher';
 
 const ALLOWLIST = ['staging.example.com'];
@@ -166,6 +167,69 @@ describe('buildSelectorRegistry', () => {
       value: 'button:nth-of-type(2)',
       fragile: true,
     });
+  });
+
+  it('rejects an id matching the profile generated-id patterns (P6-37)', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([pageModel(url, [element({ htmlId: 'syn-4821', nthOfType: 3 })])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
+
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      profile: SYNTHETIC_PROFILE,
+    });
+
+    expect(registry.elements[0]?.locatorCandidates[0]).toEqual({
+      strategy: 'css',
+      value: 'button:nth-of-type(3)',
+      fragile: true,
+    });
+    expect(registry.elements[0]?.library).toBeUndefined();
+  });
+
+  it('registers a recognized widget under its widget kind, library and popup (P6-37)', async () => {
+    const url = 'https://staging.example.com/form';
+    const widget = element({
+      kind: 'widget',
+      tagName: 'span',
+      widgetKind: 'dropdown',
+      popupId: 'syn-popup-1',
+      testId: 'status',
+    });
+    const model = pageModelSet([pageModel(url, [widget])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
+
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      profile: SYNTHETIC_PROFILE,
+    });
+
+    expect(registry.elements[0]).toEqual(
+      expect.objectContaining({ kind: 'dropdown', library: 'synthetic-ui', popupId: 'syn-popup-1' }),
+    );
+  });
+
+  it('keeps a widget kind without claiming a library when no profile is active', async () => {
+    const url = 'https://staging.example.com/form';
+    const model = pageModelSet([pageModel(url, [element({ kind: 'widget', widgetKind: 'dropdown' })])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
+
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+    });
+
+    expect(registry.elements[0]?.kind).toBe('dropdown');
+    expect(registry.elements[0]?.library).toBeUndefined();
+    expect(registry.elements[0]?.popupId).toBeUndefined();
   });
 
   it('records an empty candidate list and a stability score of 0 when strict-no-css finds nothing', async () => {

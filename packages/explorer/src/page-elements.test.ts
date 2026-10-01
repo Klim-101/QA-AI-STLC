@@ -5,6 +5,7 @@ import type { AuthPage } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_NORMALIZE_LIMITS } from './normalize.js';
 import { extractPageElements } from './page-elements.js';
+import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
 import { createLocatorMethods } from './test-support/locator-stub.js';
 
 function fakePage(evaluateResult: unknown, evaluateArgs: unknown[] = []): AuthPage {
@@ -266,7 +267,7 @@ describe('extractPageElements', () => {
 
     await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-ui-id');
 
-    expect(evaluateArgs).toEqual([{ testIdAttribute: 'data-ui-id', extraStableAttributes: [] }]);
+    expect(evaluateArgs).toEqual([{ testIdAttribute: 'data-ui-id', extraStableAttributes: [], widgets: [] }]);
   });
 
   it('forwards configured extraStableAttributes to page.evaluate (P6-23)', async () => {
@@ -276,7 +277,7 @@ describe('extractPageElements', () => {
     await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid', ['data-qa', 'data-cy']);
 
     expect(evaluateArgs).toEqual([
-      { testIdAttribute: 'data-testid', extraStableAttributes: ['data-qa', 'data-cy'] },
+      { testIdAttribute: 'data-testid', extraStableAttributes: ['data-qa', 'data-cy'], widgets: [] },
     ]);
   });
 
@@ -354,5 +355,62 @@ describe('extractPageElements', () => {
     expect(result.tables[0]?.columnHeaders[0]).toBe('a ve…');
     expect(result.dialogs[0]?.accessibleName).toBe('a ve…');
     expect(result.truncated).toBe(true);
+  });
+
+  it('passes the profile widget recognizers into the page and keeps a recognized widget (P6-37)', async () => {
+    const evaluateArgs: unknown[] = [];
+    const page = fakePage(
+      {
+        interactiveElements: [
+          {
+            kind: 'widget',
+            accessibleName: 'Status',
+            role: 'combobox',
+            tagName: 'span',
+            nthOfType: 2,
+            widgetKind: 'dropdown',
+            popupId: 'syn-popup-1',
+          },
+        ],
+        forms: [],
+        tables: [],
+        dialogs: [],
+      },
+      evaluateArgs,
+    );
+
+    const result = await extractPageElements(
+      page,
+      DEFAULT_NORMALIZE_LIMITS,
+      'data-testid',
+      [],
+      SYNTHETIC_PROFILE.widgets,
+    );
+
+    expect(evaluateArgs).toEqual([
+      { testIdAttribute: 'data-testid', extraStableAttributes: [], widgets: SYNTHETIC_PROFILE.widgets },
+    ]);
+    expect(result.interactiveElements).toEqual([
+      {
+        kind: 'widget',
+        accessibleName: 'Status',
+        role: 'combobox',
+        tagName: 'span',
+        nthOfType: 2,
+        widgetKind: 'dropdown',
+        popupId: 'syn-popup-1',
+      },
+    ]);
+  });
+
+  it('passes no widget recognizers by default', async () => {
+    const evaluateArgs: unknown[] = [];
+    const page = fakePage({ interactiveElements: [], forms: [], tables: [], dialogs: [] }, evaluateArgs);
+
+    await extractPageElements(page, DEFAULT_NORMALIZE_LIMITS, 'data-testid');
+
+    expect(evaluateArgs).toEqual([
+      { testIdAttribute: 'data-testid', extraStableAttributes: [], widgets: [] },
+    ]);
   });
 });

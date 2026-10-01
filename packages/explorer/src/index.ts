@@ -9,6 +9,7 @@ export * from './analyze-static-routes.js';
 export * from './analyze-static-source.js';
 export * from './build-missing-test-id-report.js';
 export * from './build-selector-registry.js';
+export * from './component-library-profile.js';
 export * from './crawl.js';
 export * from './extract-links.js';
 export * from './generate-locator-module.js';
