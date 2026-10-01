@@ -255,6 +255,32 @@ describe('init and config tools (real filesystem, temp project directory)', () =
     });
   });
 
+  it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
+    'qa.init records the component library %s',
+    async (componentLibrary) => {
+      await withProject(async (projectRoot) => {
+        await initTool.handler({ testing: OUT_OF_SCOPE, componentLibrary, confirmedRoot: projectRoot });
+
+        expect(await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8')).toContain(
+          `componentLibrary: ${componentLibrary}`,
+        );
+      });
+    },
+  );
+
+  it('qa.config_set changes ui.componentLibrary', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+
+      const result = await configSetTool.handler({ key: 'ui.componentLibrary', value: 'kendo-angular' });
+
+      expect(result).toStrictEqual({ key: 'ui.componentLibrary', value: 'kendo-angular' });
+      expect(await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8')).toContain(
+        'componentLibrary: kendo-angular',
+      );
+    });
+  });
+
   it('qa.init records the answered accessibility target', async () => {
     await withProject(async (projectRoot) => {
       await initTool.handler({

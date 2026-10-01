@@ -11,11 +11,13 @@ import {
   DEFAULT_A11Y_CONFIG,
   DEFAULT_EVIDENCE_CONFIG,
   DEFAULT_LOGIN_SELECTORS,
+  DEFAULT_UI_CONFIG,
   DEFAULT_STABILITY_VIEWPORTS,
   EnvironmentConfigSchema,
   EvidenceConfigSchema,
   FlakyDetectionConfigSchema,
   SelectorsConfigSchema,
+  UiComponentLibrarySchema,
   isLocalOverridableConfigSection,
   listA11yLevelsUpTo,
 } from './config.js';
@@ -365,6 +367,30 @@ describe('a11y config (P6-25)', () => {
 
   it('is committed-only, since it sets what a report claims', () => {
     expect(isLocalOverridableConfigSection('a11y')).toBe(false);
+  });
+});
+
+describe('ui config (P6-36)', () => {
+  it('defaults to no component library', () => {
+    expect(ConfigSchema.parse(validConfig()).ui).toStrictEqual(DEFAULT_UI_CONFIG);
+    expect(DEFAULT_UI_CONFIG).toStrictEqual({ componentLibrary: 'none' });
+  });
+
+  it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
+    'accepts the component library %s',
+    (componentLibrary) => {
+      const result = ConfigSchema.parse({ ...validConfig(), ui: { componentLibrary } });
+
+      expect(result.ui.componentLibrary).toBe(componentLibrary);
+    },
+  );
+
+  it('rejects an unknown component library', () => {
+    expect(UiComponentLibrarySchema.safeParse('kendo-react').success).toBe(false);
+  });
+
+  it('is committed-only, since it picks the profile generated code depends on', () => {
+    expect(isLocalOverridableConfigSection('ui')).toBe(false);
   });
 });
 

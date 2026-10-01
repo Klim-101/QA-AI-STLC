@@ -205,6 +205,30 @@ describe('runInit', () => {
     expect(await context.fs.readFile(join(QA_DIR, 'config.local.yaml.example'))).toContain('environments:');
   });
 
+  describe('component library (P6-36)', () => {
+    async function readUi(context: ReturnType<typeof fakeContext>): Promise<unknown> {
+      const written = parseYaml(await context.fs.readFile(join(QA_DIR, 'config.yaml'))) as { ui?: unknown };
+      return written.ui;
+    }
+
+    it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
+      'records %s as ui.componentLibrary',
+      async (componentLibrary) => {
+        const context = fakeContext();
+        await runInit(context, { testing: FULL_SCOPE, componentLibrary });
+
+        expect(await readUi(context)).toStrictEqual({ componentLibrary });
+      },
+    );
+
+    it('writes no ui block when the library was not answered', async () => {
+      const context = fakeContext();
+      await runInit(context, { testing: FULL_SCOPE });
+
+      expect(await readUi(context)).toBeUndefined();
+    });
+  });
+
   describe('accessibility target (P6-25)', () => {
     const A11Y_IN_SCOPE = { ...FULL_SCOPE, a11y: 'in-scope' } as const;
 

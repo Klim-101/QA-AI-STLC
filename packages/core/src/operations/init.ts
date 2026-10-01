@@ -4,7 +4,7 @@
 import { QaError } from '../errors.js';
 import { QaStore } from '../qa-store.js';
 import { findUndecidedTestingTypes } from '../testing-scope.js';
-import type { TestingScope, TestingScopeDecision } from '@qa-ai-stlc/schemas';
+import type { TestingScope, TestingScopeDecision, UiComponentLibrary } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
 import {
   DEFAULT_A11Y_TARGET_ANSWERS,
@@ -32,6 +32,8 @@ export interface InitOptions {
   readonly apiSource?: string;
   /** Parts of the accessibility target the operator answered; only valid when `testing.a11y` is in scope. */
   readonly a11yTarget?: Partial<A11yTargetAnswers>;
+  /** The UI component library of the application under test; recorded as `ui.componentLibrary`. */
+  readonly componentLibrary?: UiComponentLibrary;
 }
 
 export interface InitResult {
@@ -123,6 +125,7 @@ export async function runInit(context: EngineContext, options: InitOptions = {})
       ...(testing.a11y === 'in-scope'
         ? { a11y: { ...DEFAULT_A11Y_TARGET_ANSWERS, ...options.a11yTarget } }
         : {}),
+      ...(options.componentLibrary !== undefined ? { componentLibrary: options.componentLibrary } : {}),
     });
 
     await store.ensureLayout();

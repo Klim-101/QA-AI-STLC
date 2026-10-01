@@ -237,6 +237,55 @@ describe('runCli', () => {
     });
   });
 
+  describe('component library flag (P6-36)', () => {
+    const SCOPE = [
+      '--e2e',
+      'out-of-scope',
+      '--api',
+      'out-of-scope',
+      '--a11y',
+      'out-of-scope',
+      '--security',
+      'out-of-scope',
+    ];
+
+    it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
+      'records --component-library %s',
+      async (library) => {
+        const deps = dependencies();
+
+        const exitCode = await runCli(['init', ...SCOPE, '--component-library', library], deps);
+
+        expect(exitCode).toBe(EXIT_SUCCESS);
+        expect(await deps.fs?.readFile(CONFIG_PATH)).toContain(`componentLibrary: ${library}`);
+      },
+    );
+
+    it('fails init with a coded error for an unknown library', async () => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(['init', ...SCOPE, '--component-library', 'kendo-react'], deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stderr).toContain('error: "kendo-react" is not valid for --component-library');
+    });
+
+    it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
+      '"config set ui.componentLibrary %s" updates the config',
+      async (library) => {
+        const deps = dependencies();
+        await runCli(['init', '--defer-scope'], deps);
+        deps.stdout.length = 0;
+
+        const exitCode = await runCli(['config', 'set', 'ui.componentLibrary', library], deps);
+
+        expect(exitCode).toBe(EXIT_SUCCESS);
+        expect(deps.stdout).toContain(`Set ui.componentLibrary = ${library}`);
+        expect(await deps.fs?.readFile(CONFIG_PATH)).toContain(`componentLibrary: ${library}`);
+      },
+    );
+  });
+
   it('accepts --source-path and --api-source, writing both into config.yaml', async () => {
     const deps = dependencies();
 

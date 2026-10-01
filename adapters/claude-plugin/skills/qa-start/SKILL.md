@@ -69,6 +69,8 @@ Runs only when step 1 found no `.qa/`. The operator never needs a terminal.
    When accessibility is `in-scope`, also ask for the WCAG version (2.0, 2.1 or 2.2; suggest 2.1), the
    conformance level (A, AA or AAA; suggest AA, which includes A) and whether axe best-practice rules
    should run (suggest no), and pass them as `a11y`.
+   Also ask which UI component library the application uses (`none`, `kendo-jquery` or
+   `kendo-angular`; suggest `none`) and pass it as `componentLibrary`.
 4. Call `qa.init` again with the literal answers and `confirmedRoot` set to `projectRoot`.
 5. Offer to add an environment (`qa.config_add`, `kind: environment`: name, base URL, allowlist) and
    an identity (`kind: identity`). For an identity ask only for the `QA_*` variable **name** and tell

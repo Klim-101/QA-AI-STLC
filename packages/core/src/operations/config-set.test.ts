@@ -67,6 +67,40 @@ describe('runConfigSet', () => {
     }
   });
 
+  it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
+    'sets ui.componentLibrary to %s',
+    async (library) => {
+      const context = fakeContext();
+
+      const result = await runConfigSet(context, { key: 'ui.componentLibrary', value: library });
+      const written = parseYaml(await context.fs.readFile(join(QA_DIR, 'config.yaml'))) as {
+        ui?: { componentLibrary?: string };
+      };
+
+      expect(result).toStrictEqual({ key: 'ui.componentLibrary', value: library });
+      expect(written.ui?.componentLibrary).toBe(library);
+    },
+  );
+
+  it('replaces an existing ui.componentLibrary', async () => {
+    const context = fakeContext();
+    await runConfigSet(context, { key: 'ui.componentLibrary', value: 'kendo-jquery' });
+    await runConfigSet(context, { key: 'ui.componentLibrary', value: 'none' });
+
+    expect(await context.fs.readFile(join(QA_DIR, 'config.yaml'))).toContain('componentLibrary: none');
+  });
+
+  it('rejects an unsupported component library with the supported list', async () => {
+    const context = fakeContext();
+
+    await expect(
+      runConfigSet(context, { key: 'ui.componentLibrary', value: 'kendo-react' }),
+    ).rejects.toMatchObject({
+      code: 'CONFIG_SET_VALUE_INVALID',
+      remediation: 'Use one of: none, kendo-jquery, kendo-angular.',
+    });
+  });
+
   it('rejects an unsupported key', async () => {
     const context = fakeContext();
 

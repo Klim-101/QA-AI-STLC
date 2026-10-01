@@ -7,6 +7,7 @@ import {
   A11yConformanceLevelSchema,
   A11yWcagVersionSchema,
   TestingScopeDecisionSchema,
+  UiComponentLibrarySchema,
 } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
@@ -35,6 +36,9 @@ const InputSchema = z.object({
     .describe(
       'Only when testing.a11y is "in-scope": the WCAG version (2.0, 2.1, 2.2; default 2.1), the cumulative conformance level (A, AA, AAA; default AA) and whether axe best-practice rules run (default off). Ask the operator; an omitted part records its default.',
     ),
+  componentLibrary: UiComponentLibrarySchema.optional().describe(
+    'The UI component library of the application under test: "none", "kendo-jquery" or "kendo-angular". Ask the operator; omitted, it is not recorded and "none" applies.',
+  ),
   confirmedRoot: z
     .string()
     .optional()
@@ -101,6 +105,7 @@ export const initTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> =
             },
           }
         : {}),
+      ...(input.componentLibrary !== undefined ? { componentLibrary: input.componentLibrary } : {}),
       ...(input.sourcePath !== undefined ? { sourcePath: input.sourcePath } : {}),
       ...(input.apiSource !== undefined ? { apiSource: input.apiSource } : {}),
     });

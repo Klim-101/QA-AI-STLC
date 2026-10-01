@@ -34,8 +34,10 @@ import {
   A11yConformanceLevelSchema,
   A11yWcagVersionSchema,
   TestTypeSchema,
+  UiComponentLibrarySchema,
   type TestingScopeDecision,
   type TestType,
+  type UiComponentLibrary,
 } from '@qa-ai-stlc/schemas';
 import { stringify as stringifyYaml } from 'yaml';
 import type { CliIO } from './cli-io.js';
@@ -67,7 +69,7 @@ Commands:
   doctor        Check Node, browsers, identities and environment reachability
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   api-diff      Compare the OpenAPI contract with the endpoints the last explore observed: "api-diff [--environment <name>]"
-  config set    Change one testing.<type> scope decision after init
+  config set    Change one setting after init: "config set testing.<type> <decision>" or "config set ui.componentLibrary <library>"
   config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
   config show   Print the effective configuration and its relaxations: "config show [--explain]" also names the source layer of every value
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
@@ -215,6 +217,19 @@ function parseA11yTarget(values: Record<string, unknown>): Partial<A11yTargetAns
   return Object.keys(target).length === 0 ? undefined : target;
 }
 
+function parseComponentLibraryFlag(value: unknown): UiComponentLibrary | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const library = UiComponentLibrarySchema.safeParse(value);
+  if (!library.success) {
+    throw new QaError('INIT_OPTION_INVALID', `"${value}" is not valid for --component-library`, {
+      remediation: `Use one of: ${UiComponentLibrarySchema.options.join(', ')}.`,
+    });
+  }
+  return library.data;
+}
+
 async function dispatchInit(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const values = parseCommandArgs(rest, {
     json: { type: 'boolean', default: false },
@@ -229,6 +244,7 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     'a11y-wcag-version': { type: 'string' },
     'a11y-level': { type: 'string' },
     'a11y-best-practices': { type: 'boolean', default: false },
+    'component-library': { type: 'string' },
   });
   const json = values.json === true;
   const context = createCommandContext({
@@ -237,6 +253,7 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     json,
   });
   const a11yTarget = parseA11yTarget(values);
+  const componentLibrary = parseComponentLibraryFlag(values['component-library']);
   const e2e = parseTestingScopeFlag(typeof values.e2e === 'string' ? values.e2e : undefined, '--e2e');
   const api = parseTestingScopeFlag(typeof values.api === 'string' ? values.api : undefined, '--api');
   const a11y = parseTestingScopeFlag(typeof values.a11y === 'string' ? values.a11y : undefined, '--a11y');
@@ -257,6 +274,7 @@ async function dispatchInit(rest: readonly string[], dependencies: RunCliDepende
     ...(typeof values['source-path'] === 'string' ? { sourcePath: values['source-path'] } : {}),
     ...(typeof values['api-source'] === 'string' ? { apiSource: values['api-source'] } : {}),
     ...(a11yTarget !== undefined ? { a11yTarget } : {}),
+    ...(componentLibrary !== undefined ? { componentLibrary } : {}),
   });
   printResult(context.io, json, 'init', result, formatInitResult(result));
   return EXIT_SUCCESS;
@@ -313,7 +331,7 @@ async function dispatchConfigSet(rest: readonly string[], dependencies: RunCliDe
   const [key, value] = positionals;
   if (key === undefined || value === undefined) {
     throw new QaError('CONFIG_SET_USAGE', 'Usage: qa config set <key> <value>', {
-      remediation: 'Example: qa config set testing.api in-scope',
+      remediation: 'Example: qa config set testing.api in-scope or qa config set ui.componentLibrary none',
     });
   }
   const json = values.json;
