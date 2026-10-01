@@ -10,7 +10,7 @@ entries (`--pick <url>`), and writes the selector registry and a generated locat
 `qa explore --verify` re-checks stored selectors against the live page without re-crawling.
 `qa api-diff` compares the OpenAPI 3.x contract named by `api.source` (a file, an allowlisted URL or
 `discover`) with the endpoints the last explore observed and writes `selectors/api-diff.json`.
-`qa config set testing.<type> <value>` changes a scope decision after `init`; `qa config add
+`qa config set testing.<type> <value>` changes a scope decision after `init`, and `qa config set ui.componentLibrary <none|kendo-jquery|kendo-angular>` the UI component library (also `qa init --component-library`); `qa config add
 environment <name> --base-url <url> --allowlist <a,b,c>` and `qa config add identity <name> --auth
 <cdp-attach|storage-state> --secret <QA_...> [--login-url <url>] [--username <user>]` add a
 schema-validated entry instead of hand-editing `config.yaml`. `qa config show [--explain]` prints

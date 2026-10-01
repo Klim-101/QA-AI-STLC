@@ -247,6 +247,18 @@ export const DEFAULT_A11Y_CONFIG: A11yConfig = {
   exceptions: [],
 };
 
+// The UI component library the application under test is built with. It selects the profile that
+// teaches the explorer and the runners the library's widgets; the list grows as profiles ship.
+export const UiComponentLibrarySchema = z.enum(['none', 'kendo-jquery', 'kendo-angular']);
+export type UiComponentLibrary = z.infer<typeof UiComponentLibrarySchema>;
+
+export const UiConfigSchema = z.object({
+  componentLibrary: UiComponentLibrarySchema.default('none'),
+});
+export type UiConfig = z.infer<typeof UiConfigSchema>;
+
+export const DEFAULT_UI_CONFIG: UiConfig = { componentLibrary: 'none' };
+
 // RFC 9110 token characters: what a header name may contain.
 const HEADER_NAME_PATTERN = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;
 const HeaderNameSchema = z.string().regex(HEADER_NAME_PATTERN, 'must be a valid HTTP header name');
@@ -343,6 +355,7 @@ export const ConfigSchema = z
     evidence: EvidenceConfigSchema.default(DEFAULT_EVIDENCE_CONFIG),
     a11y: A11yConfigSchema.default(DEFAULT_A11Y_CONFIG),
     apiAuth: ApiAuthConfigSchema.default(DEFAULT_API_AUTH_CONFIG),
+    ui: UiConfigSchema.default(DEFAULT_UI_CONFIG),
   })
   // The testing scope survey (development plan section 2.7) is the single source of truth for
   // whether a contract or a source checkout is required; a config that claims API is in scope
@@ -397,6 +410,8 @@ export const CONFIG_SECTION_LAYERING: Readonly<Record<ConfigSectionName, ConfigS
   // Names the variables, token endpoint and headers a credential is read from and sent to, so an
   // override file must not be able to redirect one (ADR-0012).
   apiAuth: 'committed-only',
+  // Decides which widget profile locator synthesis and generated code use, so every machine must agree.
+  ui: 'committed-only',
 };
 
 /** True when `key` is a known section the local layer may set; unknown keys are never overridable. */
