@@ -25,6 +25,7 @@ const repoRoot = join(import.meta.dirname, '..');
 const outDir = join(repoRoot, 'adapters', 'claude-plugin');
 const agentsDir = join(repoRoot, 'agents');
 const hookSourcePath = join(repoRoot, 'scripts', 'claude-plugin', 'block-qa-writes.mjs');
+const readmeSourcePath = join(repoRoot, 'scripts', 'claude-plugin', 'README.md');
 const marketplaceJsonPath = join(repoRoot, '.claude-plugin', 'marketplace.json');
 
 const { default: pluginConfig } = await import(pathToFileURL(join(repoRoot, 'plugin.config.ts')).href);
@@ -102,6 +103,11 @@ function buildEvalCase(skillName, phrase, kind, index, files) {
   });
 }
 
+/** Reads a text file with LF endings so a Windows checkout (autocrlf) generates the same bytes as CI. */
+function readLfText(path) {
+  return readFileSync(path, 'utf8').replaceAll('\r\n', '\n');
+}
+
 async function buildFiles() {
   const files = new Map();
 
@@ -124,6 +130,12 @@ async function buildFiles() {
   copyDirectory(join(agentsDir, 'references'), 'references', files);
 
   files.set('hooks/block-qa-writes.mjs', { content: readFileSync(hookSourcePath, 'utf8') });
+
+  // The plugin folder is what people install, so the directory's listing (README, license) has to
+  // live inside it rather than only at the repository root.
+  files.set('README.md', { content: readLfText(readmeSourcePath) });
+  files.set('LICENSE', { content: readLfText(join(repoRoot, 'LICENSE')) });
+  files.set('NOTICE', { content: readLfText(join(repoRoot, 'NOTICE')) });
 
   const hooksJsonPath = join(outDir, 'hooks', 'hooks.json');
   files.set('hooks/hooks.json', {
