@@ -3,6 +3,7 @@
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import { assertUrlAllowed } from '../browser-allowlist.js';
+import { waitForBusyToClear } from '../browser-busy-wait.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
@@ -36,6 +37,7 @@ export async function runBrowserNavigate(
 
   const evidenceStore = createBrowserEvidenceStore(context.engine);
   const response = await session.page.goto(options.url, { timeout: session.navigationTimeoutMs });
+  await waitForBusyToClear(session);
   const httpStatus = response === null ? undefined : response.status();
   const url = session.page.url();
 

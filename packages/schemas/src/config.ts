@@ -254,10 +254,14 @@ export type UiComponentLibrary = z.infer<typeof UiComponentLibrarySchema>;
 
 export const UiConfigSchema = z.object({
   componentLibrary: UiComponentLibrarySchema.default('none'),
+  // CSS selectors of busy indicators specific to this application (spinners, overlays). Engine
+  // browser actions wait for them to clear, in addition to the ones the component-library profile
+  // declares.
+  busySelectors: z.array(z.string().min(1)).default([]),
 });
 export type UiConfig = z.infer<typeof UiConfigSchema>;
 
-export const DEFAULT_UI_CONFIG: UiConfig = { componentLibrary: 'none' };
+export const DEFAULT_UI_CONFIG: UiConfig = { componentLibrary: 'none', busySelectors: [] };
 
 // RFC 9110 token characters: what a header name may contain.
 const HEADER_NAME_PATTERN = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;

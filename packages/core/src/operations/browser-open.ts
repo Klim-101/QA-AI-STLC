@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Config, EnvironmentConfig, Evidence } from '@qa-ai-stlc/schemas';
+import type { Config, EnvironmentConfig, Evidence, UiComponentLibrary } from '@qa-ai-stlc/schemas';
 import { collectObservedRequestHeaderNames } from '../api-auth.js';
 import { observeRequestHeaders } from '../browser-request-observer.js';
 import type { BlockedRequest } from '../browser-safe-mode.js';
@@ -26,6 +26,12 @@ export interface BrowserOpenOptions {
    * mode never set this.
    */
   readonly executionMode?: boolean;
+  /**
+   * Busy selectors the configured component library declares. Core cannot see the explorer's
+   * profiles, so the host supplies this lookup; the session waits on these plus the project's own
+   * `ui.busySelectors` (P6-42).
+   */
+  readonly resolveLibraryBusySelectors?: (library: UiComponentLibrary) => readonly string[];
 }
 
 export interface BrowserOpenResult {
@@ -130,6 +136,12 @@ export async function runBrowserOpen(
       baseUrl: environment.config.baseUrl,
       navigationTimeoutMs: timeouts.navigationTimeoutMs,
       actionTimeoutMs: timeouts.actionTimeoutMs,
+      busySelectors: [
+        ...new Set([
+          ...(options.resolveLibraryBusySelectors?.(config.ui.componentLibrary) ?? []),
+          ...config.ui.busySelectors,
+        ]),
+      ],
       blockedRequests,
       observedRequestHeaders,
     });

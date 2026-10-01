@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
+import { waitForBusyToClear } from '../browser-busy-wait.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
@@ -35,7 +36,9 @@ export async function runBrowserFill(
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
 
+  await waitForBusyToClear(session);
   await session.page.fill(options.selector, options.value, { timeout: session.actionTimeoutMs });
+  await waitForBusyToClear(session);
   const url = session.page.url();
 
   const evidence = await registerBrowserAction({

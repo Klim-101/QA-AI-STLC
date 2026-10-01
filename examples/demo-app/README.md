@@ -56,6 +56,12 @@ ids generated per page load, popups attached to `body` and linked to their widge
 `GET /api/kendo/people`. It is plain script written from first principles, so its structure is a
 best reconstruction: P6-46 checks it against a real application. BUG-017 to BUG-019 live here.
 
+## Busy indicator fixture
+
+`/busy-fixture.html` (P6-42) shows a `.k-loading-mask` for a short time after load while its Save button
+ignores clicks; `?hold=1` keeps the mask forever. It exists to prove engine browser actions wait for
+busy indicators and fail with a coded error when one never clears.
+
 ## Tests
 
 `npm test --workspace @qa-ai-stlc/demo-app` runs a smoke suite (`src/server.test.ts`) covering the

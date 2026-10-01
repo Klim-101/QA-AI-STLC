@@ -68,6 +68,22 @@ async function storeWithSession(options: { readonly clock?: Clock; readonly idle
 }
 
 describe('BrowserSessionStore', () => {
+  it('has no busy selectors unless the session is opened with some (P6-42)', async () => {
+    const { store, session, parts } = await storeWithSession();
+    expect(session.busySelectors).toEqual([]);
+
+    const withSelectors = store.open({
+      ...parts,
+      allowlist: ['staging.example.test'],
+      baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
+      busySelectors: ['.mask'],
+      blockedRequests: [],
+    });
+    expect(withSelectors.busySelectors).toEqual(['.mask']);
+  });
+
   it('mints a session id and a run id, and copies the allowlist', async () => {
     const { store, session } = await storeWithSession();
 

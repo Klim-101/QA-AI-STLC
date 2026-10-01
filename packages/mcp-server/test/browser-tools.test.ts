@@ -296,6 +296,32 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
     });
   });
 
+  it("waits on the configured component library's busy selectors (P6-42)", async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'config.yaml'),
+        `${CONFIG_YAML}ui: { componentLibrary: kendo-jquery }
+`,
+        'utf-8',
+      );
+      const dependencies = createDependencies(createFakeBrowser());
+      const opened = await createBrowserOpenTool(dependencies).handler({ environment: 'staging' });
+
+      // The fake page answers every in-page evaluation with an axe-style result rather than
+      // `null`, which the wait must read as "a Kendo loading mask is still there".
+      const refused = await createBrowserClickTool(dependencies)
+        .handler({ sessionId: opened.sessionId, selector: '#save' })
+        .catch((caught: unknown) => caught);
+
+      expect(refused).toMatchObject({ code: 'BROWSER_BUSY_TIMEOUT' });
+
+      // Windows cannot delete a directory that is still the working directory.
+      process.chdir(originalCwd);
+    });
+  });
+
   it('rejects every tool call for a session that was never opened', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
