@@ -11,6 +11,23 @@ import { runBrowserNavigate } from './browser-navigate.js';
 import { runBrowserOpen } from './browser-open.js';
 
 describe('runBrowserNavigate', () => {
+  it('waits for busy indicators to clear once the page has loaded (P6-42)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { busySelectors: [".mask"] }
+`,
+      launcherOptions: { evaluateResult: null },
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/' });
+
+    expect(
+      harness.launcher.pageCalls
+        .map((call) => call.method)
+        .filter((method) => method === 'goto' || method === 'evaluate'),
+    ).toEqual(['goto', 'evaluate']);
+  });
+
   it('navigates an open session and registers the navigation', async () => {
     const harness = createBrowserTestHarness({ launcherOptions: { title: 'Staging home' } });
     const { sessionId } = await runBrowserOpen(harness.context);

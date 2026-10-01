@@ -373,7 +373,7 @@ describe('a11y config (P6-25)', () => {
 describe('ui config (P6-36)', () => {
   it('defaults to no component library', () => {
     expect(ConfigSchema.parse(validConfig()).ui).toStrictEqual(DEFAULT_UI_CONFIG);
-    expect(DEFAULT_UI_CONFIG).toStrictEqual({ componentLibrary: 'none' });
+    expect(DEFAULT_UI_CONFIG).toStrictEqual({ componentLibrary: 'none', busySelectors: [] });
   });
 
   it.each(['none', 'kendo-jquery', 'kendo-angular'] as const)(
@@ -384,6 +384,12 @@ describe('ui config (P6-36)', () => {
       expect(result.ui.componentLibrary).toBe(componentLibrary);
     },
   );
+
+  it('accepts project busy selectors and rejects an empty one (P6-42)', () => {
+    const accepted = ConfigSchema.parse({ ...validConfig(), ui: { busySelectors: ['.app-spinner'] } });
+    expect(accepted.ui.busySelectors).toEqual(['.app-spinner']);
+    expect(ConfigSchema.safeParse({ ...validConfig(), ui: { busySelectors: [''] } }).success).toBe(false);
+  });
 
   it('rejects an unknown component library', () => {
     expect(UiComponentLibrarySchema.safeParse('kendo-react').success).toBe(false);

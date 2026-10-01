@@ -3,11 +3,31 @@
 
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
+import {
+  BROWSER_TEST_CONFIG_YAML,
+  createBrowserTestHarness,
+} from '../test-support/browser-session-harness.js';
 import { runBrowserFill } from './browser-fill.js';
 import { runBrowserOpen } from './browser-open.js';
 
 describe('runBrowserFill', () => {
+  it('waits for busy indicators to clear before and after the fill (P6-42)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { busySelectors: [".mask"] }
+`,
+      launcherOptions: { evaluateResult: null },
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    await runBrowserFill(harness.context, { sessionId, selector: '#name', value: 'x' });
+
+    expect(
+      harness.launcher.pageCalls
+        .map((call) => call.method)
+        .filter((method) => method === 'evaluate' || method === 'fill'),
+    ).toEqual(['evaluate', 'fill', 'evaluate']);
+  });
+
   it('types into the field and records only how much was typed', async () => {
     const harness = createBrowserTestHarness();
     const { sessionId } = await runBrowserOpen(harness.context);

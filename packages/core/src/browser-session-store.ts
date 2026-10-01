@@ -27,6 +27,8 @@ export interface BrowserSession {
   /** The environment's resolved navigation/action timeouts (P6-23), fixed for the session's life. */
   readonly navigationTimeoutMs: number;
   readonly actionTimeoutMs: number;
+  /** Selectors of busy indicators every engine browser action waits to clear (P6-42), fixed for the session's life. */
+  readonly busySelectors: readonly string[];
   readonly createdAt: Date;
   readonly lastActivityAt: Date;
   /** Every non-GET request safe mode aborted during this session, in order. */
@@ -54,6 +56,8 @@ export interface OpenBrowserSessionOptions {
   readonly baseUrl: string;
   readonly navigationTimeoutMs: number;
   readonly actionTimeoutMs: number;
+  /** Omit for a session that never waits on busy indicators. */
+  readonly busySelectors?: readonly string[];
   /** The array safe mode's route handler pushes into, so the session can report what it blocked. */
   readonly blockedRequests: readonly BlockedRequest[];
   /** The map the request observer writes into; a fresh empty one when omitted. */
@@ -99,6 +103,7 @@ export class BrowserSessionStore {
       baseUrl: options.baseUrl,
       navigationTimeoutMs: options.navigationTimeoutMs,
       actionTimeoutMs: options.actionTimeoutMs,
+      busySelectors: [...(options.busySelectors ?? [])],
       createdAt: now,
       lastActivityAt: now,
       blockedRequests: options.blockedRequests,

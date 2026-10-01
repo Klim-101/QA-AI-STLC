@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import { ConfigSchema, type Config } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthBrowser } from '../ports/browser-launcher.js';
-import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
+import {
+  BROWSER_TEST_CONFIG_YAML,
+  createBrowserTestHarness,
+} from '../test-support/browser-session-harness.js';
 import { resolveBrowserEnvironment, runBrowserOpen } from './browser-open.js';
 
 function configWithEnvironments(environments: Config['environments']): Config {
@@ -76,6 +79,39 @@ describe('resolveBrowserEnvironment', () => {
 });
 
 describe('runBrowserOpen', () => {
+  it('merges the library profile and project busy selectors into the session, without repeats (P6-42)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { componentLibrary: kendo-jquery, busySelectors: [".app-spinner", ".k-loading-mask"] }
+`,
+    });
+    const requestedLibraries: string[] = [];
+
+    const { sessionId } = await runBrowserOpen(harness.context, {
+      resolveLibraryBusySelectors: (library) => {
+        requestedLibraries.push(library);
+        return ['.k-loading-mask', '.k-loader'];
+      },
+    });
+
+    expect(requestedLibraries).toEqual(['kendo-jquery']);
+    expect((await harness.sessions.get(sessionId)).busySelectors).toEqual([
+      '.k-loading-mask',
+      '.k-loader',
+      '.app-spinner',
+    ]);
+  });
+
+  it('waits on the project busy selectors alone when no library lookup is supplied (P6-42)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { busySelectors: [".app-spinner"] }
+`,
+    });
+
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    expect((await harness.sessions.get(sessionId)).busySelectors).toEqual(['.app-spinner']);
+  });
+
   it('opens a session and registers opening it as evidence', async () => {
     const harness = createBrowserTestHarness();
 

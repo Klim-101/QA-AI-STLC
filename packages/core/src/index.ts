@@ -30,6 +30,7 @@ export * from './api-auth.js';
 export * from './api-auth-module.js';
 export * from './api-auth-redaction.js';
 export * from './browser-allowlist.js';
+export * from './browser-busy-wait.js';
 export * from './browser-timeouts.js';
 export * from './browser-safe-mode.js';
 export * from './browser-session-store.js';

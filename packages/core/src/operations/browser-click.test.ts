@@ -12,6 +12,37 @@ import { runBrowserNavigate } from './browser-navigate.js';
 import { runBrowserOpen } from './browser-open.js';
 
 describe('runBrowserClick', () => {
+  it('waits for busy indicators to clear before and after the click (P6-42)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { busySelectors: [".mask"] }
+`,
+      launcherOptions: { evaluateResult: null },
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    await runBrowserClick(harness.context, { sessionId, selector: '#save' });
+
+    expect(
+      harness.launcher.pageCalls
+        .map((call) => call.method)
+        .filter((method) => method === 'evaluate' || method === 'click'),
+    ).toEqual(['evaluate', 'click', 'evaluate']);
+  });
+
+  it('does not click while an indicator never clears, and reports a coded error (P6-42)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { busySelectors: [".mask"] }
+`,
+      launcherOptions: { evaluateResult: '.mask' },
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    await expect(runBrowserClick(harness.context, { sessionId, selector: '#save' })).rejects.toMatchObject({
+      code: 'BROWSER_BUSY_TIMEOUT',
+    });
+    expect(harness.launcher.pageCalls.filter((call) => call.method === 'click')).toEqual([]);
+  });
+
   it('clicks the selector and registers the click against the current URL', async () => {
     const harness = createBrowserTestHarness();
     const { sessionId } = await runBrowserOpen(harness.context);
