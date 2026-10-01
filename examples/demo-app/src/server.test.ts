@@ -1,8 +1,10 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { KENDO_PEOPLE_TOTAL } from './routes/kendo.js';
 import { DEMO_CLIENT_ID, DEMO_CLIENT_SECRET } from './routes/oauth.js';
 import { createApp } from './server.js';
 
@@ -235,5 +237,67 @@ describe('fake OAuth2 token endpoint', () => {
     await request(app).post('/oauth/token').type('form').send(credentials);
 
     expect((await request(app).get('/oauth/issued')).body).toEqual({ issued: 2 });
+  });
+});
+
+describe('Kendo UI for jQuery fixture', () => {
+  async function publicFile(name: string): Promise<string> {
+    return readFile(new URL(`../public/${name}`, import.meta.url), 'utf8');
+  }
+
+  it('serves the fixture page and the third-party assets it loads from dev dependencies', async () => {
+    const app = createApp();
+    const responses = await Promise.all(
+      [
+        '/kendo-jquery.html',
+        '/vendor/jquery/jquery.min.js',
+        '/vendor/kendo/kendo.ui.core.min.js',
+        '/vendor/kendo-theme/all.css',
+      ].map((path) => request(app).get(path)),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200]);
+  });
+
+  it('pages through the people API', async () => {
+    const page = await request(createApp()).get('/api/kendo/people?skip=10&take=10');
+    const body = page.body as { total: number; items: { id: number }[] };
+
+    expect(body.total).toBe(KENDO_PEOPLE_TOTAL);
+    expect(body.items.map((person) => person.id)).toEqual([11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+  });
+
+  it('defaults and bounds the paging parameters', async () => {
+    const app = createApp();
+    const defaults = await request(app).get('/api/kendo/people?skip=-3&take=abc');
+    const oversized = await request(app).get('/api/kendo/people?take=100000');
+
+    expect((defaults.body as { items: unknown[] }).items).toHaveLength(10);
+    expect((oversized.body as { items: unknown[] }).items).toHaveLength(100);
+  });
+
+  it('BUG-013: drops the last row of a page that runs past the end', async () => {
+    const page = await request(createApp()).get('/api/kendo/people?skip=110&take=10');
+    const ids = (page.body as { items: { id: number }[] }).items.map((person) => person.id);
+
+    expect(ids).toEqual([111, 112, 113, 114, 115, 116]);
+  });
+
+  it('BUG-014: creates the due-date DatePicker without a minimum', async () => {
+    const script = await publicFile('kendo-jquery.js');
+
+    expect(script).toContain("kendoDatePicker({ format: 'yyyy-MM-dd' })");
+  });
+
+  it('BUG-015: leaves the Priority label unassociated with its control', async () => {
+    const page = await publicFile('kendo-jquery.html');
+
+    expect(page).toContain('<label>Priority</label>');
+  });
+
+  it('BUG-016: never writes the applied note out of the edit window', async () => {
+    const script = await publicFile('kendo-jquery.js');
+
+    expect(script).not.toContain('applied-note');
   });
 });

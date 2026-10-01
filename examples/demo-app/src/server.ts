@@ -7,6 +7,7 @@ import session from 'express-session';
 import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { createKendoRouter } from './routes/kendo.js';
 import { createOAuthRouter } from './routes/oauth.js';
 import { createOpenApiRouter } from './routes/openapi.js';
 import { tasksRouter } from './routes/tasks.js';
@@ -36,6 +37,7 @@ export function createApp(): express.Express {
   app.use(tasksRouter);
   app.use(adminRouter);
   app.use(createOAuthRouter());
+  app.use(createKendoRouter());
   app.use(createOpenApiRouter());
 
   app.use((_request, response) => {

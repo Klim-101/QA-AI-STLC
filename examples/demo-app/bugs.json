@@ -96,6 +96,38 @@
       "severity": "major",
       "location": "src/server.ts",
       "description": "The session cookie is configured with `httpOnly: false`, making it readable from client-side script and increasing the impact of any script-injection vulnerability."
+    },
+    {
+      "id": "BUG-013",
+      "title": "Kendo fixture people API drops the last row of a partial page",
+      "category": "functional",
+      "severity": "major",
+      "location": "GET /api/kendo/people (src/routes/kendo.ts)",
+      "description": "When a requested page runs past the end of the data, the slice stops one row early, so the paged grid shows 6 rows on its last page instead of 7 and the virtual-scrolling grid never reaches the final person."
+    },
+    {
+      "id": "BUG-014",
+      "title": "Kendo fixture due date accepts dates in the past",
+      "category": "functional",
+      "severity": "minor",
+      "location": "public/kendo-jquery.js",
+      "description": "The due-date DatePicker is labelled \"today or later\" but is created without a `min`, so any past date can be picked or typed."
+    },
+    {
+      "id": "BUG-015",
+      "title": "Kendo fixture priority label is not associated with its control",
+      "category": "accessibility",
+      "severity": "major",
+      "location": "public/kendo-jquery.html",
+      "description": "The Priority label has no `for` attribute, so the DropDownList has no accessible name and a screen reader announces an unlabelled combobox."
+    },
+    {
+      "id": "BUG-016",
+      "title": "Kendo fixture edit window Apply discards the note",
+      "category": "functional",
+      "severity": "major",
+      "location": "public/kendo-jquery.js",
+      "description": "The window's Apply button closes the window without copying the note out, so the \"applied note\" status never changes."
     }
   ]
 }
