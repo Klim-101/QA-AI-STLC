@@ -140,4 +140,27 @@ export function dismissWithEscape(element: PageElement): void {
   target.dispatchEvent(new KeyboardEvent('keyup', init));
 }
 
+interface SelectElement {
+  readonly tagName: string;
+  readonly multiple: boolean;
+  readonly options: ArrayLike<{ readonly label: string; readonly selected: boolean }>;
+}
+
+/**
+ * What a native select offers and has chosen, by the label a user reads; null when the
+ * element is not a native select, which is how a widget is told from the control it replaces.
+ */
+export function inspectNativeSelect(rawElement: unknown): unknown {
+  const element = rawElement as SelectElement;
+  if (element.tagName !== 'SELECT') {
+    return null;
+  }
+  const options = Array.from(element.options);
+  return {
+    isMultiple: element.multiple,
+    optionLabels: options.map((option) => option.label),
+    selectedLabels: options.filter((option) => option.selected).map((option) => option.label),
+  };
+}
+
 /* v8 ignore stop */

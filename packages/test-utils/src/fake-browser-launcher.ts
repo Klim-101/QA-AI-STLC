@@ -68,6 +68,7 @@ export interface AuthPageLike {
   click(selector: string): Promise<void>;
   press(selector: string, key: string): Promise<void>;
   hover(selector: string): Promise<void>;
+  selectOption(selector: string, options: readonly { readonly label: string }[]): Promise<unknown>;
   setChecked(selector: string, checked: boolean): Promise<void>;
   readonly keyboard: { press(key: string): Promise<void> };
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
@@ -124,6 +125,7 @@ export interface FakePageCall {
     | 'click'
     | 'press'
     | 'hover'
+    | 'selectOption'
     | 'setChecked'
     | 'keyboardPress'
     | 'waitForLoadState'
@@ -253,6 +255,10 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
     hover: (...args) => {
       calls.push({ method: 'hover', args });
       return Promise.resolve();
+    },
+    selectOption: (...args) => {
+      calls.push({ method: 'selectOption', args });
+      return Promise.resolve([]);
     },
     setChecked: (...args) => {
       calls.push({ method: 'setChecked', args });

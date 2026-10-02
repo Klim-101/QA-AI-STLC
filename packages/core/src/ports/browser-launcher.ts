@@ -79,6 +79,12 @@ export interface AuthPage {
   /** Focuses the element, then presses a key or chord (`Enter`, `Control+a`) on it. */
   press(selector: string, key: string, options?: PageActionOptions): Promise<void>;
   hover(selector: string, options?: PageActionOptions): Promise<void>;
+  /** Picks the options of a native select whose visible label equals each given one, replacing its selection. */
+  selectOption(
+    selector: string,
+    options: readonly { readonly label: string }[],
+    pageOptions?: PageActionOptions,
+  ): Promise<unknown>;
   /** Sets a checkbox or radio to `checked`; Playwright fails when the state does not change. */
   setChecked(selector: string, checked: boolean, options?: PageActionOptions): Promise<void>;
   /** The page's keyboard, which presses a key on whatever element has focus. */

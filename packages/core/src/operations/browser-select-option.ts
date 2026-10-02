@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { waitForBusyToClear } from '../browser-busy-wait.js';
+import { selectNativeOption } from '../browser-native-select.js';
 import type { BrowserSession } from '../browser-session-store.js';
 import { optionSelector, setWidgetPopup, verifyDisplayedText } from '../browser-widget.js';
 import { readOptionSelected } from '../browser-widget-page.js';
@@ -52,6 +53,9 @@ export function runBrowserSelectOption(
     type: 'select-option',
     valueLength: options.optionText.length,
     async perform(session, selector) {
+      if (await selectNativeOption(session, selector, options.optionText)) {
+        return;
+      }
       const opened = await setWidgetPopup(session, selector, true);
       const option = optionSelector(opened.inspection, options.optionText);
 
