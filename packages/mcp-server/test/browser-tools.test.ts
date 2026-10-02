@@ -18,12 +18,15 @@ import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeEngineContext } from '../src/engine-context.js';
 import { createBrowserAccessibilityScanTool } from '../src/tools/browser-accessibility-scan.js';
+import { createBrowserCheckTool } from '../src/tools/browser-check.js';
 import { createBrowserClickTool } from '../src/tools/browser-click.js';
 import { createBrowserCloseTool } from '../src/tools/browser-close.js';
 import { createBrowserExpectTool } from '../src/tools/browser-expect.js';
 import { createBrowserFillTool } from '../src/tools/browser-fill.js';
+import { createBrowserHoverTool } from '../src/tools/browser-hover.js';
 import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
+import { createBrowserPressTool } from '../src/tools/browser-press.js';
 import { createBrowserSnapshotTool } from '../src/tools/browser-snapshot.js';
 import type { BrowserToolDependencies } from '../src/tools/browser-dependencies.js';
 import { createRegistryExecuteRegisterTool } from '../src/tools/registry-execute-register.js';
@@ -77,6 +80,24 @@ function createFakeBrowser(): FakeBrowser {
     click: (selector) => {
       calls.push(`click ${selector}`);
       return Promise.resolve();
+    },
+    press: (selector, key) => {
+      calls.push(`press ${selector} ${key}`);
+      return Promise.resolve();
+    },
+    hover: (selector) => {
+      calls.push(`hover ${selector}`);
+      return Promise.resolve();
+    },
+    setChecked: (selector, checked) => {
+      calls.push(`setChecked ${selector} ${String(checked)}`);
+      return Promise.resolve();
+    },
+    keyboard: {
+      press: (key) => {
+        calls.push(`keyboard ${key}`);
+        return Promise.resolve();
+      },
     },
     waitForLoadState: () => Promise.resolve(),
     route: (_pattern, handler) => {
@@ -306,6 +327,42 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       expect(refused).toMatchObject({ code: 'BROWSER_TARGET_INVALID' });
 
       await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('presses a key, hovers and checks a box, registering each as evidence', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const opened = await createBrowserOpenTool(dependencies).handler({});
+      const { sessionId } = opened;
+
+      const pressed = await createBrowserPressTool(dependencies).handler({
+        sessionId,
+        key: 'Enter',
+        selector: '#password',
+      });
+      const hovered = await createBrowserHoverTool(dependencies).handler({ sessionId, selector: '#menu' });
+      // The fake page cannot report a box state, so the read-back fails honestly.
+      const checked = await createBrowserCheckTool(dependencies)
+        .handler({ sessionId, selector: '#agree' })
+        .catch((caught: unknown) => caught);
+
+      expect(fake.calls).toEqual(['press #password Enter', 'hover #menu', 'setChecked #agree true']);
+      expect(pressed).toMatchObject({ key: 'Enter', selector: '#password' });
+      expect(hovered).toMatchObject({ selector: '#menu' });
+      expect(checked).toMatchObject({ code: 'BROWSER_CHECK_NOT_APPLIED' });
+      const stored = JSON.parse(
+        await readFile(join(projectRoot, '.qa', ...pressed.evidence.path.split('/')), 'utf-8'),
+      ) as { type: string; key: string };
+      expect(stored).toMatchObject({ type: 'press', key: 'Enter' });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId });
       process.chdir(originalCwd);
     });
   });

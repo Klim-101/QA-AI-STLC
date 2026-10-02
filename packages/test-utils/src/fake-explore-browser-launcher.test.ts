@@ -87,6 +87,10 @@ describe('createFakeExploreBrowserLauncher', () => {
     await expect(page.setViewportSize({ width: 100, height: 100 })).resolves.toBeUndefined();
     await expect(page.fill('input', 'x')).resolves.toBeUndefined();
     await expect(page.click('button')).resolves.toBeUndefined();
+    await expect(page.press('input', 'Enter')).resolves.toBeUndefined();
+    await expect(page.hover('a')).resolves.toBeUndefined();
+    await expect(page.setChecked('#box', true)).resolves.toBeUndefined();
+    await expect(page.keyboard.press('Escape')).resolves.toBeUndefined();
     await expect(page.waitForLoadState()).resolves.toBeUndefined();
     await expect(page.route('**/*', () => undefined)).resolves.toBeUndefined();
   });

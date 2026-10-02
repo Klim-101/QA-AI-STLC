@@ -59,6 +59,10 @@ export interface BrowserActionDetails {
   readonly ref?: BrowserActionRef;
   /** What an `expect` action checked and the verdict (P6-55). */
   readonly expectation?: BrowserExpectation;
+  /** The key a `press` action sent, already redacted when it was a lone character (P6-56). */
+  readonly key?: string;
+  /** The state a `check` action read back from the box (P6-56). */
+  readonly checked?: boolean;
   /** The length of a filled value. The value itself is never recorded (AGENTS.md 5.8). */
   readonly valueLength?: number;
   readonly httpStatus?: number;
@@ -91,6 +95,8 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
     ...(options.action.selector !== undefined ? { selector: options.action.selector } : {}),
     ...(options.action.ref !== undefined ? { ref: options.action.ref } : {}),
     ...(options.action.expectation !== undefined ? { expectation: options.action.expectation } : {}),
+    ...(options.action.key !== undefined ? { key: options.action.key } : {}),
+    ...(options.action.checked !== undefined ? { checked: options.action.checked } : {}),
     ...(options.action.valueLength !== undefined ? { valueLength: options.action.valueLength } : {}),
     ...(options.action.httpStatus !== undefined ? { httpStatus: options.action.httpStatus } : {}),
     at: options.now.toISOString(),

@@ -15,6 +15,10 @@ function fakePage(
     goto: () => Promise.resolve(null),
     fill: () => Promise.resolve(),
     click: () => Promise.resolve(),
+    press: () => Promise.resolve(),
+    hover: () => Promise.resolve(),
+    setChecked: () => Promise.resolve(),
+    keyboard: { press: () => Promise.resolve() },
     waitForLoadState: () => Promise.resolve(),
     route: () => Promise.resolve(),
     evaluate: (_pageFunction, arg) => {

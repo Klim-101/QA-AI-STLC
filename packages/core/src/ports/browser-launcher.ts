@@ -76,6 +76,13 @@ export interface AuthPage {
   goto(url: string, options?: PageActionOptions): Promise<PageResponse | null>;
   fill(selector: string, value: string, options?: PageActionOptions): Promise<void>;
   click(selector: string, options?: PageActionOptions): Promise<void>;
+  /** Focuses the element, then presses a key or chord (`Enter`, `Control+a`) on it. */
+  press(selector: string, key: string, options?: PageActionOptions): Promise<void>;
+  hover(selector: string, options?: PageActionOptions): Promise<void>;
+  /** Sets a checkbox or radio to `checked`; Playwright fails when the state does not change. */
+  setChecked(selector: string, checked: boolean, options?: PageActionOptions): Promise<void>;
+  /** The page's keyboard, which presses a key on whatever element has focus. */
+  readonly keyboard: { press(key: string): Promise<void> };
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
   /** Intercepts every request matching `pattern` (a glob, per Playwright's own syntax). */
   route(pattern: string, handler: RouteHandler): Promise<unknown>;
