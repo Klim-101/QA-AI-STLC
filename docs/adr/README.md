@@ -16,6 +16,7 @@ An ADR records one significant, hard-to-reverse decision: the context that force
 | [ADR-010](0010-generation-contract.md)                               | Generation contract                               | Accepted |
 | [ADR-011](0011-layered-project-configuration.md)                     | Layered project configuration                     | Accepted |
 | [ADR-012](0012-api-authentication-profiles.md)                       | API authentication profiles                       | Accepted |
+| [ADR-013](0013-browser-toolset-parity-and-compact-page-views.md)     | Browser toolset parity and compact page views     | Accepted |
 
 New ADRs are numbered sequentially and never renumbered or deleted. A decision that is later reversed gets a new ADR that supersedes the old one; the old one stays, marked `Superseded by ADR-0NN`.
 
