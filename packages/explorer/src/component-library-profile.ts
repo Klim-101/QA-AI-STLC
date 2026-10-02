@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuthPage } from '@qa-ai-stlc/core';
+import type { AuthPage, WidgetTarget } from '@qa-ai-stlc/core';
 import type { UiComponentLibrary } from '@qa-ai-stlc/schemas';
 import { KENDO_ANGULAR_PROFILE } from './profiles/kendo-angular.js';
 import { KENDO_JQUERY_PROFILE } from './profiles/kendo-jquery.js';
@@ -23,6 +23,31 @@ export interface WidgetRecognizer {
    * `input` or `select`). They are not registered separately: the wrapper represents them.
    */
   readonly nativeControlSelector?: string;
+  /**
+   * What the engine can do to this widget (P6-43): `select-option` picks an option of its list by
+   * visible text, `set-date` types a date, `popup` opens and closes its popup. The generated
+   * locator module gets a helper per action; omitted, the widget has none.
+   */
+  readonly actions?: readonly WidgetAction[];
+  /**
+   * CSS selector, relative to the wrapper, of the control that opens the widget's popup, when
+   * clicking the wrapper itself does not (a drop-down button, an inner input).
+   */
+  readonly popupToggleSelector?: string;
+}
+
+export type WidgetAction = 'select-option' | 'set-date' | 'popup';
+
+/** The widgets a profile gives actions to, in the shape the engine's browser session takes. */
+export function listWidgetTargets(profile: ComponentLibraryProfile | undefined): readonly WidgetTarget[] {
+  return (profile?.widgets ?? [])
+    .filter((widget) => (widget.actions ?? []).length > 0)
+    .map((widget) => ({
+      wrapperSelector: widget.wrapperSelector,
+      ...(widget.popupToggleSelector === undefined
+        ? {}
+        : { popupToggleSelector: widget.popupToggleSelector }),
+    }));
 }
 
 /**

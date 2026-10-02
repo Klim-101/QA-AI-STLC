@@ -14,6 +14,16 @@ import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
  */
 export const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * One kind of component-library widget the widget actions (P6-43) can drive: the actions find the
+ * widget wrapper by `wrapperSelector`, whichever element inside it a locator resolved to, and open
+ * its popup by clicking `popupToggleSelector` inside it (the wrapper itself when there is none).
+ */
+export interface WidgetTarget {
+  readonly wrapperSelector: string;
+  readonly popupToggleSelector?: string;
+}
+
 export interface BrowserSession {
   readonly sessionId: string;
   /** The run every piece of evidence this session registers is filed under (`.qa/evidence/<runId>/`). */
@@ -29,6 +39,8 @@ export interface BrowserSession {
   readonly actionTimeoutMs: number;
   /** Selectors of busy indicators every engine browser action waits to clear (P6-42), fixed for the session's life. */
   readonly busySelectors: readonly string[];
+  /** The widgets the widget actions (P6-43) know how to drive, fixed for the session's life. */
+  readonly widgetTargets: readonly WidgetTarget[];
   readonly createdAt: Date;
   readonly lastActivityAt: Date;
   /** Every non-GET request safe mode aborted during this session, in order. */
@@ -58,6 +70,8 @@ export interface OpenBrowserSessionOptions {
   readonly actionTimeoutMs: number;
   /** Omit for a session that never waits on busy indicators. */
   readonly busySelectors?: readonly string[];
+  /** Omit for a session with no component library: the widget actions then work on the element as given. */
+  readonly widgetTargets?: readonly WidgetTarget[];
   /** The array safe mode's route handler pushes into, so the session can report what it blocked. */
   readonly blockedRequests: readonly BlockedRequest[];
   /** The map the request observer writes into; a fresh empty one when omitted. */
@@ -104,6 +118,7 @@ export class BrowserSessionStore {
       navigationTimeoutMs: options.navigationTimeoutMs,
       actionTimeoutMs: options.actionTimeoutMs,
       busySelectors: [...(options.busySelectors ?? [])],
+      widgetTargets: [...(options.widgetTargets ?? [])],
       createdAt: now,
       lastActivityAt: now,
       blockedRequests: options.blockedRequests,

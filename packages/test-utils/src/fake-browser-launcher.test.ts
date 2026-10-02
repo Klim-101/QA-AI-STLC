@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { createFakeBrowserLauncher } from './fake-browser-launcher.js';
+import { createFakeBrowserLauncher, evaluateNothing } from './fake-browser-launcher.js';
 
 describe('createFakeBrowserLauncher', () => {
   it('closes a context created through launch() without error', async () => {
@@ -83,6 +83,36 @@ describe('createFakeBrowserLauncher', () => {
       'ariaSnapshotJSON',
       'addScriptTag',
     ]);
+  });
+
+  it('answers locator().evaluate() with nothing unless a handler is scripted', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await expect(page.locator('#x').evaluate(() => 'ignored', undefined)).resolves.toBeUndefined();
+    await expect(evaluateNothing()).resolves.toBeUndefined();
+  });
+
+  it('answers locator(selector).evaluate() through the scripted handler and records the call', async () => {
+    const launcher = createFakeBrowserLauncher({
+      locatorEvaluate: ({ selector, functionName, arg }) =>
+        `${String(selector)}|${functionName}|${String(arg)}`,
+    });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    const answer = await page.locator('#x').evaluate(
+      function readThing() {
+        return undefined;
+      },
+      'arg',
+      { timeout: 5 },
+    );
+
+    expect(answer).toBe('#x|readThing|arg');
+    expect(launcher.pageCalls.at(-1)).toEqual({
+      method: 'locatorEvaluate',
+      args: ['#x', 'readThing', 'arg', { timeout: 5 }],
+    });
   });
 
   it('returns the configured gotoResponse, evaluateResult and ariaSnapshotResult', async () => {

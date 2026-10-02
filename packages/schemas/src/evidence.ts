@@ -19,7 +19,19 @@ export const EvidenceKindSchema = z.enum([
 ]);
 export type EvidenceKind = z.infer<typeof EvidenceKindSchema>;
 
-export const BrowserActionTypeSchema = z.enum(['open', 'navigate', 'click', 'fill', 'snapshot', 'close']);
+export const BrowserActionTypeSchema = z.enum([
+  'open',
+  'navigate',
+  'click',
+  'fill',
+  // Component-library widget actions (P6-43): each one verified the widget's resulting state.
+  'select-option',
+  'set-date',
+  'open-popup',
+  'close-popup',
+  'snapshot',
+  'close',
+]);
 export type BrowserActionType = z.infer<typeof BrowserActionTypeSchema>;
 
 // The body of an `action` evidence record (ADR-005): what the engine did, where, and when. A

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserOpen } from '@qa-ai-stlc/core';
-import { resolveComponentLibraryProfile } from '@qa-ai-stlc/explorer';
+import { listWidgetTargets, resolveComponentLibraryProfile } from '@qa-ai-stlc/explorer';
 import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { toBrowserOperationContext, type BrowserToolDependencies } from './browser-dependencies.js';
@@ -54,6 +54,7 @@ export function createBrowserOpenTool(
         ...(input.executionMode !== undefined ? { executionMode: input.executionMode } : {}),
         resolveLibraryBusySelectors: (library) =>
           resolveComponentLibraryProfile(library)?.busySelectors ?? [],
+        resolveLibraryWidgets: (library) => listWidgetTargets(resolveComponentLibraryProfile(library)),
       });
       return { ...result, allowlist: [...result.allowlist] };
     },

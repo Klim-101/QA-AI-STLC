@@ -112,6 +112,27 @@ describe('runBrowserOpen', () => {
     expect((await harness.sessions.get(sessionId)).busySelectors).toEqual(['.app-spinner']);
   });
 
+  it('gives the session the widgets the library lookup returns, and none without a lookup (P6-43)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: `${BROWSER_TEST_CONFIG_YAML}ui: { componentLibrary: kendo-jquery }
+`,
+    });
+    const requestedLibraries: string[] = [];
+    const widgets = [{ wrapperSelector: '.w', popupToggleSelector: '.t' }];
+
+    const withLookup = await runBrowserOpen(harness.context, {
+      resolveLibraryWidgets: (library) => {
+        requestedLibraries.push(library);
+        return widgets;
+      },
+    });
+    const withoutLookup = await runBrowserOpen(harness.context);
+
+    expect(requestedLibraries).toEqual(['kendo-jquery']);
+    expect((await harness.sessions.get(withLookup.sessionId)).widgetTargets).toEqual(widgets);
+    expect((await harness.sessions.get(withoutLookup.sessionId)).widgetTargets).toEqual([]);
+  });
+
   it('opens a session and registers opening it as evidence', async () => {
     const harness = createBrowserTestHarness();
 

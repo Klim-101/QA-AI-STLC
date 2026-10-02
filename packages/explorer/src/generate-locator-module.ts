@@ -2,11 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { QaError } from '@qa-ai-stlc/core';
-import type { LocatorCandidate, SelectorElement, SelectorRegistry } from '@qa-ai-stlc/schemas';
+import type {
+  LocatorCandidate,
+  SelectorElement,
+  SelectorRegistry,
+  UiComponentLibrary,
+} from '@qa-ai-stlc/schemas';
+import {
+  BUILT_IN_PROFILES,
+  type ComponentLibraryProfiles,
+  type WidgetAction,
+  type WidgetRecognizer,
+} from './component-library-profile.js';
+import { WIDGET_RUNTIME_SOURCE } from './widget-runtime-source.js';
 
 export interface GenerateLocatorModuleOptions {
   /** Stamped into the module header and `GENERATOR_VERSION` so a stale file can be detected. */
   readonly generatorVersion: string;
+  /** Overrides the shipped component-library profiles; a test seam, unset in production. */
+  readonly profiles?: ComponentLibraryProfiles;
 }
 
 export interface MissingLocatorElement {
@@ -78,6 +92,73 @@ function toGeneratableEntry(element: SelectorElement & { name: string }): Genera
   return primary === undefined ? undefined : { element, primary };
 }
 
+function findWidgetRecognizer(
+  element: SelectorElement,
+  profiles: ComponentLibraryProfiles,
+): WidgetRecognizer | undefined {
+  if (element.library === undefined) {
+    return undefined;
+  }
+  const profile = profiles[element.library as UiComponentLibrary];
+  return profile?.widgets.find((widget) => widget.widgetKind === element.kind);
+}
+
+interface WidgetHelperContext {
+  readonly name: string;
+  /** The expression that finds the widget wrapper from the element's own locator. */
+  readonly root: string;
+  /** The `, "<selector>"` argument naming the widget's popup toggle, empty when it has none. */
+  readonly toggleArgument: string;
+}
+
+interface WidgetHelper {
+  readonly exportName: string;
+  readonly source: string;
+}
+
+function helper(exportName: string, parameters: string, call: string): WidgetHelper {
+  return {
+    exportName,
+    source: `export async function ${exportName}(page: Page${parameters}): Promise<void> {\n  await ${call};\n}`,
+  };
+}
+
+// Keyed by `WidgetAction`, so adding an action to the profile type fails to compile until the
+// module knows how to render it.
+const WIDGET_HELPER_RENDERERS: Record<WidgetAction, (context: WidgetHelperContext) => WidgetHelper[]> = {
+  'select-option': ({ name, root, toggleArgument }) => [
+    helper(
+      `${name}SelectOption`,
+      ', optionText: string',
+      `selectWidgetOption(${root}, optionText${toggleArgument})`,
+    ),
+  ],
+  'set-date': ({ name, root }) => [
+    helper(`${name}SetDate`, ', value: string', `setWidgetDate(${root}, value)`),
+  ],
+  popup: ({ name, root, toggleArgument }) => [
+    helper(`${name}OpenPopup`, '', `setWidgetPopup(${root}, true${toggleArgument})`),
+    helper(`${name}ClosePopup`, '', `setWidgetPopup(${root}, false${toggleArgument})`),
+  ],
+};
+
+// One helper per action the widget's profile declares (P6-43), so a generated spec calls
+// `statusSelectOption(page, 'Open')` instead of replaying the click sequence that opens the list.
+// The helpers share the runtime in `widget-runtime-source.ts`, which the module carries itself:
+// a generated spec must not depend on this framework at run time.
+function renderWidgetHelpers(
+  element: SelectorElement & { name: string },
+  widget: WidgetRecognizer,
+): WidgetHelper[] {
+  const context: WidgetHelperContext = {
+    name: element.name,
+    root: `widgetRoot(${element.name}(page), ${JSON.stringify(widget.wrapperSelector)})`,
+    toggleArgument:
+      widget.popupToggleSelector === undefined ? '' : `, ${JSON.stringify(widget.popupToggleSelector)}`,
+  };
+  return (widget.actions ?? []).flatMap((action) => WIDGET_HELPER_RENDERERS[action](context));
+}
+
 function byName(a: GeneratableEntry, b: GeneratableEntry): number {
   return a.element.name.localeCompare(b.element.name);
 }
@@ -111,6 +192,16 @@ export function generateLocatorModule(
       `export function ${element.name}(page: Page): Locator {\n  return ${locatorCall(primary)};\n}`,
   );
 
+  const profiles = options.profiles ?? BUILT_IN_PROFILES;
+  const exportedNames = new Set(generatable.map(({ element }) => element.name));
+  // A helper never replaces the locator function of another element that happens to share its name.
+  const widgetHelpers = generatable
+    .flatMap(({ element }) => {
+      const widget = findWidgetRecognizer(element, profiles);
+      return widget === undefined ? [] : renderWidgetHelpers(element, widget);
+    })
+    .filter((helper) => !exportedNames.has(helper.exportName));
+
   const header = [
     '// Copyright The QA-AI-STLC Authors',
     '// SPDX-License-Identifier: Apache-2.0',
@@ -123,7 +214,9 @@ export function generateLocatorModule(
     `export const GENERATOR_VERSION = ${JSON.stringify(options.generatorVersion)};`,
   ].join('\n');
 
-  const source = `${[header, ...functions].join('\n\n')}\n`;
+  const widgetSection =
+    widgetHelpers.length === 0 ? [] : [...widgetHelpers.map((entry) => entry.source), WIDGET_RUNTIME_SOURCE];
+  const source = `${[header, ...functions, ...widgetSection].join('\n\n')}\n`;
 
   return { source, missingLocators };
 }

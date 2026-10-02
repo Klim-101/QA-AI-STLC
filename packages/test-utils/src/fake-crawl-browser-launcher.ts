@@ -13,6 +13,7 @@ import type {
   RouteHandlerLike,
   StorageStateLike,
 } from './fake-browser-launcher.js';
+import { evaluateNothing } from './fake-browser-launcher.js';
 
 const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
 const DEFAULT_RESPONSE: PageResponseLike = { status: () => 200 };
@@ -70,7 +71,7 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
   }
 
   function locator(): PageLocatorLike {
-    return { count: () => Promise.resolve(nextLocatorCount()) };
+    return { count: () => Promise.resolve(nextLocatorCount()), evaluate: evaluateNothing };
   }
 
   return {

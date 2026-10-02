@@ -4,6 +4,7 @@
 import { SCHEMA_VERSION } from '@qa-ai-stlc/schemas';
 import type { SelectorElement, SelectorRegistry } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
+import type { ComponentLibraryProfiles } from './component-library-profile.js';
 import { generateLocatorModule } from './generate-locator-module.js';
 
 function selectorElement(overrides: Partial<SelectorElement> = {}): SelectorElement {
@@ -180,5 +181,77 @@ describe('generateLocatorModule', () => {
 
     expect(source).not.toContain('function submit');
     expect(missingLocators).toEqual([]);
+  });
+
+  describe('widget helpers (P6-43)', () => {
+    const widget = (overrides: Partial<SelectorElement> = {}): SelectorElement =>
+      selectorElement({ name: 'status', kind: 'dropdownlist', library: 'kendo-jquery', ...overrides });
+
+    it('renders a select helper for a drop-down and the runtime it calls', () => {
+      const { source } = generateLocatorModule(registry([widget()]), { generatorVersion: '0.3.0' });
+
+      expect(source).toContain(
+        'export async function statusSelectOption(page: Page, optionText: string): Promise<void> {\n  await selectWidgetOption(widgetRoot(status(page), "span.k-dropdownlist"), optionText);\n}',
+      );
+      expect(source).toContain('export async function statusOpenPopup(page: Page): Promise<void> {');
+      expect(source).toContain(
+        'await setWidgetPopup(widgetRoot(status(page), "span.k-dropdownlist"), false);',
+      );
+      expect(source).toContain('async function selectWidgetOption(');
+      expect(source).not.toContain('statusSetDate');
+    });
+
+    it('renders a date helper for a date picker and passes the popup toggle on', () => {
+      const { source } = generateLocatorModule(registry([widget({ name: 'due', kind: 'datepicker' })]), {
+        generatorVersion: '0.3.0',
+      });
+
+      expect(source).toContain('await setWidgetDate(widgetRoot(due(page), "span.k-datepicker"), value);');
+      expect(source).toContain(
+        'await setWidgetPopup(widgetRoot(due(page), "span.k-datepicker"), true, ".k-input-button, .k-select");',
+      );
+      expect(source).not.toContain('dueSelectOption');
+    });
+
+    it('renders no helper and no runtime for an element without a library, or a kind without actions', () => {
+      const elements = [
+        widget({ name: 'plain', library: undefined }),
+        widget({ elementId: 'element-2', name: 'tabs', kind: 'tabstrip' }),
+        widget({ elementId: 'element-3', name: 'other', library: 'made-up' }),
+      ];
+
+      const { source } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
+
+      expect(source).not.toContain('SelectOption');
+      expect(source).not.toContain('WIDGET_TIMEOUT_MS');
+    });
+
+    it('does not let a helper replace the locator function of an element with the same name', () => {
+      const elements = [widget(), selectorElement({ elementId: 'element-2', name: 'statusOpenPopup' })];
+
+      const { source } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
+
+      expect(source.match(/function statusOpenPopup\(/g)).toHaveLength(1);
+      expect(source).toContain('function statusOpenPopup(page: Page): Locator');
+      expect(source).toContain('function statusClosePopup(page: Page): Promise<void>');
+    });
+
+    it('takes the helpers from the profiles it is given', () => {
+      const profiles: ComponentLibraryProfiles = {
+        'kendo-jquery': {
+          id: 'kendo-jquery',
+          widgets: [
+            { widgetKind: 'dropdownlist', wrapperSelector: '.x', role: 'combobox', actions: ['popup'] },
+          ],
+          generatedIdPatterns: [],
+          busySelectors: [],
+        },
+      };
+
+      const { source } = generateLocatorModule(registry([widget()]), { generatorVersion: '0.3.0', profiles });
+
+      expect(source).toContain('await setWidgetPopup(widgetRoot(status(page), ".x"), true);');
+      expect(source).not.toContain('statusSelectOption');
+    });
   });
 });

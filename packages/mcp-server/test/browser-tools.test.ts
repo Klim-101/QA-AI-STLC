@@ -58,7 +58,10 @@ function createFakeBrowser(): FakeBrowser {
   const calls: string[] = [];
   const state = { closedBrowsers: 0 };
   let currentUrl = 'about:blank';
-  const locator = (): PageLocator => ({ count: () => Promise.resolve(1) });
+  const locator = (): PageLocator => ({
+    count: () => Promise.resolve(1),
+    evaluate: () => Promise.resolve(undefined),
+  });
 
   const page: AuthPage = {
     goto: (url) => {

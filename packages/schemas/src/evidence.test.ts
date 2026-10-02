@@ -103,6 +103,20 @@ describe('BrowserActionSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it.each(['select-option', 'set-date', 'open-popup', 'close-popup'])(
+    'accepts the %s widget action (P6-43)',
+    (type) => {
+      const result = BrowserActionSchema.safeParse({
+        type,
+        sessionId: 'session-1',
+        selector: 'kendo-combobox',
+        valueLength: 4,
+        at: '2026-09-21T12:00:00Z',
+      });
+      expect(result.success).toBe(true);
+    },
+  );
+
   it('rejects an action type the engine does not perform', () => {
     const result = BrowserActionSchema.safeParse({
       type: 'download',

@@ -31,9 +31,23 @@ export interface PageRoute {
 
 export type RouteHandler = (route: PageRoute) => Promise<void> | void;
 
-/** The one piece of Playwright's `Locator` API stability scoring needs: how many elements it resolves to. */
+/**
+ * The pieces of Playwright's `Locator` API the engine needs: how many elements it resolves to
+ * (stability scoring) and a read-only look at the one element it resolves to (widget actions,
+ * P6-43).
+ */
 export interface PageLocator {
   count(): Promise<number>;
+  /**
+   * Runs `pageFunction` in the page against the single element the locator resolves to, waiting
+   * for it first. Loosely typed on purpose: Playwright's own `evaluate` types the element and the
+   * argument in ways no narrower signature of ours is assignable to, so page functions take `unknown`.
+   */
+  evaluate(
+    pageFunction: (element: never, arg: unknown) => unknown,
+    arg?: unknown,
+    options?: PageActionOptions,
+  ): Promise<unknown>;
 }
 
 export interface GetByRoleOptions {
