@@ -14,6 +14,7 @@ import type {
   StorageStateLike,
   ViewportSizeLike,
 } from './fake-browser-launcher.js';
+import { evaluateNothing } from './fake-browser-launcher.js';
 
 const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
 const DEFAULT_RESPONSE: PageResponseLike = { status: () => 200 };
@@ -62,7 +63,10 @@ export interface FakeExplorePage extends AuthPageLike {
 export function createFakeExplorePage(options: FakeExplorePageOptions = {}): FakeExplorePage {
   let currentUrl: string | undefined;
   const routeHandlers: RouteHandlerLike[] = [];
-  const locatorMethod = (): PageLocatorLike => ({ count: () => Promise.resolve(options.locatorCount ?? 1) });
+  const locatorMethod = (): PageLocatorLike => ({
+    count: () => Promise.resolve(options.locatorCount ?? 1),
+    evaluate: evaluateNothing,
+  });
   const viewportSizeCalls: ViewportSizeLike[] = [];
 
   return {

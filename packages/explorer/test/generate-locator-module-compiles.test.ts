@@ -123,4 +123,42 @@ describe('generateLocatorModule (compiles under strict TypeScript)', () => {
       await rm(tempDirectory, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it('compiles the widget helpers and their runtime under the same strict settings', async () => {
+    const element = (name: string, kind: string): SelectorRegistry['elements'][number] => ({
+      elementId: name,
+      name,
+      kind,
+      library: 'kendo-jquery',
+      locatorCandidates: [{ strategy: 'css', value: '#' + name, fragile: true }],
+      stabilityScore: 0.5,
+      lastVerifiedAt: '2026-09-18T00:00:00Z',
+      pii: false,
+      dynamicText: false,
+      source: 'crawl',
+    });
+    const { source } = generateLocatorModule(
+      registry([
+        element('status', 'dropdownlist'),
+        element('assignee', 'combobox'),
+        element('due', 'datepicker'),
+      ]),
+      { generatorVersion: '0.3.0' },
+    );
+    expect(source).toContain('statusSelectOption');
+
+    const testDirectory = fileURLToPath(new URL('.', import.meta.url));
+    const tempDirectory = await mkdtemp(join(testDirectory, '.tmp-locators-'));
+    try {
+      const filePath = join(tempDirectory, 'locators.ts');
+      await writeFile(filePath, source, 'utf8');
+
+      const { exitCode, output } = await runTsc(filePath);
+
+      expect(output).toBe('');
+      expect(exitCode).toBe(0);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

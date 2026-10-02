@@ -7,6 +7,7 @@ import type { ComponentLibraryProfile } from '../component-library-profile.js';
 // user sees and the only element worth a locator; the inputs and buttons it renders inside only
 // back the widget.
 const INNER_CONTROLS = 'input, select, button';
+const POPUP_BUTTON = '.k-input-button';
 
 export const KENDO_ANGULAR_PROFILE: ComponentLibraryProfile = {
   id: 'kendo-angular',
@@ -16,24 +17,30 @@ export const KENDO_ANGULAR_PROFILE: ComponentLibraryProfile = {
       wrapperSelector: 'kendo-dropdownlist',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['select-option', 'popup'],
     },
     {
       widgetKind: 'combobox',
       wrapperSelector: 'kendo-combobox',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['select-option', 'popup'],
+      popupToggleSelector: POPUP_BUTTON,
     },
     {
       widgetKind: 'multiselect',
       wrapperSelector: 'kendo-multiselect',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['select-option', 'popup'],
     },
     {
       widgetKind: 'datepicker',
       wrapperSelector: 'kendo-datepicker',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['set-date', 'popup'],
+      popupToggleSelector: POPUP_BUTTON,
     },
     {
       widgetKind: 'numerictextbox',

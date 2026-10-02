@@ -84,6 +84,24 @@ describe('BrowserSessionStore', () => {
     expect(withSelectors.busySelectors).toEqual(['.mask']);
   });
 
+  it('has no widget targets unless the session is opened with some (P6-43)', async () => {
+    const { store, session, parts } = await storeWithSession();
+    expect(session.widgetTargets).toEqual([]);
+
+    const targets = [{ wrapperSelector: '.w' }];
+    const withTargets = store.open({
+      ...parts,
+      allowlist: ['staging.example.test'],
+      baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
+      widgetTargets: targets,
+      blockedRequests: [],
+    });
+    expect(withTargets.widgetTargets).toEqual(targets);
+    expect(withTargets.widgetTargets).not.toBe(targets);
+  });
+
   it('mints a session id and a run id, and copies the allowlist', async () => {
     const { store, session } = await storeWithSession();
 

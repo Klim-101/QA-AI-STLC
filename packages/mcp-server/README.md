@@ -28,7 +28,13 @@ an agent may touch the application under test (ADR-005). Every one of them regis
 as hashed evidence under the session's run before it returns, so an exploratory session leaves a
 complete trail and an unregistered screenshot is not a representable outcome. A session runs in
 safe mode with no opt-out: non-GET requests are aborted, and navigation is limited to the
-environment's domain allowlist. Unlike every other tool, these share one session store owned by
+environment's domain allowlist. For component library widgets (`ui.componentLibrary`) four more
+tools act at the widget level instead of replaying clicks: `qa.browser_select_option` (an option
+by its visible text), `qa.browser_set_date`, `qa.browser_open_popup` and `qa.browser_close_popup`.
+Each takes the selector the registry holds for the widget, finds the widget wrapper from it, and
+verifies the widget's resulting state before it registers the evidence: a widget that does not
+show the choice fails with `BROWSER_WIDGET_VALUE_MISMATCH`, which can be a defect worth reporting.
+Unlike every other tool, these share one session store owned by
 the server process, because a session spans several tool calls; it is closed on SIGINT/SIGTERM,
 and an idle session is closed at the next call that touches it.
 

@@ -10,6 +10,9 @@ import { createBrowserToolDependencies, type BrowserToolDependencies } from './b
 import { createBrowserFillTool } from './browser-fill.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
 import { createBrowserOpenTool } from './browser-open.js';
+import { createBrowserClosePopupTool, createBrowserOpenPopupTool } from './browser-popup.js';
+import { createBrowserSelectOptionTool } from './browser-select-option.js';
+import { createBrowserSetDateTool } from './browser-set-date.js';
 import { createBrowserSnapshotTool } from './browser-snapshot.js';
 import { caseResultRegisterTool } from './case-result-register.js';
 import { casesAddTool } from './cases-add.js';
@@ -72,6 +75,10 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
     createBrowserNavigateTool(dependencies),
     createBrowserClickTool(dependencies),
     createBrowserFillTool(dependencies),
+    createBrowserSelectOptionTool(dependencies),
+    createBrowserSetDateTool(dependencies),
+    createBrowserOpenPopupTool(dependencies),
+    createBrowserClosePopupTool(dependencies),
     createBrowserSnapshotTool(dependencies),
     createBrowserAccessibilityScanTool(dependencies),
     createRegistryExecuteRegisterTool(dependencies),

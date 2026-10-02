@@ -7,6 +7,8 @@ import type { ComponentLibraryProfile } from '../component-library-profile.js';
 // original, so the wrapper is what a user sees and the only element worth a locator. Everything
 // the widget renders inside its wrapper (inner inputs, buttons, spinners) only backs the widget.
 const INNER_CONTROLS = 'input, select, button';
+// The drop-down button of a combo box or date picker; the theme versions name it differently.
+const POPUP_BUTTON = '.k-input-button, .k-select';
 
 export const KENDO_JQUERY_PROFILE: ComponentLibraryProfile = {
   id: 'kendo-jquery',
@@ -16,24 +18,30 @@ export const KENDO_JQUERY_PROFILE: ComponentLibraryProfile = {
       wrapperSelector: 'span.k-dropdownlist',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['select-option', 'popup'],
     },
     {
       widgetKind: 'combobox',
       wrapperSelector: 'span.k-combobox',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['select-option', 'popup'],
+      popupToggleSelector: POPUP_BUTTON,
     },
     {
       widgetKind: 'multiselect',
       wrapperSelector: 'span.k-multiselect',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['select-option', 'popup'],
     },
     {
       widgetKind: 'datepicker',
       wrapperSelector: 'span.k-datepicker',
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
+      actions: ['set-date', 'popup'],
+      popupToggleSelector: POPUP_BUTTON,
     },
     {
       widgetKind: 'numerictextbox',

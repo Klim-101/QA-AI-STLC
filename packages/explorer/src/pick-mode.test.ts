@@ -18,6 +18,8 @@ import {
 import { synthesizeLocatorCandidates } from './synthesize-locators.js';
 import { createLocatorMethods, type LocatorStubOptions } from './test-support/locator-stub.js';
 
+const locatorStub = { count: () => Promise.resolve(1), evaluate: () => Promise.resolve(undefined) };
+
 function fakePage(overrides: Partial<AuthPage> = {}): AuthPage {
   return {
     goto: () => Promise.resolve(null),
@@ -28,12 +30,12 @@ function fakePage(overrides: Partial<AuthPage> = {}): AuthPage {
     evaluate: () => Promise.resolve(undefined),
     ariaSnapshotJSON: () => Promise.resolve(undefined),
     addScriptTag: () => Promise.resolve(undefined),
-    getByRole: () => ({ count: () => Promise.resolve(1) }),
-    getByTestId: () => ({ count: () => Promise.resolve(1) }),
-    getByLabel: () => ({ count: () => Promise.resolve(1) }),
-    getByPlaceholder: () => ({ count: () => Promise.resolve(1) }),
-    getByText: () => ({ count: () => Promise.resolve(1) }),
-    locator: () => ({ count: () => Promise.resolve(1) }),
+    getByRole: () => locatorStub,
+    getByTestId: () => locatorStub,
+    getByLabel: () => locatorStub,
+    getByPlaceholder: () => locatorStub,
+    getByText: () => locatorStub,
+    locator: () => locatorStub,
     reload: () => Promise.resolve(null),
     setViewportSize: () => Promise.resolve(),
     viewportSize: () => null,

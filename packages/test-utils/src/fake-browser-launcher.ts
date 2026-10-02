@@ -24,6 +24,16 @@ export interface PageResponseLike {
 
 export interface PageLocatorLike {
   count(): Promise<number>;
+  evaluate(
+    pageFunction: (element: never, arg: unknown) => unknown,
+    arg?: unknown,
+    options?: { readonly timeout?: number },
+  ): Promise<unknown>;
+}
+
+/** The `evaluate` every fake locator shares: there is no element to run a function against. */
+export function evaluateNothing(): Promise<unknown> {
+  return Promise.resolve(undefined);
 }
 
 export interface RouteRequestLike {
@@ -119,11 +129,19 @@ export interface FakePageCall {
     | 'getByPlaceholder'
     | 'getByText'
     | 'locator'
+    | 'locatorEvaluate'
     | 'reload'
     | 'setViewportSize'
     | 'screenshot'
     | 'title';
   readonly args: readonly unknown[];
+}
+
+/** One `locator(selector).evaluate(pageFunction, arg)` call, as a scripted page sees it. */
+export interface FakeLocatorEvaluateCall {
+  readonly selector: unknown;
+  readonly functionName: string;
+  readonly arg: unknown;
 }
 
 export interface FakeBrowserLauncherOptions {
@@ -143,6 +161,12 @@ export interface FakeBrowserLauncherOptions {
    * Defaults to always resolving to exactly one match.
    */
   readonly locatorCounts?: readonly number[];
+  /**
+   * Answers every `locator(selector).evaluate(pageFunction, arg)` call, which runs in the page in
+   * production: a test scripts the page's answer by the page function's name. Without it the call
+   * resolves to `undefined`.
+   */
+  readonly locatorEvaluate?: (call: FakeLocatorEvaluateCall) => unknown;
   /** Returned by `page.viewportSize()`; defaults to a 1280x720 desktop size. */
   readonly viewportSize?: ViewportSizeLike | null;
   /** The URL `page.url()` reports before any navigation; defaults to `about:blank`. */
@@ -181,7 +205,15 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
 
   function fakeLocator(method: FakePageCall['method'], args: readonly unknown[]): PageLocatorLike {
     calls.push({ method, args });
-    return { count: () => Promise.resolve(nextLocatorCount()) };
+    return {
+      count: () => Promise.resolve(nextLocatorCount()),
+      evaluate: (pageFunction, arg, evaluateOptions) => {
+        calls.push({ method: 'locatorEvaluate', args: [args[0], pageFunction.name, arg, evaluateOptions] });
+        return Promise.resolve(
+          options.locatorEvaluate?.({ selector: args[0], functionName: pageFunction.name, arg }),
+        );
+      },
+    };
   }
 
   return {

@@ -6,7 +6,7 @@ import { collectObservedRequestHeaderNames } from '../api-auth.js';
 import { observeRequestHeaders } from '../browser-request-observer.js';
 import type { BlockedRequest } from '../browser-safe-mode.js';
 import { createBrowserSafeModeRouteHandler } from '../browser-safe-mode.js';
-import type { BrowserSession } from '../browser-session-store.js';
+import type { BrowserSession, WidgetTarget } from '../browser-session-store.js';
 import { resolveBrowserTimeouts } from '../browser-timeouts.js';
 import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
@@ -32,6 +32,8 @@ export interface BrowserOpenOptions {
    * `ui.busySelectors` (P6-42).
    */
   readonly resolveLibraryBusySelectors?: (library: UiComponentLibrary) => readonly string[];
+  /** The widgets the configured component library renders, for the widget actions (P6-43). */
+  readonly resolveLibraryWidgets?: (library: UiComponentLibrary) => readonly WidgetTarget[];
 }
 
 export interface BrowserOpenResult {
@@ -142,6 +144,7 @@ export async function runBrowserOpen(
           ...config.ui.busySelectors,
         ]),
       ],
+      widgetTargets: options.resolveLibraryWidgets?.(config.ui.componentLibrary) ?? [],
       blockedRequests,
       observedRequestHeaders,
     });

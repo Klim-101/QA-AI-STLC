@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { evaluateNothing } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 import type { AuthPage, PageLocator, PageResponse, ViewportSize } from '@qa-ai-stlc/core';
 
 type LocatorMethods = Pick<
@@ -58,7 +59,7 @@ export function createLocatorMethods(options: LocatorStubOptions = {}): LocatorM
   }
 
   function locator(): PageLocator {
-    return { count: () => Promise.resolve(nextCount()) };
+    return { count: () => Promise.resolve(nextCount()), evaluate: evaluateNothing };
   }
 
   return {

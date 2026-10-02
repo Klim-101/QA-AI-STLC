@@ -5,6 +5,7 @@ import type { AuthPage } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_READY_TIMEOUT_MS,
+  listWidgetTargets,
   mergeGeneratedIdPatterns,
   resolveComponentLibraryProfile,
   waitUntilLibraryReady,
@@ -78,5 +79,27 @@ describe('waitUntilLibraryReady', () => {
       { busySelectors: ['.syn-loading'], timeoutMs: DEFAULT_READY_TIMEOUT_MS },
       { busySelectors: ['.syn-loading'], timeoutMs: 250 },
     ]);
+  });
+});
+
+describe('listWidgetTargets', () => {
+  it('lists the widgets that have actions, with the popup toggle when the profile names one', () => {
+    expect(listWidgetTargets(KENDO_ANGULAR_PROFILE)).toEqual([
+      { wrapperSelector: 'kendo-dropdownlist' },
+      { wrapperSelector: 'kendo-combobox', popupToggleSelector: '.k-input-button' },
+      { wrapperSelector: 'kendo-multiselect' },
+      { wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button' },
+    ]);
+    expect(listWidgetTargets(KENDO_JQUERY_PROFILE).map((target) => target.wrapperSelector)).toEqual([
+      'span.k-dropdownlist',
+      'span.k-combobox',
+      'span.k-multiselect',
+      'span.k-datepicker',
+    ]);
+  });
+
+  it('lists nothing for a profile whose widgets have no actions, or without a profile', () => {
+    expect(listWidgetTargets(SYNTHETIC_PROFILE)).toEqual([]);
+    expect(listWidgetTargets(undefined)).toEqual([]);
   });
 });
