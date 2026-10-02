@@ -4,6 +4,7 @@
 import {
   BrowserActionSchema,
   type BrowserActionRef,
+  type BrowserExpectation,
   type BrowserActionType,
   type Evidence,
   type Identifier,
@@ -56,6 +57,8 @@ export interface BrowserActionDetails {
   readonly selector?: string;
   /** The ref the caller named instead of a selector; `selector` is what it resolved to. */
   readonly ref?: BrowserActionRef;
+  /** What an `expect` action checked and the verdict (P6-55). */
+  readonly expectation?: BrowserExpectation;
   /** The length of a filled value. The value itself is never recorded (AGENTS.md 5.8). */
   readonly valueLength?: number;
   readonly httpStatus?: number;
@@ -87,6 +90,7 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
     ...(options.action.url !== undefined ? { url: options.action.url } : {}),
     ...(options.action.selector !== undefined ? { selector: options.action.selector } : {}),
     ...(options.action.ref !== undefined ? { ref: options.action.ref } : {}),
+    ...(options.action.expectation !== undefined ? { expectation: options.action.expectation } : {}),
     ...(options.action.valueLength !== undefined ? { valueLength: options.action.valueLength } : {}),
     ...(options.action.httpStatus !== undefined ? { httpStatus: options.action.httpStatus } : {}),
     at: options.now.toISOString(),

@@ -84,6 +84,8 @@ export * from './operations/browser-select-option.js';
 export * from './operations/browser-set-date.js';
 export * from './operations/browser-widget-action.js';
 export * from './operations/browser-snapshot.js';
+export * from './operations/browser-expect.js';
+export * from './expectation.js';
 export * from './operations/browser-close.js';
 export * from './a11y-conformance.js';
 export * from './a11y-criteria.js';

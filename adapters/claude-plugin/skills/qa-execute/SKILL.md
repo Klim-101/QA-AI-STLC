@@ -57,9 +57,9 @@ evidence id as you go.
 
 Call `qa.case_result_register` once the case's steps are done, with every evidence id collected
 along the way. You decide `status` yourself, after reading back the evidence and comparing it
-against the case's `expectedResult` — the engine never computes a verdict (ADR-005's "the engine
-records, it does not fabricate a verdict" principle, applied here the same way it already applies
-to every `qa.browser_*` tool). `status: 'failed'` requires a `failure.message` naming what actually
+against the case's `expectedResult`. The engine never decides the case's status (ADR-005): the
+`passed` of each `qa.browser_expect` is its reading of the page for one expectation, evidence you
+weigh, not the case result. `status: 'failed'` requires a `failure.message` naming what actually
 went wrong; never report `failed` without one, and never report `passed` when the evidence does not
 actually support it.
 
