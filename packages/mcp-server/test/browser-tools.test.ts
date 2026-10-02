@@ -25,6 +25,7 @@ import { createBrowserExpectTool } from '../src/tools/browser-expect.js';
 import { createBrowserFillTool } from '../src/tools/browser-fill.js';
 import { createBrowserHoverTool } from '../src/tools/browser-hover.js';
 import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
+import { createBrowserWaitForTool } from '../src/tools/browser-wait-for.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
 import { createBrowserPressTool } from '../src/tools/browser-press.js';
 import { createBrowserSnapshotTool } from '../src/tools/browser-snapshot.js';
@@ -364,6 +365,44 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       expect(stored).toMatchObject({ type: 'press', key: 'Enter' });
 
       await createBrowserCloseTool(dependencies).handler({ sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('waits for a condition and registers how long it took, or names the one that never held', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const opened = await createBrowserOpenTool(dependencies).handler({});
+      await createBrowserNavigateTool(dependencies).handler({
+        sessionId: opened.sessionId,
+        url: 'https://staging.example.test/login',
+      });
+      const waitTool = createBrowserWaitForTool(dependencies);
+
+      const reached = await waitTool.handler({
+        sessionId: opened.sessionId,
+        condition: 'url',
+        expected: '/login',
+        timeoutMs: 0,
+      });
+      const never = await waitTool
+        .handler({ sessionId: opened.sessionId, condition: 'url', expected: '/nowhere', timeoutMs: 0 })
+        .catch((caught: unknown) => caught);
+
+      expect(reached.condition).toBe('url');
+      expect(reached.waitedMs).toBeGreaterThanOrEqual(0);
+      expect(never).toMatchObject({ code: 'BROWSER_WAIT_TIMEOUT' });
+      const stored = JSON.parse(
+        await readFile(join(projectRoot, '.qa', ...reached.evidence.path.split('/')), 'utf-8'),
+      ) as { type: string };
+      expect(stored).toMatchObject({ type: 'wait-for', wait: { condition: 'url', expected: '/login' } });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
       process.chdir(originalCwd);
     });
   });

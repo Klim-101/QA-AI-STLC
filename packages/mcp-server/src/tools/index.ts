@@ -11,6 +11,7 @@ import { createBrowserExpectTool } from './browser-expect.js';
 import { createBrowserCheckTool } from './browser-check.js';
 import { createBrowserFillTool } from './browser-fill.js';
 import { createBrowserHoverTool } from './browser-hover.js';
+import { createBrowserWaitForTool } from './browser-wait-for.js';
 import { createBrowserPressTool } from './browser-press.js';
 import { createBrowserGridFindRowTool, createBrowserGridReadCellTool } from './browser-grid.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
@@ -91,6 +92,7 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
     createBrowserGridReadCellTool(dependencies),
     createBrowserSnapshotTool(dependencies),
     createBrowserExpectTool(dependencies),
+    createBrowserWaitForTool(dependencies),
     createBrowserAccessibilityScanTool(dependencies),
     createRegistryExecuteRegisterTool(dependencies),
     createBrowserCloseTool(dependencies),

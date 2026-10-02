@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "artifacts": {
+    "evidence/run-466132cf-c324-400f-9759-044ff9d8a965/evidence-0f343d72-4517-4144-831d-de628eb3850c.json": {
+      "sha256": "fbff730ca52b530b7870fdb9b73b8b2c77bffb0ce1e2dbebae957f6fc71de0b4",
+      "mode": "text",
+      "registeredAt": "2026-10-02T23:19:30.380Z"
+    }
+  }
+}

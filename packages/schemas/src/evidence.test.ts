@@ -131,6 +131,24 @@ describe('BrowserActionSchema', () => {
     expect(BrowserActionSchema.safeParse({ ...base, type: 'check', checked: 'yes' }).success).toBe(false);
   });
 
+  it('accepts a wait-for record with what was waited for and how long, and rejects one without (P6-58)', () => {
+    const base = { type: 'wait-for', sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
+
+    expect(
+      BrowserActionSchema.safeParse({
+        ...base,
+        selector: '#toast',
+        wait: { condition: 'text-appears', expected: 'Saved', waitedMs: 420 },
+      }).success,
+    ).toBe(true);
+    expect(BrowserActionSchema.safeParse({ ...base, wait: { condition: 'soon', waitedMs: 1 } }).success).toBe(
+      false,
+    );
+    expect(BrowserActionSchema.safeParse({ ...base, wait: { condition: 'url', waitedMs: -1 } }).success).toBe(
+      false,
+    );
+  });
+
   it('accepts an expectation with its verdict, and rejects one without (P6-55)', () => {
     const base = { type: 'expect', sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
     const passed = BrowserActionSchema.safeParse({

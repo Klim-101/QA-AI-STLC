@@ -5,6 +5,7 @@ import {
   BrowserActionSchema,
   type BrowserActionRef,
   type BrowserExpectation,
+  type BrowserWait,
   type BrowserActionType,
   type Evidence,
   type Identifier,
@@ -59,6 +60,8 @@ export interface BrowserActionDetails {
   readonly ref?: BrowserActionRef;
   /** What an `expect` action checked and the verdict (P6-55). */
   readonly expectation?: BrowserExpectation;
+  /** What a `wait-for` action waited for and how long it took (P6-58). */
+  readonly wait?: BrowserWait;
   /** The key a `press` action sent, already redacted when it was a lone character (P6-56). */
   readonly key?: string;
   /** The state a `check` action read back from the box (P6-56). */
@@ -95,6 +98,7 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
     ...(options.action.selector !== undefined ? { selector: options.action.selector } : {}),
     ...(options.action.ref !== undefined ? { ref: options.action.ref } : {}),
     ...(options.action.expectation !== undefined ? { expectation: options.action.expectation } : {}),
+    ...(options.action.wait !== undefined ? { wait: options.action.wait } : {}),
     ...(options.action.key !== undefined ? { key: options.action.key } : {}),
     ...(options.action.checked !== undefined ? { checked: options.action.checked } : {}),
     ...(options.action.valueLength !== undefined ? { valueLength: options.action.valueLength } : {}),
