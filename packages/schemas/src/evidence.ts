@@ -29,6 +29,9 @@ export const BrowserActionTypeSchema = z.enum([
   'set-date',
   'open-popup',
   'close-popup',
+  // Grid actions (P6-44): the engine found the row or cell and read it back.
+  'grid-find-row',
+  'grid-read-cell',
   'snapshot',
   'close',
 ]);

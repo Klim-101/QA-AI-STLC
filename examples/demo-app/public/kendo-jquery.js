@@ -97,9 +97,11 @@ async function createPagedGrid() {
   const previous = document.createElement('button');
   previous.type = 'button';
   previous.textContent = 'Previous page';
+  previous.setAttribute('aria-label', 'Go to the previous page');
   const next = document.createElement('button');
   next.type = 'button';
   next.textContent = 'Next page';
+  next.setAttribute('aria-label', 'Go to the next page');
   const info = document.createElement('span');
   info.setAttribute('role', 'status');
   pager.append(previous, info, next);

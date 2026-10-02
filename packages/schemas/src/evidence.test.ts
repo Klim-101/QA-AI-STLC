@@ -103,8 +103,8 @@ describe('BrowserActionSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it.each(['select-option', 'set-date', 'open-popup', 'close-popup'])(
-    'accepts the %s widget action (P6-43)',
+  it.each(['select-option', 'set-date', 'open-popup', 'close-popup', 'grid-find-row', 'grid-read-cell'])(
+    'accepts the %s widget or grid action (P6-43, P6-44)',
     (type) => {
       const result = BrowserActionSchema.safeParse({
         type,

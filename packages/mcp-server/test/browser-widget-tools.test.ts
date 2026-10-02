@@ -104,7 +104,7 @@ describe('qa.browser_* widget tools (real filesystem, temp project directory)', 
         popupToggleSelector: '.k-input-button',
       });
       expect(session.widgetTargets).toContainEqual({ wrapperSelector: 'kendo-dropdownlist' });
-      expect(session.widgetTargets.map((target) => target.wrapperSelector)).not.toContain('kendo-grid');
+      expect(session.widgetTargets.map((target) => target.wrapperSelector)).not.toContain('kendo-tabstrip');
     });
   }, 30_000);
 

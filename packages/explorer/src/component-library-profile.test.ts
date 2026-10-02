@@ -89,12 +89,21 @@ describe('listWidgetTargets', () => {
       { wrapperSelector: 'kendo-combobox', popupToggleSelector: '.k-input-button' },
       { wrapperSelector: 'kendo-multiselect' },
       { wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button' },
+      {
+        wrapperSelector: 'kendo-grid',
+        grid: {
+          nextPageSelector: '[aria-label="Go to the next page"]',
+          previousPageSelector: '[aria-label="Go to the previous page"]',
+          scrollContainerSelector: '.k-grid-container',
+        },
+      },
     ]);
     expect(listWidgetTargets(KENDO_JQUERY_PROFILE).map((target) => target.wrapperSelector)).toEqual([
       'span.k-dropdownlist',
       'span.k-combobox',
       'span.k-multiselect',
       'span.k-datepicker',
+      'div.k-grid',
     ]);
   });
 
