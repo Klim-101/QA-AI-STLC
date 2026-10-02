@@ -117,6 +117,20 @@ describe('BrowserActionSchema', () => {
     },
   );
 
+  it('accepts the ref an action was given next to the selector it resolved to (P6-53)', () => {
+    const result = BrowserActionSchema.safeParse({
+      type: 'click',
+      sessionId: 'session-1',
+      selector: 'role=button[name="Log in"s]',
+      ref: { id: 'e2', role: 'button', name: 'Log in' },
+      at: '2026-09-21T12:00:00Z',
+    });
+    expect(result.success).toBe(true);
+    expect(BrowserActionSchema.safeParse({ ...result.data, ref: { id: '', role: 'button' } }).success).toBe(
+      false,
+    );
+  });
+
   it('rejects an action type the engine does not perform', () => {
     const result = BrowserActionSchema.safeParse({
       type: 'download',

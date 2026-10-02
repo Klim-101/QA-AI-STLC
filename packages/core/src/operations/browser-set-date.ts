@@ -29,9 +29,9 @@ export function runBrowserSetDate(
   return runBrowserWidgetAction(context, options, {
     type: 'set-date',
     valueLength: options.value.length,
-    async perform(session) {
+    async perform(session, selector) {
       await waitForBusyToClear(session);
-      const widget = await resolveWidget(session, options.selector);
+      const widget = await resolveWidget(session, selector);
       const input = `${widget.root} >> css=input:visible`;
       await session.page.fill(input, options.value, { timeout: session.actionTimeoutMs });
       await session.page
@@ -44,7 +44,7 @@ export function runBrowserSetDate(
         .evaluate(readInputValue, undefined, { timeout: session.actionTimeoutMs });
       const text = typeof shown === 'string' ? shown : '';
       if (text.trim() !== options.value.trim()) {
-        throw valueMismatch(options.selector, options.value, text);
+        throw valueMismatch(selector, options.value, text);
       }
     },
   });

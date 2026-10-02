@@ -51,8 +51,8 @@ export function runBrowserSelectOption(
   return runBrowserWidgetAction(context, options, {
     type: 'select-option',
     valueLength: options.optionText.length,
-    async perform(session) {
-      const opened = await setWidgetPopup(session, options.selector, true);
+    async perform(session, selector) {
+      const opened = await setWidgetPopup(session, selector, true);
       const option = optionSelector(opened.inspection, options.optionText);
 
       let isSelected: unknown;
@@ -63,7 +63,7 @@ export function runBrowserSelectOption(
       } catch (error) {
         throw new QaError(
           'BROWSER_WIDGET_OPTION_NOT_FOUND',
-          `No option "${options.optionText}" appeared in the popup of "${options.selector}" within ${String(session.actionTimeoutMs)} ms`,
+          `No option "${options.optionText}" appeared in the popup of "${selector}" within ${String(session.actionTimeoutMs)} ms`,
           {
             cause: error,
             remediation:
@@ -72,12 +72,12 @@ export function runBrowserSelectOption(
         );
       }
       if (isSelected !== 'true') {
-        await clickOption(session, options.selector, option);
+        await clickOption(session, selector, option);
         await waitForBusyToClear(session);
       }
 
-      const closed = await setWidgetPopup(session, options.selector, false);
-      await verifyDisplayedText(session, closed, options.selector, options.optionText);
+      const closed = await setWidgetPopup(session, selector, false);
+      await verifyDisplayedText(session, closed, selector, options.optionText);
     },
   });
 }

@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ElementRefTable } from './element-refs.js';
 import { QaError } from './errors.js';
 import type { BlockedRequest } from './browser-safe-mode.js';
 import type { AuthBrowser, AuthBrowserContext, AuthPage } from './ports/browser-launcher.js';
@@ -63,6 +64,10 @@ export interface BrowserSession {
    * seen on a request to an allowlisted host. In memory only (ADR-0012).
    */
   readonly observedRequestHeaders: ReadonlyMap<string, string>;
+  /** The refs of the latest snapshot; absent before the first one and after a navigation. */
+  readonly elementRefs: ElementRefTable | undefined;
+  /** The number the next ref handed out gets; it never goes back, so an old ref is never reused. */
+  readonly nextRefNumber: number;
 }
 
 type MutableSession = { -readonly [Key in keyof BrowserSession]: BrowserSession[Key] };
@@ -136,6 +141,8 @@ export class BrowserSessionStore {
       lastActivityAt: now,
       blockedRequests: options.blockedRequests,
       observedRequestHeaders: options.observedRequestHeaders ?? new Map<string, string>(),
+      elementRefs: undefined,
+      nextRefNumber: 1,
     };
     this.sessions.set(session.sessionId, session);
     return session;
@@ -163,6 +170,23 @@ export class BrowserSessionStore {
     }
     session.lastActivityAt = now;
     return session;
+  }
+
+  /** Replaces a session's refs with those of a new snapshot, which retires every earlier ref. */
+  setElementRefs(sessionId: string, table: ElementRefTable): void {
+    const session = this.sessions.get(sessionId);
+    if (session !== undefined) {
+      session.elementRefs = table;
+      session.nextRefNumber += table.byRef.size;
+    }
+  }
+
+  /** Forgets a session's refs, for when the page they were read from is gone. */
+  clearElementRefs(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session !== undefined) {
+      session.elementRefs = undefined;
+    }
   }
 
   /** Closes a session's browser and forgets it. Unknown or already-closed ids are a no-op. */

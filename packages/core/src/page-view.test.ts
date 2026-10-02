@@ -41,6 +41,39 @@ describe('renderPageView', () => {
     expect(view).toMatchObject({ refCount: 3, truncated: false, omittedLineCount: 0 });
   });
 
+  it('lists what each ref stands for, numbered from the given start', () => {
+    const view = renderPageView(
+      {
+        role: 'document',
+        children: [
+          { role: 'button', name: 'Go' },
+          { role: 'textbox' },
+          { role: 'link', name: 'y'.repeat(300) },
+        ],
+      },
+      undefined,
+      7,
+    );
+
+    expect(view.refs).toEqual([
+      { ref: 'e7', role: 'button', name: 'Go', isNameTruncated: false },
+      { ref: 'e8', role: 'textbox', isNameTruncated: false },
+      { ref: 'e9', role: 'link', name: `${'y'.repeat(200)}…`, isNameTruncated: true },
+    ]);
+  });
+
+  it('lists only the refs whose lines fit the size cap', () => {
+    const children = Array.from({ length: 400 }, (_, index) => ({
+      role: 'link',
+      name: `Link ${String(index)} ${'x'.repeat(100)}`,
+    }));
+
+    const view = renderPageView({ role: 'document', children });
+
+    expect(view.refs).toHaveLength(view.refCount);
+    expect(view.refs.at(-1)?.ref).toBe(`e${String(view.refCount)}`);
+  });
+
   it('keeps a nameless structural role and drops a nameless wrapper', () => {
     const view = renderPageView({
       role: 'list',

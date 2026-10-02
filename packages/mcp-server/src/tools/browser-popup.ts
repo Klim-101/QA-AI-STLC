@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserClosePopup, runBrowserOpenPopup } from '@qa-ai-stlc/core';
-import { toBrowserOperationContext, type BrowserToolDependencies } from './browser-dependencies.js';
+import {
+  toBrowserOperationContext,
+  toElementTarget,
+  type BrowserToolDependencies,
+} from './browser-dependencies.js';
 import { WidgetActionInputSchema, WidgetActionOutputSchema } from './browser-widget-schema.js';
 import type { ToolDefinition } from '../tool.js';
 
@@ -21,7 +25,7 @@ export function createBrowserOpenPopupTool(
     handler: (input) =>
       runBrowserOpenPopup(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
       }),
   };
@@ -41,7 +45,7 @@ export function createBrowserClosePopupTool(
     handler: (input) =>
       runBrowserClosePopup(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
       }),
   };

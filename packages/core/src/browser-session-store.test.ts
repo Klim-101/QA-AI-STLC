@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
+import { createElementRefTable } from './element-refs.js';
 import { BrowserSessionStore, DEFAULT_SESSION_IDLE_TIMEOUT_MS } from './browser-session-store.js';
 import type { AuthBrowser, AuthBrowserContext, AuthPage } from './ports/browser-launcher.js';
 import type { Clock } from './ports/clock.js';
@@ -157,6 +158,33 @@ describe('BrowserSessionStore', () => {
     clock.advance(900);
 
     await expect(store.get(session.sessionId)).resolves.toMatchObject({ sessionId: session.sessionId });
+  });
+
+  it('keeps the refs of a session until they are replaced or cleared, and numbers them without reuse', async () => {
+    const { store, session } = await storeWithSession();
+    expect(session.elementRefs).toBeUndefined();
+    expect(session.nextRefNumber).toBe(1);
+
+    const first = createElementRefTable('https://staging.example.test/', [
+      { ref: 'e1', role: 'button', name: 'Go', isNameTruncated: false },
+      { ref: 'e2', role: 'link', isNameTruncated: false },
+    ]);
+    store.setElementRefs(session.sessionId, first);
+    expect(session.elementRefs).toBe(first);
+    expect(session.nextRefNumber).toBe(3);
+
+    store.clearElementRefs(session.sessionId);
+    expect(session.elementRefs).toBeUndefined();
+    expect(session.nextRefNumber).toBe(3);
+  });
+
+  it('ignores refs for a session it does not hold', () => {
+    const store = new BrowserSessionStore();
+
+    expect(() => {
+      store.setElementRefs('session-missing', createElementRefTable('https://x.test/', []));
+      store.clearElementRefs('session-missing');
+    }).not.toThrow();
   });
 
   it('closes a session and forgets it', async () => {
