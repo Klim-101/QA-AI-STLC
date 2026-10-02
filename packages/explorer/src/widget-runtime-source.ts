@@ -88,7 +88,13 @@ async function selectWidgetOption(widget: Locator, optionText: string, toggleSel
       : widget.page().locator('[id=' + JSON.stringify(popupId) + ']');
   const option = popup.getByRole('option', { name: optionText, exact: true });
   if ((await option.getAttribute('aria-selected', { timeout: WIDGET_TIMEOUT_MS })) !== 'true') {
-    await option.click({ timeout: WIDGET_TIMEOUT_MS });
+    try {
+      await option.click({ timeout: WIDGET_TIMEOUT_MS });
+    } catch {
+      // A popup that closed itself before the click landed is reopened and the click repeated once.
+      await setWidgetPopup(widget, true, toggleSelector);
+      await option.click({ timeout: WIDGET_TIMEOUT_MS });
+    }
   }
   await setWidgetPopup(widget, false, toggleSelector);
   const shown = await readWidgetText(widget);

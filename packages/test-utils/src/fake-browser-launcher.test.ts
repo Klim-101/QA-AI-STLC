@@ -32,6 +32,18 @@ describe('createFakeBrowserLauncher', () => {
     expect(launcher.closedBrowsers).toBe(1);
   });
 
+  it('rejects the clicks its outcomes list names, in order, then resolves', async () => {
+    const failure = new Error('element is not visible');
+    const launcher = createFakeBrowserLauncher({ clickOutcomes: [undefined, failure] });
+    const browser = await launcher.launch();
+    const page = await (await browser.newContext()).newPage();
+
+    await expect(page.click('a')).resolves.toBeUndefined();
+    await expect(page.click('b')).rejects.toBe(failure);
+    await expect(page.click('c')).resolves.toBeUndefined();
+    expect(launcher.pageCalls.map((call) => call.args[0])).toEqual(['a', 'b', 'c']);
+  });
+
   it('resolves fill(), click() and waitForLoadState() calls, recording each', async () => {
     const launcher = createFakeBrowserLauncher();
     const page = await (await (await launcher.launch()).newContext()).newPage();
