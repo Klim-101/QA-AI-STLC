@@ -8,7 +8,10 @@ import { createBrowserClickTool } from './browser-click.js';
 import { createBrowserCloseTool } from './browser-close.js';
 import { createBrowserToolDependencies, type BrowserToolDependencies } from './browser-dependencies.js';
 import { createBrowserExpectTool } from './browser-expect.js';
+import { createBrowserCheckTool } from './browser-check.js';
 import { createBrowserFillTool } from './browser-fill.js';
+import { createBrowserHoverTool } from './browser-hover.js';
+import { createBrowserPressTool } from './browser-press.js';
 import { createBrowserGridFindRowTool, createBrowserGridReadCellTool } from './browser-grid.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
 import { createBrowserOpenTool } from './browser-open.js';
@@ -77,6 +80,9 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
     createBrowserNavigateTool(dependencies),
     createBrowserClickTool(dependencies),
     createBrowserFillTool(dependencies),
+    createBrowserPressTool(dependencies),
+    createBrowserHoverTool(dependencies),
+    createBrowserCheckTool(dependencies),
     createBrowserSelectOptionTool(dependencies),
     createBrowserSetDateTool(dependencies),
     createBrowserOpenPopupTool(dependencies),

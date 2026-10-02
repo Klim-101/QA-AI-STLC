@@ -55,6 +55,23 @@ describe('createFakeBrowserLauncher', () => {
     expect(launcher.pageCalls.map((call) => call.method)).toEqual(['fill', 'click', 'waitForLoadState']);
   });
 
+  it('resolves press(), hover(), setChecked() and keyboard.press(), recording each', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await expect(page.press('input', 'Enter')).resolves.toBeUndefined();
+    await expect(page.hover('a')).resolves.toBeUndefined();
+    await expect(page.setChecked('#box', true)).resolves.toBeUndefined();
+    await expect(page.keyboard.press('Escape')).resolves.toBeUndefined();
+
+    expect(launcher.pageCalls).toEqual([
+      { method: 'press', args: ['input', 'Enter'] },
+      { method: 'hover', args: ['a'] },
+      { method: 'setChecked', args: ['#box', true] },
+      { method: 'keyboardPress', args: ['Escape'] },
+    ]);
+  });
+
   it('defaults connectOverCdp to no contexts when none are configured', async () => {
     const launcher = createFakeBrowserLauncher();
 

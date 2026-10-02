@@ -34,7 +34,10 @@ new — the same convention `qa-design-cases` already follows.
 
 ## Driving the case
 
-Follow the case's `steps` in order with `qa.browser_click` / `qa.browser_fill` / `qa.browser_navigate`.
+Follow the case's `steps` in order with `qa.browser_click` / `qa.browser_fill` / `qa.browser_navigate`,
+and `qa.browser_press` (a key or chord, on an element or on the page), `qa.browser_hover` and
+`qa.browser_check` (a checkbox or radio set to a state and read back) where a step calls for them.
+`Enter` on a form is blocked by safe mode like a click on its submit button: recorded, not sent.
 Each call registers its own evidence automatically — collect every evidence id as you go, you will
 need the full list for `qa.case_result_register`.
 

@@ -117,6 +117,20 @@ describe('BrowserActionSchema', () => {
     },
   );
 
+  it('accepts the press, hover and check actions with the key and state they recorded (P6-56)', () => {
+    const base = { sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
+
+    expect(
+      BrowserActionSchema.safeParse({ ...base, type: 'press', key: 'Enter', selector: '#go' }).success,
+    ).toBe(true);
+    expect(BrowserActionSchema.safeParse({ ...base, type: 'hover', selector: '#menu' }).success).toBe(true);
+    expect(
+      BrowserActionSchema.safeParse({ ...base, type: 'check', selector: '#agree', checked: false }).success,
+    ).toBe(true);
+    expect(BrowserActionSchema.safeParse({ ...base, type: 'press', key: '' }).success).toBe(false);
+    expect(BrowserActionSchema.safeParse({ ...base, type: 'check', checked: 'yes' }).success).toBe(false);
+  });
+
   it('accepts an expectation with its verdict, and rejects one without (P6-55)', () => {
     const base = { type: 'expect', sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
     const passed = BrowserActionSchema.safeParse({

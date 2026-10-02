@@ -90,6 +90,10 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     },
     fill: () => Promise.resolve(),
     click: () => Promise.resolve(),
+    press: () => Promise.resolve(),
+    hover: () => Promise.resolve(),
+    setChecked: () => Promise.resolve(),
+    keyboard: { press: () => Promise.resolve() },
     waitForLoadState: () => Promise.resolve(),
     route: (_pattern, handler) => {
       routeHandlers.push(handler);

@@ -66,6 +66,10 @@ export interface AuthPageLike {
   goto(url: string): Promise<PageResponseLike | null>;
   fill(selector: string, value: string): Promise<void>;
   click(selector: string): Promise<void>;
+  press(selector: string, key: string): Promise<void>;
+  hover(selector: string): Promise<void>;
+  setChecked(selector: string, checked: boolean): Promise<void>;
+  readonly keyboard: { press(key: string): Promise<void> };
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
   route(pattern: string, handler: RouteHandlerLike): Promise<unknown>;
   evaluate<Arg = void>(pageFunction: (arg: Arg) => unknown, arg?: Arg): Promise<unknown>;
@@ -118,6 +122,10 @@ export interface FakePageCall {
     | 'goto'
     | 'fill'
     | 'click'
+    | 'press'
+    | 'hover'
+    | 'setChecked'
+    | 'keyboardPress'
     | 'waitForLoadState'
     | 'route'
     | 'evaluate'
@@ -237,6 +245,24 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
       const outcome = options.clickOutcomes?.[clickCount];
       clickCount += 1;
       return outcome === undefined ? Promise.resolve() : Promise.reject(outcome);
+    },
+    press: (...args) => {
+      calls.push({ method: 'press', args });
+      return Promise.resolve();
+    },
+    hover: (...args) => {
+      calls.push({ method: 'hover', args });
+      return Promise.resolve();
+    },
+    setChecked: (...args) => {
+      calls.push({ method: 'setChecked', args });
+      return Promise.resolve();
+    },
+    keyboard: {
+      press: (...args) => {
+        calls.push({ method: 'keyboardPress', args });
+        return Promise.resolve();
+      },
     },
     waitForLoadState: (...args) => {
       calls.push({ method: 'waitForLoadState', args });

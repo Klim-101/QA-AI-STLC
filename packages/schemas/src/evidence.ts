@@ -24,6 +24,10 @@ export const BrowserActionTypeSchema = z.enum([
   'navigate',
   'click',
   'fill',
+  // Keyboard and pointer actions (P6-56): `check` records the state the box was read back in.
+  'press',
+  'hover',
+  'check',
   // Component-library widget actions (P6-43): each one verified the widget's resulting state.
   'select-option',
   'set-date',
@@ -87,6 +91,10 @@ export const BrowserActionSchema = z.object({
   selector: z.string().min(1).optional(),
   ref: BrowserActionRefSchema.optional(),
   expectation: BrowserExpectationSchema.optional(),
+  // The key or chord a `press` sent; a single printable character is recorded as `[character]`.
+  key: z.string().min(1).optional(),
+  // The state a `check` action read back from the box after setting it.
+  checked: z.boolean().optional(),
   valueLength: z.number().int().nonnegative().optional(),
   httpStatus: z.number().int().positive().optional(),
   at: IsoDateTimeSchema,
