@@ -4,6 +4,7 @@
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import { toCanonicalJson } from '../json-file.js';
 import type { BrowserOperationContext } from './browser-context.js';
+import { createElementRefTable } from '../element-refs.js';
 import { renderPageView, type PageView } from '../page-view.js';
 import { createBrowserEvidenceStore, registerEvidenceOrThrow } from './browser-evidence.js';
 
@@ -68,11 +69,14 @@ export async function runBrowserSnapshot(
     content: toCanonicalJson({ sessionId: session.sessionId, url, capturedAt, tree }),
   });
 
+  const view = renderPageView(tree, undefined, session.nextRefNumber);
+  context.sessions.setElementRefs(session.sessionId, createElementRefTable(url, view.refs));
+
   return {
     sessionId: session.sessionId,
     url,
     title: await session.page.title(),
-    view: renderPageView(tree),
+    view,
     ...(screenshot === undefined ? {} : { screenshot }),
     accessibilityTree,
   };

@@ -36,6 +36,8 @@ export async function runBrowserNavigate(
   assertUrlAllowed(options.url, session.allowlist, session.baseUrl);
 
   const evidenceStore = createBrowserEvidenceStore(context.engine);
+  // Cleared before the request: a failed navigation can still have left the old page.
+  context.sessions.clearElementRefs(session.sessionId);
   const response = await session.page.goto(options.url, { timeout: session.navigationTimeoutMs });
   await waitForBusyToClear(session);
   const httpStatus = response === null ? undefined : response.status();

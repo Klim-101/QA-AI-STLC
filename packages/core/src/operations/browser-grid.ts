@@ -49,8 +49,8 @@ export function runBrowserGridFindRow(
     {
       type: 'grid-find-row',
       valueLength: options.value.length,
-      async perform(session) {
-        const match = await findGridRow(session, options.selector, options);
+      async perform(session, selector) {
+        const match = await findGridRow(session, selector, options);
         return {
           rowSelector: match.rowSelector,
           cells: match.cells.map((text, index) => ({
@@ -91,13 +91,13 @@ export function runBrowserGridReadCell(
     {
       type: 'grid-read-cell',
       valueLength: options.value.length,
-      async perform(session) {
-        const match = await findGridRow(session, options.selector, options);
+      async perform(session, selector) {
+        const match = await findGridRow(session, selector, options);
         const cellIndex = match.state.headers.indexOf(options.cellColumn) + 1;
         if (cellIndex === 0) {
           throw new QaError(
             'BROWSER_GRID_COLUMN_NOT_FOUND',
-            `"${options.selector}" has no "${options.cellColumn}" column`,
+            `"${selector}" has no "${options.cellColumn}" column`,
             { remediation: 'Use a column header exactly as the grid shows it.' },
           );
         }

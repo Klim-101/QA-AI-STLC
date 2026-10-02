@@ -38,6 +38,15 @@ const TRANSPARENT_ROLES: ReadonlySet<string> = new Set(['generic', 'none', 'pres
 
 const STATE_FLAGS = ['checked', 'disabled', 'expanded', 'pressed', 'selected'] as const;
 
+/** What a ref in the outline stands for: enough to find the element again by role and name. */
+export interface PageViewRef {
+  readonly ref: string;
+  readonly role: string;
+  readonly name?: string;
+  /** The name was cut by the text cap, so it is only a prefix of the accessible name. */
+  readonly isNameTruncated: boolean;
+}
+
 export interface PageView {
   /** The outline, wrapped in the untrusted-data markers. */
   readonly text: string;
@@ -45,6 +54,8 @@ export interface PageView {
   readonly nodeCount: number;
   /** Actionable nodes in `text`, each carrying a ref. */
   readonly refCount: number;
+  /** The refs in `text`, in order. */
+  readonly refs: readonly PageViewRef[];
   /** True when the normalizer's caps or the outline cap cut anything; never silent. */
   readonly truncated: boolean;
   /** Outline lines dropped because of the size cap. */
@@ -53,10 +64,15 @@ export interface PageView {
 
 /**
  * Renders a raw `ariaSnapshotJSON()` tree as a compact indented outline with a ref (`e1`, `e2`, ...)
- * on every actionable node. Page text is collapsed to one line per node and the marker text is
+ * on every actionable node, numbered from `firstRefNumber` so a later snapshot of the same session
+ * never reuses a ref an earlier one handed out. Page text is collapsed to one line per node and the marker text is
  * removed from it, so nothing the page says can close the untrusted-data boundary early.
  */
-export function renderPageView(raw: unknown, limits: NormalizeLimits = DEFAULT_NORMALIZE_LIMITS): PageView {
+export function renderPageView(
+  raw: unknown,
+  limits: NormalizeLimits = DEFAULT_NORMALIZE_LIMITS,
+  firstRefNumber = 1,
+): PageView {
   const normalized = normalizeAccessibilityTree(raw, limits);
   const lines: OutlineLine[] = [];
   let nodeCount = 0;
@@ -72,12 +88,13 @@ export function renderPageView(raw: unknown, limits: NormalizeLimits = DEFAULT_N
       }
       return;
     }
-    const isActionable = ACTIONABLE_ROLES.has(node.role);
-    if (isActionable) {
+    let target: PageViewRef | undefined;
+    if (ACTIONABLE_ROLES.has(node.role)) {
+      target = describeRef(node, `e${String(firstRefNumber + refCount)}`, limits);
       refCount += 1;
     }
-    const ref = isActionable ? ` [ref=e${String(refCount)}]` : '';
-    lines.push({ text: `${'  '.repeat(depth)}- ${label}${ref}${describeStates(node)}`, isActionable });
+    const ref = target === undefined ? '' : ` [ref=${target.ref}]`;
+    lines.push({ text: `${'  '.repeat(depth)}- ${label}${ref}${describeStates(node)}`, target });
     for (const child of children) {
       visit(child, depth + 1);
     }
@@ -85,13 +102,15 @@ export function renderPageView(raw: unknown, limits: NormalizeLimits = DEFAULT_N
   visit(normalized.tree, 0);
 
   const kept = fitToBudget(lines);
+  const keptRefs = kept.lines.flatMap((line) => (line.target === undefined ? [] : [line.target]));
   const text = [PAGE_VIEW_BEGIN_MARKER, ...kept.lines.map((line) => line.text), PAGE_VIEW_END_MARKER].join(
     '\n',
   );
   return {
     text,
     nodeCount,
-    refCount: kept.lines.filter((line) => line.isActionable).length,
+    refCount: keptRefs.length,
+    refs: keptRefs,
     truncated: normalized.truncated || kept.omittedLineCount > 0,
     omittedLineCount: kept.omittedLineCount,
   };
@@ -104,6 +123,17 @@ function describeNode(node: AccessibilityNode): string | undefined {
     return undefined;
   }
   return isNameless ? sanitize(node.role) : `${sanitize(node.role)} ${JSON.stringify(content)}`;
+}
+
+function describeRef(node: AccessibilityNode, ref: string, limits: NormalizeLimits): PageViewRef {
+  const name = sanitize(node.name ?? '');
+  return {
+    ref,
+    role: node.role,
+    ...(name === '' ? {} : { name }),
+    // The normalizer appends one character to a name it cut, so a longer-than-cap name was cut.
+    isNameTruncated: name.length > limits.maxTextLength,
+  };
 }
 
 function describeStates(node: AccessibilityNode): string {
@@ -122,7 +152,7 @@ function sanitize(text: string): string {
 
 interface OutlineLine {
   readonly text: string;
-  readonly isActionable: boolean;
+  readonly target: PageViewRef | undefined;
 }
 
 function fitToBudget(lines: readonly OutlineLine[]): {

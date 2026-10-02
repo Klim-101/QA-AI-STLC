@@ -3,7 +3,11 @@
 
 import { runBrowserSelectOption } from '@qa-ai-stlc/core';
 import { z } from 'zod';
-import { toBrowserOperationContext, type BrowserToolDependencies } from './browser-dependencies.js';
+import {
+  toBrowserOperationContext,
+  toElementTarget,
+  type BrowserToolDependencies,
+} from './browser-dependencies.js';
 import { WidgetActionInputSchema, WidgetActionOutputSchema } from './browser-widget-schema.js';
 import type { ToolDefinition } from '../tool.js';
 
@@ -28,7 +32,7 @@ export function createBrowserSelectOptionTool(
     handler: (input) =>
       runBrowserSelectOption(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         optionText: input.optionText,
         ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
       }),

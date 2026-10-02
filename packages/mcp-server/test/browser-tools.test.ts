@@ -85,7 +85,12 @@ function createFakeBrowser(): FakeBrowser {
     // Only `qa.browser_accessibility_scan` calls `evaluate` (it runs axe-core's injected `run()`),
     // so a fixed one-violation result is safe to return unconditionally here.
     evaluate: () => Promise.resolve({ violations: [{ id: 'color-contrast' }] }),
-    ariaSnapshotJSON: () => Promise.resolve({ role: 'document', name: 'Staging home' }),
+    ariaSnapshotJSON: () =>
+      Promise.resolve({
+        role: 'document',
+        name: 'Staging home',
+        children: [{ role: 'button', name: 'Log in' }],
+      }),
     addScriptTag: () => Promise.resolve(undefined),
     getByRole: locator,
     getByTestId: locator,
@@ -271,6 +276,38 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       process.chdir(originalCwd);
     });
   }, 15_000);
+
+  it('clicks by the ref a snapshot handed out, and keeps the ref table out of the snapshot result', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const opened = await createBrowserOpenTool(dependencies).handler({});
+
+      const captured = await createBrowserSnapshotTool(dependencies).handler({ sessionId: opened.sessionId });
+      const clicked = await createBrowserClickTool(dependencies).handler({
+        sessionId: opened.sessionId,
+        ref: 'e1',
+      });
+
+      expect(Object.keys(captured.view).sort()).toEqual(
+        ['nodeCount', 'omittedLineCount', 'refCount', 'text', 'truncated'].sort(),
+      );
+      expect(captured.view.text).toContain('- button "Log in" [ref=e1]');
+      expect(fake.calls).toEqual(['click role=button[name="Log in"s]']);
+      expect(clicked.selector).toBe('role=button[name="Log in"s]');
+      const refused = await createBrowserClickTool(dependencies)
+        .handler({ sessionId: opened.sessionId, ref: 'e1', selector: '#go' })
+        .catch((caught: unknown) => caught);
+      expect(refused).toMatchObject({ code: 'BROWSER_TARGET_INVALID' });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
+      process.chdir(originalCwd);
+    });
+  });
 
   it('registers a screenshot when asked for one, so no unregistered image can exist', async () => {
     await withTempDir(async (projectRoot) => {

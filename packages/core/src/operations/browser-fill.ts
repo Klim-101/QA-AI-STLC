@@ -3,12 +3,16 @@
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import { waitForBusyToClear } from '../browser-busy-wait.js';
+import { resolveBrowserTarget } from '../element-refs.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
 export interface BrowserFillOptions {
   readonly sessionId: string;
-  readonly selector: string;
+  /** A Playwright selector; give this or `ref`. */
+  readonly selector?: string;
+  /** A ref from the latest `qa.browser_snapshot`; give this or `selector`. */
+  readonly ref?: string;
   readonly value: string;
   /** `'step-<N>'`, `N` the case step's 1-based position, during an interactive execution session (P3-15). */
   readonly stepId?: string;
@@ -35,9 +39,10 @@ export async function runBrowserFill(
 ): Promise<BrowserFillResult> {
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
+  const target = await resolveBrowserTarget(session, options);
 
   await waitForBusyToClear(session);
-  await session.page.fill(options.selector, options.value, { timeout: session.actionTimeoutMs });
+  await session.page.fill(target.selector, options.value, { timeout: session.actionTimeoutMs });
   await waitForBusyToClear(session);
   const url = session.page.url();
 
@@ -46,13 +51,19 @@ export async function runBrowserFill(
     evidenceId: context.sessions.nextEvidenceId(),
     session,
     now: context.engine.clock.now(),
-    action: { type: 'fill', selector: options.selector, valueLength: options.value.length, url },
+    action: {
+      type: 'fill',
+      selector: target.selector,
+      ...(target.ref === undefined ? {} : { ref: target.ref }),
+      valueLength: options.value.length,
+      url,
+    },
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
   return {
     sessionId: session.sessionId,
-    selector: options.selector,
+    selector: target.selector,
     valueLength: options.value.length,
     url,
     evidence,

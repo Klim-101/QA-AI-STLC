@@ -5,14 +5,16 @@ import { runBrowserFill } from '@qa-ai-stlc/core';
 import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
+  ELEMENT_TARGET_FIELDS,
   SessionIdInputSchema,
   toBrowserOperationContext,
+  toElementTarget,
   type BrowserToolDependencies,
 } from './browser-dependencies.js';
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = SessionIdInputSchema.extend({
-  selector: z.string().describe('A Playwright selector for the field to type into.'),
+  ...ELEMENT_TARGET_FIELDS,
   value: z.string().describe('The text to type. It is never written to evidence, only its length.'),
   stepId: z
     .string()
@@ -45,7 +47,7 @@ export function createBrowserFillTool(
     handler: (input) =>
       runBrowserFill(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         value: input.value,
         ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
       }),

@@ -5,14 +5,16 @@ import { runBrowserClick } from '@qa-ai-stlc/core';
 import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
+  ELEMENT_TARGET_FIELDS,
   SessionIdInputSchema,
   toBrowserOperationContext,
+  toElementTarget,
   type BrowserToolDependencies,
 } from './browser-dependencies.js';
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = SessionIdInputSchema.extend({
-  selector: z.string().describe('A Playwright selector for the element to click.'),
+  ...ELEMENT_TARGET_FIELDS,
   stepId: z
     .string()
     .optional()
@@ -35,7 +37,7 @@ export function createBrowserClickTool(
   return {
     name: 'qa.browser_click',
     description:
-      'Clicks one element in an open browser session and records the click as evidence. Use ' +
+      'Clicks one element (by `selector` or a snapshot `ref`) in an open browser session and records the click as evidence. Use ' +
       'after qa.browser_navigate. Safe mode still blocks any non-GET request the click sets ' +
       'off, so a form is never actually submitted. Returns the URL after the click.',
     inputSchema: InputSchema,
@@ -43,7 +45,7 @@ export function createBrowserClickTool(
     handler: (input) =>
       runBrowserClick(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         ...(input.stepId !== undefined ? { stepId: input.stepId } : {}),
       }),
   };

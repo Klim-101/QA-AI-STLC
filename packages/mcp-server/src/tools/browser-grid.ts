@@ -3,7 +3,11 @@
 
 import { runBrowserGridFindRow, runBrowserGridReadCell } from '@qa-ai-stlc/core';
 import { z } from 'zod';
-import { toBrowserOperationContext, type BrowserToolDependencies } from './browser-dependencies.js';
+import {
+  toBrowserOperationContext,
+  toElementTarget,
+  type BrowserToolDependencies,
+} from './browser-dependencies.js';
 import { WidgetActionInputSchema, WidgetActionOutputSchema } from './browser-widget-schema.js';
 import type { ToolDefinition } from '../tool.js';
 
@@ -53,7 +57,7 @@ export function createBrowserGridFindRowTool(
     async handler(input) {
       const result = await runBrowserGridFindRow(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         column: input.column,
         value: input.value,
         ...(input.maxSteps !== undefined ? { maxSteps: input.maxSteps } : {}),
@@ -91,7 +95,7 @@ export function createBrowserGridReadCellTool(
     handler: (input) =>
       runBrowserGridReadCell(toBrowserOperationContext(dependencies), {
         sessionId: input.sessionId,
-        selector: input.selector,
+        ...toElementTarget(input),
         column: input.column,
         value: input.value,
         cellColumn: input.cellColumn,

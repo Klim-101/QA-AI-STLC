@@ -45,6 +45,15 @@ export type BrowserActionType = z.infer<typeof BrowserActionTypeSchema>;
 // (below) — the wrapper is never written to disk on its own, only the content this schema
 // describes is (`EvidenceStore.register`), so `qa-generate-tests` (P3-07) recovering a proven
 // session's steps from evidence later has nowhere else to read it back from.
+// The element ref an action was given instead of a selector (ADR-0013): `selector` on the same
+// record is what the ref resolved to, so a reader that only wants selectors never needs this.
+export const BrowserActionRefSchema = z.object({
+  id: z.string().min(1),
+  role: z.string().min(1),
+  name: z.string().optional(),
+});
+export type BrowserActionRef = z.infer<typeof BrowserActionRefSchema>;
+
 export const BrowserActionSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   type: BrowserActionTypeSchema,
@@ -52,6 +61,7 @@ export const BrowserActionSchema = z.object({
   stepId: IdentifierSchema.optional(),
   url: z.string().min(1).optional(),
   selector: z.string().min(1).optional(),
+  ref: BrowserActionRefSchema.optional(),
   valueLength: z.number().int().nonnegative().optional(),
   httpStatus: z.number().int().positive().optional(),
   at: IsoDateTimeSchema,

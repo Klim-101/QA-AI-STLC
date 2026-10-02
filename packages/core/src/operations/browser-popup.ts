@@ -19,8 +19,8 @@ export function runBrowserOpenPopup(
 ): Promise<BrowserWidgetActionResult> {
   return runBrowserWidgetAction(context, options, {
     type: 'open-popup',
-    async perform(session) {
-      await setWidgetPopup(session, options.selector, true);
+    async perform(session, selector) {
+      await setWidgetPopup(session, selector, true);
     },
   });
 }
@@ -32,8 +32,8 @@ export function runBrowserClosePopup(
 ): Promise<BrowserWidgetActionResult> {
   return runBrowserWidgetAction(context, options, {
     type: 'close-popup',
-    async perform(session) {
-      await setWidgetPopup(session, options.selector, false);
+    async perform(session, selector) {
+      await setWidgetPopup(session, selector, false);
     },
   });
 }
