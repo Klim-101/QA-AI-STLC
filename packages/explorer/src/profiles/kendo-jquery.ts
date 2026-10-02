@@ -8,6 +8,9 @@ import type { ComponentLibraryProfile } from '../component-library-profile.js';
 // the widget renders inside its wrapper (inner inputs, buttons, spinners) only backs the widget.
 const INNER_CONTROLS = 'input, select, button';
 // The drop-down button of a combo box or date picker; the theme versions name it differently.
+// A grid's pager buttons, named the way the library labels them.
+const PAGER_NEXT = '[aria-label="Go to the next page"], [title="Go to the next page"]';
+const PAGER_PREVIOUS = '[aria-label="Go to the previous page"], [title="Go to the previous page"]';
 const POPUP_BUTTON = '.k-input-button, .k-select';
 
 export const KENDO_JQUERY_PROFILE: ComponentLibraryProfile = {
@@ -57,7 +60,16 @@ export const KENDO_JQUERY_PROFILE: ComponentLibraryProfile = {
       role: 'dialog',
       nativeControlSelector: '.k-window-titlebar *',
     },
-    { widgetKind: 'grid', wrapperSelector: 'div.k-grid', role: 'grid' },
+    {
+      widgetKind: 'grid',
+      wrapperSelector: 'div.k-grid',
+      role: 'grid',
+      grid: {
+        nextPageSelector: PAGER_NEXT,
+        previousPageSelector: PAGER_PREVIOUS,
+        scrollContainerSelector: '.k-grid-content',
+      },
+    },
   ],
   // Generated ids are random per page load: a GUID the library puts on inner elements.
   generatedIdPatterns: ['^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'],

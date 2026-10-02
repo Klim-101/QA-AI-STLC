@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuthPage, WidgetTarget } from '@qa-ai-stlc/core';
+import type { AuthPage, GridControls, WidgetTarget } from '@qa-ai-stlc/core';
 import type { UiComponentLibrary } from '@qa-ai-stlc/schemas';
 import { KENDO_ANGULAR_PROFILE } from './profiles/kendo-angular.js';
 import { KENDO_JQUERY_PROFILE } from './profiles/kendo-jquery.js';
@@ -34,19 +34,22 @@ export interface WidgetRecognizer {
    * clicking the wrapper itself does not (a drop-down button, an inner input).
    */
   readonly popupToggleSelector?: string;
+  /** Present on a data grid: how the grid actions page or scroll to a row that is not rendered (P6-44). */
+  readonly grid?: GridControls;
 }
 
 export type WidgetAction = 'select-option' | 'set-date' | 'popup';
 
-/** The widgets a profile gives actions to, in the shape the engine's browser session takes. */
+/** The widgets a profile gives actions or grid navigation to, in the shape the engine's browser session takes. */
 export function listWidgetTargets(profile: ComponentLibraryProfile | undefined): readonly WidgetTarget[] {
   return (profile?.widgets ?? [])
-    .filter((widget) => (widget.actions ?? []).length > 0)
+    .filter((widget) => (widget.actions ?? []).length > 0 || widget.grid !== undefined)
     .map((widget) => ({
       wrapperSelector: widget.wrapperSelector,
       ...(widget.popupToggleSelector === undefined
         ? {}
         : { popupToggleSelector: widget.popupToggleSelector }),
+      ...(widget.grid === undefined ? {} : { grid: widget.grid }),
     }));
 }
 

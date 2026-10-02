@@ -31,20 +31,21 @@ export interface BrowserWidgetActionResult {
  * result: an action that throws leaves no record, so evidence never vouches for a widget state the
  * engine did not see.
  */
-export async function runBrowserWidgetAction(
+export async function runBrowserWidgetAction<TDetails extends object = object>(
   context: BrowserOperationContext,
   options: BrowserWidgetActionOptions,
   action: {
     readonly type: BrowserActionDetails['type'];
     /** How much was typed or chosen. The text itself is not recorded (AGENTS.md 5.8). */
     readonly valueLength?: number;
-    readonly perform: (session: BrowserSession) => Promise<void>;
+    /** What the action found out, returned to the caller next to the evidence; nothing for a plain action. */
+    readonly perform: (session: BrowserSession) => Promise<TDetails> | Promise<void>;
   },
-): Promise<BrowserWidgetActionResult> {
+): Promise<BrowserWidgetActionResult & TDetails> {
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
 
-  await action.perform(session);
+  const details = await action.perform(session);
   const url = session.page.url();
 
   const evidence = await registerBrowserAction({
@@ -61,5 +62,11 @@ export async function runBrowserWidgetAction(
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
-  return { sessionId: session.sessionId, selector: options.selector, url, evidence };
+  return {
+    ...(details as TDetails | undefined),
+    sessionId: session.sessionId,
+    selector: options.selector,
+    url,
+    evidence,
+  } as BrowserWidgetActionResult & TDetails;
 }

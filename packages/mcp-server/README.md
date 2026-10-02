@@ -34,6 +34,9 @@ by its visible text), `qa.browser_set_date`, `qa.browser_open_popup` and `qa.bro
 Each takes the selector the registry holds for the widget, finds the widget wrapper from it, and
 verifies the widget's resulting state before it registers the evidence: a widget that does not
 show the choice fails with `BROWSER_WIDGET_VALUE_MISMATCH`, which can be a defect worth reporting.
+For data grids, `qa.browser_grid_find_row` finds a row by a column header and a cell value, paging or
+scrolling through a grid that does not render every row, and `qa.browser_grid_read_cell` reads one
+cell of that row; a row the grid never shows fails with `BROWSER_GRID_ROW_NOT_FOUND`.
 Unlike every other tool, these share one session store owned by
 the server process, because a session spans several tool calls; it is closed on SIGINT/SIGTERM,
 and an idle session is closed at the next call that touches it.

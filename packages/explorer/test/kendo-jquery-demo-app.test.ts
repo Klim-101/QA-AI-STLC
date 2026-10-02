@@ -96,7 +96,14 @@ describe('Kendo UI for jQuery profile (demo app)', () => {
     const otherNames = elements
       .filter((element) => element.library === undefined)
       .map((element) => element.name);
-    expect(otherNames.sort()).toEqual(['apply', 'cancel', 'editDetails', 'nextPage', 'note', 'previousPage']);
+    expect(otherNames.sort()).toEqual([
+      'apply',
+      'cancel',
+      'editDetails',
+      'goToTheNextPage',
+      'goToThePreviousPage',
+      'note',
+    ]);
   }, 120_000);
 
   it('names each widget and links it to its popup', async () => {

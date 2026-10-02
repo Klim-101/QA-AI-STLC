@@ -56,7 +56,16 @@ export const KENDO_ANGULAR_PROFILE: ComponentLibraryProfile = {
       role: 'dialog',
       nativeControlSelector: '.k-window-titlebar *',
     },
-    { widgetKind: 'grid', wrapperSelector: 'kendo-grid', role: 'grid' },
+    {
+      widgetKind: 'grid',
+      wrapperSelector: 'kendo-grid',
+      role: 'grid',
+      grid: {
+        nextPageSelector: '[aria-label="Go to the next page"]',
+        previousPageSelector: '[aria-label="Go to the previous page"]',
+        scrollContainerSelector: '.k-grid-container',
+      },
+    },
   ],
   // Generated ids are random per page load: `k-` plus a UUID prefix, with a suffix for the
   // elements derived from it (the popup list).

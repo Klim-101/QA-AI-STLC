@@ -25,6 +25,8 @@ describe('createBuiltinTools', () => {
       'qa.browser_set_date',
       'qa.browser_open_popup',
       'qa.browser_close_popup',
+      'qa.browser_grid_find_row',
+      'qa.browser_grid_read_cell',
       'qa.browser_snapshot',
       'qa.browser_accessibility_scan',
       'qa.browser_close',

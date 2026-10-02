@@ -22,6 +22,19 @@ export const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 export interface WidgetTarget {
   readonly wrapperSelector: string;
   readonly popupToggleSelector?: string;
+  /** Present when the widget is a data grid the grid actions (P6-44) can search. */
+  readonly grid?: GridControls;
+}
+
+/**
+ * How to move through the rows of a grid that does not render them all. Selectors are CSS,
+ * relative to the grid wrapper. A grid with a pager is searched page by page, one with a
+ * scrollable container that renders only the rows near the viewport by scrolling it.
+ */
+export interface GridControls {
+  readonly nextPageSelector?: string;
+  readonly previousPageSelector?: string;
+  readonly scrollContainerSelector?: string;
 }
 
 export interface BrowserSession {
