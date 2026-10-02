@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuthPage } from '@qa-ai-stlc/core';
+import { capArray, truncateText, type AuthPage, type NormalizeLimits } from '@qa-ai-stlc/core';
 import type {
   Dialog,
   Form,
@@ -11,7 +11,6 @@ import type {
   Table,
 } from '@qa-ai-stlc/schemas';
 import type { WidgetRecognizer } from './component-library-profile.js';
-import { capArray, truncateText, type NormalizeLimits } from './normalize.js';
 
 interface RawPageElements {
   readonly interactiveElements: readonly RawInteractiveElement[];

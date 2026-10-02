@@ -34,6 +34,8 @@ export * from './browser-busy-wait.js';
 export * from './browser-timeouts.js';
 export * from './browser-safe-mode.js';
 export * from './browser-grid.js';
+export * from './normalize.js';
+export * from './accessibility-tree.js';
 export * from './browser-session-store.js';
 export * from './auth.js';
 export * from './auth-session-store.js';

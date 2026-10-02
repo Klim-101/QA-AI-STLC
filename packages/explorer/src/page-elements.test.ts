@@ -1,9 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuthPage } from '@qa-ai-stlc/core';
+import { DEFAULT_NORMALIZE_LIMITS, type AuthPage } from '@qa-ai-stlc/core';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_NORMALIZE_LIMITS } from './normalize.js';
 import { extractPageElements } from './page-elements.js';
 import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
 import { createLocatorMethods } from './test-support/locator-stub.js';

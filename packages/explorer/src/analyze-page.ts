@@ -1,11 +1,14 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuthPage } from '@qa-ai-stlc/core';
+import {
+  DEFAULT_NORMALIZE_LIMITS,
+  normalizeAccessibilityTree,
+  type AuthPage,
+  type NormalizeLimits,
+} from '@qa-ai-stlc/core';
 import type { PageModel } from '@qa-ai-stlc/schemas';
-import { normalizeAccessibilityTree } from './accessibility-tree.js';
 import { waitUntilLibraryReady, type ComponentLibraryProfile } from './component-library-profile.js';
-import { DEFAULT_NORMALIZE_LIMITS, type NormalizeLimits } from './normalize.js';
 import { extractPageElements } from './page-elements.js';
 
 /**

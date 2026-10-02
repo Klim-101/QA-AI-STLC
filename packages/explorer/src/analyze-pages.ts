@@ -1,12 +1,17 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { systemClock, type BrowserLauncher, type Clock } from '@qa-ai-stlc/core';
+import {
+  DEFAULT_NORMALIZE_LIMITS,
+  systemClock,
+  type BrowserLauncher,
+  type Clock,
+  type NormalizeLimits,
+} from '@qa-ai-stlc/core';
 import { SCHEMA_VERSION, type PageModel, type PageModelSet } from '@qa-ai-stlc/schemas';
 import { analyzePage } from './analyze-page.js';
 import type { ComponentLibraryProfile } from './component-library-profile.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
-import { DEFAULT_NORMALIZE_LIMITS, type NormalizeLimits } from './normalize.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
 
 export interface AnalyzePagesOptions {

@@ -1,7 +1,6 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-export * from './accessibility-tree.js';
 export * from './allowlist.js';
 export * from './analyze-page.js';
 export * from './analyze-pages.js';
@@ -15,7 +14,6 @@ export * from './extract-links.js';
 export * from './generate-locator-module.js';
 export * from './identity.js';
 export * from './naming.js';
-export * from './normalize.js';
 export * from './api-diff.js';
 export * from './operations/api-diff.js';
 export * from './operations/explore.js';
