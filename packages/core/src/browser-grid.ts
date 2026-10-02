@@ -167,18 +167,14 @@ export async function findGridRow(
       await waitForBusyToClear(session);
       scrolls += 1;
     };
-    if ((state.scroll?.top ?? 0) > 0) {
-      await moveTo(0);
-      if (state.matchCount > 0) {
-        return found();
-      }
-    }
     while (state.scroll !== null && scrolls < maxSteps) {
       const { top, clientHeight, scrollHeight } = state.scroll;
-      if (top + clientHeight >= scrollHeight - 1) {
+      // The first move goes back to the top, so the search covers every row from the start.
+      const nextTop = top > 0 && scrolls === 0 ? 0 : top + Math.floor(clientHeight * SCROLL_STEP_RATIO);
+      if (nextTop !== 0 && top + clientHeight >= scrollHeight - 1) {
         break;
       }
-      await moveTo(top + Math.floor(clientHeight * SCROLL_STEP_RATIO));
+      await moveTo(nextTop);
       if (state.matchCount > 0) {
         return found();
       }
