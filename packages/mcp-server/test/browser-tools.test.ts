@@ -214,7 +214,8 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         });
       }
 
-      const captured = await snapshot.handler({ sessionId: opened.sessionId });
+      const captured = await snapshot.handler({ sessionId: opened.sessionId, screenshot: true });
+      expect(captured.screenshot).toBeDefined();
       const closed = await close.handler({ sessionId: opened.sessionId });
 
       expect(closed.blockedRequests).toEqual([
@@ -233,7 +234,7 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         navigated.evidence,
         filled.evidence,
         clicked.evidence,
-        captured.screenshot,
+        ...(captured.screenshot === undefined ? [] : [captured.screenshot]),
         captured.accessibilityTree,
         closed.evidence,
       ];
@@ -271,7 +272,7 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
     });
   }, 15_000);
 
-  it('registers a screenshot for every snapshot, so no unregistered image can exist', async () => {
+  it('registers a screenshot when asked for one, so no unregistered image can exist', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
       await mkdir(join(projectRoot, '.qa'), { recursive: true });
@@ -283,9 +284,15 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
 
       const captured = await createBrowserSnapshotTool(dependencies).handler({
         sessionId: opened.sessionId,
+        screenshot: true,
         fullPage: true,
       });
 
+      expect(captured.screenshot).toBeDefined();
+      if (captured.screenshot === undefined) {
+        throw new Error('expected a screenshot');
+      }
+      expect(captured.view.text).toContain('document "Staging home"');
       expect(captured.screenshot.kind).toBe('screenshot');
       expect(captured.screenshot.sha256).toBe(sha256(SCREENSHOT_BYTES));
       const manifest = JSON.parse(await readFile(join(projectRoot, '.qa', 'manifest.json'), 'utf-8')) as {

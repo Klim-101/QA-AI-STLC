@@ -23,12 +23,12 @@ describe('runBrowserSnapshot', () => {
     const { sessionId } = await runBrowserOpen(harness.context);
     await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/' });
 
-    const result = await runBrowserSnapshot(harness.context, { sessionId });
+    const result = await runBrowserSnapshot(harness.context, { sessionId, screenshot: true });
 
     expect(result.screenshot).toMatchObject({
       kind: 'screenshot',
       runId: 'run-1-2',
-      path: `evidence/run-1-2/${result.screenshot.id}.png`,
+      path: `evidence/run-1-2/${result.screenshot?.id ?? ''}.png`,
       sha256: hashContent(SCREENSHOT_BYTES),
     });
     expect(result.accessibilityTree).toMatchObject({
@@ -45,15 +45,19 @@ describe('runBrowserSnapshot', () => {
     });
     const { sessionId } = await runBrowserOpen(harness.context);
 
-    const result = await runBrowserSnapshot(harness.context, { sessionId });
+    const result = await runBrowserSnapshot(harness.context, { sessionId, screenshot: true });
 
-    const stored = harness.fs.getRawFile(join('project', '.qa', result.screenshot.path));
+    const screenshot = result.screenshot;
+    if (screenshot === undefined) {
+      throw new Error('expected a screenshot');
+    }
+    const stored = harness.fs.getRawFile(join('project', '.qa', screenshot.path));
     expect(stored).toEqual(SCREENSHOT_BYTES);
     const manifest: unknown = JSON.parse(
       String(harness.fs.getRawFile(join('project', '.qa', 'manifest.json'))),
     );
     expect(manifest).toMatchObject({
-      artifacts: { [result.screenshot.path]: { sha256: hashContent(SCREENSHOT_BYTES) } },
+      artifacts: { [screenshot.path]: { sha256: hashContent(SCREENSHOT_BYTES) } },
     });
   });
 
@@ -64,7 +68,11 @@ describe('runBrowserSnapshot', () => {
     const { sessionId } = await runBrowserOpen(harness.context);
     await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/home' });
 
-    const result = await runBrowserSnapshot(harness.context, { sessionId, fullPage: true });
+    const result = await runBrowserSnapshot(harness.context, {
+      sessionId,
+      screenshot: true,
+      fullPage: true,
+    });
 
     expect(harness.launcher.pageCalls.filter((call) => call.method === 'screenshot')).toEqual([
       { method: 'screenshot', args: [{ fullPage: true }] },
@@ -77,6 +85,27 @@ describe('runBrowserSnapshot', () => {
       capturedAt: '2026-09-21T10:00:00.000Z',
       tree: { role: 'heading', name: 'Welcome' },
     });
+  });
+
+  it('takes no screenshot unless asked, and returns the page as a compact view', async () => {
+    const harness = createBrowserTestHarness({
+      launcherOptions: {
+        ariaSnapshotResult: {
+          role: 'document',
+          name: 'Staging home',
+          children: [{ role: 'button', name: 'Save' }],
+        },
+      },
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    const result = await runBrowserSnapshot(harness.context, { sessionId });
+
+    expect(harness.launcher.pageCalls.filter((call) => call.method === 'screenshot')).toEqual([]);
+    expect(result.screenshot).toBeUndefined();
+    expect('screenshot' in result).toBe(false);
+    expect(result.view.text).toContain('- button "Save" [ref=e1]');
+    expect(result.view).toMatchObject({ refCount: 1, truncated: false, omittedLineCount: 0 });
   });
 
   it('fails instead of returning a snapshot whose tree leaked a secret', async () => {

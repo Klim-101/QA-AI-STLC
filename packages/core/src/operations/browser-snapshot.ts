@@ -4,10 +4,14 @@
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import { toCanonicalJson } from '../json-file.js';
 import type { BrowserOperationContext } from './browser-context.js';
+import { renderPageView, type PageView } from '../page-view.js';
 import { createBrowserEvidenceStore, registerEvidenceOrThrow } from './browser-evidence.js';
 
 export interface BrowserSnapshotOptions {
   readonly sessionId: string;
+  /** Also captures a PNG; off by default, because the compact view is what an agent reads. */
+  readonly screenshot?: boolean;
+  /** Only meaningful with `screenshot`. */
   readonly fullPage?: boolean;
 }
 
@@ -15,19 +19,19 @@ export interface BrowserSnapshotResult {
   readonly sessionId: string;
   readonly url: string;
   readonly title: string;
-  readonly screenshot: Evidence;
+  readonly view: PageView;
+  readonly screenshot?: Evidence;
   readonly accessibilityTree: Evidence;
 }
 
 /**
- * MCP `qa.browser_snapshot` (P2-06): captures the page twice — a PNG and its accessibility tree
- * — and registers both before returning. There is no path from a tool call to a screenshot that
- * the engine did not hash and record, which is the acceptance criterion of ADR-005.
+ * MCP `qa.browser_snapshot` (P2-06, P6-52): returns the page as a compact, capped outline with a
+ * ref on every actionable node, and registers the full accessibility tree as evidence before
+ * returning. A screenshot is taken, and registered, only when asked for. There is no path from a
+ * tool call to a stored file that the engine did not hash and record (ADR-005).
  *
- * The tree is stored as Playwright reports it, without the normalization and capping
- * `@qa-ai-stlc/explorer` applies when building a selector registry: that shaping exists to make
- * crawl output comparable across pages, and an exploratory snapshot is a record of one moment,
- * not an input to a diff. Core also must not depend on explorer (AGENTS.md 3).
+ * The registered tree is the page's own, unshaped report: the outline is a bounded reading
+ * aid, while the evidence is the record of one moment.
  */
 export async function runBrowserSnapshot(
   context: BrowserOperationContext,
@@ -37,17 +41,21 @@ export async function runBrowserSnapshot(
   const evidenceStore = createBrowserEvidenceStore(context.engine);
   const capturedAt = context.engine.clock.now().toISOString();
 
-  const image = await session.page.screenshot(
-    options.fullPage === undefined ? {} : { fullPage: options.fullPage },
-  );
+  const image =
+    options.screenshot === true
+      ? await session.page.screenshot(options.fullPage === undefined ? {} : { fullPage: options.fullPage })
+      : undefined;
   const url = session.page.url();
 
-  const screenshot = await registerEvidenceOrThrow(evidenceStore, {
-    id: context.sessions.nextEvidenceId(),
-    runId: session.runId,
-    kind: 'screenshot',
-    content: image,
-  });
+  const screenshot =
+    image === undefined
+      ? undefined
+      : await registerEvidenceOrThrow(evidenceStore, {
+          id: context.sessions.nextEvidenceId(),
+          runId: session.runId,
+          kind: 'screenshot',
+          content: image,
+        });
 
   // "other" rather than "action": the tree is captured page state, the structural counterpart of
   // the screenshot, not a description of something the engine did.
@@ -64,7 +72,8 @@ export async function runBrowserSnapshot(
     sessionId: session.sessionId,
     url,
     title: await session.page.title(),
-    screenshot,
+    view: renderPageView(tree),
+    ...(screenshot === undefined ? {} : { screenshot }),
     accessibilityTree,
   };
 }
