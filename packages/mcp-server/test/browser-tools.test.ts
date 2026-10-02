@@ -89,6 +89,7 @@ function createFakeBrowser(): FakeBrowser {
       calls.push(`hover ${selector}`);
       return Promise.resolve();
     },
+    selectOption: () => Promise.resolve([]),
     setChecked: (selector, checked) => {
       calls.push(`setChecked ${selector} ${String(checked)}`);
       return Promise.resolve();

@@ -22,6 +22,7 @@ function recordingPage(calls: unknown[]): AuthPage {
     click: () => Promise.resolve(),
     press: () => Promise.resolve(),
     hover: () => Promise.resolve(),
+    selectOption: () => Promise.resolve([]),
     setChecked: () => Promise.resolve(),
     keyboard: { press: () => Promise.resolve() },
     waitForLoadState: () => Promise.resolve(),

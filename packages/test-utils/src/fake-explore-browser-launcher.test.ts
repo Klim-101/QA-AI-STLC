@@ -89,6 +89,7 @@ describe('createFakeExploreBrowserLauncher', () => {
     await expect(page.click('button')).resolves.toBeUndefined();
     await expect(page.press('input', 'Enter')).resolves.toBeUndefined();
     await expect(page.hover('a')).resolves.toBeUndefined();
+    await expect(page.selectOption('select', [{ label: 'High' }])).resolves.toEqual([]);
     await expect(page.setChecked('#box', true)).resolves.toBeUndefined();
     await expect(page.keyboard.press('Escape')).resolves.toBeUndefined();
     await expect(page.waitForLoadState()).resolves.toBeUndefined();

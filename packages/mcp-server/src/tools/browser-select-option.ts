@@ -22,9 +22,9 @@ export function createBrowserSelectOptionTool(
   return {
     name: 'qa.browser_select_option',
     description:
-      'Picks the option with the given visible text in a drop-down, combo box or multi-select, ' +
-      'and checks the widget shows it afterwards. Use instead of a click sequence on a component ' +
-      'library widget. Fails with BROWSER_WIDGET_OPTION_NOT_FOUND when the list has no such ' +
+      'Picks the option with the given visible text in a native select, or in a drop-down, combo box ' +
+      'or multi-select widget, and checks it shows the choice afterwards. Use instead of a click sequence on a list. ' +
+      'A multi-select keeps what it already had chosen. Fails with BROWSER_WIDGET_OPTION_NOT_FOUND when the list has no such ' +
       'option and BROWSER_WIDGET_VALUE_MISMATCH when the widget does not take the choice, which ' +
       'can be a real defect. The text is not recorded, only its length.',
     inputSchema: InputSchema,
