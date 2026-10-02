@@ -19,7 +19,9 @@ import { DEFAULT_NORMALIZE_LIMITS, truncateText } from '../normalize.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
-const POLL_INTERVAL_MS = 100;
+export const EXPECTATION_POLL_INTERVAL_MS = 100;
+/** An element that was just counted is read at once; this only bounds the case where it vanished. */
+const ELEMENT_READ_TIMEOUT_MS = 1_000;
 const REDACTED = '[redacted]';
 
 export interface BrowserExpectOptions {
@@ -89,7 +91,8 @@ function toSpec(options: BrowserExpectOptions): ExpectationSpec {
   }
 }
 
-async function observe(
+/** Looks once at the page for what an expectation reads; shared with qa.browser_wait_for. */
+export async function observeExpectationTarget(
   session: BrowserSession,
   spec: ExpectationSpec,
   selector: string | undefined,
@@ -104,9 +107,17 @@ async function observe(
   if (!readsElement || matchCount !== 1) {
     return { url, matchCount };
   }
-  const reading = ElementReadingSchema.safeParse(
-    await locator.evaluate(readElementState, undefined, { timeout: session.actionTimeoutMs }),
-  );
+  let answer: unknown;
+  try {
+    answer = await locator.evaluate(readElementState, undefined, {
+      timeout: Math.min(session.actionTimeoutMs, ELEMENT_READ_TIMEOUT_MS),
+    });
+  } catch {
+    // The element was counted a moment ago, so a read that cannot find it means the page removed
+    // it in between; that is an element that is gone, which the next look reports, not a failure.
+    return { url, matchCount };
+  }
+  const reading = ElementReadingSchema.safeParse(answer);
   // A page that answers with something unexpected is not read as an element that matched.
   return reading.success ? { url, matchCount, element: reading.data } : { url, matchCount };
 }
@@ -140,11 +151,11 @@ export async function runBrowserExpect(
   const timeoutMs = Math.min(options.timeoutMs ?? session.actionTimeoutMs, session.actionTimeoutMs);
 
   await waitForBusyToClear(session);
-  let observation = await observe(session, spec, target?.selector);
+  let observation = await observeExpectationTarget(session, spec, target?.selector);
   let verdict: ExpectationVerdict = judgeExpectation(spec, observation);
-  for (let attempt = 0; !verdict.passed && attempt < timeoutMs / POLL_INTERVAL_MS; attempt += 1) {
-    await session.page.evaluate(sleepInPage, POLL_INTERVAL_MS);
-    observation = await observe(session, spec, target?.selector);
+  for (let attempt = 0; !verdict.passed && attempt < timeoutMs / EXPECTATION_POLL_INTERVAL_MS; attempt += 1) {
+    await session.page.evaluate(sleepInPage, EXPECTATION_POLL_INTERVAL_MS);
+    observation = await observeExpectationTarget(session, spec, target?.selector);
     verdict = judgeExpectation(spec, observation);
   }
 

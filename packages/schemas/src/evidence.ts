@@ -38,6 +38,8 @@ export const BrowserActionTypeSchema = z.enum([
   'grid-read-cell',
   // An expectation the engine checked in the page (P6-55); the verdict is in `expectation`.
   'expect',
+  // A condition the engine waited for (P6-58); `wait` holds what and for how long.
+  'wait-for',
   'snapshot',
   'close',
 ]);
@@ -62,6 +64,25 @@ export const BrowserExpectationKindSchema = z.enum([
   'url',
 ]);
 export type BrowserExpectationKind = z.infer<typeof BrowserExpectationKindSchema>;
+
+export const BrowserWaitConditionSchema = z.enum([
+  'visible',
+  'hidden',
+  'attached',
+  'detached',
+  'text-appears',
+  'text-disappears',
+  'url',
+]);
+export type BrowserWaitCondition = z.infer<typeof BrowserWaitConditionSchema>;
+
+// What a `wait-for` action waited for and how long it took until the condition held.
+export const BrowserWaitSchema = z.object({
+  condition: BrowserWaitConditionSchema,
+  expected: z.string().optional(),
+  waitedMs: z.number().int().nonnegative(),
+});
+export type BrowserWait = z.infer<typeof BrowserWaitSchema>;
 
 // What an `expect` action checked and what the page showed (ADR-0013): the verdict is the
 // engine's, never the agent's. `observed` is absent when no single element was there to read.
@@ -91,6 +112,7 @@ export const BrowserActionSchema = z.object({
   selector: z.string().min(1).optional(),
   ref: BrowserActionRefSchema.optional(),
   expectation: BrowserExpectationSchema.optional(),
+  wait: BrowserWaitSchema.optional(),
   // The key or chord a `press` sent; a single printable character is recorded as `[character]`.
   key: z.string().min(1).optional(),
   // The state a `check` action read back from the box after setting it.

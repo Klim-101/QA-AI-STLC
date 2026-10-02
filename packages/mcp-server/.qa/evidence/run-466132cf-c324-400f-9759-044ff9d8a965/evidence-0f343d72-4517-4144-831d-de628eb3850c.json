@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "type": "wait-for",
+  "sessionId": "session-3ee34cf8-3e1c-4e1a-9beb-8a476bfc97f8",
+  "url": "https://staging.example.test/login",
+  "wait": {
+    "condition": "url",
+    "expected": "/login",
+    "waitedMs": 1
+  },
+  "at": "2026-10-02T23:19:30.366Z"
+}

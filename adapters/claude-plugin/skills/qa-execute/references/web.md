@@ -58,6 +58,15 @@ that is the finding to report. Only `BROWSER_EXPECT_INVALID` (a malformed check)
 `BROWSER_REF_STALE` are errors. A check that reads one element fails when its selector matches
 several; narrow the selector or use a snapshot `ref`.
 
+## Waiting
+
+When a step's result arrives later (a save, a list that loads, a redirect), call
+`qa.browser_wait_for` before reading the page: an element visible, hidden, attached or detached, text
+appearing or disappearing, or the URL matching. It never waits longer than the environment action
+timeout and records how long it took. A condition that never holds is `BROWSER_WAIT_TIMEOUT` naming
+it and records nothing; that is a finding to look into with `qa.browser_snapshot`, not a reason to
+retry blindly.
+
 ## Closing out
 
 Call `qa.browser_close` when the case's steps are done, whether it passed or failed — an open
