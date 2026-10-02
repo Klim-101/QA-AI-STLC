@@ -167,6 +167,11 @@ export interface FakeBrowserLauncherOptions {
    * resolves to `undefined`.
    */
   readonly locatorEvaluate?: (call: FakeLocatorEvaluateCall) => unknown;
+  /**
+   * What successive `page.click()` calls do, in order: an `Error` rejects that call, `undefined`
+   * resolves it. Once the list is used up every click resolves.
+   */
+  readonly clickOutcomes?: readonly (Error | undefined)[];
   /** Returned by `page.viewportSize()`; defaults to a 1280x720 desktop size. */
   readonly viewportSize?: ViewportSizeLike | null;
   /** The URL `page.url()` reports before any navigation; defaults to `about:blank`. */
@@ -195,6 +200,7 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
   const gotoResponse = 'gotoResponse' in options ? options.gotoResponse : DEFAULT_GOTO_RESPONSE;
   const reloadResponse = 'reloadResponse' in options ? options.reloadResponse : DEFAULT_GOTO_RESPONSE;
   const locatorCounts = options.locatorCounts ?? [1];
+  let clickCount = 0;
   let locatorCallIndex = 0;
 
   function nextLocatorCount(): number {
@@ -228,7 +234,9 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
     },
     click: (...args) => {
       calls.push({ method: 'click', args });
-      return Promise.resolve();
+      const outcome = options.clickOutcomes?.[clickCount];
+      clickCount += 1;
+      return outcome === undefined ? Promise.resolve() : Promise.reject(outcome);
     },
     waitForLoadState: (...args) => {
       calls.push({ method: 'waitForLoadState', args });

@@ -19,9 +19,12 @@ import { runBrowserClosePopup, runBrowserOpenPopup } from './browser-popup.js';
 import { runBrowserSelectOption } from './browser-select-option.js';
 import { runBrowserSetDate } from './browser-set-date.js';
 
-async function openSession(script: WidgetPageScript) {
+async function openSession(script: WidgetPageScript, clickOutcomes?: readonly (Error | undefined)[]) {
   const harness = createBrowserTestHarness({
-    launcherOptions: { locatorEvaluate: scriptWidgetPage(script) },
+    launcherOptions: {
+      locatorEvaluate: scriptWidgetPage(script),
+      ...(clickOutcomes === undefined ? {} : { clickOutcomes }),
+    },
   });
   const { sessionId } = await runBrowserOpen(harness.context);
   await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/form' });
@@ -65,6 +68,33 @@ describe('runBrowserSelectOption', () => {
       selector: '.wrapper',
       url: 'https://staging.example.test/form',
     });
+  });
+
+  it('reopens a popup that closed itself and clicks the option again', async () => {
+    const { harness, sessionId } = await openSession(
+      {
+        ...script,
+        inspections: [CLOSED_WIDGET, OPEN_WIDGET, CLOSED_WIDGET, OPEN_WIDGET, OPEN_WIDGET, CLOSED_WIDGET],
+      },
+      [undefined, new Error('element is not visible')],
+    );
+
+    await runBrowserSelectOption(harness.context, { sessionId, selector: '.wrapper', optionText: 'Open' });
+
+    expect(calls(harness, 'click').map(([selector]) => selector)).toEqual([TOGGLE, OPTION, TOGGLE, OPTION]);
+  });
+
+  it('reports the failure of the second click when the option still cannot be clicked', async () => {
+    const second = new Error('intercepts pointer events');
+    const { harness, sessionId } = await openSession(
+      { ...script, inspections: [CLOSED_WIDGET, OPEN_WIDGET, OPEN_WIDGET, OPEN_WIDGET, OPEN_WIDGET] },
+      [undefined, new Error('element is not visible'), second],
+    );
+
+    await expect(
+      runBrowserSelectOption(harness.context, { sessionId, selector: '.wrapper', optionText: 'Open' }),
+    ).rejects.toBe(second);
+    expect(calls(harness, 'click').map(([selector]) => selector)).toEqual([TOGGLE, OPTION, OPTION]);
   });
 
   it('records the choice by its length, not its text, and carries a stepId', async () => {
