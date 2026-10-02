@@ -32,19 +32,13 @@ export const BrowserActionTypeSchema = z.enum([
   // Grid actions (P6-44): the engine found the row or cell and read it back.
   'grid-find-row',
   'grid-read-cell',
+  // An expectation the engine checked in the page (P6-55); the verdict is in `expectation`.
+  'expect',
   'snapshot',
   'close',
 ]);
 export type BrowserActionType = z.infer<typeof BrowserActionTypeSchema>;
 
-// The body of an `action` evidence record (ADR-005): what the engine did, where, and when. A
-// filled value is described only by its length — the value itself is never persisted, whether or
-// not the secret scanner would have recognized it (AGENTS.md 5.8, 12.4).
-//
-// `stepId` is carried here, in the persisted content, rather than only on the `Evidence` wrapper
-// (below) — the wrapper is never written to disk on its own, only the content this schema
-// describes is (`EvidenceStore.register`), so `qa-generate-tests` (P3-07) recovering a proven
-// session's steps from evidence later has nowhere else to read it back from.
 // The element ref an action was given instead of a selector (ADR-0013): `selector` on the same
 // record is what the ref resolved to, so a reader that only wants selectors never needs this.
 export const BrowserActionRefSchema = z.object({
@@ -54,6 +48,36 @@ export const BrowserActionRefSchema = z.object({
 });
 export type BrowserActionRef = z.infer<typeof BrowserActionRefSchema>;
 
+export const BrowserExpectationKindSchema = z.enum([
+  'visible',
+  'hidden',
+  'text',
+  'value',
+  'count',
+  'checked',
+  'url',
+]);
+export type BrowserExpectationKind = z.infer<typeof BrowserExpectationKindSchema>;
+
+// What an `expect` action checked and what the page showed (ADR-0013): the verdict is the
+// engine's, never the agent's. `observed` is absent when no single element was there to read.
+export const BrowserExpectationSchema = z.object({
+  kind: BrowserExpectationKindSchema,
+  passed: z.boolean(),
+  expected: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  observed: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  matchCount: z.number().int().nonnegative().optional(),
+});
+export type BrowserExpectation = z.infer<typeof BrowserExpectationSchema>;
+
+// The body of an `action` evidence record (ADR-005): what the engine did, where, and when. A
+// filled value is described only by its length — the value itself is never persisted, whether or
+// not the secret scanner would have recognized it (AGENTS.md 5.8, 12.4).
+//
+// `stepId` is carried here, in the persisted content, rather than only on the `Evidence` wrapper
+// (below) — the wrapper is never written to disk on its own, only the content this schema
+// describes is (`EvidenceStore.register`), so `qa-generate-tests` (P3-07) recovering a proven
+// session's steps from evidence later has nowhere else to read it back from.
 export const BrowserActionSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   type: BrowserActionTypeSchema,
@@ -62,6 +86,7 @@ export const BrowserActionSchema = z.object({
   url: z.string().min(1).optional(),
   selector: z.string().min(1).optional(),
   ref: BrowserActionRefSchema.optional(),
+  expectation: BrowserExpectationSchema.optional(),
   valueLength: z.number().int().nonnegative().optional(),
   httpStatus: z.number().int().positive().optional(),
   at: IsoDateTimeSchema,

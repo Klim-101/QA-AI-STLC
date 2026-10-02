@@ -117,6 +117,20 @@ describe('BrowserActionSchema', () => {
     },
   );
 
+  it('accepts an expectation with its verdict, and rejects one without (P6-55)', () => {
+    const base = { type: 'expect', sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
+    const passed = BrowserActionSchema.safeParse({
+      ...base,
+      selector: '#status',
+      expectation: { kind: 'text', passed: false, expected: 'saved', observed: 'Saving', matchCount: 1 },
+    });
+    expect(passed.success).toBe(true);
+    expect(BrowserActionSchema.safeParse({ ...base, expectation: { kind: 'text' } }).success).toBe(false);
+    expect(
+      BrowserActionSchema.safeParse({ ...base, expectation: { kind: 'colour', passed: true } }).success,
+    ).toBe(false);
+  });
+
   it('accepts the ref an action was given next to the selector it resolved to (P6-53)', () => {
     const result = BrowserActionSchema.safeParse({
       type: 'click',

@@ -20,6 +20,7 @@ import { createNodeEngineContext } from '../src/engine-context.js';
 import { createBrowserAccessibilityScanTool } from '../src/tools/browser-accessibility-scan.js';
 import { createBrowserClickTool } from '../src/tools/browser-click.js';
 import { createBrowserCloseTool } from '../src/tools/browser-close.js';
+import { createBrowserExpectTool } from '../src/tools/browser-expect.js';
 import { createBrowserFillTool } from '../src/tools/browser-fill.js';
 import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
@@ -303,6 +304,52 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         .handler({ sessionId: opened.sessionId, ref: 'e1', selector: '#go' })
         .catch((caught: unknown) => caught);
       expect(refused).toMatchObject({ code: 'BROWSER_TARGET_INVALID' });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('registers an expectation with the engine verdict, passed or failed', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const opened = await createBrowserOpenTool(dependencies).handler({});
+      await createBrowserNavigateTool(dependencies).handler({
+        sessionId: opened.sessionId,
+        url: 'https://staging.example.test/login',
+      });
+      const expectTool = createBrowserExpectTool(dependencies);
+
+      const onUrl = await expectTool.handler({
+        sessionId: opened.sessionId,
+        kind: 'url',
+        expected: '/login',
+        timeoutMs: 0,
+        stepId: 'step-2',
+      });
+      // The fake page cannot report an element, so a check that reads one fails honestly.
+      const onElement = await expectTool.handler({
+        sessionId: opened.sessionId,
+        kind: 'visible',
+        selector: '#status',
+        timeoutMs: 0,
+      });
+      const misuse = await expectTool
+        .handler({ sessionId: opened.sessionId, kind: 'count', selector: 'tr', timeoutMs: 0 })
+        .catch((caught: unknown) => caught);
+
+      expect(onUrl).toMatchObject({ passed: true, observed: 'https://staging.example.test/login' });
+      expect(onElement).toMatchObject({ passed: false, observed: 'unreadable' });
+      expect(misuse).toMatchObject({ code: 'BROWSER_EXPECT_INVALID' });
+      const stored = JSON.parse(
+        await readFile(join(projectRoot, '.qa', ...onUrl.evidence.path.split('/')), 'utf-8'),
+      ) as { type: string; stepId: string; expectation: { passed: boolean } };
+      expect(stored).toMatchObject({ type: 'expect', stepId: 'step-2', expectation: { passed: true } });
 
       await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
       process.chdir(originalCwd);

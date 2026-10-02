@@ -7,6 +7,7 @@ import { createBrowserAccessibilityScanTool } from './browser-accessibility-scan
 import { createBrowserClickTool } from './browser-click.js';
 import { createBrowserCloseTool } from './browser-close.js';
 import { createBrowserToolDependencies, type BrowserToolDependencies } from './browser-dependencies.js';
+import { createBrowserExpectTool } from './browser-expect.js';
 import { createBrowserFillTool } from './browser-fill.js';
 import { createBrowserGridFindRowTool, createBrowserGridReadCellTool } from './browser-grid.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
@@ -83,6 +84,7 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
     createBrowserGridFindRowTool(dependencies),
     createBrowserGridReadCellTool(dependencies),
     createBrowserSnapshotTool(dependencies),
+    createBrowserExpectTool(dependencies),
     createBrowserAccessibilityScanTool(dependencies),
     createRegistryExecuteRegisterTool(dependencies),
     createBrowserCloseTool(dependencies),

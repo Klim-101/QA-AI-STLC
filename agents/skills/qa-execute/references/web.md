@@ -45,6 +45,16 @@ separate session-log artifact — omitting it leaves that step invisible to gene
 sets up the session rather than performing a case step (an initial navigation before step one, for
 example) omits `stepId`.
 
+## Checking expected results
+
+Check every expected result of a step with `qa.browser_expect` (visible, hidden, text, value, count,
+checked, url) instead of reading the page and saying what you saw. Pass the step's `stepId`. It looks
+again until the expectation holds or the wait runs out, and registers what the page showed with
+`passed: true` or `false`. A failed check comes back with the observed value, not as an error:
+that is the finding to report. Only `BROWSER_EXPECT_INVALID` (a malformed check) and
+`BROWSER_REF_STALE` are errors. A check that reads one element fails when its selector matches
+several; narrow the selector or use a snapshot `ref`.
+
 ## Closing out
 
 Call `qa.browser_close` when the case's steps are done, whether it passed or failed — an open
