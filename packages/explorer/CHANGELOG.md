@@ -1,5 +1,56 @@
 # @qa-ai-stlc/explorer
 
+## 1.6.0
+
+### Minor Changes
+
+- c3967a9: Add `qa api-diff` (MCP `qa.api_diff`): compares the OpenAPI 3.x contract named by `api.source` (a project file, an allowlisted URL, or `discover`, which probes the well-known spec paths with GET requests only) with the endpoints the last `qa explore` observed, and writes `selectors/api-diff.json` with each discrepancy classified as matched, undocumented, method not documented or unobserved, stamped with the contract's SHA-256. Path parameter names are ignored when comparing, so `/tasks/{taskId}` matches the observed `/tasks/{id}`.
+- 8cf3406: `qa.browser_snapshot` returns the page as a compact outline of its accessibility tree instead of only evidence ids. The outline is capped at 16000 characters, carries a short ref (`e1`, `e2`, ...) on every actionable node, and sits between untrusted-data markers; `truncated` and `omittedLineCount` report anything cut. The full tree is still registered as evidence. A screenshot is taken only with `screenshot: true`, so the result's `screenshot` field is now optional. `normalizeAccessibilityTree`, `truncateText`, `capArray` and the normalization limits moved from `@qa-ai-stlc/explorer` to `@qa-ai-stlc/core`.
+- 953c27d: Add the component-library profile mechanism to the explorer. A profile selected by `ui.componentLibrary` is data: widget recognizers (a DOM signature, the widget kind and ARIA role, and the hidden native controls that only back the widget), generated-id patterns that locator synthesis rejects, and busy indicators the explorer waits out before reading a page. A recognized widget is registered on its visible wrapper as one element, with its widget kind, library and the popup it opens (read from `aria-controls`/`aria-owns`, since the popup is usually attached to `body`). No library profile ships yet; the Kendo profiles follow.
+- cd183b0: Component library widgets can be driven at the widget level. The new tools `qa.browser_select_option` (an option by its visible text), `qa.browser_set_date`, `qa.browser_open_popup` and `qa.browser_close_popup` find the widget wrapper from the registry's selector, act, and check the widget's resulting state before registering the action as evidence; a widget that does not take the value fails with `BROWSER_WIDGET_VALUE_MISMATCH`, a list without the option with `BROWSER_WIDGET_OPTION_NOT_FOUND`, and a popup that does not follow with `BROWSER_WIDGET_POPUP_STATE`. The Kendo UI for jQuery and Angular profiles declare which of their widgets support which actions, and the generated `tests/qa/locators.ts` gains a matching helper per widget (`<name>SelectOption`, `<name>SetDate`, `<name>OpenPopup`, `<name>ClosePopup`) so a generated spec calls it instead of a click sequence. The evidence action types gain `select-option`, `set-date`, `open-popup` and `close-popup`.
+- c7d5747: Data grids can be searched by content. `qa.browser_grid_find_row` finds the row with a given value under a column header and reads its cells; `qa.browser_grid_read_cell` returns one cell of that row. A grid with a pager is searched page by page (rewinding to its first page first), and a virtualized grid by scrolling it from the top, bounded by `maxSteps`. A value held by more than one rendered row is refused as `BROWSER_GRID_ROW_AMBIGUOUS` rather than guessed, a missing row is `BROWSER_GRID_ROW_NOT_FOUND`, and a missing header is `BROWSER_GRID_COLUMN_NOT_FOUND`. The Kendo UI for jQuery and Angular profiles declare their pager buttons and scroll container, and the evidence action types gain `grid-find-row` and `grid-read-cell`.
+- 4f67672: Ship the Kendo UI for Angular component-library profile, selected with `ui.componentLibrary: kendo-angular`. DropDownList, ComboBox, MultiSelect, DatePicker, NumericTextBox, TabStrip, Window and Grid are registered once, on their `kendo-*` host element, with the inputs and buttons rendered inside it left out and the library's generated `k-` ids rejected. Also fixes a widget named by several `aria-labelledby` ids being split on the letter "s" instead of on whitespace, which left widgets whose label id contained an "s" unnamed.
+- 6846012: Ship the Kendo UI for jQuery component-library profile, selected with `ui.componentLibrary: kendo-jquery`. DropDownList, ComboBox, MultiSelect, DatePicker, NumericTextBox, TabStrip, Window and Grid are registered once, on their visible wrapper, with the hidden native control and inner buttons left out, the library's GUID ids rejected, and the popup linked through `aria-controls`. A widget is named by its label rather than its text content, and a widget with no other stable locator is found through its popup id instead of its position.
+- 210e92b: Add `@qa-ai-stlc/runner-api` and route `qa run --test-type api` (MCP `qa.run`) through it. Before any spec runs it loads the OpenAPI 3.x contract named by `api.source` and checks every case the spec declares: the case must be an `api` case listing the contract operations it exercises in the new optional `endpoints` field, and every one must exist in the contract, otherwise the run is rejected with `API_CASE_NOT_IN_CONTRACT` before a request is sent. The contract text is stored as `artifacts/api-contract.txt` and registered in the manifest. Contract loading and OpenAPI parsing move from the explorer into `@qa-ai-stlc/core` (`loadApiContract`), and contract URLs and discovery probes are now checked against the environment's scheme and port as well as its hostname.
+
+### Patch Changes
+
+- 06c0685: `qa.browser_select_option` no longer fails when the list closes itself between finding an option and clicking it. The first click is bounded to five seconds; if it cannot land, the popup is reopened and the click repeated once with the full action timeout, and that second failure is the one reported. The option helpers in a generated locator module do the same.
+- 8b52efc: Choosing an option of a list widget (`qa.browser_select_option` and the generated widget helpers) is made once more when the widget does not show the choice at first, as it can on a loaded machine. A widget that still does not show it is reported as before.
+- Updated dependencies [32bdb52]
+- Updated dependencies [dfafb00]
+- Updated dependencies [a6bc034]
+- Updated dependencies [d6dfc44]
+- Updated dependencies [c3967a9]
+- Updated dependencies [9fd9564]
+- Updated dependencies [f664f1c]
+- Updated dependencies [eb9580e]
+- Updated dependencies [e0a6192]
+- Updated dependencies [c649f7d]
+- Updated dependencies [2338a38]
+- Updated dependencies [18f524e]
+- Updated dependencies [cc53150]
+- Updated dependencies [35d621d]
+- Updated dependencies [770cc78]
+- Updated dependencies [8cf3406]
+- Updated dependencies [953c27d]
+- Updated dependencies [cd183b0]
+- Updated dependencies [b5ee556]
+- Updated dependencies [c7d5747]
+- Updated dependencies [552493f]
+- Updated dependencies [c4db737]
+- Updated dependencies [088549c]
+- Updated dependencies [4e43236]
+- Updated dependencies [68de716]
+- Updated dependencies [06c0685]
+- Updated dependencies [210e92b]
+- Updated dependencies [f1dc0fb]
+- Updated dependencies [29c8fdb]
+- Updated dependencies [16cf78b]
+- Updated dependencies [8b52efc]
+  - @qa-ai-stlc/schemas@1.6.0
+  - @qa-ai-stlc/core@1.6.0
+
 ## 1.5.0
 
 ### Minor Changes

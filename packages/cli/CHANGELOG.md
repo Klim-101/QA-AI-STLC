@@ -1,5 +1,59 @@
 # @qa-ai-stlc/cli
 
+## 1.6.0
+
+### Minor Changes
+
+- 32bdb52: Add an `a11y` config block: WCAG version (`2.0`, `2.1` or `2.2`, default `2.1`), cumulative conformance level (`A`, `AA` or `AAA`, default `AA`), best-practice rules (default off), include and exclude selectors, and known-issue exceptions with a rule id, a reason and an optional expiry. `qa init` (`--a11y-wcag-version`, `--a11y-level`, `--a11y-best-practices`) and `qa.init` (`a11y`) record the target when accessibility testing is in scope, and the `qa-start` skill asks for it.
+- dfafb00: Add a per-criterion accessibility conformance section to `qa report` and `qa.report`, built from the recorded axe-core scans, and record the passed and inapplicable rules in the scan evidence.
+- c3967a9: Add `qa api-diff` (MCP `qa.api_diff`): compares the OpenAPI 3.x contract named by `api.source` (a project file, an allowlisted URL, or `discover`, which probes the well-known spec paths with GET requests only) with the endpoints the last `qa explore` observed, and writes `selectors/api-diff.json` with each discrepancy classified as matched, undocumented, method not documented or unobserved, stamped with the contract's SHA-256. Path parameter names are ignored when comparing, so `/tasks/{taskId}` matches the observed `/tasks/{id}`.
+- 953c27d: Add the component-library profile mechanism to the explorer. A profile selected by `ui.componentLibrary` is data: widget recognizers (a DOM signature, the widget kind and ARIA role, and the hidden native controls that only back the widget), generated-id patterns that locator synthesis rejects, and busy indicators the explorer waits out before reading a page. A recognized widget is registered on its visible wrapper as one element, with its widget kind, library and the popup it opens (read from `aria-controls`/`aria-owns`, since the popup is usually attached to `body`). No library profile ships yet; the Kendo profiles follow.
+- 088549c: MCP tools `qa.init`, `qa.config_set` and `qa.config_add` let the operator run the testing-scope survey and edit `.qa/config.yaml` inside the agent host. `qa.init` takes an explicit answer for every testing type (or an explicit `undecided`), returns the absolute project root for the operator to confirm before writing anything, and refuses when `.qa/` already exists in the directory or a parent. The MCP server now resolves the project root the way `qa-start` does: the nearest directory upward that holds `.qa/`. The `init`, `config set` and `config add` operations moved from the CLI into `@qa-ai-stlc/core`; the CLI commands behave as before.
+- 210e92b: Add `@qa-ai-stlc/runner-api` and route `qa run --test-type api` (MCP `qa.run`) through it. Before any spec runs it loads the OpenAPI 3.x contract named by `api.source` and checks every case the spec declares: the case must be an `api` case listing the contract operations it exercises in the new optional `endpoints` field, and every one must exist in the contract, otherwise the run is rejected with `API_CASE_NOT_IN_CONTRACT` before a request is sent. The contract text is stored as `artifacts/api-contract.txt` and registered in the manifest. Contract loading and OpenAPI parsing move from the explorer into `@qa-ai-stlc/core` (`loadApiContract`), and contract URLs and discovery probes are now checked against the environment's scheme and port as well as its hostname.
+- 29c8fdb: Add a `ui.componentLibrary` config setting (`none`, `kendo-jquery` or `kendo-angular`, default `none`). `qa init --component-library` and `qa.init` (`componentLibrary`) record the answer, the `qa-start` skill asks for it, and `qa config set ui.componentLibrary <value>` and `qa.config_set` change it later.
+
+### Patch Changes
+
+- 4bc34b7: The `qa-start` skill now runs first-time setup in conversation through `qa.init`, `qa.config_add` and `qa.doctor`: it states the project root, asks each testing-scope question, and never answers one for the operator. The README quick start leads with that path and no longer claims `qa init` has interactive prompts.
+- Updated dependencies [32bdb52]
+- Updated dependencies [dfafb00]
+- Updated dependencies [a6bc034]
+- Updated dependencies [d6dfc44]
+- Updated dependencies [c3967a9]
+- Updated dependencies [9fd9564]
+- Updated dependencies [f664f1c]
+- Updated dependencies [eb9580e]
+- Updated dependencies [e0a6192]
+- Updated dependencies [c649f7d]
+- Updated dependencies [2338a38]
+- Updated dependencies [18f524e]
+- Updated dependencies [cc53150]
+- Updated dependencies [35d621d]
+- Updated dependencies [770cc78]
+- Updated dependencies [8cf3406]
+- Updated dependencies [953c27d]
+- Updated dependencies [cd183b0]
+- Updated dependencies [b5ee556]
+- Updated dependencies [c7d5747]
+- Updated dependencies [552493f]
+- Updated dependencies [4f67672]
+- Updated dependencies [6846012]
+- Updated dependencies [c4db737]
+- Updated dependencies [088549c]
+- Updated dependencies [4e43236]
+- Updated dependencies [68de716]
+- Updated dependencies [06c0685]
+- Updated dependencies [210e92b]
+- Updated dependencies [f1dc0fb]
+- Updated dependencies [29c8fdb]
+- Updated dependencies [16cf78b]
+- Updated dependencies [8b52efc]
+  - @qa-ai-stlc/schemas@1.6.0
+  - @qa-ai-stlc/core@1.6.0
+  - @qa-ai-stlc/explorer@1.6.0
+  - @qa-ai-stlc/runner-api@1.6.0
+  - @qa-ai-stlc/runner-playwright@1.6.0
+
 ## 1.5.0
 
 ### Minor Changes
