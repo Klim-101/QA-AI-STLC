@@ -13,6 +13,7 @@ export interface FileSystemLike {
   mkdir(absolutePath: string): Promise<void>;
   pathExists(absolutePath: string): Promise<boolean>;
   listFiles(absolutePath: string): Promise<readonly string[]>;
+  realPath(absolutePath: string): Promise<string>;
 }
 
 export interface FakeFileSystem extends FileSystemLike {
@@ -79,5 +80,12 @@ export function createFakeFileSystem(initialFiles: Readonly<Record<string, strin
     listFiles: (absolutePath) =>
       Promise.resolve([...files.keys()].filter((path) => isUnderDirectory(path, absolutePath))),
     getRawFile: (absolutePath) => files.get(absolutePath),
+    // The fake has no symbolic links, so a path's real path is its own; a directory exists when a file is under it.
+    realPath: (absolutePath) =>
+      files.has(absolutePath) ||
+      directories.has(absolutePath) ||
+      [...files.keys()].some((path) => isUnderDirectory(path, absolutePath))
+        ? Promise.resolve(absolutePath)
+        : Promise.reject(notFound(absolutePath)),
   };
 }

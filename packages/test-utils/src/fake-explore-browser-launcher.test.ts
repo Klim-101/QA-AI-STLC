@@ -201,4 +201,13 @@ describe('createFakeExploreBrowserLauncher', () => {
     await expect(attached?.route('**/*', () => undefined)).resolves.toBeUndefined();
     expect(attached?.on('page', () => undefined)).toBeUndefined();
   });
+
+  it('records setInputFiles() on its page', async () => {
+    const launcher = createFakeExploreBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await expect(
+      page.setInputFiles('#file', [{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('a') }]),
+    ).resolves.toBeUndefined();
+  });
 });

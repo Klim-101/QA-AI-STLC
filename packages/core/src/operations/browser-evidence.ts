@@ -6,6 +6,7 @@ import {
   type BrowserActionRef,
   type BrowserExpectation,
   type BrowserDialog,
+  type BrowserUploadedFile,
   type BrowserWait,
   type BrowserActionType,
   type Evidence,
@@ -63,6 +64,8 @@ export interface BrowserActionDetails {
   readonly expectation?: BrowserExpectation;
   /** What a `wait-for` action waited for and how long it took (P6-58). */
   readonly wait?: BrowserWait;
+  /** The files an `upload` action set: name, size and hash of each, never content (P6-60). */
+  readonly files?: readonly BrowserUploadedFile[];
   /** The dialog a `dialog` action recorded and how the session's policy handled it (P6-59). */
   readonly dialog?: BrowserDialog;
   /** The session's id for the page a `dialog` or `tab-*` action concerns (P6-59). */
@@ -104,6 +107,7 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
     ...(options.action.ref !== undefined ? { ref: options.action.ref } : {}),
     ...(options.action.expectation !== undefined ? { expectation: options.action.expectation } : {}),
     ...(options.action.wait !== undefined ? { wait: options.action.wait } : {}),
+    ...(options.action.files !== undefined ? { files: options.action.files } : {}),
     ...(options.action.dialog !== undefined ? { dialog: options.action.dialog } : {}),
     ...(options.action.tabId !== undefined ? { tabId: options.action.tabId } : {}),
     ...(options.action.key !== undefined ? { key: options.action.key } : {}),

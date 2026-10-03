@@ -86,6 +86,7 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
     hover: () => Promise.resolve(),
     selectOption: () => Promise.resolve([]),
     setChecked: () => Promise.resolve(),
+    setInputFiles: () => Promise.resolve(),
     on: () => undefined,
     close: () => Promise.resolve(),
     bringToFront: () => Promise.resolve(),

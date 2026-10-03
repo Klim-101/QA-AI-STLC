@@ -96,6 +96,15 @@ export interface AuthPage {
   ): Promise<unknown>;
   /** Sets a checkbox or radio to `checked`; Playwright fails when the state does not change. */
   setChecked(selector: string, checked: boolean, options?: PageActionOptions): Promise<void>;
+  /**
+   * Sets files on a file input from bytes the engine has already read, scanned and hashed, so
+   * what is sent is exactly what was recorded.
+   */
+  setInputFiles(
+    selector: string,
+    files: readonly { readonly name: string; readonly mimeType: string; readonly buffer: Buffer }[],
+    options?: PageActionOptions,
+  ): Promise<void>;
   /** The page's keyboard, which presses a key on whatever element has focus. */
   readonly keyboard: { press(key: string): Promise<void> };
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;

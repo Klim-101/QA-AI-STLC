@@ -46,6 +46,8 @@ export const BrowserActionTypeSchema = z.enum([
   'tab-opened',
   'tab-blocked',
   'tab-switch',
+  // Files set on a file input (P6-60): `files` holds each one's name, size and hash.
+  'upload',
   'snapshot',
   'close',
 ]);
@@ -90,6 +92,15 @@ export const BrowserWaitSchema = z.object({
 });
 export type BrowserWait = z.infer<typeof BrowserWaitSchema>;
 
+// One file an `upload` action set on a file input: the name and the hash of the bytes that were
+// sent, never the content or the project path (AGENTS.md 5.8).
+export const BrowserUploadedFileSchema = z.object({
+  name: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+  sha256: Sha256HexSchema,
+});
+export type BrowserUploadedFile = z.infer<typeof BrowserUploadedFileSchema>;
+
 export const BrowserDialogKindSchema = z.enum(['alert', 'confirm', 'prompt', 'beforeunload']);
 export type BrowserDialogKind = z.infer<typeof BrowserDialogKindSchema>;
 
@@ -132,6 +143,7 @@ export const BrowserActionSchema = z.object({
   expectation: BrowserExpectationSchema.optional(),
   wait: BrowserWaitSchema.optional(),
   dialog: BrowserDialogSchema.optional(),
+  files: z.array(BrowserUploadedFileSchema).min(1).optional(),
   // The session's own id for the page a `tab-*` action concerns (`tab-1`, `tab-2`, ...).
   tabId: z.string().min(1).optional(),
   // The key or chord a `press` sent; a single printable character is recorded as `[character]`.

@@ -182,6 +182,7 @@ describe('runDoctor', () => {
     const brokenFs: FileSystem = {
       readFile: () => Promise.reject(new Error('disk exploded')),
       readBytes: () => Promise.reject(new Error('disk exploded')),
+      realPath: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
       deleteFile: () => Promise.resolve(),
       mkdir: () => Promise.resolve(),
