@@ -1,0 +1,1 @@
+{"sessionId":"session-1","activeTabId":"tab-2","tabs":[{"tabId":"tab-1","url":"https://app.example.test/cases/1","title":"Edit case","active":false},{"tabId":"tab-2","url":"https://app.example.test/terms","title":"Terms","active":true}],"notices":[]}
