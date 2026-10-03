@@ -66,6 +66,14 @@ that is the finding to report. Only `BROWSER_EXPECT_INVALID` (a malformed check)
 `BROWSER_REF_STALE` are errors. A check that reads one element fails when its selector matches
 several; narrow the selector or use a snapshot `ref`.
 
+## Attaching a file
+
+A step that attaches a file calls `qa.browser_upload` with the file input and project-relative `paths`
+(forward slashes, inside the project, never under `.qa/` or `.git/`). Each file is scanned for
+secrets first and the input is read back; the record holds each file's name, size and hash, never
+its content. `BROWSER_UPLOAD_SECRET` or `BROWSER_UPLOAD_PATH_INVALID` means fix the fixture, not
+work around it.
+
 ## Waiting
 
 When a step's result arrives later (a save, a list that loads, a redirect), call

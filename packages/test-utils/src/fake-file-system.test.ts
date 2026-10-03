@@ -89,4 +89,14 @@ describe('createFakeFileSystem', () => {
 
     await expect(fs.listFiles('/a')).resolves.toEqual(['/a/b.txt']);
   });
+
+  it('resolves the real path of a file, a directory that holds one, and rejects anything else', async () => {
+    const fs = createFakeFileSystem({ '/a/b.txt': 'x' });
+    await fs.mkdir('/empty');
+
+    await expect(fs.realPath('/a/b.txt')).resolves.toBe('/a/b.txt');
+    await expect(fs.realPath('/a')).resolves.toBe('/a');
+    await expect(fs.realPath('/empty')).resolves.toBe('/empty');
+    await expect(fs.realPath('/nope')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
 });

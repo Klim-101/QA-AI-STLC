@@ -77,6 +77,10 @@ export interface AuthPageLike {
   hover(selector: string): Promise<void>;
   selectOption(selector: string, options: readonly { readonly label: string }[]): Promise<unknown>;
   setChecked(selector: string, checked: boolean): Promise<void>;
+  setInputFiles(
+    selector: string,
+    files: readonly { readonly name: string; readonly mimeType: string; readonly buffer: Buffer }[],
+  ): Promise<void>;
   on(event: 'dialog', handler: (dialog: PageDialogLike) => void): unknown;
   on(event: 'close', handler: () => void): unknown;
   close(): Promise<void>;
@@ -140,6 +144,7 @@ export interface FakePageCall {
     | 'hover'
     | 'selectOption'
     | 'setChecked'
+    | 'setInputFiles'
     | 'keyboardPress'
     | 'waitForLoadState'
     | 'route'
@@ -347,6 +352,10 @@ function createFakePage(
     },
     bringToFront: () => {
       calls.push({ method: 'bringToFront', args: [] });
+      return Promise.resolve();
+    },
+    setInputFiles: (...args) => {
+      calls.push({ method: 'setInputFiles', args });
       return Promise.resolve();
     },
     keyboard: {

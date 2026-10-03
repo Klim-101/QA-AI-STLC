@@ -392,4 +392,14 @@ describe('createFakeBrowserLauncher', () => {
     await expect(page.waitForLoadState()).rejects.toBe('slow');
     expect(launcher.closedPages).toEqual([]);
   });
+
+  it('records setInputFiles() on its page', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await expect(
+      page.setInputFiles('#file', [{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('a') }]),
+    ).resolves.toBeUndefined();
+    expect(launcher.pageCalls.map((call) => call.method)).toEqual(['setInputFiles']);
+  });
 });

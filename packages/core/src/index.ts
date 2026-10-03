@@ -90,6 +90,7 @@ export * from './operations/browser-hover.js';
 export * from './operations/browser-check.js';
 export * from './operations/browser-wait-for.js';
 export * from './operations/browser-tabs.js';
+export * from './operations/browser-upload.js';
 export * from './expectation.js';
 export * from './operations/browser-close.js';
 export * from './a11y-conformance.js';

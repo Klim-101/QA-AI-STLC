@@ -57,6 +57,7 @@ function reportWithOneTest(overrides: {
 function fakeFileSystem(bytesByPath: Readonly<Record<string, Uint8Array>> = {}): FileSystem {
   return {
     readFile: () => Promise.reject(new Error('not implemented')),
+    realPath: () => Promise.reject(new Error('not implemented')),
     readBytes: (absolutePath) => {
       const bytes = bytesByPath[absolutePath];
       if (bytes === undefined) {

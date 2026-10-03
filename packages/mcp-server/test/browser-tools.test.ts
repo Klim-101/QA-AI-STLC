@@ -26,6 +26,7 @@ import { createBrowserFillTool } from '../src/tools/browser-fill.js';
 import { createBrowserHoverTool } from '../src/tools/browser-hover.js';
 import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
 import { createBrowserTabsTool } from '../src/tools/browser-tabs.js';
+import { createBrowserUploadTool } from '../src/tools/browser-upload.js';
 import { createBrowserWaitForTool } from '../src/tools/browser-wait-for.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
 import { createBrowserPressTool } from '../src/tools/browser-press.js';
@@ -92,6 +93,7 @@ function createFakeBrowser(): FakeBrowser {
       return Promise.resolve();
     },
     selectOption: () => Promise.resolve([]),
+    setInputFiles: () => Promise.resolve(),
     on: () => undefined,
     close: () => Promise.resolve(),
     bringToFront: () => Promise.resolve(),
@@ -440,6 +442,25 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         unchangedCount: 2,
       });
       expect(unknown).toMatchObject({ code: 'BROWSER_SNAPSHOT_UNKNOWN' });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('refuses an upload outside the project with a coded error and a remediation', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const dependencies = createDependencies(createFakeBrowser());
+      const { sessionId } = await createBrowserOpenTool(dependencies).handler({});
+      const refused = await createBrowserUploadTool(dependencies)
+        .handler({ sessionId, selector: '#file', paths: ['../outside.txt'], stepId: 'step-1' })
+        .catch((caught: unknown) => caught);
+
+      expect(refused).toMatchObject({ code: 'BROWSER_UPLOAD_PATH_INVALID' });
 
       await createBrowserCloseTool(dependencies).handler({ sessionId });
       process.chdir(originalCwd);

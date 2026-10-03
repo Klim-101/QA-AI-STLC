@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /**
@@ -22,11 +22,14 @@ export interface FileSystem {
   pathExists(absolutePath: string): Promise<boolean>;
   /** Every regular file's absolute path under `absolutePath`, recursively; `[]` if it does not exist. */
   listFiles(absolutePath: string): Promise<readonly string[]>;
+  /** The path with every symbolic link resolved; rejects with ENOENT when it does not exist. */
+  realPath(absolutePath: string): Promise<string>;
 }
 
 export const nodeFileSystem: FileSystem = {
   readFile: (absolutePath) => readFile(absolutePath, 'utf-8'),
   readBytes: (absolutePath) => readFile(absolutePath),
+  realPath: (absolutePath) => realpath(absolutePath),
   writeFile: (absolutePath, content) =>
     typeof content === 'string'
       ? writeFile(absolutePath, content, 'utf-8')
