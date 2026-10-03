@@ -35,6 +35,8 @@ describe('createBuiltinTools', () => {
       'qa.browser_wait_for',
       'qa.browser_tabs',
       'qa.browser_upload',
+      'qa.browser_console',
+      'qa.browser_network',
       'qa.browser_accessibility_scan',
       'qa.browser_close',
     ]);

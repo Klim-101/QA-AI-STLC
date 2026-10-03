@@ -402,4 +402,50 @@ describe('createFakeBrowserLauncher', () => {
     ).resolves.toBeUndefined();
     expect(launcher.pageCalls.map((call) => call.method)).toEqual(['setInputFiles']);
   });
+
+  it('raises console messages, page errors, responses and failed requests on a page', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    const seen: string[] = [];
+    page.on('console', (message) => {
+      seen.push(`console ${message.type()} ${message.text()}`);
+    });
+    page.on('pageerror', (error) => {
+      seen.push(`pageerror ${error.message}`);
+    });
+    page.on('response', (response) => {
+      seen.push(`response ${response.request().method()} ${response.url()} ${String(response.status())}`);
+    });
+    page.on('requestfailed', (request) => {
+      seen.push(`failed ${request.method()} ${request.url()} ${request.failure()?.errorText ?? 'none'}`);
+    });
+
+    launcher.raiseConsole('error', 'boom');
+    launcher.raisePageError('thrown');
+    launcher.raiseResponse({ method: 'GET', url: 'https://example.com/a', status: 404 });
+    launcher.raiseRequestFailed({
+      method: 'POST',
+      url: 'https://example.com/b',
+      errorText: 'net::ERR_FAILED',
+    });
+    launcher.raiseRequestFailed({ method: 'GET', url: 'https://example.com/c' });
+    launcher.raiseConsole('log', 'nobody listens', 4);
+
+    expect(seen).toEqual([
+      'console error boom',
+      'pageerror thrown',
+      'response GET https://example.com/a 404',
+      'failed POST https://example.com/b net::ERR_FAILED',
+      'failed GET https://example.com/c none',
+    ]);
+  });
+
+  it('closes a page nobody listens to', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+
+    await expect(page.close()).resolves.toBeUndefined();
+
+    expect(launcher.closedPages).toEqual([page]);
+  });
 });

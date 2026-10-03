@@ -3,6 +3,7 @@
 
 import type { BrowserDialogKind } from '@qa-ai-stlc/schemas';
 import { isUrlAllowed } from './browser-allowlist.js';
+import { sanitizeLoggedText, templateUrl } from './browser-event-log.js';
 import type {
   BrowserSession,
   BrowserTab,
@@ -88,6 +89,40 @@ class SessionPageWatcher {
   attach(page: AuthPage, tabId: string): void {
     page.on('dialog', (dialog) => {
       this.track(() => this.handleDialog(dialog, tabId));
+    });
+    page.on('console', (message) => {
+      this.session.eventLogs.console.append((seq) => ({
+        seq,
+        tabId,
+        level: message.type(),
+        text: sanitizeLoggedText(message.text()),
+      }));
+    });
+    page.on('pageerror', (error) => {
+      this.session.eventLogs.console.append((seq) => ({
+        seq,
+        tabId,
+        level: 'pageerror',
+        text: sanitizeLoggedText(error.message),
+      }));
+    });
+    page.on('response', (response) => {
+      this.session.eventLogs.network.append((seq) => ({
+        seq,
+        tabId,
+        method: response.request().method(),
+        status: response.status(),
+        url: templateUrl(response.url()),
+      }));
+    });
+    page.on('requestfailed', (request) => {
+      this.session.eventLogs.network.append((seq) => ({
+        seq,
+        tabId,
+        method: request.method(),
+        failure: sanitizeLoggedText(request.failure()?.errorText ?? 'failed'),
+        url: templateUrl(request.url()),
+      }));
     });
     page.on('close', () => {
       this.context.sessions.removeTab(this.session.sessionId, page);
