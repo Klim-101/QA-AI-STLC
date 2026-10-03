@@ -3,6 +3,7 @@
 
 import type { BrowserDialogKind } from '@qa-ai-stlc/schemas';
 import type { ElementRefTable } from './element-refs.js';
+import { EventLog, type ConsoleLogEntry, type NetworkLogEntry } from './browser-event-log.js';
 import type { PageViewEntry } from './page-view.js';
 import { QaError } from './errors.js';
 import type { BlockedRequest } from './browser-safe-mode.js';
@@ -87,6 +88,12 @@ export interface QueuedBrowserRecord {
 /** What the session's dialog policy does with a JavaScript dialog; dismissing is the default. */
 export type DialogPolicy = 'dismiss' | 'accept';
 
+/** What a session has seen the page log and request, for `qa.browser_console` and `qa.browser_network` (P6-61). */
+export interface SessionEventLogs {
+  readonly console: EventLog<ConsoleLogEntry>;
+  readonly network: EventLog<NetworkLogEntry>;
+}
+
 export interface BrowserSession {
   readonly sessionId: string;
   /** The run every piece of evidence this session registers is filed under (`.qa/evidence/<runId>/`). */
@@ -98,6 +105,8 @@ export interface BrowserSession {
   /** Every page the session still has open, in the order they opened. */
   readonly tabs: readonly BrowserTab[];
   readonly activeTabId: string;
+  /** The page's console messages and requests since the session opened, bounded. */
+  readonly eventLogs: SessionEventLogs;
   /** The number the next tab id gets; it never goes back, so a closed tab's id is never reused. */
   readonly nextTabNumber: number;
   /** What the session does with an `alert`, `confirm` or `prompt`; fixed for the session's life. */
@@ -196,6 +205,7 @@ export class BrowserSessionStore {
       page: options.page,
       tabs: [{ tabId: 'tab-1', page: options.page }],
       activeTabId: 'tab-1',
+      eventLogs: { console: new EventLog(), network: new EventLog() },
       nextTabNumber: 2,
       dialogPolicy: options.dialogPolicy ?? 'dismiss',
       allowlist: [...options.allowlist],

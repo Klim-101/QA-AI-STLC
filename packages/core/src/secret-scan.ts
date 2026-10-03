@@ -37,3 +37,17 @@ const SECRET_PATTERNS: readonly { readonly pattern: string; readonly regex: RegE
 export function scanForSecrets(content: string): readonly SecretMatch[] {
   return SECRET_PATTERNS.filter(({ regex }) => regex.test(content)).map(({ pattern }) => ({ pattern }));
 }
+
+const REDACTED_PLACEHOLDER = '[REDACTED]';
+
+/**
+ * Replaces every well-known secret shape in `content` with a placeholder, for text that has to be
+ * shown or kept (a console message) rather than refused. The same patterns as `scanForSecrets`,
+ * so redacted text never trips the scan again.
+ */
+export function redactSecrets(content: string): string {
+  return SECRET_PATTERNS.reduce(
+    (text, { regex }) => text.replace(new RegExp(regex.source, `${regex.flags}g`), REDACTED_PLACEHOLDER),
+    content,
+  );
+}

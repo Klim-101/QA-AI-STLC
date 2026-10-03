@@ -29,6 +29,27 @@ export interface PageRoute {
   continue(): Promise<void>;
 }
 
+/** The narrow slice of Playwright's `ConsoleMessage` the session's console log needs. */
+export interface PageConsoleMessage {
+  type(): string;
+  text(): string;
+}
+
+/** The slice of a request the network log reads. */
+export interface PageLoggedRequest {
+  method(): string;
+  url(): string;
+  /** Why the request failed, or null for one that did not. */
+  failure(): { readonly errorText: string } | null;
+}
+
+/** The slice of a response the network log reads. */
+export interface PageLoggedResponse {
+  status(): number;
+  url(): string;
+  request(): { method(): string };
+}
+
 export type RouteHandler = (route: PageRoute) => Promise<void> | void;
 
 /** The narrow slice of Playwright's `Dialog` the session's dialog policy needs. */
@@ -138,6 +159,14 @@ export interface AuthPage {
   on(event: 'dialog', handler: (dialog: PageDialog) => void): unknown;
   /** Fires once when the page closes, whoever closed it. */
   on(event: 'close', handler: () => void): unknown;
+  /** Fires for every message the page writes to its console. */
+  on(event: 'console', handler: (message: PageConsoleMessage) => void): unknown;
+  /** Fires for an uncaught exception in the page. */
+  on(event: 'pageerror', handler: (error: Error) => void): unknown;
+  /** Fires for every response the page receives. */
+  on(event: 'response', handler: (response: PageLoggedResponse) => void): unknown;
+  /** Fires for a request that failed before any response, including one safe mode aborted. */
+  on(event: 'requestfailed', handler: (request: PageLoggedRequest) => void): unknown;
   close(): Promise<void>;
   /** Makes this page the one the browser shows, which is what a tab switch means to the user. */
   bringToFront(): Promise<void>;

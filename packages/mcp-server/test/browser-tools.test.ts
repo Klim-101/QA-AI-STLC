@@ -25,6 +25,8 @@ import { createBrowserExpectTool } from '../src/tools/browser-expect.js';
 import { createBrowserFillTool } from '../src/tools/browser-fill.js';
 import { createBrowserHoverTool } from '../src/tools/browser-hover.js';
 import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
+import { createBrowserConsoleTool } from '../src/tools/browser-console.js';
+import { createBrowserNetworkTool } from '../src/tools/browser-network.js';
 import { createBrowserTabsTool } from '../src/tools/browser-tabs.js';
 import { createBrowserUploadTool } from '../src/tools/browser-upload.js';
 import { createBrowserWaitForTool } from '../src/tools/browser-wait-for.js';
@@ -442,6 +444,36 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         unchangedCount: 2,
       });
       expect(unknown).toMatchObject({ code: 'BROWSER_SNAPSHOT_UNKNOWN' });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('reads the console and the network of a session, returning cursors and registered evidence', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const dependencies = createDependencies(createFakeBrowser());
+      const { sessionId } = await createBrowserOpenTool(dependencies).handler({});
+
+      const consoleRead = await createBrowserConsoleTool(dependencies).handler({
+        sessionId,
+        since: 0,
+        limit: 5,
+        errorsOnly: true,
+        stepId: 'step-1',
+      });
+      const networkRead = await createBrowserNetworkTool(dependencies).handler({
+        sessionId,
+        errorsOnly: false,
+      });
+
+      expect(consoleRead).toMatchObject({ entries: [], cursor: 0, omittedCount: 0, missedCount: 0 });
+      expect(consoleRead.evidence.kind).toBe('console-log');
+      expect(networkRead).toMatchObject({ entries: [], cursor: 0 });
 
       await createBrowserCloseTool(dependencies).handler({ sessionId });
       process.chdir(originalCwd);

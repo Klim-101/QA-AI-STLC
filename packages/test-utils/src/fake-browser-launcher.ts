@@ -49,6 +49,23 @@ export interface PageRouteLike {
 
 export type RouteHandlerLike = (route: PageRouteLike) => Promise<void> | void;
 
+export interface PageConsoleMessageLike {
+  type(): string;
+  text(): string;
+}
+
+export interface PageLoggedRequestLike {
+  method(): string;
+  url(): string;
+  failure(): { readonly errorText: string } | null;
+}
+
+export interface PageLoggedResponseLike {
+  status(): number;
+  url(): string;
+  request(): { method(): string };
+}
+
 export interface PageDialogLike {
   type(): string;
   message(): string;
@@ -83,6 +100,10 @@ export interface AuthPageLike {
   ): Promise<void>;
   on(event: 'dialog', handler: (dialog: PageDialogLike) => void): unknown;
   on(event: 'close', handler: () => void): unknown;
+  on(event: 'console', handler: (message: PageConsoleMessageLike) => void): unknown;
+  on(event: 'pageerror', handler: (error: Error) => void): unknown;
+  on(event: 'response', handler: (response: PageLoggedResponseLike) => void): unknown;
+  on(event: 'requestfailed', handler: (request: PageLoggedRequestLike) => void): unknown;
   close(): Promise<void>;
   bringToFront(): Promise<void>;
   readonly keyboard: { press(key: string): Promise<void> };
@@ -230,6 +251,14 @@ export interface FakeBrowserLauncher extends BrowserLauncherLike {
   readonly closedPages: readonly AuthPageLike[];
   /** Makes `pages[pageIndex]` raise a JavaScript dialog; its handlers run synchronously. */
   raiseDialog(type: string, message: string, pageIndex?: number): void;
+  /** Makes `pages[pageIndex]` write a message to its console. */
+  raiseConsole(level: string, text: string, pageIndex?: number): void;
+  /** Makes `pages[pageIndex]` raise an uncaught exception. */
+  raisePageError(message: string, pageIndex?: number): void;
+  /** Makes `pages[pageIndex]` receive a response. */
+  raiseResponse(response: { method: string; url: string; status: number }, pageIndex?: number): void;
+  /** Makes `pages[pageIndex]` report a failed request; without `errorText` the failure has no text. */
+  raiseRequestFailed(request: { method: string; url: string; errorText?: string }, pageIndex?: number): void;
   /** Opens a new page at `url` the way a link with `target=_blank` does, and returns it. */
   openPopup(url: string): AuthPageLike;
   /** Makes every later dialog reject `accept()` and `dismiss()` with `reason`, as a page that is already gone does. */
@@ -259,7 +288,8 @@ interface FakeFailures {
 
 interface FakePageHandle {
   readonly page: AuthPageLike;
-  readonly dialogHandlers: ((dialog: PageDialogLike) => void)[];
+  /** What the page's `on()` registered, by event name. */
+  readonly listeners: Map<string, ((argument: never) => void)[]>;
 }
 
 function createFakePage(
@@ -270,8 +300,7 @@ function createFakePage(
   failures: FakeFailures,
 ): FakePageHandle {
   let currentUrl = initialUrl;
-  const dialogHandlers: ((dialog: PageDialogLike) => void)[] = [];
-  const closeHandlers: (() => void)[] = [];
+  const listeners = new Map<string, ((argument: never) => void)[]>();
   // `??` would also replace an explicitly configured `null` (a deliberately failed navigation),
   // so presence is checked instead of nullishness.
   const gotoResponse = 'gotoResponse' in options ? options.gotoResponse : DEFAULT_GOTO_RESPONSE;
@@ -331,12 +360,8 @@ function createFakePage(
       calls.push({ method: 'setChecked', args });
       return Promise.resolve();
     },
-    on: (event: 'dialog' | 'close', handler: ((dialog: PageDialogLike) => void) & (() => void)) => {
-      if (event === 'dialog') {
-        dialogHandlers.push(handler);
-      } else {
-        closeHandlers.push(handler);
-      }
+    on: (event: string, handler: (argument: never) => void) => {
+      listeners.set(event, [...(listeners.get(event) ?? []), handler]);
     },
     close: () => {
       calls.push({ method: 'close', args: [] });
@@ -345,8 +370,8 @@ function createFakePage(
         return Promise.reject(failures.close.reason);
       }
       onClosed(page);
-      for (const handler of closeHandlers) {
-        handler();
+      for (const handler of listeners.get('close') ?? []) {
+        (handler as () => void)();
       }
       return Promise.resolve();
     },
@@ -413,7 +438,7 @@ function createFakePage(
       return Promise.resolve(options.screenshotBytes ?? DEFAULT_SCREENSHOT_BYTES);
     },
   };
-  return { page, dialogHandlers };
+  return { page, listeners };
 }
 
 /**
@@ -431,6 +456,12 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
   const closedPages: AuthPageLike[] = [];
   const pageHandlers: ((page: AuthPageLike) => void)[] = [];
   const failures: FakeFailures = {};
+
+  function emit(pageIndex: number, event: string, argument: unknown): void {
+    for (const handler of handles[pageIndex]?.listeners.get(event) ?? []) {
+      handler(argument as never);
+    }
+  }
 
   function addPage(url: string): FakePageHandle {
     const handle = createFakePage(pageCalls, options, url, (closed) => closedPages.push(closed), failures);
@@ -466,9 +497,27 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
         accept: () => outcome('accepted'),
         dismiss: () => outcome('dismissed'),
       };
-      for (const handler of handles[pageIndex]?.dialogHandlers ?? []) {
-        handler(dialog);
-      }
+      emit(pageIndex, 'dialog', dialog);
+    },
+    raiseConsole: (level, text, pageIndex = 0) => {
+      emit(pageIndex, 'console', { type: () => level, text: () => text });
+    },
+    raisePageError: (message, pageIndex = 0) => {
+      emit(pageIndex, 'pageerror', new Error(message));
+    },
+    raiseResponse: (response, pageIndex = 0) => {
+      emit(pageIndex, 'response', {
+        status: () => response.status,
+        url: () => response.url,
+        request: () => ({ method: () => response.method }),
+      });
+    },
+    raiseRequestFailed: (request, pageIndex = 0) => {
+      emit(pageIndex, 'requestfailed', {
+        method: () => request.method,
+        url: () => request.url,
+        failure: () => (request.errorText === undefined ? null : { errorText: request.errorText }),
+      });
     },
     failDialogsWith: (reason) => {
       failures.dialog = { reason };
