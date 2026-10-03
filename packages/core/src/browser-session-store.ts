@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { BrowserDialogKind } from '@qa-ai-stlc/schemas';
 import type { ElementRefTable } from './element-refs.js';
 import { QaError } from './errors.js';
 import type { BlockedRequest } from './browser-safe-mode.js';
@@ -38,13 +39,65 @@ export interface GridControls {
   readonly scrollContainerSelector?: string;
 }
 
+/** One page of a session: the first one, or one the application opened (P6-59). */
+export interface BrowserTab {
+  /** The session's own id for the page (`tab-1`, `tab-2`, ...); never reused within a session. */
+  readonly tabId: string;
+  readonly page: AuthPage;
+}
+
+/**
+ * Something that happened to the session's pages that the agent did not ask for: it is reported
+ * once, in the result of the next tool call that reports notices (P6-59). `message` and `url`
+ * come from the page and are untrusted.
+ */
+export type SessionNotice =
+  | {
+      readonly kind: 'dialog';
+      readonly tabId: string;
+      readonly dialogKind: BrowserDialogKind;
+      readonly message: string;
+      readonly handled: 'dismissed' | 'accepted';
+    }
+  | { readonly kind: 'tab-opened'; readonly tabId: string; readonly url: string }
+  | { readonly kind: 'tab-blocked'; readonly url: string };
+
+/**
+ * An evidence record an event handler wants written. Handlers never write evidence themselves:
+ * the manifest is read, changed and written back whole, so a write from an event callback would
+ * race the one the running tool call is making. The record waits here, with the time it
+ * happened, until the tool call that is running (or the next one) writes it.
+ */
+export interface QueuedBrowserRecord {
+  readonly type: 'dialog' | 'tab-opened' | 'tab-blocked';
+  readonly tabId: string;
+  readonly at: Date;
+  readonly url?: string;
+  readonly dialog?: {
+    readonly kind: BrowserDialogKind;
+    readonly message: string;
+    readonly handled: 'dismissed' | 'accepted';
+  };
+}
+
+/** What the session's dialog policy does with a JavaScript dialog; dismissing is the default. */
+export type DialogPolicy = 'dismiss' | 'accept';
+
 export interface BrowserSession {
   readonly sessionId: string;
   /** The run every piece of evidence this session registers is filed under (`.qa/evidence/<runId>/`). */
   readonly runId: string;
   readonly browser: AuthBrowser;
   readonly context: AuthBrowserContext;
+  /** The active page: the one every action acts on. It follows `qa.browser_tabs` switches. */
   readonly page: AuthPage;
+  /** Every page the session still has open, in the order they opened. */
+  readonly tabs: readonly BrowserTab[];
+  readonly activeTabId: string;
+  /** The number the next tab id gets; it never goes back, so a closed tab's id is never reused. */
+  readonly nextTabNumber: number;
+  /** What the session does with an `alert`, `confirm` or `prompt`; fixed for the session's life. */
+  readonly dialogPolicy: DialogPolicy;
   readonly allowlist: readonly string[];
   /** The environment's configured URL (#306): every allowed host must share its scheme and port. */
   readonly baseUrl: string;
@@ -82,6 +135,8 @@ export interface OpenBrowserSessionOptions {
   readonly browser: AuthBrowser;
   readonly context: AuthBrowserContext;
   readonly page: AuthPage;
+  /** Omit for the default, which dismisses every dialog. */
+  readonly dialogPolicy?: DialogPolicy;
   readonly allowlist: readonly string[];
   readonly baseUrl: string;
   readonly navigationTimeoutMs: number;
@@ -108,6 +163,9 @@ export interface OpenBrowserSessionOptions {
  */
 export class BrowserSessionStore {
   private readonly sessions = new Map<string, MutableSession>();
+  private readonly notices = new Map<string, SessionNotice[]>();
+  private readonly queuedRecords = new Map<string, QueuedBrowserRecord[]>();
+  private readonly pendingTabWork = new Map<string, Set<Promise<void>>>();
   private readonly clock: Clock;
   private readonly idGenerator: IdGenerator;
   private readonly idleTimeoutMs: number;
@@ -131,6 +189,10 @@ export class BrowserSessionStore {
       browser: options.browser,
       context: options.context,
       page: options.page,
+      tabs: [{ tabId: 'tab-1', page: options.page }],
+      activeTabId: 'tab-1',
+      nextTabNumber: 2,
+      dialogPolicy: options.dialogPolicy ?? 'dismiss',
       allowlist: [...options.allowlist],
       baseUrl: options.baseUrl,
       navigationTimeoutMs: options.navigationTimeoutMs,
@@ -146,6 +208,95 @@ export class BrowserSessionStore {
     };
     this.sessions.set(session.sessionId, session);
     return session;
+  }
+
+  /** Adds a page the application opened as a tab, without switching to it. */
+  addTab(sessionId: string, page: AuthPage): BrowserTab | undefined {
+    const session = this.sessions.get(sessionId);
+    if (session === undefined) {
+      return undefined;
+    }
+    const tab: BrowserTab = { tabId: `tab-${String(session.nextTabNumber)}`, page };
+    session.nextTabNumber += 1;
+    session.tabs = [...session.tabs, tab];
+    return tab;
+  }
+
+  /**
+   * Forgets a page that closed. When it was the active one the session falls back to the page that
+   * opened last before it, so an action never targets a closed page while another one is open.
+   */
+  removeTab(sessionId: string, page: AuthPage): void {
+    const session = this.sessions.get(sessionId);
+    if (session === undefined) {
+      return;
+    }
+    const remaining = session.tabs.filter((tab) => tab.page !== page);
+    const wasActive = session.page === page;
+    session.tabs = remaining;
+    const fallback = remaining.at(-1);
+    if (wasActive && fallback !== undefined) {
+      session.page = fallback.page;
+      session.activeTabId = fallback.tabId;
+      session.elementRefs = undefined;
+    }
+  }
+
+  /** Makes a tab the active page. The refs of the page it replaces are retired with it. */
+  activateTab(sessionId: string, tabId: string): BrowserTab {
+    const session = this.sessions.get(sessionId);
+    const tab = session?.tabs.find((candidate) => candidate.tabId === tabId);
+    if (session === undefined || tab === undefined) {
+      throw new QaError('BROWSER_TAB_NOT_FOUND', `No open tab "${tabId}" in session "${sessionId}"`, {
+        remediation: 'List the open tabs with qa.browser_tabs and use one of their ids.',
+      });
+    }
+    if (session.page !== tab.page) {
+      session.elementRefs = undefined;
+    }
+    session.page = tab.page;
+    session.activeTabId = tab.tabId;
+    return tab;
+  }
+
+  /** Queues a notice for the next tool result that reports them. */
+  addNotice(sessionId: string, notice: SessionNotice): void {
+    const queue = this.notices.get(sessionId) ?? [];
+    queue.push(notice);
+    this.notices.set(sessionId, queue);
+  }
+
+  /** Queues an evidence record an event handler wants written; see {@link QueuedBrowserRecord}. */
+  queueRecord(sessionId: string, record: QueuedBrowserRecord): void {
+    const queue = this.queuedRecords.get(sessionId) ?? [];
+    queue.push(record);
+    this.queuedRecords.set(sessionId, queue);
+  }
+
+  /** Returns and clears the queued records, oldest first. */
+  takeQueuedRecords(sessionId: string): QueuedBrowserRecord[] {
+    const queue = this.queuedRecords.get(sessionId) ?? [];
+    this.queuedRecords.delete(sessionId);
+    return queue;
+  }
+
+  /** Tracks work an event handler started, so `drainNotices` can wait for it instead of racing it. */
+  trackTabWork(sessionId: string, work: Promise<void>): void {
+    const pending = this.pendingTabWork.get(sessionId) ?? new Set<Promise<void>>();
+    pending.add(work);
+    this.pendingTabWork.set(sessionId, pending);
+  }
+
+  /** Waits for in-flight dialog and tab handling, then returns and clears the queued notices. */
+  async drainNotices(sessionId: string): Promise<SessionNotice[]> {
+    // Work that finishes can start more (a popup that opens another), so keep going until none is left.
+    for (let pending = this.takePendingTabWork(sessionId); pending.length > 0;) {
+      await Promise.allSettled(pending);
+      pending = this.takePendingTabWork(sessionId);
+    }
+    const queue = this.notices.get(sessionId) ?? [];
+    this.notices.delete(sessionId);
+    return queue;
   }
 
   /**
@@ -189,6 +340,12 @@ export class BrowserSessionStore {
     }
   }
 
+  private takePendingTabWork(sessionId: string): Promise<void>[] {
+    const pending = [...(this.pendingTabWork.get(sessionId) ?? [])];
+    this.pendingTabWork.delete(sessionId);
+    return pending;
+  }
+
   /** Closes a session's browser and forgets it. Unknown or already-closed ids are a no-op. */
   async close(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
@@ -196,6 +353,9 @@ export class BrowserSessionStore {
       return;
     }
     this.sessions.delete(sessionId);
+    this.notices.delete(sessionId);
+    this.queuedRecords.delete(sessionId);
+    this.pendingTabWork.delete(sessionId);
     try {
       await session.context.close();
     } finally {

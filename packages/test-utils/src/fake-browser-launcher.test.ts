@@ -288,4 +288,108 @@ describe('createFakeBrowserLauncher', () => {
 
     expect(launcher.newContextCalls).toEqual([{}, { storageState }]);
   });
+
+  it('raises a dialog on a page and records what the engine did with it', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    page.on('dialog', (dialog) => {
+      expect(dialog.message()).toBe('Sure?');
+      void dialog.dismiss();
+    });
+    page.on('dialog', (dialog) => {
+      void dialog.accept();
+    });
+
+    launcher.raiseDialog('confirm', 'Sure?');
+
+    expect(launcher.dialogOutcomes).toEqual([
+      { type: 'confirm', message: 'Sure?', action: 'dismissed' },
+      { type: 'confirm', message: 'Sure?', action: 'accepted' },
+    ]);
+    expect(launcher.pages).toEqual([page]);
+  });
+
+  it('raises a dialog on the page it is asked to, and on none that does not exist', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const context = await (await launcher.launch()).newContext();
+    await context.newPage();
+    const popup = launcher.openPopup('https://example.com/popup');
+    const types: string[] = [];
+    popup.on('dialog', (dialog) => {
+      types.push(dialog.type());
+    });
+
+    launcher.raiseDialog('alert', 'first page');
+    launcher.raiseDialog('prompt', 'popup', 1);
+    launcher.raiseDialog('prompt', 'nobody', 5);
+
+    expect(types).toEqual(['prompt']);
+  });
+
+  it('opens a popup at a URL, hands it to the context page listeners and counts it as a page', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const context = await (await launcher.launch()).newContext();
+    const opened: string[] = [];
+    context.on('page', (page) => {
+      opened.push(page.url());
+    });
+
+    const popup = launcher.openPopup('https://example.com/popup');
+
+    expect(opened).toEqual(['https://example.com/popup']);
+    expect(launcher.pages).toEqual([popup]);
+    expect(popup.url()).toBe('https://example.com/popup');
+  });
+
+  it('closes a page, runs its close listeners and records it, and brings a page to the front', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    let closeEvents = 0;
+    page.on('close', () => {
+      closeEvents += 1;
+    });
+
+    await page.bringToFront();
+    await page.close();
+
+    expect(closeEvents).toBe(1);
+    expect(launcher.closedPages).toEqual([page]);
+    expect(launcher.pageCalls.map((call) => call.method)).toEqual(['bringToFront', 'close']);
+  });
+
+  it('records a context-level route separately from a page-level one', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const context = await (await launcher.launch()).newContext();
+    const handler = (): undefined => undefined;
+
+    await context.route('**/*', handler);
+
+    expect(launcher.pageCalls).toEqual([{ method: 'contextRoute', args: ['**/*', handler] }]);
+  });
+
+  it('fails dialogs, dialog messages, closing and load-state waits when told to', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    const results: string[] = [];
+    page.on('dialog', (dialog) => {
+      try {
+        results.push(dialog.message());
+      } catch (error) {
+        results.push(String(error));
+      }
+      dialog.dismiss().catch((error: unknown) => results.push(String(error)));
+    });
+
+    launcher.failDialogsWith('gone');
+    launcher.breakDialogMessages('broken');
+    launcher.failClosingWith('stuck');
+    launcher.failLoadStateWith('slow');
+    launcher.raiseDialog('alert', 'x');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(results).toEqual(['broken', 'gone']);
+    await expect(page.close()).rejects.toBe('stuck');
+    await expect(page.waitForLoadState()).rejects.toBe('slow');
+    expect(launcher.closedPages).toEqual([]);
+  });
 });

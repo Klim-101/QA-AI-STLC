@@ -3,6 +3,7 @@
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import type { BlockedRequest } from '../browser-safe-mode.js';
+import { settleSessionPages } from '../browser-tabs.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
@@ -32,6 +33,8 @@ export async function runBrowserClose(
   const blockedRequests = [...session.blockedRequests];
 
   try {
+    // Dialogs and pages the session handled since the last report must not be lost with it.
+    await settleSessionPages(context, session);
     const evidence = await registerBrowserAction({
       evidenceStore,
       evidenceId: context.sessions.nextEvidenceId(),

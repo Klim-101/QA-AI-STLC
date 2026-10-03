@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
+import type { SessionNotice } from '../browser-session-store.js';
+import { collectNotices } from '../browser-tabs.js';
 import { waitForBusyToClear } from '../browser-busy-wait.js';
 import { readElementState } from '../browser-expect-page.js';
 import { resolveBrowserTarget } from '../element-refs.js';
@@ -29,6 +31,8 @@ export interface BrowserCheckResult {
   readonly checked: boolean;
   readonly url: string;
   readonly evidence: Evidence;
+  /** Dialogs and pages that appeared since a result last reported them (P6-59): page-controlled text, untrusted. */
+  readonly notices?: SessionNotice[];
 }
 
 /**
@@ -82,5 +86,12 @@ export async function runBrowserCheck(
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
-  return { sessionId: session.sessionId, selector: target.selector, checked: shown, url, evidence };
+  return {
+    sessionId: session.sessionId,
+    selector: target.selector,
+    checked: shown,
+    url,
+    evidence,
+    ...(await collectNotices(context, session)),
+  };
 }

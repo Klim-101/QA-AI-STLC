@@ -49,6 +49,13 @@ export interface PageRouteLike {
 
 export type RouteHandlerLike = (route: PageRouteLike) => Promise<void> | void;
 
+export interface PageDialogLike {
+  type(): string;
+  message(): string;
+  accept(): Promise<void>;
+  dismiss(): Promise<void>;
+}
+
 export interface GetByRoleOptionsLike {
   readonly name?: string;
 }
@@ -70,6 +77,10 @@ export interface AuthPageLike {
   hover(selector: string): Promise<void>;
   selectOption(selector: string, options: readonly { readonly label: string }[]): Promise<unknown>;
   setChecked(selector: string, checked: boolean): Promise<void>;
+  on(event: 'dialog', handler: (dialog: PageDialogLike) => void): unknown;
+  on(event: 'close', handler: () => void): unknown;
+  close(): Promise<void>;
+  bringToFront(): Promise<void>;
   readonly keyboard: { press(key: string): Promise<void> };
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
   route(pattern: string, handler: RouteHandlerLike): Promise<unknown>;
@@ -92,6 +103,8 @@ export interface AuthPageLike {
 
 export interface AuthBrowserContextLike {
   newPage(): Promise<AuthPageLike>;
+  route(pattern: string, handler: RouteHandlerLike): Promise<unknown>;
+  on(event: 'page', handler: (page: AuthPageLike) => void): unknown;
   storageState(): Promise<StorageStateLike>;
   close(): Promise<void>;
 }
@@ -130,6 +143,9 @@ export interface FakePageCall {
     | 'keyboardPress'
     | 'waitForLoadState'
     | 'route'
+    | 'contextRoute'
+    | 'bringToFront'
+    | 'close'
     | 'evaluate'
     | 'ariaSnapshotJSON'
     | 'addScriptTag'
@@ -192,8 +208,33 @@ export interface FakeBrowserLauncherOptions {
   readonly screenshotBytes?: Uint8Array;
 }
 
+/** What a fake dialog was told to do: the engine's dialog policy is observable through it. */
+export interface FakeDialogOutcome {
+  readonly type: string;
+  readonly message: string;
+  readonly action: 'accepted' | 'dismissed';
+}
+
 export interface FakeBrowserLauncher extends BrowserLauncherLike {
   readonly pageCalls: FakePageCall[];
+  /** Every dialog raised through `raiseDialog`, with what the engine did with it. */
+  readonly dialogOutcomes: FakeDialogOutcome[];
+  /** The pages the fake context has handed out, the first being the one `newPage` returned. */
+  readonly pages: readonly AuthPageLike[];
+  /** Pages that have been closed, by `page.close()`. */
+  readonly closedPages: readonly AuthPageLike[];
+  /** Makes `pages[pageIndex]` raise a JavaScript dialog; its handlers run synchronously. */
+  raiseDialog(type: string, message: string, pageIndex?: number): void;
+  /** Opens a new page at `url` the way a link with `target=_blank` does, and returns it. */
+  openPopup(url: string): AuthPageLike;
+  /** Makes every later dialog reject `accept()` and `dismiss()` with `reason`, as a page that is already gone does. */
+  failDialogsWith(reason: unknown): void;
+  /** Makes `message()` of every later dialog throw `reason`. */
+  breakDialogMessages(reason: unknown): void;
+  /** Makes `page.close()` of every page reject with `reason` instead of closing it. */
+  failClosingWith(reason: unknown): void;
+  /** Makes `page.waitForLoadState()` of every page reject with `reason`. */
+  failLoadStateWith(reason: unknown): void;
   readonly closedBrowsers: number;
   readonly newContextCalls: NewContextOptionsLike[];
 }
@@ -203,8 +244,29 @@ const DEFAULT_VIEWPORT_SIZE: ViewportSizeLike = { width: 1280, height: 720 };
 // Not a real PNG: nothing under test decodes it, and a byte string keeps the fixture readable.
 const DEFAULT_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
 
-function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptions): AuthPageLike {
-  let currentUrl = options.initialUrl ?? 'about:blank';
+/** The failures a test can switch on; read when the call happens, so they apply to pages already open. */
+interface FakeFailures {
+  dialog?: { readonly reason: unknown };
+  dialogMessage?: { readonly reason: unknown };
+  close?: { readonly reason: unknown };
+  loadState?: { readonly reason: unknown };
+}
+
+interface FakePageHandle {
+  readonly page: AuthPageLike;
+  readonly dialogHandlers: ((dialog: PageDialogLike) => void)[];
+}
+
+function createFakePage(
+  calls: FakePageCall[],
+  options: FakeBrowserLauncherOptions,
+  initialUrl: string,
+  onClosed: (page: AuthPageLike) => void,
+  failures: FakeFailures,
+): FakePageHandle {
+  let currentUrl = initialUrl;
+  const dialogHandlers: ((dialog: PageDialogLike) => void)[] = [];
+  const closeHandlers: (() => void)[] = [];
   // `??` would also replace an explicitly configured `null` (a deliberately failed navigation),
   // so presence is checked instead of nullishness.
   const gotoResponse = 'gotoResponse' in options ? options.gotoResponse : DEFAULT_GOTO_RESPONSE;
@@ -232,7 +294,7 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
     };
   }
 
-  return {
+  const page: AuthPageLike = {
     goto: (...args) => {
       calls.push({ method: 'goto', args });
       currentUrl = args[0];
@@ -264,6 +326,29 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
       calls.push({ method: 'setChecked', args });
       return Promise.resolve();
     },
+    on: (event: 'dialog' | 'close', handler: ((dialog: PageDialogLike) => void) & (() => void)) => {
+      if (event === 'dialog') {
+        dialogHandlers.push(handler);
+      } else {
+        closeHandlers.push(handler);
+      }
+    },
+    close: () => {
+      calls.push({ method: 'close', args: [] });
+      if (failures.close !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- a test scripts any reason, including a non-Error one, to reach the engine's handling of it
+        return Promise.reject(failures.close.reason);
+      }
+      onClosed(page);
+      for (const handler of closeHandlers) {
+        handler();
+      }
+      return Promise.resolve();
+    },
+    bringToFront: () => {
+      calls.push({ method: 'bringToFront', args: [] });
+      return Promise.resolve();
+    },
     keyboard: {
       press: (...args) => {
         calls.push({ method: 'keyboardPress', args });
@@ -272,7 +357,11 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
     },
     waitForLoadState: (...args) => {
       calls.push({ method: 'waitForLoadState', args });
-      return Promise.resolve();
+      if (failures.loadState === undefined) {
+        return Promise.resolve();
+      }
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- a test scripts any reason, including a non-Error one, to reach the engine's handling of it
+      return Promise.reject(failures.loadState.reason);
     },
     route: (...args) => {
       calls.push({ method: 'route', args });
@@ -315,6 +404,7 @@ function createFakePage(calls: FakePageCall[], options: FakeBrowserLauncherOptio
       return Promise.resolve(options.screenshotBytes ?? DEFAULT_SCREENSHOT_BYTES);
     },
   };
+  return { page, dialogHandlers };
 }
 
 /**
@@ -327,17 +417,83 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
   const newContextCalls: NewContextOptionsLike[] = [];
   let closedBrowsers = 0;
   const storageState = options.storageState ?? EMPTY_STORAGE_STATE;
+  const dialogOutcomes: FakeDialogOutcome[] = [];
+  const handles: FakePageHandle[] = [];
+  const closedPages: AuthPageLike[] = [];
+  const pageHandlers: ((page: AuthPageLike) => void)[] = [];
+  const failures: FakeFailures = {};
+
+  function addPage(url: string): FakePageHandle {
+    const handle = createFakePage(pageCalls, options, url, (closed) => closedPages.push(closed), failures);
+    handles.push(handle);
+    return handle;
+  }
 
   const launcher: FakeBrowserLauncher = {
     pageCalls,
     newContextCalls,
+    dialogOutcomes,
+    closedPages,
+    get pages() {
+      return handles.map((handle) => handle.page);
+    },
+    raiseDialog: (type, message, pageIndex = 0) => {
+      const outcome = (action: FakeDialogOutcome['action']): Promise<void> => {
+        if (failures.dialog !== undefined) {
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- a test scripts any reason, including a non-Error one, to reach the engine's handling of it
+          return Promise.reject(failures.dialog.reason);
+        }
+        dialogOutcomes.push({ type, message, action });
+        return Promise.resolve();
+      };
+      const dialog: PageDialogLike = {
+        type: () => type,
+        message: () => {
+          if (failures.dialogMessage !== undefined) {
+            throw failures.dialogMessage.reason;
+          }
+          return message;
+        },
+        accept: () => outcome('accepted'),
+        dismiss: () => outcome('dismissed'),
+      };
+      for (const handler of handles[pageIndex]?.dialogHandlers ?? []) {
+        handler(dialog);
+      }
+    },
+    failDialogsWith: (reason) => {
+      failures.dialog = { reason };
+    },
+    breakDialogMessages: (reason) => {
+      failures.dialogMessage = { reason };
+    },
+    failClosingWith: (reason) => {
+      failures.close = { reason };
+    },
+    failLoadStateWith: (reason) => {
+      failures.loadState = { reason };
+    },
+    openPopup: (url) => {
+      const { page } = addPage(url);
+      for (const handler of pageHandlers) {
+        handler(page);
+      }
+      return page;
+    },
     get closedBrowsers() {
       return closedBrowsers;
     },
     launch: () => {
       const context: AuthBrowserContextLike = {
-        newPage: () => Promise.resolve(createFakePage(pageCalls, options)),
+        newPage: () => Promise.resolve(addPage(options.initialUrl ?? 'about:blank').page),
         storageState: () => Promise.resolve(storageState),
+        route: (...args) => {
+          pageCalls.push({ method: 'contextRoute', args });
+          return Promise.resolve();
+        },
+        on: (_event, handler) => {
+          pageHandlers.push(handler);
+        },
         close: () => Promise.resolve(),
       };
       const browser: AuthBrowserLike = {

@@ -5,6 +5,7 @@ import { runBrowserNavigate } from '@qa-ai-stlc/core';
 import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
+  NOTICES_OUTPUT_FIELD,
   SessionIdInputSchema,
   toBrowserOperationContext,
   type BrowserToolDependencies,
@@ -27,6 +28,7 @@ const OutputSchema = z.object({
   title: z.string(),
   httpStatus: z.number().optional(),
   evidence: EvidenceSchema,
+  ...NOTICES_OUTPUT_FIELD,
 });
 
 /**

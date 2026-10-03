@@ -29,6 +29,8 @@ describe('attachViaCdp', () => {
     const context: AuthBrowserContext = {
       newPage: () => Promise.reject(new Error('not used')),
       storageState: () => Promise.resolve(SESSION),
+      route: () => Promise.resolve(),
+      on: () => undefined,
       close: () => Promise.resolve(),
     };
     const launcher = createFakeBrowserLauncher({ contexts: [context] });
@@ -42,6 +44,8 @@ describe('attachViaCdp', () => {
     const context: AuthBrowserContext = {
       newPage: () => Promise.reject(new Error('not used')),
       storageState: () => Promise.resolve(SESSION),
+      route: () => Promise.resolve(),
+      on: () => undefined,
       close: () => Promise.resolve(),
     };
     const launcher = createFakeBrowserLauncher({ contexts: [context] });
@@ -142,6 +146,8 @@ describe('loginWithCredentials', () => {
           Promise.resolve({
             newPage: () => Promise.reject(new Error('boom')),
             storageState: () => Promise.resolve(SESSION),
+            route: () => Promise.resolve(),
+            on: () => undefined,
             close: () => Promise.resolve(),
           }),
         contexts: () => [],
@@ -175,6 +181,8 @@ describe('authenticate', () => {
     const context: AuthBrowserContext = {
       newPage: () => Promise.reject(new Error('not used')),
       storageState: () => Promise.resolve(SESSION),
+      route: () => Promise.resolve(),
+      on: () => undefined,
       close: () => Promise.resolve(),
     };
     const launcher = createFakeBrowserLauncher({ contexts: [context] });

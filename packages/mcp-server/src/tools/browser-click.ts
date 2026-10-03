@@ -6,6 +6,7 @@ import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
+  NOTICES_OUTPUT_FIELD,
   SessionIdInputSchema,
   toBrowserOperationContext,
   toElementTarget,
@@ -28,6 +29,7 @@ const OutputSchema = z.object({
   selector: z.string(),
   url: z.string(),
   evidence: EvidenceSchema,
+  ...NOTICES_OUTPUT_FIELD,
 });
 
 /** `qa.browser_click` (P2-06): clicks one element and registers the click as evidence. */

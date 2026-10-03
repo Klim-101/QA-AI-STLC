@@ -25,6 +25,7 @@ import { createBrowserExpectTool } from '../src/tools/browser-expect.js';
 import { createBrowserFillTool } from '../src/tools/browser-fill.js';
 import { createBrowserHoverTool } from '../src/tools/browser-hover.js';
 import { createBrowserNavigateTool } from '../src/tools/browser-navigate.js';
+import { createBrowserTabsTool } from '../src/tools/browser-tabs.js';
 import { createBrowserWaitForTool } from '../src/tools/browser-wait-for.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
 import { createBrowserPressTool } from '../src/tools/browser-press.js';
@@ -91,6 +92,9 @@ function createFakeBrowser(): FakeBrowser {
       return Promise.resolve();
     },
     selectOption: () => Promise.resolve([]),
+    on: () => undefined,
+    close: () => Promise.resolve(),
+    bringToFront: () => Promise.resolve(),
     setChecked: (selector, checked) => {
       calls.push(`setChecked ${selector} ${String(checked)}`);
       return Promise.resolve();
@@ -133,6 +137,11 @@ function createFakeBrowser(): FakeBrowser {
   const context: AuthBrowserContext = {
     newPage: () => Promise.resolve(page),
     storageState: () => Promise.resolve({ cookies: [], origins: [] }),
+    route: (_pattern, handler) => {
+      routeHandlers.push(handler);
+      return Promise.resolve();
+    },
+    on: () => undefined,
     close: () => Promise.resolve(),
   };
   const browser: AuthBrowser = {
@@ -401,6 +410,41 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         await readFile(join(projectRoot, '.qa', ...reached.evidence.path.split('/')), 'utf-8'),
       ) as { type: string };
       expect(stored).toMatchObject({ type: 'wait-for', wait: { condition: 'url', expected: '/login' } });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('lists the session tabs, switches to one by id, and names a tab that is not there', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const opened = await createBrowserOpenTool(dependencies).handler({ dialogPolicy: 'accept' });
+      const tabsTool = createBrowserTabsTool(dependencies);
+
+      const listed = await tabsTool.handler({ sessionId: opened.sessionId });
+      const switched = await tabsTool.handler({
+        sessionId: opened.sessionId,
+        switchTo: 'tab-1',
+        stepId: 'step-2',
+      });
+      const missing = await tabsTool
+        .handler({ sessionId: opened.sessionId, switchTo: 'tab-4' })
+        .catch((caught: unknown) => caught);
+
+      expect(listed).toMatchObject({
+        activeTabId: 'tab-1',
+        tabs: [{ tabId: 'tab-1', active: true }],
+        notices: [],
+      });
+      expect(listed.evidence).toBeUndefined();
+      expect(switched.evidence).toBeDefined();
+      expect(missing).toMatchObject({ code: 'BROWSER_TAB_NOT_FOUND' });
 
       await createBrowserCloseTool(dependencies).handler({ sessionId: opened.sessionId });
       process.chdir(originalCwd);

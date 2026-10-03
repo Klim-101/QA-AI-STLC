@@ -36,7 +36,8 @@ describe('runBrowserOpen observing request headers for a from-browser profile', 
   it('remembers the configured header of allowlisted requests on the session, and nothing else', async () => {
     const harness = createBrowserTestHarness({ configYaml: CONFIG_WITH_HEADER_PROFILE });
     const { sessionId } = await runBrowserOpen(harness.context);
-    const handler = harness.launcher.pageCalls.find((call) => call.method === 'route')?.args[1] as Handler;
+    const handler = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute')
+      ?.args[1] as Handler;
 
     await handler(
       routeFor('https://staging.example.test/api', { 'X-Auth-Token': 'seen-token', Authorization: 'other' }),
@@ -50,7 +51,8 @@ describe('runBrowserOpen observing request headers for a from-browser profile', 
   it('records nothing when no profile replays a request header', async () => {
     const harness = createBrowserTestHarness();
     const { sessionId } = await runBrowserOpen(harness.context);
-    const handler = harness.launcher.pageCalls.find((call) => call.method === 'route')?.args[1] as Handler;
+    const handler = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute')
+      ?.args[1] as Handler;
 
     await handler(routeFor('https://staging.example.test/api', { Authorization: 'Bearer x' }));
 

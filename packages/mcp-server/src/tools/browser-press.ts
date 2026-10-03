@@ -6,6 +6,7 @@ import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
+  NOTICES_OUTPUT_FIELD,
   SessionIdInputSchema,
   toBrowserOperationContext,
   toElementTarget,
@@ -30,6 +31,7 @@ const OutputSchema = z.object({
   selector: z.string().optional(),
   url: z.string(),
   evidence: EvidenceSchema,
+  ...NOTICES_OUTPUT_FIELD,
 });
 
 /** `qa.browser_press` (P6-56): presses a key or chord and registers it as evidence. */

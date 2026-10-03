@@ -31,6 +31,15 @@ export interface PageRoute {
 
 export type RouteHandler = (route: PageRoute) => Promise<void> | void;
 
+/** The narrow slice of Playwright's `Dialog` the session's dialog policy needs. */
+export interface PageDialog {
+  /** `alert`, `confirm`, `prompt` or `beforeunload`. */
+  type(): string;
+  message(): string;
+  accept(): Promise<void>;
+  dismiss(): Promise<void>;
+}
+
 /**
  * The pieces of Playwright's `Locator` API the engine needs: how many elements it resolves to
  * (stability scoring) and a read-only look at the one element it resolves to (widget actions,
@@ -116,6 +125,13 @@ export interface AuthPage {
   reload(): Promise<PageResponse | null>;
   setViewportSize(size: ViewportSize): Promise<void>;
   viewportSize(): ViewportSize | null;
+  /** Fires when the page raises a JavaScript dialog; the page stays blocked until it is handled. */
+  on(event: 'dialog', handler: (dialog: PageDialog) => void): unknown;
+  /** Fires once when the page closes, whoever closed it. */
+  on(event: 'close', handler: () => void): unknown;
+  close(): Promise<void>;
+  /** Makes this page the one the browser shows, which is what a tab switch means to the user. */
+  bringToFront(): Promise<void>;
   /** The page's current URL, after any redirect or client-side navigation. */
   url(): string;
   title(): Promise<string>;
@@ -125,6 +141,13 @@ export interface AuthPage {
 
 export interface AuthBrowserContext {
   newPage(): Promise<AuthPage>;
+  /**
+   * Intercepts every request of every page in the context, including a popup's very first one,
+   * which a per-page `route` registered after the page exists would miss.
+   */
+  route(pattern: string, handler: RouteHandler): Promise<unknown>;
+  /** Fires for every page the context opens after this call, whether script or a link opened it. */
+  on(event: 'page', handler: (page: AuthPage) => void): unknown;
   storageState(): Promise<StorageState>;
   close(): Promise<void>;
 }

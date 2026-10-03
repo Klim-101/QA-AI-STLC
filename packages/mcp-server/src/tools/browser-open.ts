@@ -21,6 +21,14 @@ const InputSchema = z.object({
         'submission) through safe mode, so an e2e case can be proven to actually work. The ' +
         'domain allowlist still applies unconditionally. Never set this for exploration or pick mode.',
     ),
+  dialogPolicy: z
+    .enum(['dismiss', 'accept'])
+    .optional()
+    .describe(
+      'What the session does with an alert, confirm or prompt: dismiss (the default) or accept. ' +
+        'Either way each dialog is recorded as evidence and reported in a later result. Accepting ' +
+        'only lets the page carry on; safe mode still blocks any non-GET request that follows.',
+    ),
 });
 
 const OutputSchema = z.object({
@@ -52,6 +60,7 @@ export function createBrowserOpenTool(
       const result = await runBrowserOpen(toBrowserOperationContext(dependencies), {
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
         ...(input.executionMode !== undefined ? { executionMode: input.executionMode } : {}),
+        ...(input.dialogPolicy !== undefined ? { dialogPolicy: input.dialogPolicy } : {}),
         resolveLibraryBusySelectors: (library) =>
           resolveComponentLibraryProfile(library)?.busySelectors ?? [],
         resolveLibraryWidgets: (library) => listWidgetTargets(resolveComponentLibraryProfile(library)),

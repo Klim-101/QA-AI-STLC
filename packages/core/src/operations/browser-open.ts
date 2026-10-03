@@ -6,7 +6,8 @@ import { collectObservedRequestHeaderNames } from '../api-auth.js';
 import { observeRequestHeaders } from '../browser-request-observer.js';
 import type { BlockedRequest } from '../browser-safe-mode.js';
 import { createBrowserSafeModeRouteHandler } from '../browser-safe-mode.js';
-import type { BrowserSession, WidgetTarget } from '../browser-session-store.js';
+import type { BrowserSession, DialogPolicy, WidgetTarget } from '../browser-session-store.js';
+import { watchSessionPages } from '../browser-tabs.js';
 import { resolveBrowserTimeouts } from '../browser-timeouts.js';
 import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
@@ -26,6 +27,12 @@ export interface BrowserOpenOptions {
    * mode never set this.
    */
   readonly executionMode?: boolean;
+  /**
+   * What the session does with an `alert`, `confirm` or `prompt` (P6-59): `dismiss` (the default)
+   * or `accept`. Either way each dialog is recorded as evidence. Accepting only lets the page
+   * carry on; safe mode still aborts any non-GET request that follows.
+   */
+  readonly dialogPolicy?: DialogPolicy;
   /**
    * Busy selectors the configured component library declares. Core cannot see the explorer's
    * profiles, so the host supplies this lookup; the session waits on these plus the project's own
@@ -120,7 +127,9 @@ export async function runBrowserOpen(
       (request) => blockedRequests.push(request),
       { allowMutations: options.executionMode === true },
     );
-    await page.route(ALL_REQUESTS_PATTERN, async (route) => {
+    // On the context, not the page: a popup's first request happens before any handler could be
+    // attached to the new page, and it must meet safe mode and the allowlist like every other one.
+    await browserContext.route(ALL_REQUESTS_PATTERN, async (route) => {
       await observeRequestHeaders(
         route.request(),
         observedHeaderNames,
@@ -134,6 +143,7 @@ export async function runBrowserOpen(
       browser,
       context: browserContext,
       page,
+      ...(options.dialogPolicy === undefined ? {} : { dialogPolicy: options.dialogPolicy }),
       allowlist: environment.config.allowlist,
       baseUrl: environment.config.baseUrl,
       navigationTimeoutMs: timeouts.navigationTimeoutMs,
@@ -148,6 +158,7 @@ export async function runBrowserOpen(
       blockedRequests,
       observedRequestHeaders,
     });
+    watchSessionPages(context, session);
   } catch (error) {
     await browser.close();
     throw error;

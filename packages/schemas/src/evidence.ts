@@ -40,6 +40,12 @@ export const BrowserActionTypeSchema = z.enum([
   'expect',
   // A condition the engine waited for (P6-58); `wait` holds what and for how long.
   'wait-for',
+  // Dialogs and tabs (P6-59): a dialog the session dismissed or accepted, a page the application
+  // opened, one it opened off the allowlist and the engine closed, and a switch of the active page.
+  'dialog',
+  'tab-opened',
+  'tab-blocked',
+  'tab-switch',
   'snapshot',
   'close',
 ]);
@@ -84,6 +90,18 @@ export const BrowserWaitSchema = z.object({
 });
 export type BrowserWait = z.infer<typeof BrowserWaitSchema>;
 
+export const BrowserDialogKindSchema = z.enum(['alert', 'confirm', 'prompt', 'beforeunload']);
+export type BrowserDialogKind = z.infer<typeof BrowserDialogKindSchema>;
+
+// A JavaScript dialog the page raised and what the session's policy did with it. `message` is the
+// page's own text, capped, and untrusted. A prompt's typed answer is never recorded.
+export const BrowserDialogSchema = z.object({
+  kind: BrowserDialogKindSchema,
+  message: z.string(),
+  handled: z.enum(['dismissed', 'accepted']),
+});
+export type BrowserDialog = z.infer<typeof BrowserDialogSchema>;
+
 // What an `expect` action checked and what the page showed (ADR-0013): the verdict is the
 // engine's, never the agent's. `observed` is absent when no single element was there to read.
 export const BrowserExpectationSchema = z.object({
@@ -113,6 +131,9 @@ export const BrowserActionSchema = z.object({
   ref: BrowserActionRefSchema.optional(),
   expectation: BrowserExpectationSchema.optional(),
   wait: BrowserWaitSchema.optional(),
+  dialog: BrowserDialogSchema.optional(),
+  // The session's own id for the page a `tab-*` action concerns (`tab-1`, `tab-2`, ...).
+  tabId: z.string().min(1).optional(),
   // The key or chord a `press` sent; a single printable character is recorded as `[character]`.
   key: z.string().min(1).optional(),
   // The state a `check` action read back from the box after setting it.

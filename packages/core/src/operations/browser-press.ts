@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
+import type { SessionNotice } from '../browser-session-store.js';
+import { collectNotices } from '../browser-tabs.js';
 import { waitForBusyToClear } from '../browser-busy-wait.js';
 import { resolveBrowserTarget } from '../element-refs.js';
 import type { BrowserOperationContext } from './browser-context.js';
@@ -30,6 +32,8 @@ export interface BrowserPressResult {
   /** The URL after the key press, which a navigation triggered by it can have changed. */
   readonly url: string;
   readonly evidence: Evidence;
+  /** Dialogs and pages that appeared since a result last reported them (P6-59): page-controlled text, untrusted. */
+  readonly notices?: SessionNotice[];
 }
 
 // A lone character typed through `press` can be a piece of a password, which must not survive in
@@ -85,5 +89,6 @@ export async function runBrowserPress(
     ...(target === undefined ? {} : { selector: target.selector }),
     url,
     evidence,
+    ...(await collectNotices(context, session)),
   };
 }

@@ -176,7 +176,7 @@ describe('runBrowserOpen', () => {
 
     await runBrowserOpen(harness.context);
 
-    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'route');
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
     expect(routeCall?.args[0]).toBe('**/*');
   });
 
@@ -185,7 +185,7 @@ describe('runBrowserOpen', () => {
 
     await runBrowserOpen(harness.context);
 
-    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'route');
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
     const handler = routeCall?.args[1] as (route: {
       request: () => { method: () => string; url: () => string };
       abort: () => Promise<void>;
@@ -212,7 +212,7 @@ describe('runBrowserOpen', () => {
 
     await runBrowserOpen(harness.context, { executionMode: true });
 
-    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'route');
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
     const handler = routeCall?.args[1] as (route: {
       request: () => { method: () => string; url: () => string };
       abort: () => Promise<void>;
