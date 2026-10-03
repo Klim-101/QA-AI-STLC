@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/runner-api",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Runner that executes Playwright APIRequestContext specs for api test cases, after checking every case against the configured OpenAPI contract.",
   "type": "module",
   "license": "Apache-2.0",
@@ -28,9 +28,9 @@
     "clean": "node ../../scripts/clean-dir.mjs dist"
   },
   "dependencies": {
-    "@qa-ai-stlc/core": "1.5.0",
-    "@qa-ai-stlc/runner-playwright": "1.5.0",
-    "@qa-ai-stlc/schemas": "1.5.0"
+    "@qa-ai-stlc/core": "1.6.0",
+    "@qa-ai-stlc/runner-playwright": "1.6.0",
+    "@qa-ai-stlc/schemas": "1.6.0"
   },
   "devDependencies": {
     "@qa-ai-stlc/test-utils": "0.0.0"
