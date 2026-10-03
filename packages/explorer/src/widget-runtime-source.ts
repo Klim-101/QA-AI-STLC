@@ -79,7 +79,8 @@ async function setWidgetPopup(widget: Locator, wantOpen: boolean, toggleSelector
 }
 
 // Choosing an option that is already chosen leaves it chosen: a multi-select would un-pick it.
-async function selectWidgetOption(widget: Locator, optionText: string, toggleSelector?: string): Promise<void> {
+// Returns what the widget shows when it does not show the option, null when it does.
+async function chooseWidgetOption(widget: Locator, optionText: string, toggleSelector?: string): Promise<string | null> {
   await setWidgetPopup(widget, true, toggleSelector);
   const popupId = await readWidgetPopupId(widget);
   const popup =
@@ -98,7 +99,17 @@ async function selectWidgetOption(widget: Locator, optionText: string, toggleSel
   }
   await setWidgetPopup(widget, false, toggleSelector);
   const shown = await readWidgetText(widget);
-  if (!shown.includes(optionText)) {
+  return shown.includes(optionText) ? null : shown;
+}
+
+// A widget can take a moment to show a choice, or drop a click that lands while its list is still
+// animating on a loaded machine, so a choice it does not show is made once more before it fails.
+async function selectWidgetOption(widget: Locator, optionText: string, toggleSelector?: string): Promise<void> {
+  const shown =
+    (await chooseWidgetOption(widget, optionText, toggleSelector)) === null
+      ? null
+      : await chooseWidgetOption(widget, optionText, toggleSelector);
+  if (shown !== null) {
     throw new Error('The widget does not show "' + optionText + '" after choosing it; it shows "' + shown + '"');
   }
 }

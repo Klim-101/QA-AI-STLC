@@ -35,6 +35,40 @@ async function clickOption(session: BrowserSession, selector: string, option: st
   }
 }
 
+/** Opens the list, picks the option unless it is already chosen, closes it and checks the widget shows it. */
+async function chooseWidgetOption(
+  session: BrowserSession,
+  selector: string,
+  optionText: string,
+): Promise<void> {
+  const opened = await setWidgetPopup(session, selector, true);
+  const option = optionSelector(opened.inspection, optionText);
+
+  let isSelected: unknown;
+  try {
+    isSelected = await session.page
+      .locator(option)
+      .evaluate(readOptionSelected, undefined, { timeout: session.actionTimeoutMs });
+  } catch (error) {
+    throw new QaError(
+      'BROWSER_WIDGET_OPTION_NOT_FOUND',
+      `No option "${optionText}" appeared in the popup of "${selector}" within ${String(session.actionTimeoutMs)} ms`,
+      {
+        cause: error,
+        remediation:
+          'Check the option text against the list, including case; a list loaded on demand may need a longer environment actionTimeoutMs.',
+      },
+    );
+  }
+  if (isSelected !== 'true') {
+    await clickOption(session, selector, option);
+    await waitForBusyToClear(session);
+  }
+
+  const closed = await setWidgetPopup(session, selector, false);
+  await verifyDisplayedText(session, closed, selector, optionText);
+}
+
 export interface BrowserSelectOptionOptions extends BrowserWidgetActionOptions {
   /** The option's visible text, exactly as the list shows it. */
   readonly optionText: string;
@@ -56,32 +90,17 @@ export function runBrowserSelectOption(
       if (await selectNativeOption(session, selector, options.optionText)) {
         return;
       }
-      const opened = await setWidgetPopup(session, selector, true);
-      const option = optionSelector(opened.inspection, options.optionText);
-
-      let isSelected: unknown;
       try {
-        isSelected = await session.page
-          .locator(option)
-          .evaluate(readOptionSelected, undefined, { timeout: session.actionTimeoutMs });
+        await chooseWidgetOption(session, selector, options.optionText);
       } catch (error) {
-        throw new QaError(
-          'BROWSER_WIDGET_OPTION_NOT_FOUND',
-          `No option "${options.optionText}" appeared in the popup of "${selector}" within ${String(session.actionTimeoutMs)} ms`,
-          {
-            cause: error,
-            remediation:
-              'Check the option text against the list, including case; a list loaded on demand may need a longer environment actionTimeoutMs.',
-          },
-        );
+        if (!(error instanceof QaError) || error.code !== 'BROWSER_WIDGET_VALUE_MISMATCH') {
+          throw error;
+        }
+        // A widget can take a moment to show a choice, or drop a click that lands while its list is
+        // still animating (seen on a loaded CI machine). Choosing again is safe because an option
+        // that is already chosen is left alone; a widget that still does not show it is reported.
+        await chooseWidgetOption(session, selector, options.optionText);
       }
-      if (isSelected !== 'true') {
-        await clickOption(session, selector, option);
-        await waitForBusyToClear(session);
-      }
-
-      const closed = await setWidgetPopup(session, selector, false);
-      await verifyDisplayedText(session, closed, selector, options.optionText);
     },
   });
 }
