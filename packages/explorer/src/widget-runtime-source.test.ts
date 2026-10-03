@@ -18,8 +18,8 @@ function loadSelectWidgetOption(): SelectWidgetOption {
 selectWidgetOption;`) as SelectWidgetOption;
 }
 
-function createScriptedWidget(failedOptionClicks: number) {
-  const state = { isOpen: false, optionClicks: 0, widgetClicks: 0 };
+function createScriptedWidget(failedOptionClicks: number, shownTexts: readonly string[] = ['Casey']) {
+  const state = { isOpen: false, optionClicks: 0, widgetClicks: 0, reads: 0 };
   const option = {
     getAttribute: () => Promise.resolve('false'),
     click: () => {
@@ -52,7 +52,11 @@ function createScriptedWidget(failedOptionClicks: number) {
       state.isOpen = false;
       return Promise.resolve();
     },
-    innerText: () => Promise.resolve('Casey'),
+    innerText: () => {
+      const text = shownTexts[Math.min(state.reads, shownTexts.length - 1)] ?? '';
+      state.reads += 1;
+      return Promise.resolve(text);
+    },
   };
   return { widget, state };
 }
@@ -65,6 +69,22 @@ describe('selectWidgetOption in the generated runtime', () => {
 
     expect(state.optionClicks).toBe(2);
     expect(state.widgetClicks).toBe(2);
+  });
+
+  it('chooses again when the widget does not show the choice at first', async () => {
+    const { widget, state } = createScriptedWidget(0, ['Select...', 'Casey']);
+
+    await loadSelectWidgetOption()(widget, 'Casey');
+
+    expect(state.optionClicks).toBe(2);
+  });
+
+  it('fails naming what the widget shows when the second choice is not shown either', async () => {
+    const { widget } = createScriptedWidget(0, ['Select...']);
+
+    await expect(loadSelectWidgetOption()(widget, 'Casey')).rejects.toThrow(
+      'The widget does not show "Casey" after choosing it; it shows "Select..."',
+    );
   });
 
   it('reports the failure of the second click', async () => {

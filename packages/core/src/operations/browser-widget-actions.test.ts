@@ -136,6 +136,32 @@ describe('runBrowserSelectOption', () => {
     ).rejects.toMatchObject({ code: 'BROWSER_WIDGET_OPTION_NOT_FOUND', cause });
   });
 
+  it('chooses again when the widget does not show the choice at first, and records it once', async () => {
+    const { harness, sessionId } = await openSession({
+      ...script,
+      inspections: [
+        CLOSED_WIDGET,
+        OPEN_WIDGET,
+        OPEN_WIDGET,
+        CLOSED_WIDGET,
+        CLOSED_WIDGET,
+        OPEN_WIDGET,
+        OPEN_WIDGET,
+        CLOSED_WIDGET,
+      ],
+      displayedTexts: ['Select...', 'Open'],
+    });
+
+    const result = await runBrowserSelectOption(harness.context, {
+      sessionId,
+      selector: '.wrapper',
+      optionText: 'Open',
+    });
+
+    expect(calls(harness, 'click').map(([selector]) => selector)).toEqual([TOGGLE, OPTION, TOGGLE, OPTION]);
+    expect(readEvidence(harness, result.evidence.path)).toMatchObject({ type: 'select-option' });
+  });
+
   it('fails and records nothing when the widget does not show the choice afterwards', async () => {
     const { harness, sessionId } = await openSession({ ...script, displayedText: 'Select...' });
     const { runId } = await harness.sessions.get(sessionId);

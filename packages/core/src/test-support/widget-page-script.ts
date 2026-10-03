@@ -21,6 +21,8 @@ export interface WidgetPageScript {
   /** `aria-selected` of the option, or an error for an option that never appears. */
   readonly optionSelected?: string | null | Error;
   readonly displayedText?: unknown;
+  /** What each `readDisplayedText` call reads, in order, the last repeating; takes the place of `displayedText`. */
+  readonly displayedTexts?: readonly unknown[];
   readonly inputValue?: unknown;
 }
 
@@ -34,7 +36,7 @@ function nextOf<TValue>(queue: readonly TValue[], index: number): TValue {
  * so a unit test answers them by name instead.
  */
 export function scriptWidgetPage(script: WidgetPageScript): (call: FakeLocatorEvaluateCall) => unknown {
-  const counters = { inspection: 0, wait: 0 };
+  const counters = { inspection: 0, wait: 0, displayed: 0 };
   return ({ functionName }) => {
     switch (functionName) {
       case 'inspectWidget': {
@@ -52,8 +54,14 @@ export function scriptWidgetPage(script: WidgetPageScript): (call: FakeLocatorEv
           return Promise.reject(script.optionSelected);
         }
         return script.optionSelected;
-      case 'readDisplayedText':
-        return script.displayedText;
+      case 'readDisplayedText': {
+        if (script.displayedTexts === undefined) {
+          return script.displayedText;
+        }
+        const text = nextOf(script.displayedTexts, counters.displayed);
+        counters.displayed += 1;
+        return text;
+      }
       case 'readInputValue':
         return script.inputValue;
       default:
