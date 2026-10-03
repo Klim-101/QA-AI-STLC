@@ -3,6 +3,7 @@
 
 import type { BrowserDialogKind } from '@qa-ai-stlc/schemas';
 import type { ElementRefTable } from './element-refs.js';
+import type { PageViewEntry } from './page-view.js';
 import { QaError } from './errors.js';
 import type { BlockedRequest } from './browser-safe-mode.js';
 import type { AuthBrowser, AuthBrowserContext, AuthPage } from './ports/browser-launcher.js';
@@ -15,6 +16,9 @@ import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
  * running for the rest of the host's lifetime.
  */
 export const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** How many snapshots a session keeps to compare a later one with; the oldest is forgotten first. */
+export const MAX_REMEMBERED_SNAPSHOTS = 5;
 
 /**
  * One kind of component-library widget the widget actions (P6-43) can drive: the actions find the
@@ -165,6 +169,7 @@ export class BrowserSessionStore {
   private readonly sessions = new Map<string, MutableSession>();
   private readonly notices = new Map<string, SessionNotice[]>();
   private readonly queuedRecords = new Map<string, QueuedBrowserRecord[]>();
+  private readonly snapshots = new Map<string, Map<string, readonly PageViewEntry[]>>();
   private readonly pendingTabWork = new Map<string, Set<Promise<void>>>();
   private readonly clock: Clock;
   private readonly idGenerator: IdGenerator;
@@ -328,8 +333,26 @@ export class BrowserSessionStore {
     const session = this.sessions.get(sessionId);
     if (session !== undefined) {
       session.elementRefs = table;
-      session.nextRefNumber += table.byRef.size;
+      // A diff keeps the refs of lines it did not change, so the table can hold old numbers: the
+      // next number to hand out is past the highest one in use, never just past the table's size.
+      const highest = Math.max(0, ...[...table.byRef.keys()].map((ref) => Number(ref.slice(1))));
+      session.nextRefNumber = Math.max(session.nextRefNumber, highest + 1);
     }
+  }
+
+  /** Remembers the outline of a snapshot so a later one can be compared with it. */
+  rememberSnapshot(sessionId: string, snapshotId: string, entries: readonly PageViewEntry[]): void {
+    const remembered = this.snapshots.get(sessionId) ?? new Map<string, readonly PageViewEntry[]>();
+    remembered.set(snapshotId, entries);
+    for (const oldest of [...remembered.keys()].slice(0, -MAX_REMEMBERED_SNAPSHOTS)) {
+      remembered.delete(oldest);
+    }
+    this.snapshots.set(sessionId, remembered);
+  }
+
+  /** The outline of a snapshot this session took, or undefined for an id it never took or has forgotten. */
+  recallSnapshot(sessionId: string, snapshotId: string): readonly PageViewEntry[] | undefined {
+    return this.snapshots.get(sessionId)?.get(snapshotId);
   }
 
   /** Forgets a session's refs, for when the page they were read from is gone. */
@@ -355,6 +378,7 @@ export class BrowserSessionStore {
     this.sessions.delete(sessionId);
     this.notices.delete(sessionId);
     this.queuedRecords.delete(sessionId);
+    this.snapshots.delete(sessionId);
     this.pendingTabWork.delete(sessionId);
     try {
       await session.context.close();

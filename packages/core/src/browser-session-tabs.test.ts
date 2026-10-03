@@ -3,7 +3,11 @@
 
 import { describe, expect, it } from 'vitest';
 import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
-import { BrowserSessionStore, type OpenBrowserSessionOptions } from './browser-session-store.js';
+import {
+  BrowserSessionStore,
+  MAX_REMEMBERED_SNAPSHOTS,
+  type OpenBrowserSessionOptions,
+} from './browser-session-store.js';
 import { createElementRefTable } from './element-refs.js';
 import type { AuthPage } from './ports/browser-launcher.js';
 import { createSequentialIdGenerator } from './test-support/fake-id-generator.js';
@@ -178,5 +182,44 @@ describe('BrowserSessionStore tabs (P6-59)', () => {
 
     expect(await store.drainNotices(session.sessionId)).toEqual([]);
     expect(store.takeQueuedRecords(session.sessionId)).toEqual([]);
+  });
+});
+
+describe('BrowserSessionStore snapshots (P6-54)', () => {
+  const entries = [{ key: '- document', text: '- document' }];
+
+  it('remembers snapshots per session and forgets the oldest past the limit', async () => {
+    const { store, session } = await openSession();
+    for (let index = 1; index <= MAX_REMEMBERED_SNAPSHOTS + 1; index += 1) {
+      store.rememberSnapshot(session.sessionId, `snap-${String(index)}`, entries);
+    }
+
+    expect(store.recallSnapshot(session.sessionId, 'snap-1')).toBeUndefined();
+    expect(store.recallSnapshot(session.sessionId, 'snap-2')).toBe(entries);
+    expect(store.recallSnapshot(session.sessionId, 'snap-6')).toBe(entries);
+    expect(store.recallSnapshot('session-missing', 'snap-6')).toBeUndefined();
+  });
+
+  it('forgets them when the session closes', async () => {
+    const { store, session } = await openSession();
+    store.rememberSnapshot(session.sessionId, 'snap-1', entries);
+
+    await store.close(session.sessionId);
+
+    expect(store.recallSnapshot(session.sessionId, 'snap-1')).toBeUndefined();
+  });
+
+  it('numbers refs past the highest one in use, which a diff keeps low', async () => {
+    const { store, session } = await openSession();
+    const table = createElementRefTable('https://staging.example.test/', [
+      { ref: 'e1', role: 'button', isNameTruncated: false },
+      { ref: 'e9', role: 'button', isNameTruncated: false },
+    ]);
+
+    store.setElementRefs(session.sessionId, table);
+    expect(session.nextRefNumber).toBe(10);
+
+    store.setElementRefs(session.sessionId, createElementRefTable('https://staging.example.test/', []));
+    expect(session.nextRefNumber).toBe(10);
   });
 });

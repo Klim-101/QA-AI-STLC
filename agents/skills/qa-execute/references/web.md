@@ -48,6 +48,14 @@ separate session-log artifact — omitting it leaves that step invisible to gene
 sets up the session rather than performing a case step (an initial navigation before step one, for
 example) omits `stepId`.
 
+## Reading what a step changed
+
+After a step, pass the earlier snapshot's `snapshotId` as `since` to `qa.browser_snapshot` instead of
+reading the whole page again: it lists only the lines added (`+`) or removed (`-`), so a popup
+opening or a row being added costs a few lines. Elements the diff leaves out keep the refs you
+already hold. Only the latest few snapshots are kept; `BROWSER_SNAPSHOT_UNKNOWN` means take a full
+snapshot. The full tree is registered as evidence either way.
+
 ## Checking expected results
 
 Check every expected result of a step with `qa.browser_expect` (visible, hidden, text, value, count,
