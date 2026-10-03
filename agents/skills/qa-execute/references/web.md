@@ -5,6 +5,31 @@ relaxed so a real form submission can go through, but the domain allowlist still
 unconditionally. Never set `executionMode` outside this skill — exploration and pick mode never
 need it.
 
+## The loop, and which tool for what
+
+Every step runs the same loop: **read** the page (`qa.browser_snapshot`, then its diff with `since`),
+**act** with the one tool that fits the control, by `ref`, then **check** the expected result with
+`qa.browser_expect`. Each tool registers its own evidence and takes the step's `stepId`.
+
+| The step is about …                                | Use                                                        | Not                                              |
+| -------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| Pressing a button, link or tab                     | `qa.browser_click`                                         | `qa.browser_press` on a focused element          |
+| Choosing an option of a drop-down, combo box, list | `qa.browser_select_option` (native `<select>` or a widget) | `qa.browser_click` on the list item              |
+| Typing into a field                                | `qa.browser_fill`                                          | `qa.browser_press` key by key                    |
+| A date in a date picker                            | `qa.browser_set_date`                                      | `qa.browser_fill` into a masked input            |
+| A key or chord (`Enter`, `Escape`, `Control+a`)    | `qa.browser_press`                                         | `qa.browser_click` on a hidden button            |
+| A tooltip or hover menu                            | `qa.browser_hover`                                         | `qa.browser_click`                               |
+| A checkbox or radio set to a state                 | `qa.browser_check`                                         | `qa.browser_click` and trusting it toggled       |
+| Attaching a file                                   | `qa.browser_upload`                                        | `qa.browser_fill` with a path                    |
+| An expected result: text, value, count, state, URL | `qa.browser_expect`                                        | Reading the snapshot and describing what you saw |
+| A result that arrives later (save, load, redirect) | `qa.browser_wait_for`, then `qa.browser_expect`            | Retrying the click, or a fixed pause             |
+| A step opened a new tab or a dialog                | `qa.browser_tabs`; `notices` on the result                 | Assuming the page you act on is the new one      |
+| Why a step failed (page error, failed request)     | `qa.browser_console`, `qa.browser_network`                 | Guessing, or opening a second browser tool       |
+| What a step changed on the page                    | `qa.browser_snapshot` with `since`                         | A full snapshot after every step                 |
+
+A control that a tool above does not cover is still driven by `qa.browser_click` and
+`qa.browser_fill`; never reach for a browser tool outside the engine's own `qa.browser_*` set.
+
 ## Finding a target without a static locator
 
 Interactive execution does not require a registry entry to already exist. After
