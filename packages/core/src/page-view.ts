@@ -47,6 +47,19 @@ export interface PageViewRef {
   readonly isNameTruncated: boolean;
 }
 
+/**
+ * One kept line of the outline. `key` is the line without its ref, so two snapshots can be compared
+ * line by line while a ref number differs between them.
+ */
+export interface PageViewEntry {
+  readonly key: string;
+  readonly text: string;
+  readonly ref?: PageViewRef;
+}
+
+/** The refs an earlier snapshot handed out, by the outline line they were on, oldest first. */
+export type InheritedRefs = ReadonlyMap<string, readonly PageViewRef[]>;
+
 export interface PageView {
   /** The outline, wrapped in the untrusted-data markers. */
   readonly text: string;
@@ -56,6 +69,8 @@ export interface PageView {
   readonly refCount: number;
   /** The refs in `text`, in order. */
   readonly refs: readonly PageViewRef[];
+  /** The lines in `text`, for comparing with a later snapshot. */
+  readonly entries: readonly PageViewEntry[];
   /** True when the normalizer's caps or the outline cap cut anything; never silent. */
   readonly truncated: boolean;
   /** Outline lines dropped because of the size cap. */
@@ -67,16 +82,21 @@ export interface PageView {
  * on every actionable node, numbered from `firstRefNumber` so a later snapshot of the same session
  * never reuses a ref an earlier one handed out. Page text is collapsed to one line per node and the marker text is
  * removed from it, so nothing the page says can close the untrusted-data boundary early.
+ *
+ * With `inherited` (a snapshot diff), a node on a line an earlier snapshot already gave a ref keeps
+ * that ref, so an element the diff leaves out stays addressable by the ref the agent already holds.
  */
 export function renderPageView(
   raw: unknown,
   limits: NormalizeLimits = DEFAULT_NORMALIZE_LIMITS,
   firstRefNumber = 1,
+  inherited: InheritedRefs = new Map(),
 ): PageView {
   const normalized = normalizeAccessibilityTree(raw, limits);
   const lines: OutlineLine[] = [];
   let nodeCount = 0;
-  let refCount = 0;
+  let mintedRefCount = 0;
+  const unusedInherited = new Map([...inherited].map(([key, refs]) => [key, [...refs]]));
 
   function visit(node: AccessibilityNode, depth: number): void {
     nodeCount += 1;
@@ -88,13 +108,20 @@ export function renderPageView(
       }
       return;
     }
+    const head = `${'  '.repeat(depth)}- ${label}`;
+    const states = describeStates(node);
     let target: PageViewRef | undefined;
     if (ACTIONABLE_ROLES.has(node.role)) {
-      target = describeRef(node, `e${String(firstRefNumber + refCount)}`, limits);
-      refCount += 1;
+      const reused = unusedInherited.get(`${head}${states}`)?.shift();
+      let refId = reused?.ref;
+      if (refId === undefined) {
+        refId = `e${String(firstRefNumber + mintedRefCount)}`;
+        mintedRefCount += 1;
+      }
+      target = describeRef(node, refId, limits);
     }
-    const ref = target === undefined ? '' : ` [ref=${target.ref}]`;
-    lines.push({ text: `${'  '.repeat(depth)}- ${label}${ref}${describeStates(node)}`, target });
+    const refPart = target === undefined ? '' : ` [ref=${target.ref}]`;
+    lines.push({ key: `${head}${states}`, text: `${head}${refPart}${states}`, target });
     for (const child of children) {
       visit(child, depth + 1);
     }
@@ -111,9 +138,71 @@ export function renderPageView(
     nodeCount,
     refCount: keptRefs.length,
     refs: keptRefs,
+    entries: kept.lines.map((line) => ({
+      key: line.key,
+      text: line.text,
+      ...(line.target === undefined ? {} : { ref: line.target }),
+    })),
     truncated: normalized.truncated || kept.omittedLineCount > 0,
     omittedLineCount: kept.omittedLineCount,
   };
+}
+
+export interface PageViewDiff {
+  /** The changed lines inside the untrusted-data markers: `+` for new lines, `-` for gone ones. */
+  readonly text: string;
+  readonly addedCount: number;
+  readonly removedCount: number;
+  readonly unchangedCount: number;
+  /** True when the size cap cut changed lines; never silent. */
+  readonly truncated: boolean;
+  readonly omittedLineCount: number;
+}
+
+/**
+ * Compares the outline lines of two snapshots as multisets, so a node that moved but did not change
+ * is not reported, and a node whose name or state changed is one removed line and one added line.
+ * Added lines keep their refs; removed lines have none.
+ */
+export function diffPageViews(
+  previous: readonly PageViewEntry[],
+  current: readonly PageViewEntry[],
+): PageViewDiff {
+  const previousCounts = countKeys(previous);
+  const currentCounts = countKeys(current);
+  const added = current.filter((entry) => !takeOne(previousCounts, entry.key));
+  const removed = previous.filter((entry) => !takeOne(currentCounts, entry.key));
+  const lines: OutlineLine[] = [
+    ...removed.map((entry): OutlineLine => ({ key: entry.key, text: `- ${entry.key}`, target: undefined })),
+    ...added.map((entry): OutlineLine => ({ key: entry.key, text: `+ ${entry.text}`, target: entry.ref })),
+  ];
+  const kept = fitToBudget(lines);
+  return {
+    text: [PAGE_VIEW_BEGIN_MARKER, ...kept.lines.map((line) => line.text), PAGE_VIEW_END_MARKER].join('\n'),
+    addedCount: added.length,
+    removedCount: removed.length,
+    unchangedCount: current.length - added.length,
+    truncated: kept.omittedLineCount > 0,
+    omittedLineCount: kept.omittedLineCount,
+  };
+}
+
+function countKeys(entries: readonly PageViewEntry[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const entry of entries) {
+    counts.set(entry.key, (counts.get(entry.key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+// True when `key` was available and one occurrence has been used up.
+function takeOne(counts: Map<string, number>, key: string): boolean {
+  const remaining = counts.get(key) ?? 0;
+  if (remaining === 0) {
+    return false;
+  }
+  counts.set(key, remaining - 1);
+  return true;
 }
 
 function describeNode(node: AccessibilityNode): string | undefined {
@@ -151,6 +240,7 @@ function sanitize(text: string): string {
 }
 
 interface OutlineLine {
+  readonly key: string;
   readonly text: string;
   readonly target: PageViewRef | undefined;
 }

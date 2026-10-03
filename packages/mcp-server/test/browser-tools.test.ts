@@ -416,6 +416,36 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
     });
   });
 
+  it('returns only what changed when a snapshot is given the id of an earlier one', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+
+      const dependencies = createDependencies(createFakeBrowser());
+      const { sessionId } = await createBrowserOpenTool(dependencies).handler({});
+      const snapshot = createBrowserSnapshotTool(dependencies);
+
+      const first = await snapshot.handler({ sessionId });
+      const second = await snapshot.handler({ sessionId, since: first.snapshotId });
+      const unknown = await snapshot
+        .handler({ sessionId, since: 'evidence-nope' })
+        .catch((caught: unknown) => caught);
+
+      expect(first.diff).toBeUndefined();
+      expect(second.diff).toEqual({
+        since: first.snapshotId,
+        addedCount: 0,
+        removedCount: 0,
+        unchangedCount: 2,
+      });
+      expect(unknown).toMatchObject({ code: 'BROWSER_SNAPSHOT_UNKNOWN' });
+
+      await createBrowserCloseTool(dependencies).handler({ sessionId });
+      process.chdir(originalCwd);
+    });
+  });
+
   it('lists the session tabs, switches to one by id, and names a tab that is not there', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
