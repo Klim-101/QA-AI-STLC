@@ -86,6 +86,9 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
     hover: () => Promise.resolve(),
     selectOption: () => Promise.resolve([]),
     setChecked: () => Promise.resolve(),
+    on: () => undefined,
+    close: () => Promise.resolve(),
+    bringToFront: () => Promise.resolve(),
     keyboard: { press: () => Promise.resolve() },
     waitForLoadState: () => Promise.resolve(),
     route: (_pattern, handler) => {
@@ -143,6 +146,8 @@ export function createFakeExploreBrowserLauncher(
   const context: AuthBrowserContextLike = {
     newPage: () => Promise.resolve(page),
     storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
+    route: () => Promise.resolve(),
+    on: () => undefined,
     close: () => Promise.resolve(),
   };
 
@@ -166,6 +171,8 @@ export function createFakeExploreBrowserLauncher(
       const authContext: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
         storageState: () => Promise.resolve(options.authStorageState ?? EMPTY_STORAGE_STATE),
+        route: () => Promise.resolve(),
+        on: () => undefined,
         close: () => Promise.resolve(),
       };
       const browser: AuthBrowserLike = {

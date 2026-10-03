@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
+import type { SessionNotice } from '../browser-session-store.js';
+import { collectNotices } from '../browser-tabs.js';
 import { toCanonicalJson } from '../json-file.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createElementRefTable } from '../element-refs.js';
@@ -23,6 +25,8 @@ export interface BrowserSnapshotResult {
   readonly view: PageView;
   readonly screenshot?: Evidence;
   readonly accessibilityTree: Evidence;
+  /** Dialogs and pages that appeared since a result last reported them (P6-59): page-controlled text, untrusted. */
+  readonly notices?: SessionNotice[];
 }
 
 /**
@@ -79,5 +83,6 @@ export async function runBrowserSnapshot(
     view,
     ...(screenshot === undefined ? {} : { screenshot }),
     accessibilityTree,
+    ...(await collectNotices(context, session)),
   };
 }

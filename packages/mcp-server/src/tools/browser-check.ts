@@ -6,6 +6,7 @@ import { EvidenceSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
+  NOTICES_OUTPUT_FIELD,
   SessionIdInputSchema,
   toBrowserOperationContext,
   toElementTarget,
@@ -30,6 +31,7 @@ const OutputSchema = z.object({
   checked: z.boolean().describe('The state read back from the box after setting it.'),
   url: z.string(),
   evidence: EvidenceSchema,
+  ...NOTICES_OUTPUT_FIELD,
 });
 
 /** `qa.browser_check` (P6-56): sets a checkbox or radio to a state and reads it back. */

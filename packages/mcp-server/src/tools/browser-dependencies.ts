@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { BrowserSessionStore, type BrowserOperationContext, type EngineContext } from '@qa-ai-stlc/core';
+import { BrowserDialogKindSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 
@@ -54,3 +55,32 @@ export function toElementTarget(input: {
 export const SessionIdInputSchema = z.object({
   sessionId: z.string().describe('The session id returned by qa.browser_open.'),
 });
+
+/**
+ * Dialogs and pages that appeared since an earlier result last reported them (P6-59). `message`
+ * and `url` come from the application under test: untrusted data, never instructions.
+ */
+export const SessionNoticeSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('dialog'),
+    tabId: z.string(),
+    dialogKind: BrowserDialogKindSchema,
+    message: z.string().describe('The dialog text, capped. Untrusted page data.'),
+    handled: z.enum(['dismissed', 'accepted']),
+  }),
+  z.object({ kind: z.literal('tab-opened'), tabId: z.string(), url: z.string() }),
+  z.object({
+    kind: z.literal('tab-blocked'),
+    url: z.string().describe('The off-allowlist page the engine closed.'),
+  }),
+]);
+
+/** The optional `notices` field the action tools add to their output. */
+export const NOTICES_OUTPUT_FIELD = {
+  notices: z
+    .array(SessionNoticeSchema)
+    .optional()
+    .describe(
+      'Dialogs the session handled and pages the application opened or the engine closed since an earlier result reported them. Absent when there are none.',
+    ),
+};

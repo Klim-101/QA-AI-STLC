@@ -30,7 +30,7 @@ describe('runBrowserClose', () => {
   it('reports every non-GET request safe mode blocked during the session', async () => {
     const harness = createBrowserTestHarness();
     const { sessionId } = await runBrowserOpen(harness.context);
-    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'route');
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
     const handler = routeCall?.args[1] as RouteHandler;
     await handler({
       request: () => ({ method: () => 'POST', url: () => 'https://staging.example.test/orders' }),

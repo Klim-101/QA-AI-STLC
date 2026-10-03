@@ -94,6 +94,9 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     hover: () => Promise.resolve(),
     selectOption: () => Promise.resolve([]),
     setChecked: () => Promise.resolve(),
+    on: () => undefined,
+    close: () => Promise.resolve(),
+    bringToFront: () => Promise.resolve(),
     keyboard: { press: () => Promise.resolve() },
     waitForLoadState: () => Promise.resolve(),
     route: (_pattern, handler) => {
@@ -147,6 +150,8 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
       const context: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
         storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
+        route: () => Promise.resolve(),
+        on: () => undefined,
         close: () => Promise.resolve(),
       };
       const browser: AuthBrowserLike = {
@@ -166,6 +171,8 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
       const authContext: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
         storageState: () => Promise.resolve(options.authStorageState ?? EMPTY_STORAGE_STATE),
+        route: () => Promise.resolve(),
+        on: () => undefined,
         close: () => Promise.resolve(),
       };
       const browser: AuthBrowserLike = {

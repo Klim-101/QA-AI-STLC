@@ -5,6 +5,7 @@ import {
   BrowserActionSchema,
   type BrowserActionRef,
   type BrowserExpectation,
+  type BrowserDialog,
   type BrowserWait,
   type BrowserActionType,
   type Evidence,
@@ -62,6 +63,10 @@ export interface BrowserActionDetails {
   readonly expectation?: BrowserExpectation;
   /** What a `wait-for` action waited for and how long it took (P6-58). */
   readonly wait?: BrowserWait;
+  /** The dialog a `dialog` action recorded and how the session's policy handled it (P6-59). */
+  readonly dialog?: BrowserDialog;
+  /** The session's id for the page a `dialog` or `tab-*` action concerns (P6-59). */
+  readonly tabId?: string;
   /** The key a `press` action sent, already redacted when it was a lone character (P6-56). */
   readonly key?: string;
   /** The state a `check` action read back from the box (P6-56). */
@@ -99,6 +104,8 @@ export async function registerBrowserAction(options: RegisterBrowserActionOption
     ...(options.action.ref !== undefined ? { ref: options.action.ref } : {}),
     ...(options.action.expectation !== undefined ? { expectation: options.action.expectation } : {}),
     ...(options.action.wait !== undefined ? { wait: options.action.wait } : {}),
+    ...(options.action.dialog !== undefined ? { dialog: options.action.dialog } : {}),
+    ...(options.action.tabId !== undefined ? { tabId: options.action.tabId } : {}),
     ...(options.action.key !== undefined ? { key: options.action.key } : {}),
     ...(options.action.checked !== undefined ? { checked: options.action.checked } : {}),
     ...(options.action.valueLength !== undefined ? { valueLength: options.action.valueLength } : {}),

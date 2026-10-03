@@ -149,6 +149,40 @@ describe('BrowserActionSchema', () => {
     );
   });
 
+  it('accepts dialog and tab records, and rejects an unknown dialog kind or handling (P6-59)', () => {
+    const base = { sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
+
+    expect(
+      BrowserActionSchema.safeParse({
+        ...base,
+        type: 'dialog',
+        tabId: 'tab-1',
+        dialog: { kind: 'confirm', message: 'Delete?', handled: 'dismissed' },
+      }).success,
+    ).toBe(true);
+    expect(
+      BrowserActionSchema.safeParse({
+        ...base,
+        type: 'dialog',
+        dialog: { kind: 'toast', message: 'x', handled: 'dismissed' },
+      }).success,
+    ).toBe(false);
+    expect(
+      BrowserActionSchema.safeParse({
+        ...base,
+        type: 'dialog',
+        dialog: { kind: 'alert', message: 'x', handled: 'ignored' },
+      }).success,
+    ).toBe(false);
+    for (const type of ['tab-opened', 'tab-blocked', 'tab-switch']) {
+      expect(
+        BrowserActionSchema.safeParse({ ...base, type, tabId: 'tab-2', url: 'http://localhost:4400/b' })
+          .success,
+      ).toBe(true);
+    }
+    expect(BrowserActionSchema.safeParse({ ...base, type: 'tab-switch', tabId: '' }).success).toBe(false);
+  });
+
   it('accepts an expectation with its verdict, and rejects one without (P6-55)', () => {
     const base = { type: 'expect', sessionId: 'session-1', at: '2026-09-21T12:00:00Z' };
     const passed = BrowserActionSchema.safeParse({

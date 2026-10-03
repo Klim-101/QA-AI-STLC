@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
+import type { SessionNotice } from '../browser-session-store.js';
+import { collectNotices } from '../browser-tabs.js';
 import { assertUrlAllowed } from '../browser-allowlist.js';
 import { waitForBusyToClear } from '../browser-busy-wait.js';
 import type { BrowserOperationContext } from './browser-context.js';
@@ -21,6 +23,8 @@ export interface BrowserNavigateResult {
   readonly title: string;
   readonly httpStatus?: number;
   readonly evidence: Evidence;
+  /** Dialogs and pages that appeared since a result last reported them (P6-59): page-controlled text, untrusted. */
+  readonly notices?: SessionNotice[];
 }
 
 /**
@@ -58,5 +62,6 @@ export async function runBrowserNavigate(
     title: await session.page.title(),
     ...(httpStatus !== undefined ? { httpStatus } : {}),
     evidence,
+    ...(await collectNotices(context, session)),
   };
 }

@@ -75,7 +75,8 @@ function createHarness(): {
 }
 
 async function observeHeader(harness: BrowserTestHarness): Promise<void> {
-  const handler = harness.launcher.pageCalls.find((call) => call.method === 'route')?.args[1] as (route: {
+  const handler = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute')
+    ?.args[1] as (route: {
     request: () => RouteRequest;
     abort: () => Promise<void>;
     continue: () => Promise<void>;
@@ -135,7 +136,7 @@ describe('runHttpExecute with a from-browser profile and a live session', () => 
 
     await observeHeader(harness);
     await call();
-    const rotated = harness.launcher.pageCalls.find((entry) => entry.method === 'route')?.args[1] as (
+    const rotated = harness.launcher.pageCalls.find((entry) => entry.method === 'contextRoute')?.args[1] as (
       route: unknown,
     ) => Promise<void>;
     await rotated({

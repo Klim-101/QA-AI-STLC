@@ -183,4 +183,22 @@ describe('createFakeExploreBrowserLauncher', () => {
     expect(await page.title()).toBe('');
     expect((await page.screenshot()).byteLength).toBeGreaterThan(0);
   });
+
+  it('accepts event listeners, close() and bringToFront() on its page, and route()/on() on its contexts', async () => {
+    const launcher = createFakeExploreBrowserLauncher();
+    const browser = await launcher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    expect(page.on('dialog', () => undefined)).toBeUndefined();
+    expect(page.on('close', () => undefined)).toBeUndefined();
+    await expect(page.close()).resolves.toBeUndefined();
+    await expect(page.bringToFront()).resolves.toBeUndefined();
+    await expect(context.route('**/*', () => undefined)).resolves.toBeUndefined();
+    expect(context.on('page', () => undefined)).toBeUndefined();
+
+    const [attached] = (await launcher.connectOverCdp('http://localhost:9222')).contexts();
+    await expect(attached?.route('**/*', () => undefined)).resolves.toBeUndefined();
+    expect(attached?.on('page', () => undefined)).toBeUndefined();
+  });
 });

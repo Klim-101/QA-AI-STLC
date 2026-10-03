@@ -33,6 +33,7 @@ describe('createBuiltinTools', () => {
       'qa.browser_snapshot',
       'qa.browser_expect',
       'qa.browser_wait_for',
+      'qa.browser_tabs',
       'qa.browser_accessibility_scan',
       'qa.browser_close',
     ]);
