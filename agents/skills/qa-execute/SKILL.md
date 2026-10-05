@@ -72,6 +72,7 @@ toolChoices:
     inputMatch: '"since"\s*:\s*"evidence-5"'
 references:
   - ../../references/testing-standards.md
+  - ../../references/component-libraries.md
   - references/web.md
   - references/api.md
   - references/accessibility.md
@@ -99,7 +100,9 @@ the case already exists (`qa-design-cases`); this skill drives it.
 
 - **`e2e`** — see [`references/web.md`](references/web.md): `qa.browser_open` with
   `executionMode: true`, reading the normalized page snapshot to find targets without a static
-  locator, and promoting ad hoc finds with `qa.registry_execute_register`.
+  locator, and promoting ad hoc finds with `qa.registry_execute_register`. For drop-downs, date
+  pickers and data grids (a Kendo project, or any custom widget) also read
+  [`component-libraries.md`](../../references/component-libraries.md).
 - **`api`** — see [`references/api.md`](references/api.md): `qa.http_execute` directly, no browser.
 - **`a11y`** — see [`references/accessibility.md`](references/accessibility.md):
   `qa.browser_accessibility_scan` against an open session's current page.
