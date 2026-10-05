@@ -43,6 +43,8 @@ export const KENDO_ANGULAR_PROFILE: ComponentLibraryProfile = {
       nativeControlSelector: INNER_CONTROLS,
       actions: ['set-date', 'popup'],
       popupToggleSelector: POPUP_BUTTON,
+      // The date input is segmented (`day.month.year`) and rewrites a filled string.
+      dateEntry: 'digits',
     },
     {
       widgetKind: 'numerictextbox',

@@ -9,6 +9,7 @@ export const CLOSED_WIDGET: WidgetInspection = {
   isOpen: false,
   popupId: 'list-1',
   toggleSelector: '.toggle',
+  dateEntry: 'text',
 };
 
 export const OPEN_WIDGET: WidgetInspection = { ...CLOSED_WIDGET, isOpen: true };

@@ -213,6 +213,17 @@ describe('generateLocatorModule', () => {
       expect(source).not.toContain('dueSelectOption');
     });
 
+    it('tells the date helper to type the digits for a segmented date input', () => {
+      const { source } = generateLocatorModule(
+        registry([widget({ name: 'due', kind: 'datepicker', library: 'kendo-angular' })]),
+        { generatorVersion: '0.3.0' },
+      );
+
+      expect(source).toContain(
+        'await setWidgetDate(widgetRoot(due(page), "kendo-datepicker"), value, "digits");',
+      );
+    });
+
     it('renders no helper and no runtime for an element without a library, or a kind without actions', () => {
       const elements = [
         widget({ name: 'plain', library: undefined }),

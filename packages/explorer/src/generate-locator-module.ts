@@ -109,6 +109,8 @@ interface WidgetHelperContext {
   readonly root: string;
   /** The `, "<selector>"` argument naming the widget's popup toggle, empty when it has none. */
   readonly toggleArgument: string;
+  /** The `, "digits"` argument for a date input that must be typed, empty when the text is filled. */
+  readonly dateEntryArgument: string;
 }
 
 interface WidgetHelper {
@@ -133,8 +135,8 @@ const WIDGET_HELPER_RENDERERS: Record<WidgetAction, (context: WidgetHelperContex
       `selectWidgetOption(${root}, optionText${toggleArgument})`,
     ),
   ],
-  'set-date': ({ name, root }) => [
-    helper(`${name}SetDate`, ', value: string', `setWidgetDate(${root}, value)`),
+  'set-date': ({ name, root, dateEntryArgument }) => [
+    helper(`${name}SetDate`, ', value: string', `setWidgetDate(${root}, value${dateEntryArgument})`),
   ],
   popup: ({ name, root, toggleArgument }) => [
     helper(`${name}OpenPopup`, '', `setWidgetPopup(${root}, true${toggleArgument})`),
@@ -155,6 +157,7 @@ function renderWidgetHelpers(
     root: `widgetRoot(${element.name}(page), ${JSON.stringify(widget.wrapperSelector)})`,
     toggleArgument:
       widget.popupToggleSelector === undefined ? '' : `, ${JSON.stringify(widget.popupToggleSelector)}`,
+    dateEntryArgument: widget.dateEntry === 'digits' ? ', "digits"' : '',
   };
   return (widget.actions ?? []).flatMap((action) => WIDGET_HELPER_RENDERERS[action](context));
 }

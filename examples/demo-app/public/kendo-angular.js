@@ -234,9 +234,42 @@ function renderDatePicker(host) {
     class: 'k-input-inner',
     type: 'text',
     role: 'spinbutton',
-    placeholder: 'yyyy-mm-dd',
     id: generatedId(),
   });
+  // Like the real date input, this one is a segmented mask (`day.month.year` until it is filled)
+  // that takes typed digits, each filling the next segment, and discards a string that is filled in
+  // at once, which is how a filled date ends up as a different one (P6-65).
+  let digits = '';
+  let replaceNext = false;
+  const showMask = () => {
+    input.value = `${digits.slice(0, 2) || 'day'}.${digits.slice(2, 4) || 'month'}.${digits.slice(4, 8) || 'year'}`;
+  };
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'a' && event.ctrlKey) {
+      replaceNext = true;
+      return;
+    }
+    if (/^[0-9]$/u.test(event.key)) {
+      if (replaceNext || digits.length >= 8) {
+        digits = '';
+      }
+      replaceNext = false;
+      digits += event.key;
+      showMask();
+      event.preventDefault();
+    } else if (event.key === 'Backspace') {
+      digits = digits.slice(0, -1);
+      showMask();
+      event.preventDefault();
+    } else if (event.key.length === 1) {
+      event.preventDefault();
+    }
+  });
+  input.addEventListener('input', () => {
+    digits = '';
+    showMask();
+  });
+  showMask();
   const toggle = element(
     'button',
     { class: 'k-input-button', 'aria-label': 'Toggle calendar', type: 'button' },
@@ -252,7 +285,8 @@ function renderDatePicker(host) {
       const day = index + 1;
       const cell = element('td', { role: 'gridcell' }, element('span', { class: 'k-link' }, String(day)));
       cell.addEventListener('click', () => {
-        input.value = `${String(year)}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        digits = `${String(day).padStart(2, '0')}${String(month + 1).padStart(2, '0')}${String(year)}`;
+        showMask();
         popup.close();
       });
       return cell;

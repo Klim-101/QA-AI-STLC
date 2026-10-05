@@ -151,9 +151,19 @@ async function selectWidgetOption(widget: Locator, optionText: string, toggleSel
   }
 }
 
-async function setWidgetDate(widget: Locator, value: string): Promise<void> {
+// A segmented masked input turns a filled string into a different date but takes the digits typed
+// one key at a time, each filling the next segment; typing over a selected value replaces it.
+async function setWidgetDate(widget: Locator, value: string, entry?: 'digits'): Promise<void> {
   const input = widget.locator('input:visible').first();
-  await input.fill(value);
+  if (entry === 'digits') {
+    await input.click();
+    await input.press('Control+a');
+    for (const digit of value.replace(/[^0-9]/g, '')) {
+      await input.press(digit);
+    }
+  } else {
+    await input.fill(value);
+  }
   await input.blur();
   const shown = await input.inputValue();
   if (shown.trim() !== value.trim()) {

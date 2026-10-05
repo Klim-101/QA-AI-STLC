@@ -168,7 +168,7 @@ describe('generated widget helpers (demo app)', () => {
       await helper('combobox', 'SelectOption')(page, 'Casey');
       await helper('multiselect', 'SelectOption')(page, 'billing');
       await helper('multiselect', 'SelectOption')(page, 'urgent');
-      await helper('datepicker', 'SetDate')(page, '2031-04-15');
+      await helper('datepicker', 'SetDate')(page, '15.04.2031');
       await helper('datepicker', 'OpenPopup')(page);
       await helper('datepicker', 'ClosePopup')(page);
 
