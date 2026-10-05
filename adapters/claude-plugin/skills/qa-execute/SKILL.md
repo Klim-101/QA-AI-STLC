@@ -16,6 +16,60 @@ nonTriggers:
   - 'generate the Playwright test for this case'
   - 'run the full regression suite'
   - 'what is the status of the last run'
+# Tool-selection evals (P6-62): each case gives the model a step and asserts it reaches for `expect`
+# and never for the tools in `never`. Generated into `adapters/claude-plugin/evals-tools/`; see agents/README.md.
+toolChoices:
+  - id: select-not-click
+    prompt: >-
+      Browser session session-1 is open on the case edit form and you have its snapshot. Case step 3:
+      set the Priority drop-down to "High". Perform that step with the engine browser tools, then stop.
+    expect: qa.browser_select_option
+    never: [qa.browser_click]
+  - id: check-not-click
+    prompt: >-
+      Browser session session-1 is open on the case edit form and you have its snapshot. Case step 4:
+      tick the "Notify me" checkbox and make sure it ends up ticked. Perform that step, then stop.
+    expect: qa.browser_check
+    never: [qa.browser_click]
+  - id: expect-not-narrate
+    prompt: >-
+      Browser session session-1 is open and you just clicked Save. The case's expected result for step 5
+      is that the text "Saved" is visible. Verify that expected result with the engine tools, then stop.
+    expect: qa.browser_expect
+  - id: wait-then-check
+    prompt: >-
+      Browser session session-1 is open. You clicked Save and the list reloads about two seconds later.
+      Wait until the text "Order 17" appears on the page, then stop.
+    expect: qa.browser_wait_for
+    never: [qa.browser_click]
+  - id: upload-not-fill
+    prompt: >-
+      Browser session session-1 is open and you have its snapshot. Case step 2: attach the project file
+      fixtures/avatar.png to the avatar upload input (ref e5). Perform that step, then stop.
+    expect: qa.browser_upload
+    never: [qa.browser_fill]
+  - id: press-not-click
+    prompt: >-
+      Browser session session-1 is open with a menu showing. Case step 6: press the Escape key to close
+      the menu. Perform that step, then stop.
+    expect: qa.browser_press
+    never: [qa.browser_click]
+  - id: switch-tab
+    prompt: >-
+      Browser session session-1 is open. Clicking "Terms" opened a new tab. Continue the case in that
+      new tab: make it the page you act on, then stop.
+    expect: qa.browser_tabs
+  - id: console-for-diagnosis
+    prompt: >-
+      Browser session session-1 is open. Case step 7 clicked Save and nothing visible happened. Find out
+      whether the application logged an error to the browser console, then stop.
+    expect: qa.browser_console
+  - id: snapshot-diff
+    prompt: >-
+      Browser session session-1 is open. Snapshot evidence-5 was taken before you clicked "Terms" and a
+      dialog opened. Read only what changed on the page since that snapshot, then stop.
+    expect: qa.browser_snapshot
+    inputMatch: '"since"\s*:\s*"evidence-5"'
 references:
   - ../../references/testing-standards.md
   - references/web.md

@@ -158,6 +158,29 @@ Every run is a real, billed model call against whichever account runs it — the
 that, since it is literally what skill selection is. For that reason this harness is a local,
 hand-run check for now; CI wiring is a separate task (P2-23) with its own cost/cadence decision.
 
+## Tool-selection evals
+
+A skill that steers the model between several engine tools can declare `toolChoices` in its
+frontmatter (`qa-execute` does, for the `qa.browser_*` set, P6-62): each entry has an `id`, a
+`prompt` describing one step, the tool it `expect`s, optional tools it must `never` use, and an optional
+`inputMatch` regex the expected call's input must match. `npm run generate` turns them into
+`adapters/claude-plugin/evals-tools/`, a second suite kept apart from the triggering one. The engine's
+browser tools are replaced there by mocks whose names and input schemas come from the built MCP server
+(so `npm run build` must have run); a mock only answers "ok", because a case judges which tool the model
+chose, not what the tool returned.
+
+```sh
+npm run build
+npm run generate
+claude plugin eval adapters/claude-plugin --eval-dir evals-tools --trust-plugin --no-publish
+```
+
+Like the triggering suite this runs the model on the operator's own `claude` login, so it uses the
+subscription's usage allowance and needs no API key; `--max-cost-usd <n>` caps a run. The graders are
+deterministic (`tool_used`), so no judge model is called. A tool name inside a case is written
+`qa.browser_select_option` in `SKILL.md` and appears as `mcp__plugin_<plugin>_<server>__qa_browser_select_option`
+in the generated files, since the eval runner only accepts letters, digits, `_` and `-` in a mock's name.
+
 ## Lint for size
 
 `scripts/lint-agents.mjs` enforces the `SKILL.md` line cap:
