@@ -8,6 +8,7 @@ import { extractLinks } from './extract-links.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { buildRequestLogHar, type RequestLogEntry } from './request-log.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
+import { settlePage, type PageSettleOptions } from './settle-page.js';
 
 const DEFAULT_MAX_PAGES = 50;
 
@@ -25,6 +26,8 @@ export interface CrawlOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this crawl (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** What to wait for after each navigation before the page is read (P6-63). */
+  readonly settle?: PageSettleOptions;
 }
 
 export interface CrawlResult {
@@ -132,6 +135,7 @@ async function visitAllowedRoutes(
     });
 
     if (httpStatus !== undefined && httpStatus < 400) {
+      await settlePage(page, url, options.settle);
       for (const link of await extractLinks(page)) {
         if (isAllowedUrl(link, options.allowlist)) {
           queue.push({ url: link, discoveredVia: 'link', discoveredFrom: url });
