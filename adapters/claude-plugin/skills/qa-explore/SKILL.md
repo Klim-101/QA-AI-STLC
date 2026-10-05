@@ -14,6 +14,8 @@ nonTriggers:
   - 'start a QA session for this project'
   - 'write test cases for the login flow'
   - 'run the checkout test case'
+references:
+  - ../../references/component-libraries.md
 ---
 
 # `qa-explore` — selector registry
@@ -52,6 +54,14 @@ that does not use any of those standard attributes — a custom component librar
 skill or the engine needs a code change for: set the matching identity's `selectors.username` (and
 `password`/`submit` as needed) to a CSS selector that actually matches the app's markup, then retry.
 Check this before concluding auto-login is unfixable or filing it as an engine limitation.
+
+## Component-library applications
+
+When `ui.componentLibrary` in `config.yaml` is not `none`, or the crawl reports drop-downs, date
+pickers or grids with no usable locator, read
+[`agents/references/component-libraries.md`](../../references/component-libraries.md) before
+advising the operator: it says what the registry holds for such widgets and which tools later
+steps use instead of raw clicks.
 
 ## What this skill calls
 
