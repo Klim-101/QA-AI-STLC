@@ -33,6 +33,8 @@ export const KENDO_ANGULAR_PROFILE: ComponentLibraryProfile = {
       role: 'combobox',
       nativeControlSelector: INNER_CONTROLS,
       actions: ['select-option', 'popup'],
+      // The chips fill the wrapper, so a click on its middle lands on a chip, not on the field.
+      popupToggleSelector: 'input.k-input-inner',
     },
     {
       widgetKind: 'datepicker',

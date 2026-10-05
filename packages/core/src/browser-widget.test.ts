@@ -173,7 +173,29 @@ describe('setWidgetPopup', () => {
       harness.launcher.pageCalls
         .filter((call) => call.method === 'evaluate' || call.method === 'locatorEvaluate')
         .map((call) => call.method),
-    ).toEqual(['evaluate', 'locatorEvaluate', 'locatorEvaluate', 'evaluate', 'locatorEvaluate']);
+    ).toEqual([
+      'evaluate',
+      'locatorEvaluate',
+      'locatorEvaluate',
+      'locatorEvaluate',
+      'evaluate',
+      'locatorEvaluate',
+      'locatorEvaluate',
+    ]);
+  });
+
+  it('lets animations finish before it reads the popup and again before it reports it, for at most two seconds each', async () => {
+    const roomy = await openSession({ inspections: [CLOSED_WIDGET, OPEN_WIDGET] });
+    await setWidgetPopup(roomy.session, '.wrapper', true);
+    const tight = await openSession({ inspections: [CLOSED_WIDGET, OPEN_WIDGET] }, 400);
+    await setWidgetPopup(tight.session, '.wrapper', true);
+
+    const animationWaits = (harness: typeof roomy.harness): unknown[] =>
+      harness.launcher.pageCalls
+        .filter((call) => call.method === 'locatorEvaluate' && call.args[1] === 'waitForAnimations')
+        .map((call) => call.args[2]);
+    expect(animationWaits(roomy.harness)).toEqual([{ timeoutMs: 2_000 }, { timeoutMs: 2_000 }]);
+    expect(animationWaits(tight.harness)).toEqual([{ timeoutMs: 400 }, { timeoutMs: 400 }]);
   });
 });
 

@@ -127,6 +127,49 @@ export function commitInput(element: PageElement): void {
   element.blur();
 }
 
+export interface WaitForAnimationsArgs {
+  readonly timeoutMs: number;
+}
+
+interface PageAnimation {
+  readonly finished: Promise<unknown>;
+  readonly effect: { getComputedTiming(): { readonly endTime: number | string } } | null;
+}
+
+/**
+ * Resolves once no finite animation is running on the page, or when the timeout passes first. A
+ * list that is still animating open can drop an option click (it closes without choosing), and
+ * Playwright's own stability check does not see every kind of animation. Endless animations (a
+ * spinner) are not waited for.
+ */
+export async function waitForAnimations(_element: PageElement, rawArgs: unknown): Promise<void> {
+  const args = rawArgs as WaitForAnimationsArgs;
+  const { document, requestAnimationFrame } = globalThis as unknown as {
+    document: { getAnimations(): PageAnimation[] };
+    requestAnimationFrame: (callback: () => void) => unknown;
+  };
+  const deadline = Date.now() + args.timeoutMs;
+  // A list that has just been attached starts its animation on the next frames; looking before then
+  // finds none running.
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+  const finite = (): PageAnimation[] =>
+    document
+      .getAnimations()
+      .filter((animation) => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)));
+  for (let running = finite(); running.length > 0 && Date.now() < deadline; running = finite()) {
+    await Promise.race([
+      Promise.allSettled(running.map((animation) => animation.finished)),
+      new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()))),
+    ]);
+  }
+}
+
 /** Sends Escape to whatever has focus inside the widget (the widget itself when nothing does). */
 export function dismissWithEscape(element: PageElement): void {
   const { document, KeyboardEvent } = globalThis as unknown as {

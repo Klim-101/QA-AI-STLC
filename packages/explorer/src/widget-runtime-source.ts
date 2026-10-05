@@ -10,6 +10,7 @@
 export const WIDGET_RUNTIME_SOURCE = `const WIDGET_TIMEOUT_MS = 5_000;
 const WIDGET_SETTLE_MS = 1_000;
 const WIDGET_POLL_MS = 50;
+const WIDGET_ANIMATION_MS = 2_000;
 
 // A locator built from the accessibility tree often resolves to a control inside the widget (the
 // input a combo box renders), so the wrapper is the nearest ancestor-or-self matching the library's
@@ -56,10 +57,45 @@ async function readWidgetText(widget: Locator): Promise<string> {
   return [await widget.innerText(), ...inputValues].join(' ');
 }
 
+// A list that is still animating open can drop an option click: it closes without choosing. Waits
+// until no finite animation is running on the page, or the timeout passes; endless ones (a spinner)
+// are not waited for.
+async function waitForWidgetAnimations(widget: Locator): Promise<void> {
+  await widget.evaluate(async (_element, timeoutMs) => {
+    const { document, setTimeout, requestAnimationFrame } = globalThis as unknown as {
+      setTimeout(callback: (value?: unknown) => void, delayMs: number): unknown;
+      requestAnimationFrame(callback: () => void): unknown;
+      document: {
+        getAnimations(): {
+          finished: Promise<unknown>;
+          effect: { getComputedTiming(): { endTime: number | string } } | null;
+        }[];
+      };
+    };
+    const deadline = Date.now() + timeoutMs;
+    // A list that has just been attached starts its animation on the next frames.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const finite = () =>
+      document.getAnimations().filter((animation) => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)));
+    for (let running = finite(); running.length > 0 && Date.now() < deadline; running = finite()) {
+      await Promise.race([
+        Promise.allSettled(running.map((animation) => animation.finished)),
+        new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()))),
+      ]);
+    }
+  }, WIDGET_ANIMATION_MS);
+}
+
 // A popup that has just changed state ignores input while it animates, so one that did not follow
 // an action gets the next before the final full wait. Closing tries Escape first: some widgets
 // (a multi-select) have a toggle that only ever opens.
 async function setWidgetPopup(widget: Locator, wantOpen: boolean, toggleSelector?: string): Promise<void> {
+  if ((await isWidgetPopupOpen(widget)) === wantOpen) {
+    return;
+  }
+  // A popup that is closing on its own still reports open while it animates; Escape then makes a
+  // Kendo UI for Angular multiselect drop the choice just made. Wait, then look again.
+  await waitForWidgetAnimations(widget);
   if ((await isWidgetPopupOpen(widget)) === wantOpen) {
     return;
   }
@@ -72,6 +108,7 @@ async function setWidgetPopup(widget: Locator, wantOpen: boolean, toggleSelector
     await attempt();
     const timeoutMs = index === attempts.length - 1 ? WIDGET_TIMEOUT_MS : WIDGET_SETTLE_MS;
     if (await waitForWidgetPopup(widget, wantOpen, timeoutMs)) {
+      await waitForWidgetAnimations(widget);
       return;
     }
   }

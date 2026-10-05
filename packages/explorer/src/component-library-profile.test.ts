@@ -96,7 +96,7 @@ describe('listWidgetTargets', () => {
     expect(listWidgetTargets(KENDO_ANGULAR_PROFILE)).toEqual([
       { wrapperSelector: 'kendo-dropdownlist' },
       { wrapperSelector: 'kendo-combobox', popupToggleSelector: '.k-input-button' },
-      { wrapperSelector: 'kendo-multiselect' },
+      { wrapperSelector: 'kendo-multiselect', popupToggleSelector: 'input.k-input-inner' },
       { wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button' },
       {
         wrapperSelector: 'kendo-grid',
