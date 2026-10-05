@@ -43,6 +43,8 @@ function createScriptedWidget(failedOptionClicks: number, shownTexts: readonly s
         name === 'aria-expanded' ? String(state.isOpen) : name === 'aria-controls' ? 'list-1' : null,
       ),
     locator: () => ({ count: () => Promise.resolve(0), all: () => Promise.resolve([]) }),
+    // The wait for the popup's animation runs in the page, so there is nothing to run here.
+    evaluate: () => Promise.resolve(),
     click: () => {
       state.widgetClicks += 1;
       state.isOpen = true;

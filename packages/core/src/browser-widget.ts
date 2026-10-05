@@ -7,6 +7,7 @@ import {
   dismissWithEscape,
   inspectWidget,
   readDisplayedText,
+  waitForAnimations,
   waitForPopupState,
   type WidgetInspection,
 } from './browser-widget-page.js';
@@ -15,6 +16,7 @@ import { QaError } from './errors.js';
 const POLL_INTERVAL_MS = 50;
 const SETTLE_AFTER_ACTION_MS = 1_000;
 const DISPLAYED_TEXT_PREVIEW_CHARS = 120;
+const ANIMATION_WAIT_TIMEOUT_MS = 2_000;
 
 /** A widget found on the page: a selector for its wrapper and what the page showed for it. */
 export interface ResolvedWidget {
@@ -69,6 +71,10 @@ export async function setWidgetPopup(
   wantOpen: boolean,
 ): Promise<ResolvedWidget> {
   await waitForBusyToClear(session);
+  // A popup that is closing on its own (a multiselect list closes after every pick) still reports
+  // open while it animates; pressing Escape then makes a Kendo UI for Angular multiselect drop the
+  // choice that was just made (P6-64). Let animations finish before reading its state.
+  await waitForAnimationsOf(session, selector);
   const widget = await resolveWidget(session, selector);
   if (widget.inspection.isOpen !== wantOpen) {
     const toggle =
@@ -108,7 +114,21 @@ export async function setWidgetPopup(
     }
   }
   await waitForBusyToClear(session);
-  return resolveWidget(session, selector);
+  const settled = await resolveWidget(session, selector);
+  // The list may still be animating when it reports open; a click on an option meanwhile can close
+  // it without choosing (observed on a Kendo UI for Angular multiselect, P6-64).
+  await waitForAnimationsOf(session, settled.root);
+  return settled;
+}
+
+async function waitForAnimationsOf(session: BrowserSession, root: string): Promise<void> {
+  await session.page
+    .locator(root)
+    .evaluate(
+      waitForAnimations,
+      { timeoutMs: Math.min(session.actionTimeoutMs, ANIMATION_WAIT_TIMEOUT_MS) },
+      { timeout: session.actionTimeoutMs },
+    );
 }
 
 function quoteForSelector(value: string): string {

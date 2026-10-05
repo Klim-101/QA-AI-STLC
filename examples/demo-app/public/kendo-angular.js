@@ -39,7 +39,7 @@ document.addEventListener('click', (event) => {
 
 // A popup lives under `body`, not inside its widget, which is how the real thing avoids being
 // clipped by the widget's ancestors.
-function createPopup(host, anchor, content) {
+function createPopup(host, anchor, content, closingDelayMs = 0) {
   const popupId = generatedId();
   const container = element(
     'div',
@@ -48,17 +48,40 @@ function createPopup(host, anchor, content) {
   );
   const wrapper = element('kendo-popup', {}, container);
   let isOpen = false;
+  // The real popup ignores a click that lands while it is still animating open: it closes without
+  // picking anything. Seen on a Kendo UI for Angular multiselect, whose option click closed the
+  // list and chose nothing when it came a moment after the list opened (P6-64).
+  container.addEventListener(
+    'click',
+    (event) => {
+      if (container.getAnimations().length > 0) {
+        event.stopPropagation();
+        close();
+      }
+    },
+    true,
+  );
   function close() {
     if (isOpen) {
       wrapper.remove();
-      anchor.setAttribute('aria-expanded', 'false');
       openPopups.delete(close);
       isOpen = false;
+      // The real list reports itself open until its closing animation ends.
+      if (closingDelayMs > 0) {
+        setTimeout(() => {
+          if (!isOpen) {
+            anchor.setAttribute('aria-expanded', 'false');
+          }
+        }, closingDelayMs);
+      } else {
+        anchor.setAttribute('aria-expanded', 'false');
+      }
     }
   }
   function open() {
     closeAllPopups();
     document.body.append(wrapper);
+    container.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 400 });
     anchor.setAttribute('aria-expanded', 'true');
     openPopups.add(close);
     isOpen = true;
@@ -153,6 +176,8 @@ function renderComboBox(host) {
   });
 }
 
+const CLOSING_ANIMATION_MS = 200;
+
 function renderMultiSelect(host) {
   host.classList.add('k-multiselect', 'k-input');
   const chosen = new Set();
@@ -171,22 +196,36 @@ function renderMultiSelect(host) {
     summary.labels = chosen.size;
     updateSummary();
   }
-  const popup = createPopup(host, input, (popupId) =>
-    createOptionList(
-      popupId,
-      valuesOf(host),
-      (value) => {
-        if (chosen.has(value)) {
-          chosen.delete(value);
-        } else {
-          chosen.add(value);
-        }
-        refresh();
-      },
-      (value) => chosen.has(value),
-    ),
+  const popup = createPopup(
+    host,
+    input,
+    (popupId) =>
+      createOptionList(
+        popupId,
+        valuesOf(host),
+        (value) => {
+          if (chosen.has(value)) {
+            chosen.delete(value);
+          } else {
+            chosen.add(value);
+          }
+          refresh();
+          // Like the real multiselect, the list closes after every pick.
+          popup.close();
+        },
+        (value) => chosen.has(value),
+      ),
+    CLOSING_ANIMATION_MS,
   );
   input.addEventListener('click', popup.toggle);
+  // Pressing Escape while the list is still closing after a pick drops that pick, as the real
+  // multiselect does (P6-64).
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && input.getAttribute('aria-expanded') === 'true' && chosen.size > 0) {
+      chosen.delete([...chosen].at(-1));
+      refresh();
+    }
+  });
 }
 
 function renderDatePicker(host) {
