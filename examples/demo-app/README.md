@@ -62,6 +62,14 @@ best reconstruction: P6-46 checks it against a real application. BUG-017 to BUG-
 ignores clicks; `?hold=1` keeps the mask forever. It exists to prove engine browser actions wait for
 busy indicators and fail with a coded error when one never clears.
 
+## Client-rendered fixture
+
+`/spa-fixture.html` (P6-63) loads an empty `<app-root>` and renders a heading, a link to
+`/spa-fixture-detail.html` and a Save button about a second after the load event, behind a
+`.k-loading-mask`; `?hold=1` keeps the mask forever. It stands in for a single-page application, to
+prove that explore waits for the render before it reads a page, and gives up with a warning when the page
+never settles.
+
 ## Tests
 
 `npm test --workspace @qa-ai-stlc/demo-app` runs a smoke suite (`src/server.test.ts`) covering the

@@ -75,6 +75,10 @@ Check this before concluding auto-login is unfixable or filing it as an engine l
   a case can target them.
 - `blockedRequestCount` — non-GET requests safe mode blocked during the crawl. Non-zero is expected
   behavior, not a failure; mention it only if the operator asks what the crawl touched.
+- `EXPLORE_PAGE_NOT_SETTLED` (a logged warning, one per page) — a page still showed a busy indicator or
+  kept changing when the wait for it to render ran out, so it was read as it was. A registry that is
+  thin for that page means the page never settled: tell the operator, and check `ui.busySelectors`
+  names the application's spinner.
 - `endpointsPath` / `endpointCount` — where the discovered API surface was written
   (`.qa/selectors/endpoints.json`) and how many endpoints it holds after merging with whatever was
   already stored there. Each entry is `{ method, path, source: 'discovered', examples }`: `path`

@@ -37,6 +37,7 @@ import {
 } from '../build-selector-registry.js';
 import {
   resolveComponentLibraryProfile,
+  type ComponentLibraryProfile,
   type ComponentLibraryProfiles,
 } from '../component-library-profile.js';
 import { crawl } from '../crawl.js';
@@ -44,6 +45,7 @@ import { generateLocatorModule } from '../generate-locator-module.js';
 import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
 import { readPackageVersion } from '../package-version.js';
 import { createSafeModeRouteHandler } from '../safe-mode.js';
+import { settlePage, type PageSettleOptions } from '../settle-page.js';
 import { scoreLocatorStability } from '../stability-scoring.js';
 import type { DegradedSelectorElement } from '../build-selector-registry.js';
 
@@ -178,6 +180,26 @@ function warnIfTlsInsecure(context: EngineContext, environmentName: string, tlsI
   }
 }
 
+/**
+ * What every navigation of an exploration waits for before the page is read (P6-63): the project's
+ * busy selectors and the component library's, and a coded warning for a page that never settled.
+ */
+function resolveSettleOptions(
+  context: EngineContext,
+  config: Config,
+  profile: ComponentLibraryProfile | undefined,
+): PageSettleOptions {
+  return {
+    busySelectors: [...new Set([...(profile?.busySelectors ?? []), ...config.ui.busySelectors])],
+    onUnsettled: (url) => {
+      context.logger.warn(
+        `The page ${new URL(url).pathname} did not finish rendering in time and was read as it was`,
+        { code: 'EXPLORE_PAGE_NOT_SETTLED', path: new URL(url).pathname },
+      );
+    },
+  };
+}
+
 // A crawl that visits 0 pages because its own baseUrl fails the allowlist check looks identical,
 // from an empty registry, to "the app genuinely has nothing" -- a mismatched allowlist entry (a
 // typo, or one that still carries a port/scheme) used to fail this way with no diagnostic at all
@@ -232,11 +254,13 @@ async function runCrawlAndBuild(
   configureTestIdAttribute(config.selectors.testIdAttribute);
   const profile = resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles);
 
+  const settle = resolveSettleOptions(context, config, profile);
   const crawlResult = await crawl({
     startUrl: environment.config.baseUrl,
     allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
+    settle,
     ...(identity !== undefined ? { identity } : {}),
     ...(options.maxPages !== undefined ? { maxPages: options.maxPages } : {}),
   });
@@ -250,6 +274,7 @@ async function runCrawlAndBuild(
     tlsInsecure,
     testIdAttribute: config.selectors.testIdAttribute,
     extraStableAttributes: config.selectors.extraStableAttributes,
+    settle,
     ...(profile !== undefined ? { profile } : {}),
     ...(identity !== undefined ? { identity } : {}),
   });
@@ -264,6 +289,7 @@ async function runCrawlAndBuild(
     viewports: config.selectors.stabilityViewports,
     extraStableAttributes: config.selectors.extraStableAttributes,
     generatedIdPatterns: config.selectors.generatedIdPatterns,
+    settle,
     ...(profile !== undefined ? { profile } : {}),
   });
 
@@ -314,6 +340,11 @@ async function runVerify(
   warnIfTlsInsecure(context, environment.name, tlsInsecure);
   configureTestIdAttribute(config.selectors.testIdAttribute);
   const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
+  const settle = resolveSettleOptions(
+    context,
+    config,
+    resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles),
+  );
 
   const checkable = stored.elements.filter(
     (element) =>
@@ -350,6 +381,7 @@ async function runVerify(
     );
     for (const [pageUrl, elements] of elementsByPageUrl) {
       await page.goto(pageUrl);
+      await settlePage(page, pageUrl, settle);
       for (const element of elements) {
         // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- filtered above
         const primary = element.locatorCandidates[0] as SelectorElement['locatorCandidates'][number];

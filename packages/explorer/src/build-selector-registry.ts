@@ -13,6 +13,7 @@ import {
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { createElementNamer } from './naming.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
+import { settlePage, type PageSettleOptions } from './settle-page.js';
 import { scorePageCandidates, type CandidateStabilityScore } from './stability-scoring.js';
 import { mergeGeneratedIdPatterns, type ComponentLibraryProfile } from './component-library-profile.js';
 import { synthesizeLocatorCandidates, type LocatorPolicy } from './synthesize-locators.js';
@@ -37,6 +38,8 @@ export interface BuildSelectorRegistryOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this scoring session (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** What to wait for after each navigation before the page is read (P6-63). */
+  readonly settle?: PageSettleOptions;
 }
 
 export interface BuildSelectorRegistryResult {
@@ -172,6 +175,7 @@ export async function buildSelectorRegistry(
 
     for (const pageModel of options.pageModelSet.pages) {
       await page.goto(pageModel.url);
+      await settlePage(page, pageModel.url, options.settle);
 
       const scored = await scorePageCandidates(
         page,
