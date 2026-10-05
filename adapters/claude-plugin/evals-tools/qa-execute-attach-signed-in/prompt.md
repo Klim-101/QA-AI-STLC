@@ -27,4 +27,4 @@ allowed_tools:
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_close
 ---
 
-Browser session session-1 is open and you just clicked Save. The case's expected result for step 5 is that the text "Saved" is visible. Verify that expected result with the engine tools, then stop.
+The application signs in through the company single sign-on with a one-time code, so the engine cannot log in itself. The operator has signed in in their own Chrome, started with --remote-debugging-port=9222. Continue the case in that signed-in browser, then stop.

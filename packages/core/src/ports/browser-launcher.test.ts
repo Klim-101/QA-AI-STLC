@@ -56,8 +56,17 @@ describe('playwrightBrowserLauncher', () => {
     const browser = await playwrightBrowserLauncher.connectOverCdp('http://localhost:9222');
     expect(browser.contexts()).toEqual(['context']);
 
-    expect(connectOverCDP).toHaveBeenCalledWith('http://localhost:9222');
+    expect(connectOverCDP).toHaveBeenCalledWith('http://localhost:9222', {});
     expect(rawBrowser.contexts).toHaveBeenCalled();
+  });
+
+  it('bounds the connection attempt with the given timeout', async () => {
+    connectOverCDP.mockResolvedValue(fakePlaywrightBrowser());
+    const { playwrightBrowserLauncher } = await import('./browser-launcher.js');
+
+    await playwrightBrowserLauncher.connectOverCdp('http://localhost:9222', { timeoutMs: 1500 });
+
+    expect(connectOverCDP).toHaveBeenCalledWith('http://localhost:9222', { timeout: 1500 });
   });
 
   it('passes storageState through to newContext() unchanged', async () => {

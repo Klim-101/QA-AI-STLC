@@ -28,6 +28,41 @@
       }
     },
     {
+      "name": "qa.browser_attach",
+      "description": "Attaches to a Chrome the operator started with --remote-debugging-port and already signed in to the application, and returns a browser session id every other qa.browser_* tool takes. Use it only when the engine cannot sign in itself (SSO, MFA); otherwise use qa.browser_open. The endpoint must be on this machine. The session drives the first open page that is on the environment allowlist, under safe mode, and its sessionStorage and request headers can then feed a from-browser API auth profile. Request headers are observed only from attachment onward. Closing the session with qa.browser_close disconnects and never closes the operator’s browser.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "description": "DevTools endpoint of a Chrome on this machine started with --remote-debugging-port, for example http://127.0.0.1:9222. Only localhost, 127.0.0.0/8 and ::1 are accepted."
+          },
+          "environment": {
+            "description": "Environment name from config.yaml. Required when there is more than one.",
+            "type": "string"
+          },
+          "executionMode": {
+            "description": "Interactive case execution only (ADR-0009): allows a non-GET request through safe mode. The domain allowlist still applies unconditionally.",
+            "type": "boolean"
+          },
+          "dialogPolicy": {
+            "description": "What the session does with an alert, confirm or prompt: dismiss (the default) or accept.",
+            "type": "string",
+            "enum": [
+              "dismiss",
+              "accept"
+            ]
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "qa.browser_navigate",
       "description": "Navigates an open browser session to a URL and records the navigation as evidence. Fails with BROWSER_URL_NOT_ALLOWED when the host is not on the session allowlist, and with BROWSER_SESSION_NOT_FOUND or BROWSER_SESSION_EXPIRED when the session is gone. Returns where the page actually landed, which a redirect can change.",
       "inputSchema": {

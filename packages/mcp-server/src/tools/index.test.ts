@@ -18,6 +18,7 @@ describe('createBuiltinTools', () => {
     expect(names).toContain('qa.ping');
     expect(names.filter((name) => name.startsWith('qa.browser_'))).toEqual([
       'qa.browser_open',
+      'qa.browser_attach',
       'qa.browser_navigate',
       'qa.browser_click',
       'qa.browser_fill',

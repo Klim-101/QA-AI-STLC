@@ -30,6 +30,7 @@ import { createBrowserNetworkTool } from '../src/tools/browser-network.js';
 import { createBrowserTabsTool } from '../src/tools/browser-tabs.js';
 import { createBrowserUploadTool } from '../src/tools/browser-upload.js';
 import { createBrowserWaitForTool } from '../src/tools/browser-wait-for.js';
+import { createBrowserAttachTool } from '../src/tools/browser-attach.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
 import { createBrowserPressTool } from '../src/tools/browser-press.js';
 import { createBrowserSnapshotTool } from '../src/tools/browser-snapshot.js';
@@ -140,6 +141,7 @@ function createFakeBrowser(): FakeBrowser {
 
   const context: AuthBrowserContext = {
     newPage: () => Promise.resolve(page),
+    pages: () => [page],
     storageState: () => Promise.resolve({ cookies: [], origins: [] }),
     route: (_pattern, handler) => {
       routeHandlers.push(handler);
@@ -636,6 +638,43 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       expect(refused).toMatchObject({ code: 'BROWSER_BUSY_TIMEOUT' });
 
       // Windows cannot delete a directory that is still the working directory.
+      process.chdir(originalCwd);
+    });
+  });
+
+  it('qa.browser_attach refuses a remote endpoint, attaches to a loopback one and disconnects on close (P6-50)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+      const fake = createFakeBrowser();
+      const dependencies = createDependencies(fake);
+      const attach = createBrowserAttachTool(dependencies);
+
+      const refused = await attach
+        .handler({ endpoint: 'http://203.0.113.7:9222' })
+        .catch((caught: unknown) => caught);
+      expect(refused).toMatchObject({ code: 'BROWSER_ATTACH_ENDPOINT_NOT_LOOPBACK' });
+
+      // The stand-in browser shows one page; put it on the application, as the operator's would be.
+      const opened = await createBrowserOpenTool(dependencies).handler({});
+      await createBrowserNavigateTool(dependencies).handler({
+        sessionId: opened.sessionId,
+        url: 'https://staging.example.test/home',
+      });
+
+      const attached = await attach.handler({ endpoint: 'http://127.0.0.1:9222' });
+      expect(attached).toMatchObject({
+        environment: 'staging',
+        allowlist: ['staging.example.test'],
+        pageUrl: 'https://staging.example.test/home',
+      });
+      expect(attached.notes.length).toBeGreaterThan(0);
+      expect(attached.evidence.kind).toBe('action');
+
+      const before = fake.closedBrowsers;
+      await createBrowserCloseTool(dependencies).handler({ sessionId: attached.sessionId });
+      expect(fake.closedBrowsers).toBe(before + 1);
       process.chdir(originalCwd);
     });
   });

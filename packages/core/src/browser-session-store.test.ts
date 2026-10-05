@@ -106,6 +106,7 @@ describe('BrowserSessionStore', () => {
   it('mints a session id and a run id, and copies the allowlist', async () => {
     const { store, session } = await storeWithSession();
 
+    expect(session.ownsBrowser).toBe(true);
     expect(session.sessionId).toBe('session-x-1');
     expect(session.runId).toBe('run-x-2');
     expect(session.allowlist).toEqual(['staging.example.test']);
@@ -185,6 +186,26 @@ describe('BrowserSessionStore', () => {
       store.setElementRefs('session-missing', createElementRefTable('https://x.test/', []));
       store.clearElementRefs('session-missing');
     }).not.toThrow();
+  });
+
+  it('only disconnects from a browser the session did not start, never closing its context (P6-50)', async () => {
+    const parts = await fakeBrowserParts();
+    const store = new BrowserSessionStore();
+    const session = store.open({
+      ...parts,
+      ownsBrowser: false,
+      allowlist: ['staging.example.test'],
+      baseUrl: 'https://staging.example.test/',
+      navigationTimeoutMs: 30_000,
+      actionTimeoutMs: 30_000,
+      blockedRequests: [],
+    });
+
+    expect(session.ownsBrowser).toBe(false);
+    await store.close(session.sessionId);
+
+    expect(parts.closed).toEqual(['browser']);
+    expect(store.sessionIds).toEqual([]);
   });
 
   it('closes a session and forgets it', async () => {

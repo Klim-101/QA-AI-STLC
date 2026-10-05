@@ -179,6 +179,8 @@ export interface AuthPage {
 
 export interface AuthBrowserContext {
   newPage(): Promise<AuthPage>;
+  /** The pages the context has open right now, which for an attached browser are the operator's. */
+  pages(): readonly AuthPage[];
   /**
    * Intercepts every request of every page in the context, including a popup's very first one,
    * which a per-page `route` registered after the page exists would miss.
@@ -212,10 +214,15 @@ export interface LaunchOptions {
   readonly headless?: boolean;
 }
 
+export interface ConnectOverCdpOptions {
+  readonly timeoutMs?: number;
+}
+
 /** Injected so authentication is testable without actually launching or attaching to a browser. */
 export interface BrowserLauncher {
   launch(options?: LaunchOptions): Promise<AuthBrowser>;
-  connectOverCdp(endpointUrl: string): Promise<AuthBrowser>;
+  /** `timeoutMs` bounds the connection attempt; omitted, Playwright's own default applies. */
+  connectOverCdp(endpointUrl: string, options?: ConnectOverCdpOptions): Promise<AuthBrowser>;
 }
 
 // Playwright's own `newContext()` names its TLS option `ignoreHTTPSErrors`; this project's naming
@@ -236,7 +243,13 @@ function wrapBrowser(browser: PlaywrightBrowser): AuthBrowser {
 export const playwrightBrowserLauncher: BrowserLauncher = {
   launch: async (options) =>
     wrapBrowser(await chromium.launch(options?.headless === undefined ? {} : { headless: options.headless })),
-  connectOverCdp: async (endpointUrl) => wrapBrowser(await chromium.connectOverCDP(endpointUrl)),
+  connectOverCdp: async (endpointUrl, options) =>
+    wrapBrowser(
+      await chromium.connectOverCDP(
+        endpointUrl,
+        options?.timeoutMs === undefined ? {} : { timeout: options.timeoutMs },
+      ),
+    ),
 };
 
 /**

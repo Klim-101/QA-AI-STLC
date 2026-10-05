@@ -92,14 +92,27 @@ this does not reopen the safe-mode rules of exploration and pick mode, and ADR-0
 a live session, the way an operator would in developer tools: a cookie, a `localStorage` key with an
 optional JSON path, a `sessionStorage` key, or the `Authorization` header of an observed request to
 an allowlisted host. The caller names where to read from: the id of an open engine browser session
-of the same environment, or a configured identity with a saved storage state (which an attached
-browser can produce); reading live from an attached browser is not supported yet. The token stays in
+of the same environment (opened by `qa.browser_open`, or attached to the operator's own browser by
+`qa.browser_attach`), or a configured identity with a saved storage state (which an attached browser
+can also produce). The token stays in
 engine memory, is read again at request time on every call (it is never cached, so a token the
 application rotated is picked up immediately and there is no stale copy for a 401 to expose), and
 follows rules 1 to 4 above. A source
 that the session cannot provide (for example `sessionStorage` from a saved storage-state file) fails
 with a coded error rather than falling back silently. This complements the manual path, where the
 operator copies a token into a `QA_*` variable used by a `bearer` profile.
+
+**Attaching to the operator's browser.** For an application the engine cannot sign into itself (SSO,
+MFA), `qa.browser_attach` connects over CDP to a Chrome the operator started with
+`--remote-debugging-port` and signed in with, and registers it as a browser session, so all four
+sources can be read live. A debugging port is full control of a browser and everything it is signed
+into, so the endpoint must be loopback (`localhost`, `127.0.0.0/8`, `::1`); anything else is refused
+before a connection is made. The session drives one page, the first open page already on the
+environment allowlist, and safe mode, the allowlist and request-header observation are installed on
+that page only, never on the operator's other tabs. Tabs opened later are not adopted, since they
+may be the operator's own. Closing the session disconnects and never closes the operator's browser
+or its context. Request headers are observed only from the moment of attachment, and the result
+says so.
 
 **Out of scope.** Interactive browser OAuth flows (authorization code, with a consent screen) and
 mTLS. Both can be added later as new profile types without changing this model.

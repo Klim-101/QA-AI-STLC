@@ -19,6 +19,13 @@ nonTriggers:
 # Tool-selection evals (P6-62): each case gives the model a step and asserts it reaches for `expect`
 # and never for the tools in `never`. Generated into `adapters/claude-plugin/evals-tools/`; see agents/README.md.
 toolChoices:
+  - id: attach-signed-in
+    prompt: >-
+      The application signs in through the company single sign-on with a one-time code, so the engine
+      cannot log in itself. The operator has signed in in their own Chrome, started with
+      --remote-debugging-port=9222. Continue the case in that signed-in browser, then stop.
+    expect: qa.browser_attach
+    never: [qa.browser_open]
   - id: select-not-click
     prompt: >-
       Browser session session-1 is open on the case edit form and you have its snapshot. Case step 3:

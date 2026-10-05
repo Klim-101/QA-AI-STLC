@@ -141,6 +141,7 @@ describe('createFakeCrawlBrowserLauncher', () => {
 
     expect(browser.contexts()).toEqual([context]);
     await expect(context.newPage()).resolves.toBe(launcher.page);
+    expect(context.pages()).toEqual([launcher.page]);
     await expect(context.storageState()).resolves.toEqual({ cookies: [], origins: [] });
     await expect(context.close()).resolves.toBeUndefined();
     await browser.close();
@@ -168,6 +169,7 @@ describe('createFakeCrawlBrowserLauncher', () => {
     await expect(browser.newContext()).rejects.toThrow('newContext is not available');
     await expect(context?.storageState()).resolves.toEqual(storageState);
     await expect(context?.newPage()).resolves.toBe(launcher.page);
+    expect(context?.pages()).toEqual([launcher.page]);
     await expect(context?.close()).resolves.toBeUndefined();
     await browser.close();
     expect(launcher.closedBrowsers).toBe(1);

@@ -319,7 +319,7 @@ exact same `packages/core`/`packages/explorer` function its CLI command calls, s
 is a result from the other: pipeline commands (`qa.doctor`, `qa.config_show`, `qa.explore`, `qa.scope`,
 `qa.cases_add`, `qa.approve`, `qa.validate`, `qa.run`, `qa.report`, `qa.link`, `qa.api_diff`), project setup (`qa.init`, `qa.config_set`, `qa.config_add`), interactive execution
 and generation
-(`qa.browser_open`/`_navigate`/`_snapshot`/`_close`, the actions `qa.browser_click`/`_fill`/`_press`/`_hover`/`_check`/`_select_option`/`_set_date`/`_upload`, `qa.browser_open_popup`/`_close_popup`, `qa.browser_grid_find_row`/`_grid_read_cell`, `qa.browser_expect`/`_wait_for`, `qa.browser_tabs`, `qa.browser_console`/`_network`, `qa.browser_accessibility_scan`,
+(`qa.browser_open`/`_attach`/`_navigate`/`_snapshot`/`_close`, the actions `qa.browser_click`/`_fill`/`_press`/`_hover`/`_check`/`_select_option`/`_set_date`/`_upload`, `qa.browser_open_popup`/`_close_popup`, `qa.browser_grid_find_row`/`_grid_read_cell`, `qa.browser_expect`/`_wait_for`, `qa.browser_tabs`, `qa.browser_console`/`_network`, `qa.browser_accessibility_scan`,
 `qa.http_execute`, `qa.registry_execute_register`, `qa.case_result_register`,
 `qa.generation_spoke_input`, `qa.generation_proven_session`, `qa.generation_manual_regions_extract`/
 `_apply`, `qa.generation_verify`, `qa.generation_register`), and `qa.cases_render`. Manual pick-mode

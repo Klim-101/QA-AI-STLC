@@ -15,6 +15,7 @@ describe('createFakeExploreBrowserLauncher', () => {
     await expect(browser.newContext()).rejects.toThrow('newContext is not available');
     await expect(context?.storageState()).resolves.toEqual(storageState);
     await expect(context?.newPage()).resolves.toBe(launcher.page);
+    expect(context?.pages()).toEqual([launcher.page]);
     await expect(context?.close()).resolves.toBeUndefined();
     await browser.close();
     expect(launcher.closedBrowsers.count).toBe(1);
@@ -36,6 +37,7 @@ describe('createFakeExploreBrowserLauncher', () => {
     const context = await browser.newContext();
 
     expect(browser.contexts()).toEqual([context]);
+    expect(context.pages()).toEqual([launcher.page]);
     await expect(context.storageState()).resolves.toEqual({ cookies: [], origins: [] });
     await expect(context.close()).resolves.toBeUndefined();
     await browser.close();

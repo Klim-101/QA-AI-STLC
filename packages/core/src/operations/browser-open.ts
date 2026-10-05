@@ -1,23 +1,22 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Config, EnvironmentConfig, Evidence, UiComponentLibrary } from '@qa-ai-stlc/schemas';
-import { collectObservedRequestHeaderNames } from '../api-auth.js';
-import { observeRequestHeaders } from '../browser-request-observer.js';
+import type { Config, EnvironmentConfig, Evidence } from '@qa-ai-stlc/schemas';
 import type { BlockedRequest } from '../browser-safe-mode.js';
-import { createBrowserSafeModeRouteHandler } from '../browser-safe-mode.js';
-import type { BrowserSession, DialogPolicy, WidgetTarget } from '../browser-session-store.js';
+import {
+  ALL_REQUESTS_PATTERN,
+  createSessionRouteHandler,
+  resolveSessionSettings,
+  type ComponentLibraryResolvers,
+} from '../browser-session-setup.js';
+import type { BrowserSession, DialogPolicy } from '../browser-session-store.js';
 import { watchSessionPages } from '../browser-tabs.js';
-import { resolveBrowserTimeouts } from '../browser-timeouts.js';
 import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
-/** Matches every request the page makes, so safe mode sees all of them (not only the document). */
-const ALL_REQUESTS_PATTERN = '**/*';
-
-export interface BrowserOpenOptions {
+export interface BrowserOpenOptions extends ComponentLibraryResolvers {
   /** Environment name from config.yaml. Required only when the project defines more than one. */
   readonly environment?: string;
   /**
@@ -33,14 +32,6 @@ export interface BrowserOpenOptions {
    * carry on; safe mode still aborts any non-GET request that follows.
    */
   readonly dialogPolicy?: DialogPolicy;
-  /**
-   * Busy selectors the configured component library declares. Core cannot see the explorer's
-   * profiles, so the host supplies this lookup; the session waits on these plus the project's own
-   * `ui.busySelectors` (P6-42).
-   */
-  readonly resolveLibraryBusySelectors?: (library: UiComponentLibrary) => readonly string[];
-  /** The widgets the configured component library renders, for the widget actions (P6-43). */
-  readonly resolveLibraryWidgets?: (library: UiComponentLibrary) => readonly WidgetTarget[];
 }
 
 export interface BrowserOpenResult {
@@ -114,47 +105,28 @@ export async function runBrowserOpen(
   const browser = await context.engine.browserLauncher.launch();
   const blockedRequests: BlockedRequest[] = [];
   const observedRequestHeaders = new Map<string, string>();
-  const observedHeaderNames = collectObservedRequestHeaderNames(config.apiAuth);
   let session: BrowserSession;
   try {
     const browserContext = await browser.newContext(
       environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {},
     );
     const page = await browserContext.newPage();
-    const safeModeHandler = createBrowserSafeModeRouteHandler(
-      environment.config.allowlist,
-      environment.config.baseUrl,
-      (request) => blockedRequests.push(request),
-      { allowMutations: options.executionMode === true },
-    );
     // On the context, not the page: a popup's first request happens before any handler could be
     // attached to the new page, and it must meet safe mode and the allowlist like every other one.
-    await browserContext.route(ALL_REQUESTS_PATTERN, async (route) => {
-      await observeRequestHeaders(
-        route.request(),
-        observedHeaderNames,
-        environment.config,
+    await browserContext.route(
+      ALL_REQUESTS_PATTERN,
+      createSessionRouteHandler(config, environment.config, {
+        allowMutations: options.executionMode === true,
+        blockedRequests,
         observedRequestHeaders,
-      );
-      await safeModeHandler(route);
-    });
-    const timeouts = resolveBrowserTimeouts(environment.config);
+      }),
+    );
     session = context.sessions.open({
       browser,
       context: browserContext,
       page,
       ...(options.dialogPolicy === undefined ? {} : { dialogPolicy: options.dialogPolicy }),
-      allowlist: environment.config.allowlist,
-      baseUrl: environment.config.baseUrl,
-      navigationTimeoutMs: timeouts.navigationTimeoutMs,
-      actionTimeoutMs: timeouts.actionTimeoutMs,
-      busySelectors: [
-        ...new Set([
-          ...(options.resolveLibraryBusySelectors?.(config.ui.componentLibrary) ?? []),
-          ...config.ui.busySelectors,
-        ]),
-      ],
-      widgetTargets: options.resolveLibraryWidgets?.(config.ui.componentLibrary) ?? [],
+      ...resolveSessionSettings(config, environment.config, options),
       blockedRequests,
       observedRequestHeaders,
     });

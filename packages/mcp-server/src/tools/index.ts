@@ -19,6 +19,7 @@ import { createBrowserWaitForTool } from './browser-wait-for.js';
 import { createBrowserPressTool } from './browser-press.js';
 import { createBrowserGridFindRowTool, createBrowserGridReadCellTool } from './browser-grid.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
+import { createBrowserAttachTool } from './browser-attach.js';
 import { createBrowserOpenTool } from './browser-open.js';
 import { createBrowserClosePopupTool, createBrowserOpenPopupTool } from './browser-popup.js';
 import { createBrowserSelectOptionTool } from './browser-select-option.js';
@@ -82,6 +83,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
 export function createBrowserTools(dependencies: BrowserToolDependencies): readonly ToolDefinition[] {
   return [
     createBrowserOpenTool(dependencies),
+    createBrowserAttachTool(dependencies),
     createBrowserNavigateTool(dependencies),
     createBrowserClickTool(dependencies),
     createBrowserFillTool(dependencies),

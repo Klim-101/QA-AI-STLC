@@ -100,6 +100,11 @@ export interface BrowserSession {
   readonly runId: string;
   readonly browser: AuthBrowser;
   readonly context: AuthBrowserContext;
+  /**
+   * False for a browser the operator started and the session only attached to (P6-50): closing the
+   * session then disconnects and leaves their browser and its tabs alone.
+   */
+  readonly ownsBrowser: boolean;
   /** The active page: the one every action acts on. It follows `qa.browser_tabs` switches. */
   readonly page: AuthPage;
   /** Every page the session still has open, in the order they opened. */
@@ -148,6 +153,8 @@ export interface OpenBrowserSessionOptions {
   readonly browser: AuthBrowser;
   readonly context: AuthBrowserContext;
   readonly page: AuthPage;
+  /** Omit for a browser the engine launched; `false` for one it only attached to. */
+  readonly ownsBrowser?: boolean;
   /** Omit for the default, which dismisses every dialog. */
   readonly dialogPolicy?: DialogPolicy;
   readonly allowlist: readonly string[];
@@ -202,6 +209,7 @@ export class BrowserSessionStore {
       runId: `run-${this.idGenerator.next()}`,
       browser: options.browser,
       context: options.context,
+      ownsBrowser: options.ownsBrowser ?? true,
       page: options.page,
       tabs: [{ tabId: 'tab-1', page: options.page }],
       activeTabId: 'tab-1',
@@ -390,6 +398,12 @@ export class BrowserSessionStore {
     this.queuedRecords.delete(sessionId);
     this.snapshots.delete(sessionId);
     this.pendingTabWork.delete(sessionId);
+    if (!session.ownsBrowser) {
+      // Closing an attached browser's context would close the operator's own tabs; closing the
+      // connection only disconnects.
+      await session.browser.close();
+      return;
+    }
     try {
       await session.context.close();
     } finally {
