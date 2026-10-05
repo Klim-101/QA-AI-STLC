@@ -3,6 +3,7 @@ runs: 2
 max_turns: 10
 allowed_tools:
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_open
+  - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_attach
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_navigate
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_click
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_fill

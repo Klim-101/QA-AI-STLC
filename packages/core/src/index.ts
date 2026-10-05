@@ -74,6 +74,7 @@ export * from './operations/approve.js';
 export * from './operations/validate.js';
 export * from './operations/browser-context.js';
 export * from './operations/browser-evidence.js';
+export * from './operations/browser-attach.js';
 export * from './operations/browser-open.js';
 export * from './operations/browser-navigate.js';
 export * from './operations/browser-click.js';

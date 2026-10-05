@@ -13,6 +13,17 @@ describe('createFakeBrowserLauncher', () => {
     await expect(context.close()).resolves.toBeUndefined();
   });
 
+  it('lists the pages a launched context handed out through pages()', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const context = await (await launcher.launch()).newContext();
+
+    expect(context.pages()).toEqual([]);
+    const first = await context.newPage();
+    const second = await context.newPage();
+
+    expect(context.pages()).toEqual([first, second]);
+  });
+
   it('exposes the launched context through contexts() too', async () => {
     const launcher = createFakeBrowserLauncher();
     const browser = await launcher.launch();

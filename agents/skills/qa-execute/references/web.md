@@ -129,6 +129,22 @@ then `qa.browser_tabs` with `switchTo` to act on one; take a new snapshot after 
 belong to the page they came from. A page that opens off the allowlist is closed and reported as
 `tab-blocked`: that is a finding, not something to retry.
 
+## When the engine cannot sign in itself
+
+An application behind single sign-on or MFA cannot be signed into by the engine. Ask the operator to
+start Chrome with `--remote-debugging-port=9222` (a dedicated `--user-data-dir`), sign in, and leave
+the application open; then call `qa.browser_attach` with `endpoint: "http://127.0.0.1:9222"` instead of
+`qa.browser_open`. Everything above works on the session it returns, with these differences, which the
+result lists in `notes`:
+
+- Only loopback endpoints are accepted, and only the first open page on the allowlist is driven.
+  `BROWSER_ATTACH_NO_PAGE` means the application is not open in that browser.
+- Tabs the application opens later are not part of the session; the operator drives those.
+- Request headers are observed from attachment onward, so a `from-browser` profile that reads a
+  request header needs the page to make a request after attaching (reload, or act in it).
+- Safe mode and the allowlist also apply to the operator's own clicks in that page while attached.
+- `qa.browser_close` disconnects and leaves the operator's browser open.
+
 ## Closing out
 
 Call `qa.browser_close` when the case's steps are done, whether it passed or failed — an open

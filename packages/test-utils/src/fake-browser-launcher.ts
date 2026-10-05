@@ -128,6 +128,7 @@ export interface AuthPageLike {
 
 export interface AuthBrowserContextLike {
   newPage(): Promise<AuthPageLike>;
+  pages(): readonly AuthPageLike[];
   route(pattern: string, handler: RouteHandlerLike): Promise<unknown>;
   on(event: 'page', handler: (page: AuthPageLike) => void): unknown;
   storageState(): Promise<StorageStateLike>;
@@ -151,7 +152,7 @@ export interface LaunchOptionsLike {
 
 export interface BrowserLauncherLike {
   launch(options?: LaunchOptionsLike): Promise<AuthBrowserLike>;
-  connectOverCdp(endpointUrl: string): Promise<AuthBrowserLike>;
+  connectOverCdp(endpointUrl: string, options?: { readonly timeoutMs?: number }): Promise<AuthBrowserLike>;
 }
 
 const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
@@ -544,6 +545,7 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
     launch: () => {
       const context: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(addPage(options.initialUrl ?? 'about:blank').page),
+        pages: () => handles.map((handle) => handle.page),
         storageState: () => Promise.resolve(storageState),
         route: (...args) => {
           pageCalls.push({ method: 'contextRoute', args });

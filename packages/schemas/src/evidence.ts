@@ -21,6 +21,8 @@ export type EvidenceKind = z.infer<typeof EvidenceKindSchema>;
 
 export const BrowserActionTypeSchema = z.enum([
   'open',
+  // Attaching to a browser the operator already runs (P6-50); `url` is the page the session drives.
+  'attach',
   'navigate',
   'click',
   'fill',

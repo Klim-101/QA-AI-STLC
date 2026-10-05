@@ -32,9 +32,18 @@ function toDialogKind(type: string): BrowserDialogKind {
  * session as a tab, held to the same allowlist as the first one. Handling happens in event
  * callbacks, so each piece of it is tracked on the session and `drainNotices` waits for it.
  */
-export function watchSessionPages(context: BrowserOperationContext, session: BrowserSession): void {
+export function watchSessionPages(
+  context: BrowserOperationContext,
+  session: BrowserSession,
+  options: { readonly trackNewPages?: boolean } = {},
+): void {
   const watcher = new SessionPageWatcher(context, session);
   watcher.attach(session.page, 'tab-1');
+  // An attached browser is the operator's: a page that opens in it may be theirs, and admitting it
+  // would close it the moment it is off the allowlist (P6-50). Only the page the session drives is watched.
+  if (options.trackNewPages === false) {
+    return;
+  }
   session.context.on('page', (page) => {
     const tab = context.sessions.addTab(session.sessionId, page);
     if (tab === undefined) {

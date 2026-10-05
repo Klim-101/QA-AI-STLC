@@ -37,6 +37,11 @@ show the choice fails with `BROWSER_WIDGET_VALUE_MISMATCH`, which can be a defec
 For data grids, `qa.browser_grid_find_row` finds a row by a column header and a cell value, paging or
 scrolling through a grid that does not render every row, and `qa.browser_grid_read_cell` reads one
 cell of that row; a row the grid never shows fails with `BROWSER_GRID_ROW_NOT_FOUND`.
+`qa.browser_attach` is the other way to get a session: it connects to a Chrome the operator started
+with `--remote-debugging-port` and already signed into (SSO, MFA), for an application the engine
+cannot sign into itself. The endpoint must be on this machine; the session drives the first open
+page that is on the environment allowlist, under safe mode, and closing it disconnects without
+closing the operator's browser.
 Unlike every other tool, these share one session store owned by
 the server process, because a session spans several tool calls; it is closed on SIGINT/SIGTERM,
 and an idle session is closed at the next call that touches it.

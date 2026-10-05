@@ -146,6 +146,7 @@ export function createFakeExploreBrowserLauncher(
 
   const context: AuthBrowserContextLike = {
     newPage: () => Promise.resolve(page),
+    pages: () => [page],
     storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
     route: () => Promise.resolve(),
     on: () => undefined,
@@ -171,6 +172,7 @@ export function createFakeExploreBrowserLauncher(
     connectOverCdp: () => {
       const authContext: AuthBrowserContextLike = {
         newPage: () => Promise.resolve(page),
+        pages: () => [page],
         storageState: () => Promise.resolve(options.authStorageState ?? EMPTY_STORAGE_STATE),
         route: () => Promise.resolve(),
         on: () => undefined,
