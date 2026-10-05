@@ -7,7 +7,7 @@
 // real-browser tests (`test/browser-widget-demo-app.test.ts`) are what exercise it.
 /* v8 ignore start */
 
-import type { WidgetTarget } from './browser-session-store.js';
+import type { DateEntry, WidgetTarget } from './browser-session-store.js';
 
 interface PageElement {
   readonly innerText: string;
@@ -31,6 +31,8 @@ export interface WidgetInspection {
   readonly popupId: string | null;
   /** The profile's popup toggle that exists inside this widget, when the profile declares one. */
   readonly toggleSelector: string | null;
+  /** How the widget takes a date; `text` for a widget the profile does not describe. */
+  readonly dateEntry: DateEntry;
 }
 
 export interface InspectWidgetArgs {
@@ -75,6 +77,7 @@ export function inspectWidget(element: PageElement, rawArgs: unknown): WidgetIns
     popupId,
     toggleSelector:
       toggleSelector !== null && root.querySelector(toggleSelector) !== null ? toggleSelector : null,
+    dateEntry: target?.dateEntry ?? 'text',
   };
 }
 

@@ -63,6 +63,65 @@ function createScriptedWidget(failedOptionClicks: number, shownTexts: readonly s
   return { widget, state };
 }
 
+type SetWidgetDate = (widget: unknown, value: string, entry?: 'digits') => Promise<void>;
+
+function loadSetWidgetDate(): SetWidgetDate {
+  const { outputText } = ts.transpileModule(WIDGET_RUNTIME_SOURCE, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  return runInNewContext(`${outputText}
+setWidgetDate;`) as SetWidgetDate;
+}
+
+function createScriptedDateInput(shown: string) {
+  const calls: string[] = [];
+  const input = {
+    fill: (value: string) => {
+      calls.push(`fill ${value}`);
+      return Promise.resolve();
+    },
+    click: () => {
+      calls.push('click');
+      return Promise.resolve();
+    },
+    press: (key: string) => {
+      calls.push(`press ${key}`);
+      return Promise.resolve();
+    },
+    blur: () => Promise.resolve(),
+    inputValue: () => Promise.resolve(shown),
+  };
+  return { widget: { locator: () => ({ first: () => input }) }, calls };
+}
+
+const DIGITS = ['1', '5', '0', '4', '2', '0', '3', '1'];
+
+describe('setWidgetDate in the generated runtime', () => {
+  it('fills the formatted date unless told to type it', async () => {
+    const { widget, calls } = createScriptedDateInput('2031-04-15');
+
+    await loadSetWidgetDate()(widget, '2031-04-15');
+
+    expect(calls).toEqual(['fill 2031-04-15']);
+  });
+
+  it('types only the digits, one key at a time over a selected value, for a segmented input', async () => {
+    const { widget, calls } = createScriptedDateInput('15.04.2031');
+
+    await loadSetWidgetDate()(widget, '15.04.2031', 'digits');
+
+    expect(calls).toEqual(['click', 'press Control+a', ...DIGITS.map((digit) => `press ${digit}`)]);
+  });
+
+  it('fails naming what the date picker holds when it does not hold the date', async () => {
+    const { widget } = createScriptedDateInput('day.month.year');
+
+    await expect(loadSetWidgetDate()(widget, '15.04.2031', 'digits')).rejects.toThrow(
+      'The date picker does not hold "15.04.2031" after typing it; it holds "day.month.year"',
+    );
+  });
+});
+
 describe('selectWidgetOption in the generated runtime', () => {
   it('reopens a popup that closed itself and clicks the option again', async () => {
     const { widget, state } = createScriptedWidget(1);

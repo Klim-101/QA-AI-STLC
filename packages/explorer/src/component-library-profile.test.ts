@@ -97,7 +97,11 @@ describe('listWidgetTargets', () => {
       { wrapperSelector: 'kendo-dropdownlist' },
       { wrapperSelector: 'kendo-combobox', popupToggleSelector: '.k-input-button' },
       { wrapperSelector: 'kendo-multiselect', popupToggleSelector: 'input.k-input-inner' },
-      { wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button' },
+      {
+        wrapperSelector: 'kendo-datepicker',
+        popupToggleSelector: '.k-input-button',
+        dateEntry: 'digits',
+      },
       {
         wrapperSelector: 'kendo-grid',
         grid: {

@@ -46,6 +46,8 @@ const TOGGLE = '.wrapper >> css=.toggle';
 const OPTION =
   'css=[id="list-1"] >> css=[role="option"]:text-is("Open"), [role="option"]:has(:text-is("Open"))';
 
+const DIGITS = ['1', '5', '0', '4', '2', '0', '3', '1'];
+
 describe('runBrowserSelectOption', () => {
   const script: WidgetPageScript = {
     inspections: [CLOSED_WIDGET, OPEN_WIDGET, OPEN_WIDGET, CLOSED_WIDGET],
@@ -202,6 +204,24 @@ describe('runBrowserSetDate', () => {
       'readInputValue',
     ]);
     expect(readEvidence(harness, result.evidence.path)).toMatchObject({ type: 'set-date', valueLength: 10 });
+  });
+
+  it('types only the digits with key presses for a segmented date input, then commits and checks it', async () => {
+    const { harness, sessionId } = await openSession({
+      inspections: [{ ...CLOSED_WIDGET, dateEntry: 'digits' }],
+      inputValue: '15.04.2031',
+    });
+
+    await runBrowserSetDate(harness.context, { sessionId, selector: '.wrapper', value: '15.04.2031' });
+
+    expect(calls(harness, 'fill')).toEqual([]);
+    expect(calls(harness, 'click')).toEqual([['.wrapper >> css=input:visible', { timeout: 30_000 }]]);
+    expect(calls(harness, 'keyboardPress')).toEqual([['Control+a'], ...DIGITS.map((digit) => [digit])]);
+    expect(calls(harness, 'locatorEvaluate').map((call) => call[1])).toEqual([
+      'inspectWidget',
+      'commitInput',
+      'readInputValue',
+    ]);
   });
 
   it('addresses the input through the wrapper when the selector points inside the widget', async () => {

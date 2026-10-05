@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuthPage, GridControls, WidgetTarget } from '@qa-ai-stlc/core';
+import type { AuthPage, DateEntry, GridControls, WidgetTarget } from '@qa-ai-stlc/core';
 import type { UiComponentLibrary } from '@qa-ai-stlc/schemas';
 import { KENDO_ANGULAR_PROFILE } from './profiles/kendo-angular.js';
 import { KENDO_JQUERY_PROFILE } from './profiles/kendo-jquery.js';
@@ -34,6 +34,11 @@ export interface WidgetRecognizer {
    * clicking the wrapper itself does not (a drop-down button, an inner input).
    */
   readonly popupToggleSelector?: string;
+  /**
+   * How the `set-date` action enters a date. `digits` types only the digits, one key at a time, for
+   * a segmented masked input that rewrites a filled string; omitted means the formatted text is filled.
+   */
+  readonly dateEntry?: DateEntry;
   /** Present on a data grid: how the grid actions page or scroll to a row that is not rendered (P6-44). */
   readonly grid?: GridControls;
 }
@@ -49,6 +54,7 @@ export function listWidgetTargets(profile: ComponentLibraryProfile | undefined):
       ...(widget.popupToggleSelector === undefined
         ? {}
         : { popupToggleSelector: widget.popupToggleSelector }),
+      ...(widget.dateEntry === undefined ? {} : { dateEntry: widget.dateEntry }),
       ...(widget.grid === undefined ? {} : { grid: widget.grid }),
     }));
 }

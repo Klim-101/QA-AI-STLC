@@ -21,6 +21,9 @@ export const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 /** How many snapshots a session keeps to compare a later one with; the oldest is forgotten first. */
 export const MAX_REMEMBERED_SNAPSHOTS = 5;
 
+/** How a date picker's input takes a date. */
+export type DateEntry = 'text' | 'digits';
+
 /**
  * One kind of component-library widget the widget actions (P6-43) can drive: the actions find the
  * widget wrapper by `wrapperSelector`, whichever element inside it a locator resolved to, and open
@@ -29,6 +32,11 @@ export const MAX_REMEMBERED_SNAPSHOTS = 5;
 export interface WidgetTarget {
   readonly wrapperSelector: string;
   readonly popupToggleSelector?: string;
+  /**
+   * How a date is entered: `text` (the default) fills the input with the formatted date; `digits`
+   * types only its digits with key presses, for a segmented masked input that garbles a filled value.
+   */
+  readonly dateEntry?: DateEntry;
   /** Present when the widget is a data grid the grid actions (P6-44) can search. */
   readonly grid?: GridControls;
 }

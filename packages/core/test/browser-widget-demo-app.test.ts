@@ -237,7 +237,7 @@ describe('widget actions on the Kendo UI for Angular fixture', () => {
     { wrapperSelector: 'kendo-dropdownlist' },
     { wrapperSelector: 'kendo-combobox', popupToggleSelector: '.k-input-button' },
     { wrapperSelector: 'kendo-multiselect' },
-    { wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button' },
+    { wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button', dateEntry: 'digits' },
   ];
 
   it('selects an option of a combo box and a multi-select by visible text', async () => {
@@ -279,7 +279,21 @@ describe('widget actions on the Kendo UI for Angular fixture', () => {
     await withContext(
       toggles,
       async (context, sessionId) => {
-        await runBrowserSetDate(context, { sessionId, selector: 'kendo-datepicker', value: '2031-04-15' });
+        await runBrowserSetDate(context, { sessionId, selector: 'kendo-datepicker', value: '15.04.2031' });
+        // Typing over a date that is already there replaces it.
+        await runBrowserSetDate(context, { sessionId, selector: 'kendo-datepicker', value: '01.09.2026' });
+      },
+      'kendo-angular.html',
+    );
+  }, 90_000);
+
+  it('reports the segmented date input that garbles a date filled in at once', async () => {
+    await withContext(
+      [{ wrapperSelector: 'kendo-datepicker', popupToggleSelector: '.k-input-button' }],
+      async (context, sessionId) => {
+        await expect(
+          runBrowserSetDate(context, { sessionId, selector: 'kendo-datepicker', value: '15.04.2031' }),
+        ).rejects.toMatchObject({ code: 'BROWSER_WIDGET_VALUE_MISMATCH' });
       },
       'kendo-angular.html',
     );
