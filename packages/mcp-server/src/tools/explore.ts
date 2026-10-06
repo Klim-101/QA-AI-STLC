@@ -32,6 +32,12 @@ const DegradedSelectorSchema = z.object({
   currentScore: z.number(),
 });
 
+const RequestSummarySchema = z.object({
+  method: z.string(),
+  path: z.string(),
+  count: z.number(),
+});
+
 const OutputSchema = z.object({
   mode: z.enum(['explore', 'verify']),
   registryPath: z.string(),
@@ -41,6 +47,8 @@ const OutputSchema = z.object({
   degraded: z.array(DegradedSelectorSchema),
   missingLocatorCount: z.number(),
   blockedRequestCount: z.number(),
+  allowedRequests: z.array(RequestSummarySchema),
+  blockedRequests: z.array(RequestSummarySchema),
   endpointsPath: z.string(),
   endpointCount: z.number(),
 });
@@ -73,6 +81,11 @@ export const exploreTool: ToolDefinition<typeof InputSchema, typeof OutputSchema
       ...(input.maxPages !== undefined ? { maxPages: input.maxPages } : {}),
       ...(input.verify !== undefined ? { verify: input.verify } : {}),
     });
-    return { ...report, degraded: [...report.degraded] };
+    return {
+      ...report,
+      degraded: [...report.degraded],
+      allowedRequests: [...report.allowedRequests],
+      blockedRequests: [...report.blockedRequests],
+    };
   },
 };

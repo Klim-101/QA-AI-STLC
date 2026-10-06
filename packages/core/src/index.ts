@@ -33,6 +33,7 @@ export * from './browser-allowlist.js';
 export * from './browser-busy-wait.js';
 export * from './browser-timeouts.js';
 export * from './browser-safe-mode.js';
+export * from './safe-mode-requests.js';
 export * from './browser-grid.js';
 export * from './normalize.js';
 export * from './page-view.js';

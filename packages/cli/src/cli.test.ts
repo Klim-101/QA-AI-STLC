@@ -518,6 +518,37 @@ describe('runCli', () => {
     expect(deps.stdout.some((line) => line.includes('Wrote selectors/registry.json'))).toBe(true);
   });
 
+  it('lists what the environment let through and what safe mode blocked, by method and path (ADR-0014)', async () => {
+    const { fs, deps } = exploreDeps({
+      locatorCount: 1,
+      subRequestsByUrl: {
+        'https://staging.example.com/login': [
+          { method: 'POST', url: 'https://staging.example.com/auth/refresh-token' },
+          { method: 'POST', url: 'https://staging.example.com/orders' },
+        ],
+      },
+    });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(
+      join(PROJECT_ROOT, '.qa', 'config.yaml'),
+      EXPLORE_CONFIG.replace(
+        'allowlist: ["staging.example.com"]',
+        'allowlist: ["staging.example.com"], safeNonGetRequests: [{ method: POST, path: /auth/refresh-token, reason: "Exchanges the refresh cookie." }]',
+      ),
+    );
+    deps.stdout.length = 0;
+
+    await runCli(['explore'], deps);
+
+    const output = deps.stdout.join('\n');
+    expect(output).toContain('Let through by the environment (safeNonGetRequests):');
+    expect(output).toMatch(/ {2}POST \/auth\/refresh-token x\d+/u);
+    expect(output).toContain(
+      'Blocked (an application that stalls may need one listed in safeNonGetRequests):',
+    );
+    expect(output).toMatch(/ {2}POST \/orders x\d+/u);
+  });
+
   it('runs explore --json and prints a single JSON line', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
     await runCli(['init', '--defer-scope'], deps);
@@ -931,6 +962,108 @@ describe('runCli', () => {
 
     expect(exitCode).toBe(EXIT_USAGE);
     expect(deps.stderr.join('\n')).toContain('Unknown "qa config add" target ""');
+  });
+
+  it('adds an environment with the safe non-GET requests it is told to allow (ADR-0014)', async () => {
+    const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML });
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'environment',
+        'qa',
+        '--base-url',
+        'https://qa.example.com',
+        '--allowlist',
+        'qa.example.com',
+        '--allow-request',
+        'POST /auth/refresh-token',
+        '--allow-request',
+        'POST   /api/search',
+        '--allow-request-reason',
+        'Exchanges the refresh cookie and reads data.',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const written = await fs.readFile(CONFIG_PATH);
+    expect(written).toContain('/auth/refresh-token');
+    expect(written).toContain('/api/search');
+    expect(written).toContain('Exchanges the refresh cookie and reads data.');
+  });
+
+  it('refuses --allow-request without a reason', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'environment',
+        'qa',
+        '--base-url',
+        'https://qa.example.com',
+        '--allowlist',
+        'qa.example.com',
+        '--allow-request',
+        'POST /auth/refresh-token',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('--allow-request needs --allow-request-reason');
+  });
+
+  it('refuses a method other than POST in --allow-request', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+    const exitCode = await runCli(
+      [
+        'config',
+        'add',
+        'environment',
+        'qa',
+        '--base-url',
+        'https://qa.example.com',
+        '--allowlist',
+        'qa.example.com',
+        '--allow-request',
+        'DELETE /api/orders/1',
+        '--allow-request-reason',
+        'Removes an order, which it must not.',
+      ],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Invalid input: expected "POST"');
+  });
+
+  it('prints a safe non-GET request only the local layer names as a relaxation', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, '.qa', 'config.local.yaml')]: [
+          'environments:',
+          '  staging:',
+          '    baseUrl: https://staging.example.com',
+          '    allowlist: [staging.example.com]',
+          '    safeNonGetRequests:',
+          '      - { method: POST, path: /auth/refresh-token, reason: Exchanges the refresh cookie. }',
+          '',
+        ].join('\n'),
+      }),
+    });
+
+    await runCli(['validate', '--json'], deps);
+
+    expect(deps.stderr).toContain(
+      'warning: CONFIG_RELAXATION .qa/config.local.yaml lets safe mode send POST /auth/refresh-token for environment "staging" (Exchanges the refresh cookie.), which .qa/config.yaml does not list',
+    );
   });
 
   it('defaults the project root to the current working directory for "config add environment"', async () => {

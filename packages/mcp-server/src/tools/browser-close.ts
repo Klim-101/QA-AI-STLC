@@ -18,10 +18,20 @@ const BlockedRequestSchema = z.object({
   url: z.string(),
 });
 
+const RequestSummarySchema = z.object({
+  method: z.string(),
+  path: z.string(),
+  count: z.number(),
+});
+
 const OutputSchema = z.object({
   sessionId: z.string(),
   runId: z.string(),
   blockedRequests: z.array(BlockedRequestSchema),
+  requests: z.object({
+    allowed: z.array(RequestSummarySchema),
+    blocked: z.array(RequestSummarySchema),
+  }),
   evidence: EvidenceSchema,
 });
 
@@ -33,13 +43,18 @@ export function createBrowserCloseTool(
     name: 'qa.browser_close',
     description:
       'Closes an open browser session, records the close as evidence, and reports every ' +
-      'non-GET request safe mode blocked during it. Call when an exploratory session is ' +
+      'non-GET request safe mode blocked during it, and, by method and path, the non-GET requests the ' +
+      'environment lets through (safeNonGetRequests) and the ones blocked. Call when an exploratory session is ' +
       'finished so the browser process does not stay alive.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
     async handler(input) {
       const result = await runBrowserClose(toBrowserOperationContext(dependencies), input);
-      return { ...result, blockedRequests: [...result.blockedRequests] };
+      return {
+        ...result,
+        blockedRequests: [...result.blockedRequests],
+        requests: { allowed: [...result.requests.allowed], blocked: [...result.requests.blocked] },
+      };
     },
   };
 }

@@ -1,6 +1,6 @@
 # ADR-0014: An environment may allow named non-GET requests in safe mode
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-05
 
 ## Context
@@ -90,5 +90,5 @@ A request that safe mode blocks can break an application in ways that look like 
 (a blank page, a redirect to sign-in). Naming the blocked requests in the report is part of this
 decision for that reason.
 
-AGENTS.md 12.4 is updated with the implementation, to say that safe mode lets through the
-non-GET requests an environment lists, in addition to the ADR-0009 exception.
+AGENTS.md 12.4 says that safe mode lets through the non-GET requests an environment lists, in
+addition to the ADR-0009 exception.

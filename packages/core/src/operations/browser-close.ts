@@ -3,6 +3,7 @@
 
 import type { Evidence } from '@qa-ai-stlc/schemas';
 import type { BlockedRequest } from '../browser-safe-mode.js';
+import type { SafeModeRequestSummaries } from '../safe-mode-requests.js';
 import { settleSessionPages } from '../browser-tabs.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
@@ -16,6 +17,8 @@ export interface BrowserCloseResult {
   readonly runId: string;
   /** Every non-GET request safe mode aborted over the session's lifetime. */
   readonly blockedRequests: readonly BlockedRequest[];
+  /** The non-GET requests the environment let through (ADR-0014) and the ones blocked, by method and path. */
+  readonly requests: SafeModeRequestSummaries;
   readonly evidence: Evidence;
 }
 
@@ -31,6 +34,7 @@ export async function runBrowserClose(
   const session = await context.sessions.get(options.sessionId);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
   const blockedRequests = [...session.blockedRequests];
+  const requests = session.requestTally.summary();
 
   try {
     // Dialogs and pages the session handled since the last report must not be lost with it.
@@ -42,7 +46,7 @@ export async function runBrowserClose(
       now: context.engine.clock.now(),
       action: { type: 'close', url: session.page.url() },
     });
-    return { sessionId: session.sessionId, runId: session.runId, blockedRequests, evidence };
+    return { sessionId: session.sessionId, runId: session.runId, blockedRequests, requests, evidence };
   } finally {
     await context.sessions.close(session.sessionId);
   }

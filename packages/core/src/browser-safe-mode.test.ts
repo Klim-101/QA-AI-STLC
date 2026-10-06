@@ -88,4 +88,91 @@ describe('createBrowserSafeModeRouteHandler', () => {
     expect(route.calls).toEqual(['abort']);
     expect(blocked).toEqual([{ method: 'POST', url: 'https://evil.test/phishing' }]);
   });
+
+  describe('safeRequests (ADR-0014)', () => {
+    const SAFE = [
+      { method: 'POST', path: '/auth/refresh-token', reason: 'Exchanges the refresh cookie.' },
+    ] as const;
+
+    async function send(method: string, url: string, onAllowed?: (request: BlockedRequest) => void) {
+      const blocked: BlockedRequest[] = [];
+      const route = createRoute(method, url);
+      await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request), {
+        safeRequests: SAFE,
+        ...(onAllowed === undefined ? {} : { onAllowed }),
+      })(route);
+      return { route, blocked };
+    }
+
+    it('lets the named POST through and reports it as allowed, not blocked', async () => {
+      const allowed: BlockedRequest[] = [];
+
+      const { route, blocked } = await send(
+        'POST',
+        'https://staging.example.test/auth/refresh-token',
+        (request) => allowed.push(request),
+      );
+
+      expect(route.calls).toEqual(['continue']);
+      expect(blocked).toEqual([]);
+      expect(allowed).toEqual([{ method: 'POST', url: 'https://staging.example.test/auth/refresh-token' }]);
+    });
+
+    it('lets it through without an onAllowed callback', async () => {
+      const { route } = await send('POST', 'https://staging.example.test/auth/refresh-token');
+
+      expect(route.calls).toEqual(['continue']);
+    });
+
+    it('ignores the query of the URL when it matches the path, and nothing else of it', async () => {
+      const { route } = await send('POST', 'https://staging.example.test/auth/refresh-token?x=1');
+
+      expect(route.calls).toEqual(['continue']);
+    });
+
+    it.each([
+      ['another path', 'POST', 'https://staging.example.test/auth/logout'],
+      ['a longer path', 'POST', 'https://staging.example.test/auth/refresh-token/extra'],
+      ['a path in another case', 'POST', 'https://staging.example.test/Auth/Refresh-Token'],
+      ['another method', 'PUT', 'https://staging.example.test/auth/refresh-token'],
+      ['another method', 'DELETE', 'https://staging.example.test/auth/refresh-token'],
+    ])('still aborts %s (%s)', async (_label, method, url) => {
+      const { route, blocked } = await send(method, url);
+
+      expect(route.calls).toEqual(['abort']);
+      expect(blocked).toEqual([{ method, url }]);
+    });
+
+    it('never lets a named request reach a host off the allowlist, scheme or port', async () => {
+      for (const url of [
+        'https://evil.test/auth/refresh-token',
+        'http://staging.example.test/auth/refresh-token',
+        'https://staging.example.test:8443/auth/refresh-token',
+      ]) {
+        const { route, blocked } = await send('POST', url);
+
+        expect(route.calls).toEqual(['abort']);
+        expect(blocked).toEqual([{ method: 'POST', url }]);
+      }
+    });
+
+    it('treats an empty list like no list', async () => {
+      const blocked: BlockedRequest[] = [];
+      const route = createRoute('POST', 'https://staging.example.test/auth/refresh-token');
+
+      await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request), {
+        safeRequests: [],
+      })(route);
+
+      expect(route.calls).toEqual(['abort']);
+    });
+
+    it('does not report an ordinary GET as allowed by the list', async () => {
+      const allowed: BlockedRequest[] = [];
+
+      await send('GET', 'https://staging.example.test/home', (request) => allowed.push(request));
+
+      expect(allowed).toEqual([]);
+    });
+  });
 });

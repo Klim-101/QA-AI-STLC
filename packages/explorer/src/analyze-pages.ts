@@ -12,7 +12,7 @@ import { SCHEMA_VERSION, type PageModel, type PageModelSet } from '@qa-ai-stlc/s
 import { analyzePage } from './analyze-page.js';
 import type { ComponentLibraryProfile } from './component-library-profile.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
-import { createSafeModeRouteHandler } from './safe-mode.js';
+import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 
 export interface AnalyzePagesOptions {
@@ -34,6 +34,8 @@ export interface AnalyzePagesOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this analysis session (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** The environment's `safeNonGetRequests` and where to tally what safe mode did (ADR-0014). */
+  readonly safeMode?: SafeModeRequests;
   /** What to wait for after each navigation before the page is read (P6-63). */
   readonly settle?: PageSettleOptions;
 }
@@ -68,9 +70,14 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
     let blockedRequestCount = 0;
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(options.allowlist, options.baseUrl, () => {
-        blockedRequestCount += 1;
-      }),
+      createSafeModeRouteHandler(
+        options.allowlist,
+        options.baseUrl,
+        () => {
+          blockedRequestCount += 1;
+        },
+        options.safeMode,
+      ),
     );
 
     const pages: PageModel[] = [];

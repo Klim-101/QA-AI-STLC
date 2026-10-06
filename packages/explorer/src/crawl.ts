@@ -7,7 +7,7 @@ import { isAllowedUrl, normalizeUrl } from './allowlist.js';
 import { extractLinks } from './extract-links.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { buildRequestLogHar, type RequestLogEntry } from './request-log.js';
-import { createSafeModeRouteHandler } from './safe-mode.js';
+import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 
 const DEFAULT_MAX_PAGES = 50;
@@ -26,6 +26,8 @@ export interface CrawlOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this crawl (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** The environment's `safeNonGetRequests` and where to tally what safe mode did (ADR-0014). */
+  readonly safeMode?: Omit<SafeModeRequests, 'onAllowed'>;
   /** What to wait for after each navigation before the page is read (P6-63). */
   readonly settle?: PageSettleOptions;
 }
@@ -71,10 +73,15 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
     let blockedRequestCount = 0;
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(options.allowlist, options.startUrl, (entry) => {
-        blockedRequestCount += 1;
-        logEntries.push(entry);
-      }),
+      createSafeModeRouteHandler(
+        options.allowlist,
+        options.startUrl,
+        (entry) => {
+          blockedRequestCount += 1;
+          logEntries.push(entry);
+        },
+        { ...options.safeMode, onAllowed: (entry) => logEntries.push(entry) },
+      ),
     );
 
     const routes = await visitAllowedRoutes(page, options, maxPages, logEntries);

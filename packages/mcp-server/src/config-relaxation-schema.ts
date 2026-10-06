@@ -16,4 +16,12 @@ export const ConfigRelaxationSchema = z.discriminatedUnion('kind', [
     environment: z.string(),
     localLayerPath: z.string(),
   }),
+  z.object({
+    kind: z.literal('safe-non-get-request'),
+    environment: z.string(),
+    method: z.string(),
+    path: z.string(),
+    reason: z.string(),
+    localLayerPath: z.string(),
+  }),
 ]);

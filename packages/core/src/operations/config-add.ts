@@ -18,6 +18,16 @@ export interface ConfigAddEnvironmentOptions {
   readonly name: string;
   readonly baseUrl: string;
   readonly allowlist: readonly string[];
+  /**
+   * Non-GET requests safe mode lets through for this environment (ADR-0014). Validated by
+   * `EnvironmentConfigSchema`, so a method other than POST or a pattern in the path is rejected.
+   * Deliberately not offered by the MCP tool: an agent must not widen its own safe mode.
+   */
+  readonly safeNonGetRequests?: readonly {
+    readonly method: string;
+    readonly path: string;
+    readonly reason: string;
+  }[];
   readonly force?: boolean;
 }
 
@@ -63,13 +73,17 @@ export async function runConfigAddEnvironment(
   const parsed = EnvironmentConfigSchema.safeParse({
     baseUrl: options.baseUrl,
     allowlist: options.allowlist,
+    ...(options.safeNonGetRequests === undefined || options.safeNonGetRequests.length === 0
+      ? {}
+      : { safeNonGetRequests: options.safeNonGetRequests }),
   });
   if (!parsed.success) {
     throw new QaError(
       'CONFIG_ADD_VALUE_INVALID',
       `The environment is not valid:\n${z.prettifyError(parsed.error)}`,
       {
-        remediation: 'Provide a non-empty --base-url and at least one --allowlist entry.',
+        remediation:
+          'Provide a non-empty --base-url and at least one --allowlist entry; an --allow-request must be a POST to an exact path, with a --allow-request-reason.',
         cause: parsed.error,
       },
     );

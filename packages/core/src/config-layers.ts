@@ -19,7 +19,15 @@ export type ConfigRelaxation =
       readonly hostname: string;
       readonly localLayerPath: string;
     }
-  | { readonly kind: 'tls-insecure'; readonly environment: string; readonly localLayerPath: string };
+  | { readonly kind: 'tls-insecure'; readonly environment: string; readonly localLayerPath: string }
+  | {
+      readonly kind: 'safe-non-get-request';
+      readonly environment: string;
+      readonly method: string;
+      readonly path: string;
+      readonly reason: string;
+      readonly localLayerPath: string;
+    };
 
 export interface MergedConfigLayers {
   readonly merged: unknown;
@@ -164,7 +172,8 @@ export function buildConfigShowValues(
 
 /**
  * Every effective value less safe than the committed layer (ADR-011): an allowlist entry the
- * committed layer does not list for that environment, and `tlsInsecure: true` it does not set.
+ * committed layer does not list for that environment, `tlsInsecure: true` it does not set, and a
+ * non-GET request safe mode lets through that it does not name (ADR-0014).
  * Hostnames compare exactly, as the runtime allowlist check does (browser-allowlist.ts).
  */
 export function findConfigRelaxations(
@@ -185,6 +194,24 @@ export function findConfigRelaxations(
     }
     if (environment.tlsInsecure === true && committedEnvironment?.tlsInsecure !== true) {
       relaxations.push({ kind: 'tls-insecure', environment: name, localLayerPath });
+    }
+    const committedRequests = Array.isArray(committedEnvironment?.safeNonGetRequests)
+      ? (committedEnvironment.safeNonGetRequests as unknown[])
+      : [];
+    for (const request of environment.safeNonGetRequests ?? []) {
+      const isCommitted = committedRequests.some(
+        (entry) => isPlainObject(entry) && entry.method === request.method && entry.path === request.path,
+      );
+      if (!isCommitted) {
+        relaxations.push({
+          kind: 'safe-non-get-request',
+          environment: name,
+          method: request.method,
+          path: request.path,
+          reason: request.reason,
+          localLayerPath,
+        });
+      }
     }
   }
   return relaxations;

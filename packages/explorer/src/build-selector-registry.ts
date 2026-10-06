@@ -12,7 +12,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { createElementNamer } from './naming.js';
-import { createSafeModeRouteHandler } from './safe-mode.js';
+import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 import { scorePageCandidates, type CandidateStabilityScore } from './stability-scoring.js';
 import { mergeGeneratedIdPatterns, type ComponentLibraryProfile } from './component-library-profile.js';
@@ -38,6 +38,8 @@ export interface BuildSelectorRegistryOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this scoring session (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** The environment's `safeNonGetRequests` and where to tally what safe mode did (ADR-0014). */
+  readonly safeMode?: SafeModeRequests;
   /** What to wait for after each navigation before the page is read (P6-63). */
   readonly settle?: PageSettleOptions;
 }
@@ -163,9 +165,14 @@ export async function buildSelectorRegistry(
     let blockedRequestCount = 0;
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(options.allowlist, options.baseUrl, () => {
-        blockedRequestCount += 1;
-      }),
+      createSafeModeRouteHandler(
+        options.allowlist,
+        options.baseUrl,
+        () => {
+          blockedRequestCount += 1;
+        },
+        options.safeMode,
+      ),
     );
 
     const generatedAt = clock.now().toISOString();

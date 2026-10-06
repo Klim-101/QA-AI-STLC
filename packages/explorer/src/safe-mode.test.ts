@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { PageRoute } from '@qa-ai-stlc/core';
+import { SafeModeRequestTally, type PageRoute } from '@qa-ai-stlc/core';
 import { describe, expect, it, vi } from 'vitest';
 import { createSafeModeRouteHandler } from './safe-mode.js';
 
@@ -74,6 +74,56 @@ describe('createSafeModeRouteHandler', () => {
       method: 'GET',
       url: 'http://example.com:9999/',
       blocked: true,
+    });
+  });
+
+  describe('safeRequests (ADR-0014)', () => {
+    const SAFE = [
+      { method: 'POST', path: '/auth/refresh-token', reason: 'Exchanges the refresh cookie.' },
+    ] as const;
+
+    it('lets the named POST through, tallies it as allowed and hands the log entry to onAllowed', async () => {
+      const onBlocked = vi.fn();
+      const onAllowed = vi.fn();
+      const tally = new SafeModeRequestTally();
+      const { route, calls } = createFakeRoute('POST', 'https://example.com/auth/refresh-token');
+
+      await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, onBlocked, {
+        safeRequests: SAFE,
+        tally,
+        onAllowed,
+      })(route);
+
+      expect(calls).toEqual(['continue']);
+      expect(onBlocked).not.toHaveBeenCalled();
+      expect(onAllowed).toHaveBeenCalledWith({
+        method: 'POST',
+        url: 'https://example.com/auth/refresh-token',
+        blocked: false,
+        allowedByConfig: true,
+      });
+      expect(tally.summary()).toEqual({
+        allowed: [{ method: 'POST', path: '/auth/refresh-token', count: 1 }],
+        blocked: [],
+      });
+    });
+
+    it('lets it through when nobody is listening for it', async () => {
+      const { route, calls } = createFakeRoute('POST', 'https://example.com/auth/refresh-token');
+
+      await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, vi.fn(), { safeRequests: SAFE })(route);
+
+      expect(calls).toEqual(['continue']);
+    });
+
+    it('tallies a blocked request next to the allowed one', async () => {
+      const tally = new SafeModeRequestTally();
+      const { route, calls } = createFakeRoute('POST', 'https://example.com/orders');
+
+      await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, vi.fn(), { safeRequests: SAFE, tally })(route);
+
+      expect(calls).toEqual(['abort']);
+      expect(tally.summary().blocked).toEqual([{ method: 'POST', path: '/orders', count: 1 }]);
     });
   });
 });

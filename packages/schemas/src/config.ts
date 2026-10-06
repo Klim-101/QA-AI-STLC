@@ -36,6 +36,21 @@ export type ApiConfig = z.infer<typeof ApiConfigSchema>;
 const HOSTNAME_PATTERN =
   /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
+// A request safe mode lets through although it is not a GET (ADR-0014). Narrow on purpose: POST only
+// (a PUT, PATCH or DELETE changes a named resource by definition), an exact path with no query,
+// fragment or pattern, and a written reason so a reviewer of the configuration sees why.
+export const SafeNonGetRequestSchema = z.object({
+  method: z.literal('POST'),
+  path: z
+    .string()
+    .regex(
+      /^\/[^?#*\s]*$/u,
+      'must be an exact URL path starting with "/", with no query, fragment, wildcard or space -- for example "/auth/refresh-token"',
+    ),
+  reason: z.string().min(10, 'must say in a sentence why this request is safe to send'),
+});
+export type SafeNonGetRequest = z.infer<typeof SafeNonGetRequestSchema>;
+
 export const EnvironmentConfigSchema = z.object({
   baseUrl: z.string().min(1),
   allowlist: z
@@ -57,6 +72,8 @@ export const EnvironmentConfigSchema = z.object({
   // server that is consistently slower than a local one.
   navigationTimeoutMs: z.number().int().positive().optional(),
   actionTimeoutMs: z.number().int().positive().optional(),
+  // Safe mode still blocks every other non-GET request (ADR-0014); empty or omitted lets none through.
+  safeNonGetRequests: z.array(SafeNonGetRequestSchema).optional(),
 });
 export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 

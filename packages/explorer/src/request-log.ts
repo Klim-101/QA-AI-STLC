@@ -7,6 +7,8 @@ export interface RequestLogEntry {
   /** Absent for a request safe mode blocked before it ever reached the network. */
   readonly status?: number;
   readonly blocked: boolean;
+  /** Set on a non-GET request let through because the environment lists it (ADR-0014). */
+  readonly allowedByConfig?: true;
 }
 
 // HAR 1.2 shaped so `@qa-ai-stlc/core`'s `redactHar` (development plan section 6.4) can strip
@@ -21,6 +23,7 @@ export function buildRequestLogHar(entries: readonly RequestLogEntry[], generate
       entries: entries.map((entry) => ({
         startedDateTime: generatedAt,
         blocked: entry.blocked,
+        ...(entry.allowedByConfig === true ? { _allowedByConfig: true } : {}),
         request: { method: entry.method, url: entry.url, headers: [], cookies: [] },
         response: entry.status === undefined ? undefined : { status: entry.status, headers: [], cookies: [] },
       })),

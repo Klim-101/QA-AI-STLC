@@ -5,6 +5,7 @@ import type { Evidence } from '@qa-ai-stlc/schemas';
 import { isUrlAllowed } from '../browser-allowlist.js';
 import { assertLoopbackCdpEndpoint } from '../browser-attach-endpoint.js';
 import type { BlockedRequest } from '../browser-safe-mode.js';
+import { SafeModeRequestTally } from '../safe-mode-requests.js';
 import {
   ALL_REQUESTS_PATTERN,
   createSessionRouteHandler,
@@ -97,6 +98,7 @@ export async function runBrowserAttach(
 
   const blockedRequests: BlockedRequest[] = [];
   const observedRequestHeaders = new Map<string, string>();
+  const requestTally = new SafeModeRequestTally();
   let session: BrowserSession;
   try {
     const target = findAllowedPage(browser, settings.allowlist, settings.baseUrl);
@@ -112,6 +114,7 @@ export async function runBrowserAttach(
       createSessionRouteHandler(config, environment.config, {
         allowMutations: options.executionMode === true,
         blockedRequests,
+        requestTally,
         observedRequestHeaders,
       }),
     );
@@ -123,6 +126,7 @@ export async function runBrowserAttach(
       ...(options.dialogPolicy === undefined ? {} : { dialogPolicy: options.dialogPolicy }),
       ...settings,
       blockedRequests,
+      requestTally,
       observedRequestHeaders,
     });
     watchSessionPages(context, session, { trackNewPages: false });

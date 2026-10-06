@@ -26,6 +26,17 @@ function employeeAgent() {
     .then(() => agent);
 }
 
+describe('session-by-POST fixture endpoints (ADR-0014)', () => {
+  it('opens a session with a POST and counts the orders a POST creates', async () => {
+    const app = createApp();
+
+    expect((await request(app).post('/api/spa/session')).body).toEqual({ ok: true });
+    expect((await request(app).get('/api/spa/orders')).body).toEqual({ orders: 0 });
+    expect((await request(app).post('/api/spa/orders')).status).toBe(201);
+    expect((await request(app).get('/api/spa/orders')).body).toEqual({ orders: 1 });
+  });
+});
+
 describe('authentication', () => {
   it('redirects an unauthenticated request to the login page', async () => {
     const app = createApp();

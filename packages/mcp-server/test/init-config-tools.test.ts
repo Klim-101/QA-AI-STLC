@@ -177,6 +177,29 @@ describe('init and config tools (real filesystem, temp project directory)', () =
     });
   });
 
+  it('qa.config_add offers no way to name a safe non-GET request, so an agent cannot widen its own safe mode (ADR-0014)', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+      const smuggled = {
+        kind: 'environment',
+        name: 'staging',
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+        safeNonGetRequests: [
+          { method: 'POST', path: '/auth/refresh-token', reason: 'An agent asked for it.' },
+        ],
+      } as z.infer<typeof configAddTool.inputSchema>;
+
+      await configAddTool.handler(smuggled);
+      const config = await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8');
+
+      expect(Object.keys(configAddTool.inputSchema.shape)).not.toContain('safeNonGetRequests');
+      expect(config).toContain('staging.example.com');
+      expect(config).not.toContain('safeNonGetRequests');
+      expect(config).not.toContain('refresh-token');
+    });
+  });
+
   it('qa.config_add requires the fields of the kind it adds', async () => {
     await withProject(async (projectRoot) => {
       await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });

@@ -70,6 +70,14 @@ busy indicators and fail with a coded error when one never clears.
 prove that explore waits for the render before it reads a page, and gives up with a warning when the page
 never settles.
 
+## Session-by-POST fixture
+
+`/spa-session.html` (P6-67, ADR-0014) is an empty `<app-root>` that opens its session with
+`POST /api/spa/session` on load and renders a link and a "Place order" button only once that request
+succeeded, as a single-page application does that exchanges a refresh cookie for a token. Safe mode
+aborts that POST, so the page stays empty unless the environment lists it in `safeNonGetRequests`.
+`POST /api/spa/orders` creates a record and must stay blocked; `GET /api/spa/orders` counts them.
+
 ## Tests
 
 `npm test --workspace @qa-ai-stlc/demo-app` runs a smoke suite (`src/server.test.ts`) covering the

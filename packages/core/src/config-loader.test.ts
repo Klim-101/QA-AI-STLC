@@ -328,6 +328,48 @@ environments:
 
     expect(loaded.relaxations).toStrictEqual([]);
   });
+
+  it('reports a safe non-GET request only the local layer names as a relaxation (ADR-0014)', async () => {
+    const committed = VALID_CONFIG_YAML.replace(
+      'allowlist: [staging.example.com]',
+      `allowlist: [staging.example.com]
+    safeNonGetRequests:
+      - { method: POST, path: /auth/refresh-token, reason: Exchanges the refresh cookie. }`,
+    );
+    const local = `
+environments:
+  staging:
+    safeNonGetRequests:
+      - { method: POST, path: /auth/refresh-token, reason: Exchanges the refresh cookie. }
+      - { method: POST, path: /api/search, reason: A search that only reads data. }
+`;
+
+    const loaded = await loadLayeredConfig(createSource({ committed, local }));
+
+    expect(loaded.relaxations).toStrictEqual([
+      {
+        kind: 'safe-non-get-request',
+        environment: 'staging',
+        method: 'POST',
+        path: '/api/search',
+        reason: 'A search that only reads data.',
+        localLayerPath: '.qa/config.local.yaml',
+      },
+    ]);
+  });
+
+  it('reports every safe non-GET request when the committed layer has none', async () => {
+    const local = `
+environments:
+  staging:
+    safeNonGetRequests:
+      - { method: POST, path: /auth/refresh-token, reason: Exchanges the refresh cookie. }
+`;
+
+    const loaded = await loadLayeredConfig(createSource({ committed: VALID_CONFIG_YAML, local }));
+
+    expect(loaded.relaxations).toMatchObject([{ kind: 'safe-non-get-request', path: '/auth/refresh-token' }]);
+  });
 });
 
 describe('loadCommittedConfig', () => {

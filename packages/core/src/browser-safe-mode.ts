@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { SafeNonGetRequest } from '@qa-ai-stlc/schemas';
 import { isUrlAllowed } from './browser-allowlist.js';
 import type { RouteHandler } from './ports/browser-launcher.js';
 
@@ -18,6 +19,27 @@ export interface SafeModeRouteHandlerOptions {
    * HTTP-method restriction, never the destination boundary.
    */
   readonly allowMutations?: boolean;
+  /**
+   * The non-GET requests the environment names (`safeNonGetRequests`, ADR-0014): a POST to an exact
+   * path on an allowlisted host goes through, every other non-GET request is still aborted. This is
+   * the one place safe mode reads the list, so every session that applies safe mode honours it the
+   * same way.
+   */
+  readonly safeRequests?: readonly SafeNonGetRequest[];
+  /** Called once for each request let through only because of `safeRequests`. */
+  readonly onAllowed?: (request: BlockedRequest) => void;
+}
+
+function isNamedSafeRequest(
+  method: string,
+  url: string,
+  safeRequests: readonly SafeNonGetRequest[] | undefined,
+): boolean {
+  if (safeRequests === undefined || safeRequests.length === 0) {
+    return false;
+  }
+  const { pathname } = new URL(url);
+  return safeRequests.some((entry) => entry.method === method && entry.path === pathname);
 }
 
 /**
@@ -44,7 +66,14 @@ export function createBrowserSafeModeRouteHandler(
     const method = request.method();
     const url = request.url();
     const methodAllowed = method === 'GET' || options.allowMutations === true;
-    if (methodAllowed && isUrlAllowed(url, allowlist, baseUrl)) {
+    const isAllowedHost = isUrlAllowed(url, allowlist, baseUrl);
+    if (methodAllowed && isAllowedHost) {
+      return route.continue();
+    }
+    // The host check comes first: an entry never widens where a session can go. `isUrlAllowed`
+    // has parsed the URL by now, so reading its path cannot throw.
+    if (isAllowedHost && isNamedSafeRequest(method, url, options.safeRequests)) {
+      options.onAllowed?.({ method, url });
       return route.continue();
     }
     onBlocked({ method, url });
