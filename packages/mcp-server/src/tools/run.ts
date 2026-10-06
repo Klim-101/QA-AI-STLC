@@ -1,7 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, runTestRun, type Runner } from '@qa-ai-stlc/core';
+import { runTestRun, type Runner } from '@qa-ai-stlc/core';
+import { a11yRunner } from '@qa-ai-stlc/runner-a11y';
 import { apiRunner } from '@qa-ai-stlc/runner-api';
 import { playwrightRunner } from '@qa-ai-stlc/runner-playwright';
 import { RunResultStatusSchema, TestTypeSchema, type TestType } from '@qa-ai-stlc/schemas';
@@ -9,23 +10,13 @@ import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
 
-// `e2e` and `api` have runners today (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`,
-// P6-04); the `a11y` runner is a later Phase 6 task (P6-05). Keyed by `TestType` so a future runner is one entry, not a
-// new dispatch shape — the same table `packages/cli/src/commands/run.ts` keeps for the CLI.
-const RUNNERS_BY_TEST_TYPE: Partial<Record<TestType, Runner>> = {
+// One runner per test type, total over `TestType` so a new one fails to compile until it has a
+// runner — the same table `packages/cli/src/commands/run.ts` keeps for the CLI.
+const RUNNERS_BY_TEST_TYPE: Record<TestType, Runner> = {
   e2e: playwrightRunner,
   api: apiRunner,
+  a11y: a11yRunner,
 };
-
-function resolveRunner(testType: TestType): Runner {
-  const runner = RUNNERS_BY_TEST_TYPE[testType];
-  if (runner === undefined) {
-    throw new QaError('RUN_TEST_TYPE_UNSUPPORTED', `No runner is available yet for test type "${testType}"`, {
-      remediation: `Use one of: ${Object.keys(RUNNERS_BY_TEST_TYPE).join(', ')}.`,
-    });
-  }
-  return runner;
-}
 
 const InputSchema = z.object({
   specFiles: z.array(z.string()).min(1).describe('Project-relative paths to the spec files to run.'),
@@ -58,7 +49,7 @@ export const runTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = 
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   async handler(input) {
-    const runner = resolveRunner(input.testType ?? 'e2e');
+    const runner = RUNNERS_BY_TEST_TYPE[input.testType ?? 'e2e'];
     const summary = await runTestRun(createNodeEngineContext(), {
       runner,
       specFiles: input.specFiles,

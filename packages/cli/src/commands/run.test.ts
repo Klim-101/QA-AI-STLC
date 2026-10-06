@@ -40,19 +40,13 @@ describe('runRun', () => {
     );
   });
 
-  it.each(['a11y'] as const)('throws a coded error for the unsupported "%s" test type', async (testType) => {
+  it('dispatches the a11y test type to the a11y runner', async () => {
     const context = fakeContext();
 
-    await expect(runRun(context, { specFiles: ['tests/x.spec.ts'], testType })).rejects.toThrow(
-      expect.objectContaining({ code: 'RUN_TEST_TYPE_UNSUPPORTED' }) as Error,
-    );
-  });
-
-  it('lists the supported test types in the remediation', async () => {
-    const context = fakeContext();
-
+    // Same proof as the e2e dispatch test above: core fails resolving an environment only after the
+    // runner for the test type was selected.
     await expect(runRun(context, { specFiles: ['tests/x.spec.ts'], testType: 'a11y' })).rejects.toThrow(
-      expect.objectContaining({ remediation: expect.stringContaining('e2e, api') as string }) as Error,
+      expect.objectContaining({ code: 'BROWSER_ENVIRONMENT_AMBIGUOUS' }) as Error,
     );
   });
 

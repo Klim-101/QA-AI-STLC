@@ -1940,9 +1940,10 @@ describe('runCli', () => {
     expect(deps.stderr.join('\n')).toContain('is not valid for --test-type');
   });
 
-  it('reports a coded error for a test type with no runner yet', async () => {
+  it('wires "run --test-type a11y" through to the accessibility runner', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT }),
+      processRunner: { run: () => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' }) },
     });
 
     const exitCode = await runCli(
@@ -1951,7 +1952,7 @@ describe('runCli', () => {
     );
 
     expect(exitCode).toBe(EXIT_FAILURE);
-    expect(deps.stderr.join('\n')).toContain('No runner is available yet for test type "a11y"');
+    expect(deps.stderr.join('\n')).toContain('Playwright did not produce a JSON report');
   });
 
   it('wires "run" through to the real Playwright runner, which reports a coded error when the process produced no report', async () => {

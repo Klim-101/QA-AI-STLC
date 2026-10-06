@@ -3,7 +3,13 @@
 
 import { DEFAULT_A11Y_CONFIG, type A11yConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
-import { classifyAxeResult, listRuleIds, planAxeRun, toAxeContext } from './a11y-scan-plan.js';
+import {
+  buildA11yScanRecord,
+  classifyAxeResult,
+  listRuleIds,
+  planAxeRun,
+  toAxeContext,
+} from './a11y-scan-plan.js';
 
 function configWith(overrides: Partial<A11yConfig>): A11yConfig {
   return { ...DEFAULT_A11Y_CONFIG, ...overrides };
@@ -157,5 +163,48 @@ describe('listRuleIds', () => {
   it('is empty when the result has no incomplete entries', () => {
     expect(listRuleIds({}, 'incomplete')).toEqual([]);
     expect(listRuleIds(null, 'incomplete')).toEqual([]);
+  });
+});
+
+describe('buildA11yScanRecord', () => {
+  const scanResult = {
+    violations: [{ id: 'image-alt' }, { id: 'color-contrast' }],
+    incomplete: [{ id: 'link-name' }],
+    passes: [{ id: 'html-has-lang' }],
+    inapplicable: [{ id: 'video-caption' }],
+  };
+
+  it('records the configuration the scan ran with and how each rule was classified', () => {
+    const a11y = configWith({
+      include: ['main'],
+      exceptions: [{ ruleId: 'color-contrast', reason: 'Known issue' }],
+    });
+
+    const record = buildA11yScanRecord({
+      a11y,
+      plan: planAxeRun(a11y),
+      axeVersion: '4.0.0',
+      configHash: 'a'.repeat(64),
+      scanResult,
+      today: '2026-10-06',
+    });
+
+    expect(record).toMatchObject({
+      type: 'a11y-scan',
+      axeVersion: '4.0.0',
+      configHash: 'a'.repeat(64),
+      wcagVersion: '2.1',
+      level: 'AA',
+      bestPractices: false,
+      include: ['main'],
+      exclude: [],
+      violations: [{ id: 'image-alt' }],
+      uncertain: [{ id: 'link-name' }],
+      expiredExceptions: [],
+      passedRuleIds: ['html-has-lang'],
+      inapplicableRuleIds: ['video-caption'],
+    });
+    expect(record.excepted).toMatchObject([{ ruleId: 'color-contrast', reason: 'Known issue' }]);
+    expect(record.tags).toEqual(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
   });
 });

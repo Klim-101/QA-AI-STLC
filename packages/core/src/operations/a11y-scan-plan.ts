@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import axeCore from 'axe-core';
-import { listA11yLevelsUpTo, type A11yConfig, type A11yException } from '@qa-ai-stlc/schemas';
+import {
+  listA11yLevelsUpTo,
+  type A11yConfig,
+  type A11yException,
+  type A11yScanRecord,
+} from '@qa-ai-stlc/schemas';
 
 export interface AxeRunPlan {
   readonly tags: readonly string[];
@@ -136,5 +141,44 @@ export function classifyAxeResult(
     excepted,
     expiredExceptions: exceptions.filter((exception) => !isActive(exception, today)),
     uncertain: readEntries(scanResult, 'incomplete'),
+  };
+}
+
+export interface BuildA11yScanRecordOptions {
+  readonly a11y: A11yConfig;
+  readonly plan: AxeRunPlan;
+  readonly axeVersion: string;
+  /** SHA-256 of the effective `a11y` configuration the scan ran with. */
+  readonly configHash: string;
+  readonly scanResult: unknown;
+  /** ISO date (`YYYY-MM-DD`) an exception's expiry is compared with. */
+  readonly today: string;
+}
+
+/**
+ * The `a11y-scan` evidence body for one axe-core result, shared by the interactive scan and the
+ * `a11y` runner so both record exactly what the scan ran with and how each rule was classified.
+ */
+export function buildA11yScanRecord(
+  options: BuildA11yScanRecordOptions,
+): Omit<A11yScanRecord, 'schemaVersion'> {
+  const { a11y, plan, scanResult } = options;
+  const classified = classifyAxeResult(scanResult, a11y.exceptions, options.today);
+  return {
+    type: 'a11y-scan',
+    axeVersion: options.axeVersion,
+    configHash: options.configHash,
+    wcagVersion: a11y.wcagVersion,
+    level: a11y.level,
+    bestPractices: a11y.bestPractices,
+    tags: [...plan.tags],
+    include: [...plan.include],
+    exclude: [...plan.exclude],
+    violations: classified.violations as A11yScanRecord['violations'],
+    excepted: [...classified.excepted],
+    expiredExceptions: [...classified.expiredExceptions],
+    uncertain: classified.uncertain as A11yScanRecord['uncertain'],
+    passedRuleIds: [...listRuleIds(scanResult, 'passes')],
+    inapplicableRuleIds: [...listRuleIds(scanResult, 'inapplicable')],
   };
 }

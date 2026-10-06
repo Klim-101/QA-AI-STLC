@@ -11,7 +11,7 @@ import {
   type RunnerInput,
   type RunnerOutcome,
 } from '@qa-ai-stlc/core';
-import type { TestType } from '@qa-ai-stlc/schemas';
+import type { EvidenceKind, TestType } from '@qa-ai-stlc/schemas';
 import { randomUUID } from 'node:crypto';
 import { PlaywrightJsonReportSchema } from './json-report.js';
 import { mapReportToRunResults } from './map-result.js';
@@ -27,6 +27,8 @@ export interface RunPlaywrightSpecsOptions {
   readonly env?: Readonly<Record<string, string>>;
   /** See `SpecConfigOptions.isTraceEnabled`. */
   readonly isTraceEnabled?: boolean;
+  /** See `MapReportOptions.extraEvidenceKindsByContentType`. */
+  readonly extraEvidenceKindsByContentType?: Readonly<Record<string, EvidenceKind>>;
 }
 
 /**
@@ -80,6 +82,9 @@ export async function runPlaywrightSpecs(
     fs: engine.fs,
     ...(input.idGenerator !== undefined ? { idGenerator: input.idGenerator } : {}),
     ...(input.requiredStepIds !== undefined ? { requiredStepIds: input.requiredStepIds } : {}),
+    ...(options.extraEvidenceKindsByContentType !== undefined
+      ? { extraEvidenceKindsByContentType: options.extraEvidenceKindsByContentType }
+      : {}),
   });
 }
 
