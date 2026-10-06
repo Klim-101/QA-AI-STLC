@@ -1,7 +1,8 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, runTestRun, type Runner, type RunSummary } from '@qa-ai-stlc/core';
+import { runTestRun, type Runner, type RunSummary } from '@qa-ai-stlc/core';
+import { a11yRunner } from '@qa-ai-stlc/runner-a11y';
 import { apiRunner } from '@qa-ai-stlc/runner-api';
 import { playwrightRunner } from '@qa-ai-stlc/runner-playwright';
 import type { TestType } from '@qa-ai-stlc/schemas';
@@ -15,23 +16,14 @@ export interface RunOptions {
   readonly environment?: string;
 }
 
-// `e2e` and `api` have runners today (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`,
-// P6-04); the `a11y` runner is a later Phase 6 task (P6-05). Keyed by `TestType` so a future runner is one entry, not a
-// new dispatch shape.
-const RUNNERS_BY_TEST_TYPE: Partial<Record<TestType, Runner>> = {
+// One runner per test type (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`, P6-04;
+// `@qa-ai-stlc/runner-a11y`, P6-05). Total over `TestType`, so a new test type fails to compile here
+// until it has a runner.
+const RUNNERS_BY_TEST_TYPE: Record<TestType, Runner> = {
   e2e: playwrightRunner,
   api: apiRunner,
+  a11y: a11yRunner,
 };
-
-function resolveRunner(testType: TestType): Runner {
-  const runner = RUNNERS_BY_TEST_TYPE[testType];
-  if (runner === undefined) {
-    throw new QaError('RUN_TEST_TYPE_UNSUPPORTED', `No runner is available yet for test type "${testType}"`, {
-      remediation: `Use one of: ${Object.keys(RUNNERS_BY_TEST_TYPE).join(', ')}.`,
-    });
-  }
-  return runner;
-}
 
 /**
  * `qa run` / MCP `qa.run` (P3-04): resolves the `Runner` for `--test-type` (default `e2e`) and
@@ -41,7 +33,7 @@ function resolveRunner(testType: TestType): Runner {
  */
 export async function runRun(context: CommandContext, options: RunOptions): Promise<RunSummary> {
   const testType = options.testType ?? 'e2e';
-  const runner = resolveRunner(testType);
+  const runner = RUNNERS_BY_TEST_TYPE[testType];
   return runTestRun(context, {
     runner,
     specFiles: options.specFiles,

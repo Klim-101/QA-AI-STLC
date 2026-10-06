@@ -100,6 +100,8 @@ export * from './expectation.js';
 export * from './operations/browser-close.js';
 export * from './a11y-conformance.js';
 export * from './a11y-criteria.js';
+export * from './a11y-run.js';
+export * from './a11y-scan-module.js';
 export * from './a11y-scan-store.js';
 export * from './operations/browser-accessibility-scan.js';
 export * from './operations/registry-execute-register.js';

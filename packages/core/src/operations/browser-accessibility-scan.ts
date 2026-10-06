@@ -12,8 +12,7 @@ import { loadConfig } from '../config-loader.js';
 import { hashText } from '../hash.js';
 import { toCanonicalJson } from '../json-file.js';
 import {
-  classifyAxeResult,
-  listRuleIds,
+  buildA11yScanRecord,
   planAxeRun,
   toAxeContext,
   type AxeContext,
@@ -60,7 +59,14 @@ export async function runBrowserAccessibilityScan(
   await session.page.addScriptTag({ content: axeCore.source });
   const scanResult = await session.page.evaluate(runAxeInPage, buildRunArgument(plan));
   const today = context.engine.clock.now().toISOString().slice(0, 10);
-  const classified = classifyAxeResult(scanResult, a11y.exceptions, today);
+  const record = buildA11yScanRecord({
+    a11y,
+    plan,
+    axeVersion: axeCore.version,
+    configHash,
+    scanResult,
+    today,
+  });
 
   const url = session.page.url();
   const evidence = await registerEvidenceOrThrow(evidenceStore, {
@@ -68,32 +74,16 @@ export async function runBrowserAccessibilityScan(
     runId: session.runId,
     kind: 'other',
     fileExtension: 'json',
-    content: toCanonicalJson({
-      type: 'a11y-scan',
-      axeVersion: axeCore.version,
-      configHash,
-      wcagVersion: a11y.wcagVersion,
-      level: a11y.level,
-      bestPractices: a11y.bestPractices,
-      tags: plan.tags,
-      include: plan.include,
-      exclude: plan.exclude,
-      violations: classified.violations,
-      excepted: classified.excepted,
-      expiredExceptions: classified.expiredExceptions,
-      uncertain: classified.uncertain,
-      passedRuleIds: listRuleIds(scanResult, 'passes'),
-      inapplicableRuleIds: listRuleIds(scanResult, 'inapplicable'),
-    }),
+    content: toCanonicalJson(record),
   });
 
   return {
     sessionId: session.sessionId,
     url,
     evidence,
-    violationCount: classified.violations.length,
-    exceptedCount: classified.excepted.length,
-    uncertainCount: classified.uncertain.length,
+    violationCount: record.violations.length,
+    exceptedCount: record.excepted.length,
+    uncertainCount: record.uncertain.length,
     axeVersion: axeCore.version,
     configHash,
   };

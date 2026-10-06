@@ -183,6 +183,20 @@ describe('mapReportToRunResults', () => {
       expect(outcome?.evidence).toEqual([{ kind: 'trace', content: Buffer.from([1, 2, 3]) }]);
     });
 
+    it('registers an attachment of an extra content type under the kind the caller gave it', async () => {
+      const [outcome] = await mapReportToRunResults({
+        report: reportWithOneTest({
+          status: 'passed',
+          attachments: [{ name: 'scan', contentType: 'application/x-scan', body: 'aGVsbG8=' }],
+        }),
+        runId: 'run-1',
+        testType: 'a11y',
+        fs: fakeFileSystem(),
+        extraEvidenceKindsByContentType: { 'application/x-scan': 'other' },
+      });
+      expect(outcome?.evidence).toEqual([{ kind: 'other', content: Buffer.from('hello') }]);
+    });
+
     it('ignores an attachment whose content type this runner does not turn into evidence', async () => {
       const [outcome] = await mapReportToRunResults({
         report: reportWithOneTest({

@@ -1083,12 +1083,18 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
-  it('qa.run rejects a test type with no runner yet, before touching the project at all', async () => {
-    const rejected = await runTool
-      .handler({ specFiles: ['tests/login.playwright-spec.ts'], testType: 'a11y' })
-      .catch((caught: unknown) => caught);
+  it('qa.run dispatches the a11y test type to its runner, which reports a missing config in an uninitialized project', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
 
-    expect(rejected).toMatchObject({ code: 'RUN_TEST_TYPE_UNSUPPORTED' });
+      const rejected = await runTool
+        .handler({ specFiles: ['tests/login.playwright-spec.ts'], testType: 'a11y' })
+        .catch((caught: unknown) => caught);
+
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'CONFIG_MISSING' });
+    });
   });
 
   it('qa.run reports config missing for the default e2e test type in an uninitialized project', async () => {

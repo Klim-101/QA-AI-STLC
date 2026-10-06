@@ -10,7 +10,8 @@
       "@qa-ai-stlc/cli",
       "@qa-ai-stlc/mcp-server",
       "@qa-ai-stlc/runner-playwright",
-      "@qa-ai-stlc/runner-api"
+      "@qa-ai-stlc/runner-api",
+      "@qa-ai-stlc/runner-a11y"
     ]
   ],
   "linked": [],

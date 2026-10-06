@@ -77,6 +77,8 @@ export interface MapReportOptions {
   readonly idGenerator?: IdGenerator;
   /** See `RunnerInput.requiredStepIds` (`@qa-ai-stlc/core`, P3-20). */
   readonly requiredStepIds?: readonly string[];
+  /** Attachment content types a runner of another test type turns into evidence on top of the capture ones. */
+  readonly extraEvidenceKindsByContentType?: Readonly<Record<string, EvidenceKind>>;
 }
 
 // Playwright's own capture settings (`spec-config.ts`'s `use.screenshot`/`use.trace`) are the only
@@ -97,10 +99,13 @@ const EVIDENCE_KIND_BY_CONTENT_TYPE: Readonly<Record<string, EvidenceKind>> = {
 async function collectEvidence(
   fs: FileSystem,
   attachments: readonly PlaywrightAttachment[],
+  extraKindsByContentType: Readonly<Record<string, EvidenceKind>>,
 ): Promise<readonly RunnerEvidence[]> {
   const evidence: RunnerEvidence[] = [];
   for (const attachment of attachments) {
-    const kind = EVIDENCE_KIND_BY_CONTENT_TYPE[attachment.contentType];
+    const kind =
+      extraKindsByContentType[attachment.contentType] ??
+      EVIDENCE_KIND_BY_CONTENT_TYPE[attachment.contentType];
     if (kind === undefined) {
       continue;
     }
@@ -189,7 +194,14 @@ export async function mapReportToRunResults(options: MapReportOptions): Promise<
         ...(status === 'partial' ? { missingStepIds } : {}),
       });
 
-      outcomes.push({ result, evidence: await collectEvidence(options.fs, lastResult.attachments) });
+      outcomes.push({
+        result,
+        evidence: await collectEvidence(
+          options.fs,
+          lastResult.attachments,
+          options.extraEvidenceKindsByContentType ?? {},
+        ),
+      });
     }
   }
 

@@ -7,9 +7,6 @@
   "references": [
     { "path": "../schemas" },
     { "path": "../core" },
-    { "path": "../explorer" },
-    { "path": "../runner-a11y" },
-    { "path": "../runner-api" },
     { "path": "../runner-playwright" },
     { "path": "../test-utils" }
   ]

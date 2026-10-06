@@ -21,7 +21,7 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "pretypecheck": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/explorer --workspace @qa-ai-stlc/runner-api --workspace @qa-ai-stlc/runner-playwright --workspace @qa-ai-stlc/test-utils",
+    "pretypecheck": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/explorer --workspace @qa-ai-stlc/runner-a11y --workspace @qa-ai-stlc/runner-a11y --workspace @qa-ai-stlc/runner-a11y --workspace @qa-ai-stlc/runner-api --workspace @qa-ai-stlc/runner-playwright --workspace @qa-ai-stlc/test-utils",
     "typecheck": "tsc --noEmit -p .",
     "pretest": "npm run build --workspace @qa-ai-stlc/schemas --workspace @qa-ai-stlc/core --workspace @qa-ai-stlc/explorer --workspace @qa-ai-stlc/runner-api --workspace @qa-ai-stlc/runner-playwright --workspace @qa-ai-stlc/test-utils",
     "test": "vitest run",
@@ -33,6 +33,7 @@
   "dependencies": {
     "@qa-ai-stlc/core": "1.5.0",
     "@qa-ai-stlc/explorer": "1.5.0",
+    "@qa-ai-stlc/runner-a11y": "1.5.0",
     "@qa-ai-stlc/runner-api": "1.5.0",
     "@qa-ai-stlc/runner-playwright": "1.5.0",
     "@qa-ai-stlc/schemas": "1.5.0",
