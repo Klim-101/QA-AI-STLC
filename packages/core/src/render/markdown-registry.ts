@@ -1,11 +1,12 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { FeatureCaseIndex, RunRecord, TestCase } from '@qa-ai-stlc/schemas';
+import type { DefectDraft, FeatureCaseIndex, RunRecord, TestCase } from '@qa-ai-stlc/schemas';
 import type { A11yConformanceReport } from '../a11y-conformance.js';
 import type { TraceabilityMatrix } from '../traceability.js';
 import { renderA11yConformanceMarkdown } from './a11y-conformance-markdown.js';
 import { renderCaseIndexMarkdown } from './case-index-markdown.js';
+import { renderDefectDraftMarkdown } from './defect-draft-markdown.js';
 import { renderRunSummaryMarkdown } from './run-summary-markdown.js';
 import { renderTestCaseMarkdown } from './test-case-markdown.js';
 import { renderTraceabilityMatrixMarkdown } from './traceability-matrix-markdown.js';
@@ -22,6 +23,7 @@ export interface MarkdownArtifactByKind {
   'run-summary': RunRecord;
   'traceability-matrix': TraceabilityMatrix;
   'a11y-conformance': A11yConformanceReport;
+  'defect-draft': DefectDraft;
 }
 
 export type ArtifactKind = keyof MarkdownArtifactByKind;
@@ -34,6 +36,7 @@ const MARKDOWN_RENDERERS: {
   'run-summary': renderRunSummaryMarkdown,
   'traceability-matrix': renderTraceabilityMatrixMarkdown,
   'a11y-conformance': renderA11yConformanceMarkdown,
+  'defect-draft': renderDefectDraftMarkdown,
 };
 
 /** Renders one registered artifact kind to Markdown through its own renderer. */
