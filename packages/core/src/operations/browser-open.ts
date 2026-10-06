@@ -3,6 +3,7 @@
 
 import type { Config, EnvironmentConfig, Evidence } from '@qa-ai-stlc/schemas';
 import type { BlockedRequest } from '../browser-safe-mode.js';
+import { SafeModeRequestTally } from '../safe-mode-requests.js';
 import {
   ALL_REQUESTS_PATTERN,
   createSessionRouteHandler,
@@ -105,6 +106,7 @@ export async function runBrowserOpen(
   const browser = await context.engine.browserLauncher.launch();
   const blockedRequests: BlockedRequest[] = [];
   const observedRequestHeaders = new Map<string, string>();
+  const requestTally = new SafeModeRequestTally();
   let session: BrowserSession;
   try {
     const browserContext = await browser.newContext(
@@ -118,6 +120,7 @@ export async function runBrowserOpen(
       createSessionRouteHandler(config, environment.config, {
         allowMutations: options.executionMode === true,
         blockedRequests,
+        requestTally,
         observedRequestHeaders,
       }),
     );
@@ -128,6 +131,7 @@ export async function runBrowserOpen(
       ...(options.dialogPolicy === undefined ? {} : { dialogPolicy: options.dialogPolicy }),
       ...resolveSessionSettings(config, environment.config, options),
       blockedRequests,
+      requestTally,
       observedRequestHeaders,
     });
     watchSessionPages(context, session);

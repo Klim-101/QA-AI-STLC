@@ -148,6 +148,53 @@ describe('runConfigAddEnvironment', () => {
       }),
     ).rejects.toThrow(QaError);
   });
+
+  it('writes the safe non-GET requests it is given, validated by the schema (ADR-0014)', async () => {
+    const context = fakeContext();
+    const request = { method: 'POST', path: '/auth/refresh-token', reason: 'Exchanges the refresh cookie.' };
+
+    const result = await runConfigAddEnvironment(context, {
+      name: 'staging',
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+      safeNonGetRequests: [request],
+    });
+
+    expect(result.environment.safeNonGetRequests).toEqual([request]);
+    expect((await readConfig(context)).environments.staging).toMatchObject({ safeNonGetRequests: [request] });
+  });
+
+  it('writes no list for an empty one', async () => {
+    const context = fakeContext();
+
+    const result = await runConfigAddEnvironment(context, {
+      name: 'staging',
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+      safeNonGetRequests: [],
+    });
+
+    expect(result.environment.safeNonGetRequests).toBeUndefined();
+  });
+
+  it.each([
+    ['a method other than POST', { method: 'DELETE', path: '/api/orders/1', reason: 'Removes an order.' }],
+    ['a pattern', { method: 'POST', path: '/api/*', reason: 'Everything under the API.' }],
+    ['no reason', { method: 'POST', path: '/api/x', reason: '' }],
+  ])('rejects %s and writes nothing', async (_label, request) => {
+    const context = fakeContext();
+
+    await expect(
+      runConfigAddEnvironment(context, {
+        name: 'staging',
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+        safeNonGetRequests: [request],
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIG_ADD_VALUE_INVALID' });
+
+    expect(Object.keys((await readConfig(context)).environments)).toEqual([]);
+  });
 });
 
 describe('runConfigAddIdentity', () => {

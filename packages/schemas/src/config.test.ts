@@ -14,6 +14,7 @@ import {
   DEFAULT_UI_CONFIG,
   DEFAULT_STABILITY_VIEWPORTS,
   EnvironmentConfigSchema,
+  SafeNonGetRequestSchema,
   EvidenceConfigSchema,
   FlakyDetectionConfigSchema,
   SelectorsConfigSchema,
@@ -204,6 +205,38 @@ describe('FlakyDetectionConfigSchema', () => {
   it('rejects a non-positive minStatusChanges', () => {
     const result = FlakyDetectionConfigSchema.safeParse({ historyWindow: 10, minStatusChanges: 0 });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('SafeNonGetRequestSchema (ADR-0014)', () => {
+  const entry = { method: 'POST', path: '/auth/refresh-token', reason: 'Exchanges the refresh cookie.' };
+
+  it('accepts a POST with an exact path and a reason', () => {
+    expect(SafeNonGetRequestSchema.safeParse(entry).success).toBe(true);
+  });
+
+  it.each(['PUT', 'PATCH', 'DELETE', 'GET', 'post'])('rejects the method %s', (method) => {
+    expect(SafeNonGetRequestSchema.safeParse({ ...entry, method }).success).toBe(false);
+  });
+
+  it.each(['auth/refresh', '/auth/*', '/auth?x=1', '/auth#top', '/auth refresh', '', 'https://a.test/x'])(
+    'rejects the path %j',
+    (path) => {
+      expect(SafeNonGetRequestSchema.safeParse({ ...entry, path }).success).toBe(false);
+    },
+  );
+
+  it('requires a written reason', () => {
+    expect(SafeNonGetRequestSchema.safeParse({ ...entry, reason: 'ok' }).success).toBe(false);
+    expect(SafeNonGetRequestSchema.safeParse({ method: 'POST', path: '/x' }).success).toBe(false);
+  });
+
+  it('is optional on an environment and kept when given', () => {
+    const base = { baseUrl: 'https://staging.example.com', allowlist: ['staging.example.com'] };
+    expect(EnvironmentConfigSchema.parse(base).safeNonGetRequests).toBeUndefined();
+    expect(
+      EnvironmentConfigSchema.parse({ ...base, safeNonGetRequests: [entry] }).safeNonGetRequests,
+    ).toEqual([entry]);
   });
 });
 

@@ -206,6 +206,32 @@ with the source of every value — `.qa/config.yaml`, the local layer, or a sche
 every relaxation. See [ADR-0011](docs/adr/0011-layered-project-configuration.md) for the full
 design.
 
+### Applications that open their session with a POST
+
+Safe mode aborts every non-GET request an exploration makes. An application that gets its access
+token with `POST /auth/refresh-token` on every load therefore never starts, and `qa explore` finds
+nothing past its sign-in page. List the request in the environment, in the committed
+`.qa/config.yaml`:
+
+```yaml
+environments:
+  staging:
+    baseUrl: https://staging.example.com
+    allowlist: [staging.example.com]
+    safeNonGetRequests:
+      - method: POST
+        path: /auth/refresh-token
+        reason: Exchanges the refresh cookie for an access token; creates no record.
+```
+
+or `qa config add environment staging ... --allow-request "POST /auth/refresh-token"
+--allow-request-reason "..."`. The entry is narrow on purpose: `POST` only, an exact path (no query,
+no pattern), a written reason, and only on a host the allowlist already permits. Every other
+non-GET request is still blocked. `qa explore` and `qa.browser_close` list what was let through and
+what was blocked, by method and path, so an application that stalls shows which request it was
+waiting for. An entry added only by the local layer is reported as a relaxation, and no MCP tool can
+add one. See [ADR-0014](docs/adr/0014-environment-allowlist-for-safe-non-get-requests.md).
+
 ### Catching a stale selector
 
 `qa explore --verify` re-checks every stored primary candidate against the live page, without

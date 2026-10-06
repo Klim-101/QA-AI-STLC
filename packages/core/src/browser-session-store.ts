@@ -7,6 +7,7 @@ import { EventLog, type ConsoleLogEntry, type NetworkLogEntry } from './browser-
 import type { PageViewEntry } from './page-view.js';
 import { QaError } from './errors.js';
 import type { BlockedRequest } from './browser-safe-mode.js';
+import { SafeModeRequestTally } from './safe-mode-requests.js';
 import type { AuthBrowser, AuthBrowserContext, AuthPage } from './ports/browser-launcher.js';
 import { systemClock, type Clock } from './ports/clock.js';
 import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
@@ -138,6 +139,8 @@ export interface BrowserSession {
   readonly lastActivityAt: Date;
   /** Every non-GET request safe mode aborted during this session, in order. */
   readonly blockedRequests: readonly BlockedRequest[];
+  /** The requests the environment let through and the ones safe mode blocked, by method and path. */
+  readonly requestTally: SafeModeRequestTally;
   /**
    * The latest value of each request header a `from-browser` profile replays (lower-cased name),
    * seen on a request to an allowlisted host. In memory only (ADR-0012).
@@ -175,6 +178,8 @@ export interface OpenBrowserSessionOptions {
   readonly widgetTargets?: readonly WidgetTarget[];
   /** The array safe mode's route handler pushes into, so the session can report what it blocked. */
   readonly blockedRequests: readonly BlockedRequest[];
+  /** The tally the route handler writes into; a fresh empty one when omitted. */
+  readonly requestTally?: SafeModeRequestTally;
   /** The map the request observer writes into; a fresh empty one when omitted. */
   readonly observedRequestHeaders?: ReadonlyMap<string, string>;
 }
@@ -233,6 +238,7 @@ export class BrowserSessionStore {
       createdAt: now,
       lastActivityAt: now,
       blockedRequests: options.blockedRequests,
+      requestTally: options.requestTally ?? new SafeModeRequestTally(),
       observedRequestHeaders: options.observedRequestHeaders ?? new Map<string, string>(),
       elementRefs: undefined,
       nextRefNumber: 1,

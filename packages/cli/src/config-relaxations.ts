@@ -8,6 +8,9 @@ export function formatConfigRelaxation(relaxation: ConfigRelaxation): string {
   if (relaxation.kind === 'allowlist-entry') {
     return `warning: CONFIG_RELAXATION ${relaxation.localLayerPath} adds "${relaxation.hostname}" to the allowlist of environment "${relaxation.environment}", which .qa/config.yaml does not list`;
   }
+  if (relaxation.kind === 'safe-non-get-request') {
+    return `warning: CONFIG_RELAXATION ${relaxation.localLayerPath} lets safe mode send ${relaxation.method} ${relaxation.path} for environment "${relaxation.environment}" (${relaxation.reason}), which .qa/config.yaml does not list`;
+  }
   return `warning: CONFIG_RELAXATION ${relaxation.localLayerPath} disables TLS certificate validation (tlsInsecure) for environment "${relaxation.environment}", which .qa/config.yaml does not`;
 }
 

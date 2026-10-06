@@ -25,6 +25,7 @@ import {
   type LinkResult,
   type ReportFormat,
   type ReportResult,
+  type RequestSummary,
   type ScopeResult,
   type TestDataAddResult,
   type ValidateReport,
@@ -367,6 +368,8 @@ async function dispatchConfigAddEnvironment(
       json: { type: 'boolean', default: false },
       'base-url': { type: 'string' },
       allowlist: { type: 'string' },
+      'allow-request': { type: 'string', multiple: true },
+      'allow-request-reason': { type: 'string' },
       force: { type: 'boolean', default: false },
     },
     allowPositionals: true,
@@ -376,7 +379,7 @@ async function dispatchConfigAddEnvironment(
   if (name === undefined || typeof values['base-url'] !== 'string' || typeof values.allowlist !== 'string') {
     throw new QaError(
       'CONFIG_ADD_USAGE',
-      'Usage: qa config add environment <name> --base-url <url> --allowlist <a,b,c>',
+      'Usage: qa config add environment <name> --base-url <url> --allowlist <a,b,c> [--allow-request "POST /path" --allow-request-reason <why>]',
       {
         remediation:
           'Example: qa config add environment staging --base-url https://staging.example.com --allowlist staging.example.com',
@@ -397,10 +400,32 @@ async function dispatchConfigAddEnvironment(
     name,
     baseUrl: values['base-url'],
     allowlist,
+    safeNonGetRequests: parseAllowRequests(values['allow-request'], values['allow-request-reason']),
     force: values.force,
   });
   printResult(context.io, json, 'config-add-environment', result, formatConfigAddEnvironmentResult(result));
   return EXIT_SUCCESS;
+}
+
+// "POST /auth/refresh-token" (a method, a space, an exact path), each with the one shared reason
+// (ADR-0014). The schema decides whether the method and path are acceptable.
+function parseAllowRequests(
+  entries: readonly string[] | undefined,
+  reason: string | undefined,
+): { method: string; path: string; reason: string }[] {
+  if (entries === undefined || entries.length === 0) {
+    return [];
+  }
+  if (reason === undefined) {
+    throw new QaError('CONFIG_ADD_USAGE', '--allow-request needs --allow-request-reason', {
+      remediation:
+        'Say in a sentence why the request is safe to send, for example --allow-request-reason "Exchanges the refresh cookie for an access token".',
+    });
+  }
+  return entries.map((entry) => {
+    const [method = '', path = ''] = entry.trim().split(/\s+/u);
+    return { method, path, reason };
+  });
 }
 
 async function dispatchConfigAddIdentity(
@@ -914,6 +939,21 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
       `${String(report.added)} added, ${String(report.removed)} removed, ${String(report.degraded.length)} degraded).`,
     `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
     `${String(report.blockedRequestCount)} non-GET request(s) blocked by safe mode.`,
+    ...formatRequestSummaries('Let through by the environment (safeNonGetRequests)', report.allowedRequests),
+    ...formatRequestSummaries(
+      'Blocked (an application that stalls may need one listed in safeNonGetRequests)',
+      report.blockedRequests,
+    ),
+  ];
+}
+
+function formatRequestSummaries(heading: string, summaries: readonly RequestSummary[]): readonly string[] {
+  if (summaries.length === 0) {
+    return [];
+  }
+  return [
+    `${heading}:`,
+    ...summaries.map((entry) => `  ${entry.method} ${entry.path} x${String(entry.count)}`),
   ];
 }
 

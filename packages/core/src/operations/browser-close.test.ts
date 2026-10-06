@@ -4,7 +4,10 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { RouteHandler } from '../ports/browser-launcher.js';
-import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
+import {
+  BROWSER_TEST_CONFIG_YAML,
+  createBrowserTestHarness,
+} from '../test-support/browser-session-harness.js';
 import { runBrowserClose } from './browser-close.js';
 import { runBrowserOpen } from './browser-open.js';
 
@@ -55,6 +58,35 @@ describe('runBrowserClose', () => {
 
     expect(harness.sessions.sessionIds).toEqual([]);
     expect(harness.launcher.closedBrowsers).toBe(1);
+  });
+
+  it('reports, by method and path, what the environment let through and what it blocked (ADR-0014)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: BROWSER_TEST_CONFIG_YAML.replace(
+        '"staging.example.test"] }',
+        '"staging.example.test"], safeNonGetRequests: [{ method: POST, path: /auth/refresh-token, reason: "Exchanges the refresh cookie." }] }',
+      ),
+    });
+    const { sessionId } = await runBrowserOpen(harness.context);
+    const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
+    const handler = routeCall?.args[1] as RouteHandler;
+    const send = (method: string, url: string): Promise<void> | void =>
+      handler({
+        request: () => ({ method: () => method, url: () => url }),
+        abort: () => Promise.resolve(),
+        continue: () => Promise.resolve(),
+      });
+    await send('POST', 'https://staging.example.test/auth/refresh-token');
+    await send('POST', 'https://staging.example.test/auth/refresh-token');
+    await send('POST', 'https://staging.example.test/orders?token=secret');
+
+    const result = await runBrowserClose(harness.context, { sessionId });
+
+    expect(result.requests).toEqual({
+      allowed: [{ method: 'POST', path: '/auth/refresh-token', count: 2 }],
+      blocked: [{ method: 'POST', path: '/orders', count: 1 }],
+    });
+    expect(result.blockedRequests).toHaveLength(1);
   });
 
   it('rejects an unknown session', async () => {

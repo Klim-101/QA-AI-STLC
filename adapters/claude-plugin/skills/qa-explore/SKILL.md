@@ -84,7 +84,12 @@ steps use instead of raw clicks.
   These need the operator's attention (a manual pick, or a `data-testid` added to the source) before
   a case can target them.
 - `blockedRequestCount` — non-GET requests safe mode blocked during the crawl. Non-zero is expected
-  behavior, not a failure; mention it only if the operator asks what the crawl touched.
+  behavior, not a failure; mention it only if the operator asks what the crawl touched. The one
+  exception is a registry that is empty or stops at the sign-in page: `blockedRequests` then names, by
+  method and path, what the application tried to send (typically a `POST` that opens its session). Tell
+  the operator which entry they could add to the environment's `safeNonGetRequests` (they edit
+  `config.yaml`; you cannot, and must not suggest widening it for a request that changes data).
+  `allowedRequests` lists what the environment's list let through.
 - `EXPLORE_PAGE_NOT_SETTLED` (a logged warning, one per page) — a page still showed a busy indicator or
   kept changing when the wait for it to render ran out, so it was read as it was. A registry that is
   thin for that page means the page never settled: tell the operator, and check `ui.busySelectors`

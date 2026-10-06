@@ -127,6 +127,12 @@ export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-01
 #     baseUrl: https://staging.example.com
 #     allowlist: [staging.example.com]
 #     tlsInsecure: false
+#     # A POST safe mode lets through, for an application that opens its session with one (ADR-0014);
+#     # exact path, one entry per request, and every command warns when it is only listed here.
+#     safeNonGetRequests:
+#       - method: POST
+#         path: /auth/refresh-token
+#         reason: Exchanges the refresh cookie for an access token; creates no record.
 #     navigationTimeoutMs: 30000
 #     actionTimeoutMs: 30000
 #

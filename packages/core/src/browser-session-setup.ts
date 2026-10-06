@@ -5,6 +5,7 @@ import type { Config, EnvironmentConfig, UiComponentLibrary } from '@qa-ai-stlc/
 import { collectObservedRequestHeaderNames } from './api-auth.js';
 import { observeRequestHeaders } from './browser-request-observer.js';
 import { createBrowserSafeModeRouteHandler, type BlockedRequest } from './browser-safe-mode.js';
+import type { SafeModeRequestTally } from './safe-mode-requests.js';
 import type { OpenBrowserSessionOptions, WidgetTarget } from './browser-session-store.js';
 import { resolveBrowserTimeouts } from './browser-timeouts.js';
 import type { RouteHandler } from './ports/browser-launcher.js';
@@ -24,6 +25,8 @@ export interface SessionRouteHandlerOptions {
   /** ADR-0009: lets a non-GET request through; the allowlist still applies. */
   readonly allowMutations: boolean;
   readonly blockedRequests: BlockedRequest[];
+  /** What safe mode let through (ADR-0014) and blocked, by method and path, for the session's close result. */
+  readonly requestTally: SafeModeRequestTally;
   readonly observedRequestHeaders: Map<string, string>;
 }
 
@@ -41,8 +44,19 @@ export function createSessionRouteHandler(
   const safeModeHandler = createBrowserSafeModeRouteHandler(
     environment.allowlist,
     environment.baseUrl,
-    (request) => options.blockedRequests.push(request),
-    { allowMutations: options.allowMutations },
+    (request) => {
+      options.blockedRequests.push(request);
+      options.requestTally.recordBlocked(request.method, request.url);
+    },
+    {
+      allowMutations: options.allowMutations,
+      ...(environment.safeNonGetRequests === undefined
+        ? {}
+        : { safeRequests: environment.safeNonGetRequests }),
+      onAllowed: (request) => {
+        options.requestTally.recordAllowed(request.method, request.url);
+      },
+    },
   );
   return async (route) => {
     await observeRequestHeaders(

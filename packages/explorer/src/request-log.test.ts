@@ -30,4 +30,23 @@ describe('buildRequestLogHar', () => {
       },
     ]);
   });
+
+  it('marks a request the environment let through, and no other', () => {
+    const har = JSON.parse(
+      buildRequestLogHar(
+        [
+          {
+            method: 'POST',
+            url: 'https://example.com/auth/refresh-token',
+            blocked: false,
+            allowedByConfig: true,
+          },
+          { method: 'GET', url: 'https://example.com/', blocked: false },
+        ],
+        '2026-09-17T00:00:00Z',
+      ),
+    ) as { log: { entries: { _allowedByConfig?: boolean }[] } };
+
+    expect(har.log.entries.map((entry) => entry._allowedByConfig)).toEqual([true, undefined]);
+  });
 });

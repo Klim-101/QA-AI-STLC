@@ -5,6 +5,7 @@ import {
   ManifestStore,
   QaError,
   QaStore,
+  SafeModeRequestTally,
   configureTestIdAttribute,
   loadConfig,
   resolveRelativePath,
@@ -12,6 +13,8 @@ import {
   toRelativePath,
   type EngineContext,
   type FileSystem,
+  type RequestSummary,
+  type SafeModeRequestSummaries,
 } from '@qa-ai-stlc/core';
 import {
   ApiSurfaceSchema,
@@ -44,7 +47,7 @@ import { crawl } from '../crawl.js';
 import { generateLocatorModule } from '../generate-locator-module.js';
 import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
 import { readPackageVersion } from '../package-version.js';
-import { createSafeModeRouteHandler } from '../safe-mode.js';
+import { createSafeModeRouteHandler, type SafeModeRequests } from '../safe-mode.js';
 import { settlePage, type PageSettleOptions } from '../settle-page.js';
 import { scoreLocatorStability } from '../stability-scoring.js';
 import type { DegradedSelectorElement } from '../build-selector-registry.js';
@@ -82,6 +85,10 @@ export interface ExploreReport {
   readonly degraded: readonly DegradedSelectorElement[];
   readonly missingLocatorCount: number;
   readonly blockedRequestCount: number;
+  /** Non-GET requests the environment's `safeNonGetRequests` let through, by method and path (ADR-0014). */
+  readonly allowedRequests: readonly RequestSummary[];
+  /** The requests safe mode blocked, by method and path, so an operator can see which one an application stalled on. */
+  readonly blockedRequests: readonly RequestSummary[];
   readonly endpointsPath: string;
   readonly endpointCount: number;
 }
@@ -170,6 +177,17 @@ export function resolveIdentity(
   };
 }
 
+function requestSummaryFields(requests: SafeModeRequestSummaries): {
+  allowedRequests: readonly RequestSummary[];
+  blockedRequests: readonly RequestSummary[];
+} {
+  return { allowedRequests: requests.allowed, blockedRequests: requests.blocked };
+}
+
+function safeRequestsOf(environment: EnvironmentConfig): Pick<SafeModeRequests, 'safeRequests'> {
+  return environment.safeNonGetRequests === undefined ? {} : { safeRequests: environment.safeNonGetRequests };
+}
+
 /** Prints the coded warning P2-18 requires whenever an environment's TLS opt-out is in effect. */
 function warnIfTlsInsecure(context: EngineContext, environmentName: string, tlsInsecure: boolean): void {
   if (tlsInsecure) {
@@ -245,7 +263,12 @@ async function runCrawlAndBuild(
   context: EngineContext,
   config: Config,
   options: ExploreOptions,
-): Promise<{ elements: SelectorElement[]; blockedRequestCount: number; requestLogHar: string }> {
+): Promise<{
+  elements: SelectorElement[];
+  blockedRequestCount: number;
+  requestLogHar: string;
+  requests: SafeModeRequestSummaries;
+}> {
   const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
@@ -255,12 +278,15 @@ async function runCrawlAndBuild(
   const profile = resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles);
 
   const settle = resolveSettleOptions(context, config, profile);
+  const tally = new SafeModeRequestTally();
+  const safeMode = { tally, ...safeRequestsOf(environment.config) };
   const crawlResult = await crawl({
     startUrl: environment.config.baseUrl,
     allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
     settle,
+    safeMode,
     ...(identity !== undefined ? { identity } : {}),
     ...(options.maxPages !== undefined ? { maxPages: options.maxPages } : {}),
   });
@@ -275,6 +301,7 @@ async function runCrawlAndBuild(
     testIdAttribute: config.selectors.testIdAttribute,
     extraStableAttributes: config.selectors.extraStableAttributes,
     settle,
+    safeMode,
     ...(profile !== undefined ? { profile } : {}),
     ...(identity !== undefined ? { identity } : {}),
   });
@@ -290,6 +317,7 @@ async function runCrawlAndBuild(
     extraStableAttributes: config.selectors.extraStableAttributes,
     generatedIdPatterns: config.selectors.generatedIdPatterns,
     settle,
+    safeMode,
     ...(profile !== undefined ? { profile } : {}),
   });
 
@@ -318,6 +346,7 @@ async function runCrawlAndBuild(
     elements,
     blockedRequestCount: crawlResult.blockedRequestCount + analyzeBlocked + buildBlocked,
     requestLogHar: crawlResult.requestLogHar,
+    requests: tally.summary(),
   };
 }
 
@@ -345,6 +374,7 @@ async function runVerify(
     config,
     resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles),
   );
+  const tally = new SafeModeRequestTally();
 
   const checkable = stored.elements.filter(
     (element) =>
@@ -375,9 +405,14 @@ async function runVerify(
     const page = await browserContext.newPage();
     await page.route(
       '**/*',
-      createSafeModeRouteHandler(environment.config.allowlist, environment.config.baseUrl, () => {
-        blockedRequestCount += 1;
-      }),
+      createSafeModeRouteHandler(
+        environment.config.allowlist,
+        environment.config.baseUrl,
+        () => {
+          blockedRequestCount += 1;
+        },
+        { tally, ...safeRequestsOf(environment.config) },
+      ),
     );
     for (const [pageUrl, elements] of elementsByPageUrl) {
       await page.goto(pageUrl);
@@ -416,6 +451,7 @@ async function runVerify(
     degraded,
     missingLocatorCount,
     blockedRequestCount,
+    ...requestSummaryFields(tally.summary()),
     endpointsPath: ENDPOINTS_PATH,
     endpointCount,
   };
@@ -437,6 +473,7 @@ export async function persistExploreResult(
   elements: readonly SelectorElement[],
   blockedRequestCount: number,
   requestLogHar: string,
+  requests: SafeModeRequestSummaries = { allowed: [], blocked: [] },
 ): Promise<ExploreReport> {
   const generatedAt = context.clock.now().toISOString();
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
@@ -491,6 +528,7 @@ export async function persistExploreResult(
     degraded: diff.degraded,
     missingLocatorCount: moduleResult.missingLocators.length,
     blockedRequestCount,
+    ...requestSummaryFields(requests),
     endpointsPath: ENDPOINTS_PATH,
     endpointCount: apiSurface.endpoints.length,
   };
@@ -521,7 +559,11 @@ export async function runExplore(
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : undefined;
 
-  const { elements, blockedRequestCount, requestLogHar } = await runCrawlAndBuild(context, config, options);
+  const { elements, blockedRequestCount, requestLogHar, requests } = await runCrawlAndBuild(
+    context,
+    config,
+    options,
+  );
 
   return persistExploreResult(
     context,
@@ -531,5 +573,6 @@ export async function runExplore(
     elements,
     blockedRequestCount,
     requestLogHar,
+    requests,
   );
 }

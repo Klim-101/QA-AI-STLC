@@ -662,6 +662,61 @@ describe('runExplore', () => {
 
     expect(report.degraded).toEqual([]);
   });
+
+  describe('safeNonGetRequests (ADR-0014)', () => {
+    const SAFE_ENVIRONMENTS = `environments:\n  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"], safeNonGetRequests: [{ method: POST, path: /auth/refresh-token, reason: "Exchanges the refresh cookie." }] }`;
+    const SUBREQUESTS = {
+      [START_URL]: [
+        { method: 'POST', url: 'https://staging.example.com/auth/refresh-token' },
+        { method: 'POST', url: 'https://staging.example.com/orders?token=secret' },
+      ],
+    };
+
+    it('reports what the environment let through and what it blocked, by method and path', async () => {
+      const context = fakeContext(
+        { elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1, subRequestsByUrl: SUBREQUESTS },
+        { environments: SAFE_ENVIRONMENTS },
+      );
+
+      const report = await runExplore(context);
+
+      // Every phase of the exploration (crawl, analysis, scoring) loads the page, so each request recurs
+      // (and the fake page keeps the handlers of earlier phases, so the counts are not the point).
+      expect(report.allowedRequests).toEqual([
+        { method: 'POST', path: '/auth/refresh-token', count: expect.any(Number) as number },
+      ]);
+      expect(report.blockedRequests).toEqual([
+        { method: 'POST', path: '/orders', count: expect.any(Number) as number },
+      ]);
+      expect(JSON.stringify(report)).not.toContain('secret');
+    });
+
+    it('lets nothing through, and reports it, when the environment lists nothing', async () => {
+      const context = fakeContext({
+        elementsByUrl: { [START_URL]: ONE_ELEMENT },
+        locatorCount: 1,
+        subRequestsByUrl: SUBREQUESTS,
+      });
+
+      const report = await runExplore(context);
+
+      expect(report.allowedRequests).toEqual([]);
+      expect(report.blockedRequests.map((entry) => entry.path)).toEqual(['/auth/refresh-token', '/orders']);
+    });
+
+    it('applies the list to --verify as well', async () => {
+      const context = fakeContext(
+        { locatorCount: 1, subRequestsByUrl: SUBREQUESTS },
+        { environments: SAFE_ENVIRONMENTS },
+        { [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()) },
+      );
+
+      const report = await runExplore(context, { verify: true });
+
+      expect(report.allowedRequests).toEqual([{ method: 'POST', path: '/auth/refresh-token', count: 1 }]);
+      expect(report.blockedRequests).toEqual([{ method: 'POST', path: '/orders', count: 1 }]);
+    });
+  });
 });
 
 function storedElement(): SelectorRegistry['elements'][number] {
