@@ -93,10 +93,7 @@ export class DefectStore {
     const path = defectPath(draft.id);
     const approval = await this.ledger.latestForGate(defectGate(draft.id));
     const content = await this.store.readText(path);
-    const isApproved =
-      approval !== undefined &&
-      approval.artifactPath === path &&
-      approval.artifactSha256 === hashText(content);
+    const isApproved = approval?.artifactPath === path && approval.artifactSha256 === hashText(content);
     return isApproved ? 'accepted' : 'draft';
   }
 }
