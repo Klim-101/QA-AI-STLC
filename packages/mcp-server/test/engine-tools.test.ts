@@ -11,6 +11,8 @@ import { caseResultRegisterTool } from '../src/tools/case-result-register.js';
 import { casesAddTool } from '../src/tools/cases-add.js';
 import { casesRenderTool } from '../src/tools/cases-render.js';
 import { configShowTool } from '../src/tools/config-show.js';
+import { defectAcceptTool } from '../src/tools/defect-accept.js';
+import { defectAddTool } from '../src/tools/defect-add.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { apiDiffTool } from '../src/tools/api-diff.js';
 import { exploreTool } from '../src/tools/explore.js';
@@ -1108,6 +1110,46 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       process.chdir(originalCwd);
 
       expect(rejected).toMatchObject({ code: 'CONFIG_MISSING' });
+    });
+  });
+
+  it('qa.defect_add registers a draft and qa.defect_accept accepts it, once, with an approval', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'defect.json'),
+        JSON.stringify({
+          id: 'login-error',
+          title: 'Invalid credentials show no error',
+          severityProposal: 'major',
+          category: 'functional',
+          steps: ['Open the login page'],
+          expectedResult: 'An error is shown',
+          actualResult: 'Nothing is shown',
+          environment: 'staging',
+          requirementIds: ['login'],
+          evidencePaths: [],
+          status: 'draft',
+          createdAt: '2026-10-06T12:00:00Z',
+        }),
+        'utf-8',
+      );
+
+      const added = await defectAddTool.handler({ path: 'defect.json' });
+      const accepted = await defectAcceptTool.handler({
+        id: 'login-error',
+        approvedBy: 'operator',
+        note: 'Reviewed',
+      });
+      const again = await defectAcceptTool.handler({ id: 'login-error', approvedBy: 'operator' });
+      process.chdir(originalCwd);
+
+      expect(added).toMatchObject({ id: 'login-error', defectPath: 'artifacts/defects/login-error.json' });
+      expect(accepted).toEqual({ id: 'login-error', status: 'accepted', wasAlreadyAccepted: false });
+      expect(again.wasAlreadyAccepted).toBe(true);
     });
   });
 
