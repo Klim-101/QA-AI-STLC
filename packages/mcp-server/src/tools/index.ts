@@ -30,6 +30,8 @@ import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
 import { defectAcceptTool } from './defect-accept.js';
 import { defectAddTool } from './defect-add.js';
+import { rcaAddTool } from './rca-add.js';
+import { rcaApproveTool } from './rca-approve.js';
 import { configAddTool } from './config-add.js';
 import { configSetTool } from './config-set.js';
 import { configShowTool } from './config-show.js';
@@ -70,6 +72,8 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   approveTool,
   defectAddTool,
   defectAcceptTool,
+  rcaAddTool,
+  rcaApproveTool,
   validateTool,
   caseResultRegisterTool,
   generationProvenSessionTool,

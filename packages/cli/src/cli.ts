@@ -13,6 +13,8 @@ import {
   runDefectAdd,
   runDoctor,
   runLink,
+  runRcaAdd,
+  runRcaApprove,
   runReport,
   runScope,
   runTestDataAdd,
@@ -27,6 +29,8 @@ import {
   type DefectAddResult,
   type DoctorReport,
   type LinkResult,
+  type RcaAddResult,
+  type RcaApproveResult,
   type ReportFormat,
   type ReportResult,
   type RequestSummary,
@@ -86,6 +90,8 @@ Commands:
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
+  rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
+  rca approve   Approve a registered RCA: "rca approve <defect-id> --approved-by <name> [--note <text>]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links: "validate [--run]" also sweeps every run result for a fabricated evidence link or a failed result missing evidence; nonzero exit on any of these
 
@@ -145,6 +151,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchReport(rest, dependencies);
       case 'defect':
         return await dispatchDefect(rest, dependencies);
+      case 'rca':
+        return await dispatchRca(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -847,6 +855,66 @@ async function dispatchDefectAccept(
   return EXIT_SUCCESS;
 }
 
+async function dispatchRca(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand === 'add') {
+    return await dispatchRcaAdd(subRest, dependencies);
+  }
+  if (subcommand === 'approve') {
+    return await dispatchRcaApprove(subRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa rca" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchRcaAdd(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runRcaAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'rca-add', result, formatRcaAddResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchRcaApprove(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      'approved-by': { type: 'string' },
+      note: { type: 'string' },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [defectId] = positionals;
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runRcaApprove(context, {
+    ...(defectId !== undefined ? { defectId } : {}),
+    ...(typeof values['approved-by'] === 'string' ? { approvedBy: values['approved-by'] } : {}),
+    ...(typeof values.note === 'string' ? { note: values.note } : {}),
+  });
+  printResult(context.io, json, 'rca-approve', result, formatRcaApproveResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -1095,6 +1163,18 @@ function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[]
     result.wasAlreadyAccepted
       ? `Defect "${result.id}" was already accepted.`
       : `Accepted defect "${result.id}".`,
+  ];
+}
+
+function formatRcaAddResult(result: RcaAddResult): readonly string[] {
+  return [`Registered ${result.rcaPath} as a draft.`];
+}
+
+function formatRcaApproveResult(result: RcaApproveResult): readonly string[] {
+  return [
+    result.wasAlreadyApproved
+      ? `The RCA for "${result.defectId}" was already approved.`
+      : `Approved the RCA for "${result.defectId}".`,
   ];
 }
 

@@ -56,6 +56,21 @@ describe('renderMarkdownArtifact', () => {
     expect(markdown).toContain('## Steps to reproduce');
   });
 
+  it('dispatches "rca" to the RCA renderer', () => {
+    const markdown = renderMarkdownArtifact('rca', {
+      schemaVersion: 1,
+      defectId: 'defect-1',
+      facts: [],
+      hypotheses: [{ description: 'A cause', confidence: 'low' }],
+      remediation: [],
+      status: 'draft',
+      createdAt: '2026-10-07T10:00:00Z',
+    });
+
+    expect(markdown).toContain('# Root cause analysis: defect-1');
+    expect(markdown).toContain('## Hypotheses');
+  });
+
   it('dispatches "run-summary" to the run-summary renderer', () => {
     const runRecord: RunRecord = {
       schemaVersion: 1,

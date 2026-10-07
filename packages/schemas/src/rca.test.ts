@@ -19,6 +19,20 @@ describe('RcaSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts the defect hash the engine stamps and rejects a malformed one', () => {
+    const rca = {
+      defectId: 'defect-1',
+      facts: [],
+      hypotheses: [{ description: 'A cause', confidence: 'low' }],
+      remediation: [],
+      status: 'draft',
+      createdAt: '2026-09-16T12:00:00Z',
+    };
+
+    expect(RcaSchema.safeParse({ ...rca, defectSha256: 'a'.repeat(64) }).success).toBe(true);
+    expect(RcaSchema.safeParse({ ...rca, defectSha256: 'not-a-hash' }).success).toBe(false);
+  });
+
   it('requires at least one hypothesis', () => {
     const result = RcaSchema.safeParse({
       defectId: 'defect-1',
