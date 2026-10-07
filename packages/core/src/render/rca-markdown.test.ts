@@ -10,6 +10,7 @@ const RCA: Rca = {
   schemaVersion: 1,
   defectId: 'login-error-missing',
   facts: ['The login request returns 401 with an error body', 'The page does not render the error body'],
+  evidencePaths: ['evidence/run-demo-1/console-1.log'],
   hypotheses: [
     {
       description: 'The error handler is not wired to the login form',
@@ -34,6 +35,7 @@ describe('renderRcaMarkdown', () => {
       schemaVersion: 1,
       defectId: RCA.defectId,
       facts: [],
+      evidencePaths: [],
       hypotheses: RCA.hypotheses,
       remediation: [],
       status: 'draft',
@@ -41,6 +43,7 @@ describe('renderRcaMarkdown', () => {
     });
 
     expect(markdown).toContain('No confirmed facts recorded.');
+    expect(markdown).not.toContain('## Evidence');
     expect(markdown).not.toContain('## Remediation');
     expect(markdown).not.toContain('## Regression recommendation');
   });

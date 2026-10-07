@@ -29,6 +29,11 @@ export function renderRcaMarkdown(rca: Rca): string {
     ].join('\n'),
   );
 
+  if (rca.evidencePaths.length > 0) {
+    sections.push(
+      ['## Evidence', '', rca.evidencePaths.map((path) => `- \`${path}\``).join('\n')].join('\n'),
+    );
+  }
   if (rca.remediation.length > 0) {
     sections.push(['## Remediation', '', renderBulletList(rca.remediation)].join('\n'));
   }

@@ -9,6 +9,16 @@ import { hashText } from './hash.js';
 import type { ManifestStore } from './manifest-store.js';
 import type { QaStore } from './qa-store.js';
 
+/** The hash of the accepted defect an RCA is bound to; throws `RCA_DEFECT_NOT_ACCEPTED` when the defect is not accepted. */
+export function assertDefectAccepted(defectId: string, defectSha256: string | undefined): string {
+  if (defectSha256 === undefined) {
+    throw new QaError('RCA_DEFECT_NOT_ACCEPTED', `Defect "${defectId}" is not accepted`, {
+      remediation: 'An RCA exists only for an accepted defect: run "qa defect accept <id>" first.',
+    });
+  }
+  return defectSha256;
+}
+
 export function rcaPath(defectId: string): RelativePath {
   return `artifacts/rca/${assertDefectId(defectId)}.json`;
 }

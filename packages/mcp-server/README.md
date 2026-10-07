@@ -10,7 +10,7 @@ agent host's own model over the MCP protocol.
 `qa-mcp-server` starts the stdio server with the built-in tools: `qa.ping` (a health check that
 does not touch `.qa/`) and one tool per engine operation — `qa.doctor`, `qa.init`, `qa.config_show`,
 `qa.config_set`, `qa.config_add`,
-`qa.explore`, `qa.api_diff`, `qa.scope`, `qa.cases_add`, `qa.cases_render`, `qa.approve`, `qa.defect_add`, `qa.defect_accept`, `qa.rca_add`, `qa.rca_approve`, `qa.validate`, `qa.run`,
+`qa.explore`, `qa.api_diff`, `qa.scope`, `qa.cases_add`, `qa.cases_render`, `qa.approve`, `qa.defect_add`, `qa.defect_accept`, `qa.rca_input`, `qa.rca_add`, `qa.rca_approve`, `qa.validate`, `qa.run`,
 `qa.report` — each
 calling the exact same `packages/core` or `packages/explorer` function its CLI counterpart calls
 (P2-05). `qa.explore` does not support manual pick-mode capture: opening a headed browser for a

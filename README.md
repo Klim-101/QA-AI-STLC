@@ -22,8 +22,8 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 > the engine-side plumbing for this is fully tested, but a real agent host actually driving the
 > skill end to end has not been exercised yet. `qa report` renders a run's summary and the
 > requirement → case → result → evidence traceability matrix as Markdown or HTML. The agent layer
-> (six skills: `qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
-> `qa-report`) and a generated Claude Code plugin (`adapters/claude-plugin/`, see
+> (seven skills: `qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
+> `qa-report`, `qa-rca`) and a generated Claude Code plugin (`adapters/claude-plugin/`, see
 > [below](#claude-code-plugin)) both exist, including the plugin/engine version handshake.
 > Installing it from a local marketplace is verified by an automated Windows/macOS CI smoke test
 > (P2-13), and this repository is itself a real, installable marketplace. Phase 6 has started: `qa
@@ -398,7 +398,7 @@ The plugin/engine version handshake (ADR-007) shipped in P2-12: the generated `.
 `mcp-server` version it launches, and the server checks it against the engine's own version at
 startup. What the generator produces today: a `.claude-plugin/plugin.json` manifest, the skills
 under `skills/` (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
-`qa-report`), a `PreToolUse` hook
+`qa-report`, `qa-rca`), a `PreToolUse` hook
 (`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of that protection, on
 top of the engine's own manifest and hash checks — and an `.mcp.json` that launches
 `qa-mcp-server` via `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. Subagent generation is not

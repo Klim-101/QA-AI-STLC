@@ -16,6 +16,7 @@ export * from './run-result.js';
 export * from './run-record.js';
 export * from './defect.js';
 export * from './rca.js';
+export * from './rca-input.js';
 export * from './selector-registry.js';
 export * from './api-diff.js';
 export * from './api-surface.js';

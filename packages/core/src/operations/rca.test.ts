@@ -44,6 +44,7 @@ function rca(overrides: Partial<Rca> = {}): Rca {
     schemaVersion: 1,
     defectId: 'login-error',
     facts: ['The login request returns 401'],
+    evidencePaths: [],
     hypotheses: [{ description: 'The handler is not wired', confidence: 'medium' }],
     remediation: ['Render the error'],
     status: 'draft',
@@ -119,6 +120,25 @@ describe('runRcaAdd', () => {
     expect(stored.defectSha256).toBe(
       hashText(await context.fs.readFile(join(QA_DIR, 'artifacts', 'defects', 'login-error.json'))),
     );
+  });
+
+  it('rejects evidence the engine never registered and accepts evidence it did', async () => {
+    const context = await withAcceptedDefect();
+    await context.fs.writeFile(
+      join(PROJECT_ROOT, 'rca.json'),
+      JSON.stringify(rca({ evidencePaths: ['evidence/run-1/console-1.log'] })),
+    );
+
+    await expect(runRcaAdd(context, { path: 'rca.json' })).rejects.toMatchObject({
+      code: 'RCA_EVIDENCE_UNREGISTERED',
+    });
+
+    const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+    await new ManifestStore({ store, clock: context.clock }).register('evidence/run-1/console-1.log', 'log');
+    await runRcaAdd(context, { path: 'rca.json' });
+    expect((await stores(context).rcas.read('login-error')).evidencePaths).toEqual([
+      'evidence/run-1/console-1.log',
+    ]);
   });
 
   it('requires a path', async () => {
