@@ -35,6 +35,27 @@ describe('renderMarkdownArtifact', () => {
     expect(markdown).toContain('# Test cases: checkout');
   });
 
+  it('dispatches "defect-draft" to the defect-draft renderer', () => {
+    const markdown = renderMarkdownArtifact('defect-draft', {
+      schemaVersion: 1,
+      id: 'defect-1',
+      title: 'A defect',
+      severityProposal: 'minor',
+      category: 'ui',
+      steps: ['Open the page'],
+      expectedResult: 'It renders',
+      actualResult: 'It does not',
+      environment: 'staging',
+      requirementIds: [],
+      evidencePaths: [],
+      status: 'draft',
+      createdAt: '2026-10-06T10:00:00Z',
+    });
+
+    expect(markdown).toContain('# A defect');
+    expect(markdown).toContain('## Steps to reproduce');
+  });
+
   it('dispatches "run-summary" to the run-summary renderer', () => {
     const runRecord: RunRecord = {
       schemaVersion: 1,
