@@ -72,6 +72,8 @@ export * from './traceability.js';
 export * from './run-results.js';
 export * from './operations/test-data-add.js';
 export * from './operations/approve.js';
+export * from './operations/defect.js';
+export * from './defect-store.js';
 export * from './operations/validate.js';
 export * from './operations/browser-context.js';
 export * from './operations/browser-evidence.js';

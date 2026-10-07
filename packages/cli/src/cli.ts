@@ -9,6 +9,8 @@ import {
   runCasesAdd,
   runCasesRender,
   runConfigShow,
+  runDefectAccept,
+  runDefectAdd,
   runDoctor,
   runLink,
   runReport,
@@ -21,6 +23,8 @@ import {
   type ConfigShowResult,
   type ConfigShowValue,
   type ConfigValueLayer,
+  type DefectAcceptResult,
+  type DefectAddResult,
   type DoctorReport,
   type LinkResult,
   type ReportFormat,
@@ -80,6 +84,8 @@ Commands:
   run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]"
   link          Register a hand-written spec in traceability without regeneration: "link <spec> <requirement-id> --feature <name> [--test-type e2e]"
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
+  defect add    Validate and register a defect draft: "defect add --path <path>"
+  defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   validate      Recompute every gate's status and every case's requirement links: "validate [--run]" also sweeps every run result for a fabricated evidence link or a failed result missing evidence; nonzero exit on any of these
 
@@ -137,6 +143,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchLink(rest, dependencies);
       case 'report':
         return await dispatchReport(rest, dependencies);
+      case 'defect':
+        return await dispatchDefect(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'validate':
@@ -777,6 +785,68 @@ async function dispatchReport(rest: readonly string[], dependencies: RunCliDepen
   return EXIT_SUCCESS;
 }
 
+async function dispatchDefect(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand === 'add') {
+    return await dispatchDefectAdd(subRest, dependencies);
+  }
+  if (subcommand === 'accept') {
+    return await dispatchDefectAccept(subRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa defect" subcommand "${subcommand ?? ''}".
+
+${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchDefectAdd(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runDefectAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'defect-add', result, formatDefectAddResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchDefectAccept(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      'approved-by': { type: 'string' },
+      note: { type: 'string' },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [id] = positionals;
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runDefectAccept(context, {
+    ...(id !== undefined ? { id } : {}),
+    ...(typeof values['approved-by'] === 'string' ? { approvedBy: values['approved-by'] } : {}),
+    ...(typeof values.note === 'string' ? { note: values.note } : {}),
+  });
+  printResult(context.io, json, 'defect-accept', result, formatDefectAcceptResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
@@ -1014,6 +1084,18 @@ function formatReportResult(result: ReportResult): readonly string[] {
     sections.push(result.a11yConformance);
   }
   return sections.flatMap((section, index) => [...(index === 0 ? [] : ['']), ...section.split('\n')]);
+}
+
+function formatDefectAddResult(result: DefectAddResult): readonly string[] {
+  return [`Registered ${result.defectPath} as a draft.`];
+}
+
+function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[] {
+  return [
+    result.wasAlreadyAccepted
+      ? `Defect "${result.id}" was already accepted.`
+      : `Accepted defect "${result.id}".`,
+  ];
 }
 
 function formatApproveResult(result: ApproveResult): readonly string[] {

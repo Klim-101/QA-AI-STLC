@@ -28,6 +28,8 @@ import { createBrowserSnapshotTool } from './browser-snapshot.js';
 import { caseResultRegisterTool } from './case-result-register.js';
 import { casesAddTool } from './cases-add.js';
 import { casesRenderTool } from './cases-render.js';
+import { defectAcceptTool } from './defect-accept.js';
+import { defectAddTool } from './defect-add.js';
 import { configAddTool } from './config-add.js';
 import { configSetTool } from './config-set.js';
 import { configShowTool } from './config-show.js';
@@ -66,6 +68,8 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   casesRenderTool,
   testDataAddTool,
   approveTool,
+  defectAddTool,
+  defectAcceptTool,
   validateTool,
   caseResultRegisterTool,
   generationProvenSessionTool,

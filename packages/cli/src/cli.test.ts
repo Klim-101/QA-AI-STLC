@@ -1625,6 +1625,87 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('No registered test case with id "case-1"');
   });
 
+  const DEFECT_JSON = JSON.stringify({
+    id: 'login-error',
+    title: 'Invalid credentials show no error',
+    severityProposal: 'major',
+    category: 'functional',
+    steps: ['Open the login page'],
+    expectedResult: 'An error is shown',
+    actualResult: 'Nothing is shown',
+    environment: 'staging',
+    requirementIds: [],
+    evidencePaths: [],
+    status: 'draft',
+    createdAt: '2026-10-06T12:00:00Z',
+  });
+
+  it('runs "defect add" and then "defect accept", reporting a repeat accept as already accepted', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [join(PROJECT_ROOT, 'defect.json')]: DEFECT_JSON }),
+    });
+
+    const addExit = await runCli(['defect', 'add', '--path', 'defect.json'], deps);
+    const acceptExit = await runCli(
+      ['defect', 'accept', 'login-error', '--approved-by', 'operator', '--note', 'Reviewed'],
+      deps,
+    );
+    const repeatExit = await runCli(['defect', 'accept', 'login-error', '--approved-by', 'operator'], deps);
+
+    expect([addExit, acceptExit, repeatExit]).toEqual([EXIT_SUCCESS, EXIT_SUCCESS, EXIT_SUCCESS]);
+    expect(deps.stdout).toContain('Registered artifacts/defects/login-error.json as a draft.');
+    expect(deps.stdout).toContain('Accepted defect "login-error".');
+    expect(deps.stdout).toContain('Defect "login-error" was already accepted.');
+  });
+
+  it('prints "defect add" and "defect accept" results as JSON with --json', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({ [join(PROJECT_ROOT, 'defect.json')]: DEFECT_JSON }),
+    });
+
+    await runCli(['defect', 'add', '--path', 'defect.json', '--json'], deps);
+    await runCli(['defect', 'accept', 'login-error', '--approved-by', 'operator', '--json'], deps);
+
+    expect(JSON.parse(deps.stdout[0] ?? '')).toMatchObject({ command: 'defect-add' });
+    expect(JSON.parse(deps.stdout[1] ?? '')).toMatchObject({
+      command: 'defect-accept',
+      data: { id: 'login-error', status: 'accepted' },
+    });
+  });
+
+  it('reports a usage error for "defect add" without --path and "defect accept" without an id or approver', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem() });
+
+    expect(await runCli(['defect', 'add'], deps)).toBe(EXIT_FAILURE);
+    expect(await runCli(['defect', 'accept', '--approved-by', 'operator'], deps)).toBe(EXIT_FAILURE);
+    expect(await runCli(['defect', 'accept', 'login-error'], deps)).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa defect add --path <path>');
+    expect(deps.stderr.join('\n')).toContain('Usage: qa defect accept <id> --approved-by <name>');
+  });
+
+  it('reports an unknown or missing "defect" subcommand as a usage error', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem() });
+
+    expect(await runCli(['defect', 'bogus'], deps)).toBe(EXIT_USAGE);
+    expect(await runCli(['defect'], deps)).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa defect" subcommand "bogus"');
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa defect" subcommand ""');
+  });
+
+  it('defaults the project root to the current working directory for "defect add" and "defect accept"', async () => {
+    const { io, stderr } = captureIO();
+    const dependenciesWithoutRoot = { io, fs: createFakeFileSystem(), env: {} };
+
+    expect(await runCli(['defect', 'add', '--path', 'defect.json'], dependenciesWithoutRoot)).toBe(
+      EXIT_FAILURE,
+    );
+    expect(
+      await runCli(['defect', 'accept', 'login-error', '--approved-by', 'operator'], dependenciesWithoutRoot),
+    ).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('defect.json');
+    expect(stderr.join('\n')).toContain('No registered defect draft with id "login-error"');
+  });
+
   it('runs "test-data add" and prints a human-readable confirmation', async () => {
     const testDataJson = JSON.stringify({
       id: 'valid-card',

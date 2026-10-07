@@ -336,6 +336,8 @@ Current phase: scope.
   artifacts/cases/login-case.json: login
 ```
 
+A defect draft has its own gate. `qa defect add --path <path>` registers a draft (it must cite scoped requirements and evidence the engine registered), and `qa defect accept <id> --approved-by <name>` accepts it with an approval bound to the draft's exact content, so a draft that merely claims `accepted`, or is edited after acceptance, reads as `draft`. Publishing the defect stays with the operator.
+
 ### Local MCP server
 
 `npx @qa-ai-stlc/mcp-server` (bin: `qa-mcp-server`) starts a local server over stdio — the same
