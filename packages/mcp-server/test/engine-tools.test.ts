@@ -13,6 +13,8 @@ import { casesRenderTool } from '../src/tools/cases-render.js';
 import { configShowTool } from '../src/tools/config-show.js';
 import { defectAcceptTool } from '../src/tools/defect-accept.js';
 import { defectAddTool } from '../src/tools/defect-add.js';
+import { rcaAddTool } from '../src/tools/rca-add.js';
+import { rcaApproveTool } from '../src/tools/rca-approve.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { apiDiffTool } from '../src/tools/api-diff.js';
 import { exploreTool } from '../src/tools/explore.js';
@@ -1150,6 +1152,62 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(added).toMatchObject({ id: 'login-error', defectPath: 'artifacts/defects/login-error.json' });
       expect(accepted).toEqual({ id: 'login-error', status: 'accepted', wasAlreadyAccepted: false });
       expect(again.wasAlreadyAccepted).toBe(true);
+    });
+  });
+
+  it('qa.rca_add registers an RCA for an accepted defect and qa.rca_approve reviews it', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(
+        join(projectRoot, 'defect.json'),
+        JSON.stringify({
+          id: 'login-error',
+          title: 'Invalid credentials show no error',
+          severityProposal: 'major',
+          category: 'functional',
+          steps: ['Open the login page'],
+          expectedResult: 'An error is shown',
+          actualResult: 'Nothing is shown',
+          environment: 'staging',
+          requirementIds: [],
+          evidencePaths: [],
+          status: 'draft',
+          createdAt: '2026-10-07T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await writeFile(
+        join(projectRoot, 'rca.json'),
+        JSON.stringify({
+          defectId: 'login-error',
+          facts: ['The login request returns 401'],
+          hypotheses: [{ description: 'The handler is not wired', confidence: 'medium' }],
+          remediation: [],
+          status: 'draft',
+          createdAt: '2026-10-07T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await defectAddTool.handler({ path: 'defect.json' });
+
+      const beforeAcceptance = await rcaAddTool
+        .handler({ path: 'rca.json' })
+        .catch((caught: unknown) => caught);
+      await defectAcceptTool.handler({ id: 'login-error', approvedBy: 'operator' });
+      const added = await rcaAddTool.handler({ path: 'rca.json' });
+      const approved = await rcaApproveTool.handler({
+        defectId: 'login-error',
+        approvedBy: 'reviewer',
+        note: 'Reviewed',
+      });
+      const again = await rcaApproveTool.handler({ defectId: 'login-error', approvedBy: 'reviewer' });
+      process.chdir(originalCwd);
+
+      expect(beforeAcceptance).toMatchObject({ code: 'RCA_DEFECT_NOT_ACCEPTED' });
+      expect(added).toEqual({ defectId: 'login-error', rcaPath: 'artifacts/rca/login-error.json' });
+      expect(approved).toEqual({ defectId: 'login-error', status: 'approved', wasAlreadyApproved: false });
+      expect(again.wasAlreadyApproved).toBe(true);
     });
   });
 

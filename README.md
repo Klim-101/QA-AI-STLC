@@ -338,6 +338,8 @@ Current phase: scope.
 
 A defect draft has its own gate. `qa defect add --path <path>` registers a draft (it must cite scoped requirements and evidence the engine registered), and `qa defect accept <id> --approved-by <name>` accepts it with an approval bound to the draft's exact content, so a draft that merely claims `accepted`, or is edited after acceptance, reads as `draft`. Publishing the defect stays with the operator.
 
+A root cause analysis exists only for an accepted defect: `qa rca add --path <path>` registers it, and `qa rca approve <defect-id> --approved-by <name>` records the review. The approval is bound to the analysis's exact content and to the defect it was written against, so an approved RCA reads as `draft` again once that defect changes.
+
 ### Local MCP server
 
 `npx @qa-ai-stlc/mcp-server` (bin: `qa-mcp-server`) starts a local server over stdio — the same

@@ -1706,6 +1706,95 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('No registered defect draft with id "login-error"');
   });
 
+  const RCA_JSON = JSON.stringify({
+    defectId: 'login-error',
+    facts: ['The login request returns 401'],
+    hypotheses: [{ description: 'The handler is not wired', confidence: 'medium' }],
+    remediation: [],
+    status: 'draft',
+    createdAt: '2026-10-07T12:00:00Z',
+  });
+
+  function rcaFiles(): Record<string, string> {
+    return {
+      [join(PROJECT_ROOT, 'defect.json')]: DEFECT_JSON,
+      [join(PROJECT_ROOT, 'rca.json')]: RCA_JSON,
+    };
+  }
+
+  it('runs "rca add" and "rca approve" for an accepted defect, reporting a repeat approval', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem(rcaFiles()) });
+    await runCli(['defect', 'add', '--path', 'defect.json'], deps);
+    await runCli(['defect', 'accept', 'login-error', '--approved-by', 'operator'], deps);
+
+    const addExit = await runCli(['rca', 'add', '--path', 'rca.json'], deps);
+    const approveExit = await runCli(
+      ['rca', 'approve', 'login-error', '--approved-by', 'reviewer', '--note', 'Reviewed'],
+      deps,
+    );
+    const repeatExit = await runCli(['rca', 'approve', 'login-error', '--approved-by', 'reviewer'], deps);
+
+    expect([addExit, approveExit, repeatExit]).toEqual([EXIT_SUCCESS, EXIT_SUCCESS, EXIT_SUCCESS]);
+    expect(deps.stdout).toContain('Registered artifacts/rca/login-error.json as a draft.');
+    expect(deps.stdout).toContain('Approved the RCA for "login-error".');
+    expect(deps.stdout).toContain('The RCA for "login-error" was already approved.');
+  });
+
+  it('prints "rca add" and "rca approve" results as JSON with --json', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem(rcaFiles()) });
+    await runCli(['defect', 'add', '--path', 'defect.json'], deps);
+    await runCli(['defect', 'accept', 'login-error', '--approved-by', 'operator'], deps);
+    deps.stdout.length = 0;
+
+    await runCli(['rca', 'add', '--path', 'rca.json', '--json'], deps);
+    await runCli(['rca', 'approve', 'login-error', '--approved-by', 'reviewer', '--json'], deps);
+
+    expect(JSON.parse(deps.stdout[0] ?? '')).toMatchObject({ command: 'rca-add' });
+    expect(JSON.parse(deps.stdout[1] ?? '')).toMatchObject({
+      command: 'rca-approve',
+      data: { defectId: 'login-error', status: 'approved' },
+    });
+  });
+
+  it('refuses "rca add" for a defect that is not accepted', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem(rcaFiles()) });
+    await runCli(['defect', 'add', '--path', 'defect.json'], deps);
+
+    expect(await runCli(['rca', 'add', '--path', 'rca.json'], deps)).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Defect "login-error" is not accepted');
+  });
+
+  it('reports a usage error for "rca add" without --path and "rca approve" without an id or approver', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem() });
+
+    expect(await runCli(['rca', 'add'], deps)).toBe(EXIT_FAILURE);
+    expect(await runCli(['rca', 'approve', '--approved-by', 'reviewer'], deps)).toBe(EXIT_FAILURE);
+    expect(await runCli(['rca', 'approve', 'login-error'], deps)).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('Usage: qa rca add --path <path>');
+    expect(deps.stderr.join('\n')).toContain('Usage: qa rca approve <defect-id> --approved-by <name>');
+  });
+
+  it('reports an unknown or missing "rca" subcommand as a usage error', async () => {
+    const deps = dependencies({ fs: createFakeFileSystem() });
+
+    expect(await runCli(['rca', 'bogus'], deps)).toBe(EXIT_USAGE);
+    expect(await runCli(['rca'], deps)).toBe(EXIT_USAGE);
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa rca" subcommand "bogus"');
+    expect(deps.stderr.join('\n')).toContain('Unknown "qa rca" subcommand ""');
+  });
+
+  it('defaults the project root to the current working directory for "rca add" and "rca approve"', async () => {
+    const { io, stderr } = captureIO();
+    const dependenciesWithoutRoot = { io, fs: createFakeFileSystem(), env: {} };
+
+    expect(await runCli(['rca', 'add', '--path', 'rca.json'], dependenciesWithoutRoot)).toBe(EXIT_FAILURE);
+    expect(
+      await runCli(['rca', 'approve', 'login-error', '--approved-by', 'reviewer'], dependenciesWithoutRoot),
+    ).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('rca.json');
+    expect(stderr.join('\n')).toContain('No registered RCA for defect "login-error"');
+  });
+
   it('runs "test-data add" and prints a human-readable confirmation', async () => {
     const testDataJson = JSON.stringify({
       id: 'valid-card',
