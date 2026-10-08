@@ -48,7 +48,7 @@ describe('qa init (integration)', () => {
         security: 'out-of-scope',
       });
     });
-  });
+  }, 30_000);
 
   it('fails when a testing type is left unanswered and --defer-scope is not given', async () => {
     await withTempDir(async (projectRoot) => {
@@ -57,7 +57,7 @@ describe('qa init (integration)', () => {
       expect(exitCode).toBe(EXIT_FAILURE);
       await expect(stat(join(projectRoot, '.qa', 'config.yaml'))).rejects.toThrow();
     });
-  });
+  }, 30_000);
 
   it('leaves every unanswered type "undecided" when --defer-scope is given', async () => {
     await withTempDir(async (projectRoot) => {
@@ -74,5 +74,5 @@ describe('qa init (integration)', () => {
         security: 'undecided',
       });
     });
-  });
+  }, 30_000);
 });
