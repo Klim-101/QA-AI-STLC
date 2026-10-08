@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import express, { Router } from 'express';
@@ -27,11 +28,32 @@ function readNonNegativeInteger(value: unknown, fallback: number): number {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-/** Resolves the directory of an installed package; the Kendo fixture needs the dev dependencies. */
+function isPackageRoot(directory: string, packageName: string): boolean {
+  const manifestPath = join(directory, 'package.json');
+  return (
+    existsSync(manifestPath) &&
+    (JSON.parse(readFileSync(manifestPath, 'utf-8')) as { name?: string }).name === packageName
+  );
+}
+
+/**
+ * Resolves the directory of an installed package; the Kendo fixture needs the dev dependencies.
+ * Found through the package's main entry, then upwards to its own manifest: a package's
+ * `package.json` is not always exported (jQuery 4 does not export it), so it cannot be resolved
+ * directly.
+ */
 function packageDirectory(packageName: string): string {
   const require = createRequire(import.meta.url);
   try {
-    return dirname(require.resolve(`${packageName}/package.json`));
+    let directory = dirname(require.resolve(packageName));
+    while (!isPackageRoot(directory, packageName)) {
+      const parent = dirname(directory);
+      if (parent === directory) {
+        throw new Error(`No ${packageName} manifest above its main entry.`);
+      }
+      directory = parent;
+    }
+    return directory;
   } catch (cause) {
     throw new Error(
       `The Kendo fixture needs the demo app's dev dependencies; "${packageName}" is not installed.`,
