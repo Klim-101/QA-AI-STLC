@@ -79,7 +79,7 @@ Read this before adopting the framework.
 
 **The model is yours.** The framework runs entirely on your machine inside your agent host and uses the model and subscription you have configured there. It operates no hosted service, requires no API keys and never calls a language model itself. Model usage and its cost are governed by your host account.
 
-**Defects and reports are yours to publish.** Creating, filing and publishing defects, test reports and any other records in external systems such as Jira, Confluence, GitHub Issues, Azure DevOps or TestRail is the responsibility of the operator and the operator's infrastructure. The framework contains no integrations with such systems, stores no tracker credentials and sends nothing to them. It produces schema-valid defect drafts and rendered reports in your project that you can file, script or import with your own tools.
+**Defects and reports are yours to publish.** Creating, filing and publishing defects, test reports and any other records in external systems such as Jira, Confluence, GitHub Issues, Azure DevOps or TestRail is the responsibility of the operator and the operator's infrastructure. The framework contains no integrations with such systems, stores no tracker credentials and sends nothing to them. It produces schema-valid defect drafts and rendered reports in your project that you can file, script or import with your own tools. See [Filing defect drafts with your own tooling](docs/public/filing-defect-drafts.md) for worked examples.
 
 **Decisions are yours.** Test scope, test cases, defect acceptance and release recommendations require explicit operator approval. The framework records evidence; it does not certify quality.
 
@@ -483,6 +483,7 @@ kept — or a hand-written spec covering it can be run directly and its result r
 
 - [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
 - [CI usage](docs/public/ci-usage.md): the deterministic, no-model pipeline (`qa explore --verify`, `qa link`, `qa run`, `qa validate`) as a copy-pasteable recipe, proven continuously in this repository's own CI.
+- [Filing defect drafts](docs/public/filing-defect-drafts.md): how to turn an accepted draft into a tracker issue with your own tooling, and where the framework's responsibility ends.
 - [Architecture diagram](docs/public/architecture-diagram.md): how the agent host, the engine and the pipeline state fit together.
 - [Architecture decision records](docs/adr/README.md): the significant, hard-to-reverse decisions behind the design, and why.
 
