@@ -9,6 +9,7 @@ import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-run
 import { A11yScanRecordSchema, type RunResult } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { finalizeA11yOutcome, prepareA11yRun } from './a11y-run.js';
+import { axeResult } from './test-support/axe-result.js';
 import {
   A11Y_SCAN_ATTACHMENT_CONTENT_TYPE,
   A11Y_SCAN_ENVIRONMENT_VARIABLE,
@@ -59,14 +60,16 @@ function resultWith(status: RunResult['status'], failure?: string): RunResult {
   };
 }
 
-function scan(partial: { violations?: string[]; incomplete?: string[] }): string {
+function scan(partial: { violations?: string[]; incomplete?: string[]; tags?: readonly string[] }): string {
   const entries = (ids: string[] | undefined): { id: string }[] => (ids ?? []).map((id) => ({ id }));
-  return JSON.stringify({
-    violations: entries(partial.violations),
-    incomplete: entries(partial.incomplete),
-    passes: [{ id: 'html-has-lang' }],
-    inapplicable: [],
-  });
+  return JSON.stringify(
+    axeResult({
+      violations: entries(partial.violations),
+      incomplete: entries(partial.incomplete),
+      passes: [{ id: 'html-has-lang' }],
+      ...(partial.tags === undefined ? {} : { tags: partial.tags }),
+    }),
+  );
 }
 
 describe('prepareA11yRun', () => {
@@ -182,5 +185,23 @@ describe('finalizeA11yOutcome', () => {
     await expect(
       finalize({ result: resultWith('passed'), evidence: [{ kind: 'other', content: 'not json' }] }),
     ).rejects.toMatchObject({ code: 'RUNNER_A11Y_RESULT_INVALID' });
+  });
+
+  it.each(['{}', 'null', '[]', '{"violations":[],"incomplete":[],"passes":[],"inapplicable":[]}'])(
+    'rejects an attachment that is not a complete axe-core result (%s) instead of passing the case',
+    async (content) => {
+      await expect(
+        finalize({ result: resultWith('passed'), evidence: [{ kind: 'other', content }] }),
+      ).rejects.toMatchObject({ code: 'A11Y_SCAN_RESULT_INVALID' });
+    },
+  );
+
+  it('rejects a result scanned under another accessibility target than the configured one', async () => {
+    await expect(
+      finalize({
+        result: resultWith('passed'),
+        evidence: [{ kind: 'other', content: scan({ tags: ['wcag2a'] }) }],
+      }),
+    ).rejects.toMatchObject({ code: 'A11Y_SCAN_CONFIG_MISMATCH' });
   });
 });

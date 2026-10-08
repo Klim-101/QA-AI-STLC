@@ -3,10 +3,12 @@
 
 import { DEFAULT_A11Y_CONFIG, type A11yConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
+import { axeResult } from '../test-support/axe-result.js';
 import {
   buildA11yScanRecord,
   classifyAxeResult,
   listRuleIds,
+  parseAxeResult,
   planAxeRun,
   toAxeContext,
 } from './a11y-scan-plan.js';
@@ -166,13 +168,66 @@ describe('listRuleIds', () => {
   });
 });
 
+describe('parseAxeResult', () => {
+  const plan = planAxeRun(configWith({}));
+
+  it('accepts a complete result and keeps what axe-core reported', () => {
+    const parsed = parseAxeResult(axeResult({ violations: [{ id: 'image-alt', impact: 'critical' }] }), plan);
+
+    expect(parsed.violations).toEqual([{ id: 'image-alt', impact: 'critical' }]);
+  });
+
+  it.each([
+    ['an empty object', {}],
+    ['null', null],
+    ['an array', []],
+    ['a string', 'oops'],
+    ['a missing result list', { ...axeResult(), passes: undefined }],
+    ['a result list of the wrong type', { ...axeResult(), violations: {} }],
+    ['an entry without an id', { ...axeResult(), violations: [{ note: 'no id' }] }],
+    ['an entry with a numeric id', { ...axeResult(), violations: [{ id: 7 }] }],
+    ['missing tool options', { ...axeResult(), toolOptions: undefined }],
+    ['no url', { ...axeResult(), url: '' }],
+  ])('rejects %s', (_label, raw) => {
+    expect(() => parseAxeResult(raw, plan)).toThrow(
+      expect.objectContaining({ code: 'A11Y_SCAN_RESULT_INVALID' }) as Error,
+    );
+  });
+
+  it('names the problems, and at most three of them', () => {
+    expect(() => parseAxeResult({}, plan)).toThrow(/testEngine.*url.*toolOptions/s);
+  });
+
+  it('describes a non-object result as the root', () => {
+    expect(() => parseAxeResult(null, plan)).toThrow(/\(root\)/);
+  });
+
+  it('rejects a result that ran other rule tags than the plan', () => {
+    expect(() => parseAxeResult(axeResult({ tags: ['wcag2a'] }), plan)).toThrow(
+      expect.objectContaining({ code: 'A11Y_SCAN_CONFIG_MISMATCH' }) as Error,
+    );
+  });
+
+  it('rejects a result that ran the same number of tags but different ones', () => {
+    const tags = [...plan.tags.slice(0, -1), 'wcag22aa'];
+
+    expect(() => parseAxeResult(axeResult({ tags }), plan)).toThrow(
+      expect.objectContaining({ code: 'A11Y_SCAN_CONFIG_MISMATCH' }) as Error,
+    );
+  });
+
+  it('accepts the same tags in another order', () => {
+    expect(() => parseAxeResult(axeResult({ tags: [...plan.tags].reverse() }), plan)).not.toThrow();
+  });
+});
+
 describe('buildA11yScanRecord', () => {
-  const scanResult = {
+  const scanResult = axeResult({
     violations: [{ id: 'image-alt' }, { id: 'color-contrast' }],
     incomplete: [{ id: 'link-name' }],
     passes: [{ id: 'html-has-lang' }],
     inapplicable: [{ id: 'video-caption' }],
-  };
+  });
 
   it('records the configuration the scan ran with and how each rule was classified', () => {
     const a11y = configWith({
