@@ -39,12 +39,12 @@ updates:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
       # The demo app's Kendo UI fixtures and the explorer's Kendo profile recognise widgets by the
-      # DOM Kendo UI Core 2024.2 renders. kendo-ui-core 2026.3.812 renders something they do not
-      # recognise (verified by bumping only this package: the Kendo explorer, widget and grid tests
-      # fail, while the theme and jQuery 3.6.4 alone pass), and it declares jquery "1.10.0 - 3.6", so
-      # jQuery 4 is outside its supported range too. Moving to a new Kendo release is a change to the
-      # Kendo profile (P6-40, P6-41), not an automated dependency bump.
+      # DOM Kendo UI Core 2024.2.319 renders. Later releases render something they do not
+      # recognise: 2024.4.1112 and 2026.3.812 each fail the Kendo explorer, widget and grid tests
+      # when they are the only package changed, while the theme (14.5.0) and jQuery 3.7.1 pass.
+      # Moving to a newer Kendo release is a change to the Kendo profile (P6-40, P6-41), so no
+      # version of it is proposed automatically.
       - dependency-name: 'kendo-ui-core'
-        update-types: ['version-update:semver-major']
+      # kendo-ui-core declares jquery "1.10.0 - 3.6"; a major jQuery release is outside that range.
       - dependency-name: 'jquery'
         update-types: ['version-update:semver-major']
