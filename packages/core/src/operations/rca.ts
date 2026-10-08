@@ -11,9 +11,10 @@ import { readJsonFile, toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
-import { RcaStore, rcaGate, rcaPath } from '../rca-store.js';
+import { RcaStore, assertDefectAccepted, rcaGate, rcaPath } from '../rca-store.js';
 
 function openStores(context: EngineContext): {
+  readonly manifest: ManifestStore;
   readonly ledger: ApprovalLedgerStore;
   readonly rcas: RcaStore;
 } {
@@ -21,16 +22,7 @@ function openStores(context: EngineContext): {
   const manifest = new ManifestStore({ store, clock: context.clock });
   const ledger = new ApprovalLedgerStore({ store, manifest });
   const defects = new DefectStore({ store, manifest, ledger });
-  return { ledger, rcas: new RcaStore({ store, manifest, ledger, defects }) };
-}
-
-function assertDefectAccepted(defectId: string, defectSha256: string | undefined): string {
-  if (defectSha256 === undefined) {
-    throw new QaError('RCA_DEFECT_NOT_ACCEPTED', `Defect "${defectId}" is not accepted`, {
-      remediation: 'An RCA exists only for an accepted defect: run "qa defect accept <id>" first.',
-    });
-  }
-  return defectSha256;
+  return { manifest, ledger, rcas: new RcaStore({ store, manifest, ledger, defects }) };
 }
 
 export interface RcaAddOptions {
@@ -72,11 +64,22 @@ export async function runRcaAdd(context: EngineContext, options: RcaAddOptions):
     );
   }
 
-  const { rcas } = openStores(context);
+  const { manifest, rcas } = openStores(context);
   const defectSha256 = assertDefectAccepted(
     rca.defectId,
     await rcas.currentAcceptedDefectSha256(rca.defectId),
   );
+  const registered = (await manifest.load()).artifacts;
+  const unregistered = rca.evidencePaths.filter((evidencePath) => registered[evidencePath] === undefined);
+  if (unregistered.length > 0) {
+    throw new QaError(
+      'RCA_EVIDENCE_UNREGISTERED',
+      `The RCA for "${rca.defectId}" cites evidence the engine did not register: ${unregistered.join(', ')}`,
+      {
+        remediation: 'Cite only evidence paths returned by engine tools; evidence is never created by hand.',
+      },
+    );
+  }
   if (await rcas.exists(rca.defectId)) {
     const existing = await rcas.read(rca.defectId);
     if ((await rcas.resolveStatus(existing)) === 'approved') {

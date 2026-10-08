@@ -14,6 +14,10 @@
    - Evidence needed to confirm: The component source for the login form submit handler
 2. A recent refactor dropped the error state (confidence: low)
 
+## Evidence
+
+- `evidence/run-demo-1/console-1.log`
+
 ## Remediation
 
 - Render the error body returned by the login request

@@ -15,6 +15,7 @@ import { defectAcceptTool } from '../src/tools/defect-accept.js';
 import { defectAddTool } from '../src/tools/defect-add.js';
 import { rcaAddTool } from '../src/tools/rca-add.js';
 import { rcaApproveTool } from '../src/tools/rca-approve.js';
+import { rcaInputTool } from '../src/tools/rca-input.js';
 import { doctorTool } from '../src/tools/doctor.js';
 import { apiDiffTool } from '../src/tools/api-diff.js';
 import { exploreTool } from '../src/tools/explore.js';
@@ -1195,6 +1196,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         .handler({ path: 'rca.json' })
         .catch((caught: unknown) => caught);
       await defectAcceptTool.handler({ id: 'login-error', approvedBy: 'operator' });
+      const input = await rcaInputTool.handler({ defectId: 'login-error' });
       const added = await rcaAddTool.handler({ path: 'rca.json' });
       const approved = await rcaApproveTool.handler({
         defectId: 'login-error',
@@ -1205,6 +1207,10 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       process.chdir(originalCwd);
 
       expect(beforeAcceptance).toMatchObject({ code: 'RCA_DEFECT_NOT_ACCEPTED' });
+      expect(input).toMatchObject({
+        defect: { id: 'login-error', status: 'accepted' },
+        source: { isConfigured: false },
+      });
       expect(added).toEqual({ defectId: 'login-error', rcaPath: 'artifacts/rca/login-error.json' });
       expect(approved).toEqual({ defectId: 'login-error', status: 'approved', wasAlreadyApproved: false });
       expect(again.wasAlreadyApproved).toBe(true);

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
-import { IdentifierSchema, IsoDateTimeSchema, Sha256HexSchema } from './primitives.js';
+import { IdentifierSchema, IsoDateTimeSchema, RelativePathSchema, Sha256HexSchema } from './primitives.js';
 import { SecurityConfidenceSchema } from './defect.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
@@ -23,6 +23,8 @@ export const RcaSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   defectId: IdentifierSchema,
   facts: z.array(z.string().min(1)),
+  // Evidence the facts rest on, registered by the engine; a fact with nothing here is the author's word.
+  evidencePaths: z.array(RelativePathSchema).default([]),
   hypotheses: z.array(RcaHypothesisSchema).min(1),
   remediation: z.array(z.string().min(1)),
   regressionRecommendation: z.string().optional(),

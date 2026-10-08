@@ -61,6 +61,7 @@ describe('renderMarkdownArtifact', () => {
       schemaVersion: 1,
       defectId: 'defect-1',
       facts: [],
+      evidencePaths: [],
       hypotheses: [{ description: 'A cause', confidence: 'low' }],
       remediation: [],
       status: 'draft',

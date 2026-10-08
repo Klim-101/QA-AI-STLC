@@ -127,7 +127,8 @@ boundary's contract for every artifact (AGENTS.md section 3; development plan se
   that spoke lands (P3-05 and later) — this issue defines the envelope only, not those payloads.
 - A per-spoke-type definition file (what task the spoke gets, what payload schema its result must
   satisfy) is added under `agents/` alongside the task that implements it, following the same
-  kebab-case, minimal-context convention as a skill. No such file exists yet.
+  kebab-case, minimal-context convention as a skill. The first one is `agents/hub/spokes/qa-rca.md`
+  (P6-15): the input a spoke builds for itself, and the payload schema its result must satisfy.
 
 ## Phase prompts
 
@@ -209,5 +210,7 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
   definitions. No skill points to it by its `references:` frontmatter entry yet, because no skill
   exists yet (P2-09 is the first one that will).
 - `qa-start`, `qa-explore` and `qa-design-cases` (P2-09) are the real, shipped skills today.
+- `qa-rca` (P6-15) is the root cause analysis skill; `agents/hub/spokes/qa-rca.md` is its spoke
+  contract. The input it works from is the engine's `qa.rca_input`.
 - The triggering eval suite (P2-10) is generated from those three skills' `triggers`/`nonTriggers`
   under `adapters/claude-plugin/evals/`; see [Triggering eval harness](#triggering-eval-harness).

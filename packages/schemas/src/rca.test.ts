@@ -33,6 +33,22 @@ describe('RcaSchema', () => {
     expect(RcaSchema.safeParse({ ...rca, defectSha256: 'not-a-hash' }).success).toBe(false);
   });
 
+  it('defaults the evidence a RCA rests on to none and keeps what it is given', () => {
+    const rca = {
+      defectId: 'defect-1',
+      facts: [],
+      hypotheses: [{ description: 'A cause', confidence: 'low' }],
+      remediation: [],
+      status: 'draft',
+      createdAt: '2026-09-16T12:00:00Z',
+    };
+
+    expect(RcaSchema.parse(rca).evidencePaths).toEqual([]);
+    expect(RcaSchema.parse({ ...rca, evidencePaths: ['evidence/run-1/log-1.log'] }).evidencePaths).toEqual([
+      'evidence/run-1/log-1.log',
+    ]);
+  });
+
   it('requires at least one hypothesis', () => {
     const result = RcaSchema.safeParse({
       defectId: 'defect-1',

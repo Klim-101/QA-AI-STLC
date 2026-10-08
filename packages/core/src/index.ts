@@ -74,6 +74,8 @@ export * from './operations/test-data-add.js';
 export * from './operations/approve.js';
 export * from './operations/defect.js';
 export * from './operations/rca.js';
+export * from './operations/rca-input.js';
+export * from './untrusted-evidence-text.js';
 export * from './rca-store.js';
 export * from './defect-store.js';
 export * from './operations/validate.js';
