@@ -417,4 +417,22 @@ describe('tabs (P6-59)', () => {
 
     expect(Date.now() - started).toBeGreaterThanOrEqual(200);
   });
+
+  it('waits for a page the browser announces after the action returned, then lists it', async () => {
+    const { harness, context, sessionId } = await openHarness();
+
+    const listing = runBrowserTabs(context, { sessionId, settleMs: 30_000 });
+    setTimeout(() => harness.launcher.openPopup(ALLOWED_URL), 20);
+    const result = await listing;
+
+    expect(result.tabs.map((tab) => tab.tabId)).toEqual(['tab-1', 'tab-2']);
+  });
+
+  it('stops waiting at the deadline when no page was opened', async () => {
+    const { context, sessionId } = await openHarness();
+
+    const result = await runBrowserTabs(context, { sessionId, settleMs: 20 });
+
+    expect(result.tabs.map((tab) => tab.tabId)).toEqual(['tab-1']);
+  });
 });

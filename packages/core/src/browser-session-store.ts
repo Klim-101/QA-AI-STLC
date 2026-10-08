@@ -200,6 +200,8 @@ export class BrowserSessionStore {
   private readonly queuedRecords = new Map<string, QueuedBrowserRecord[]>();
   private readonly snapshots = new Map<string, Map<string, readonly PageViewEntry[]>>();
   private readonly pendingTabWork = new Map<string, Set<Promise<void>>>();
+  private readonly lastTabAddedAt = new Map<string, Date>();
+  private readonly tabWaiters = new Map<string, Set<() => void>>();
   private readonly clock: Clock;
   private readonly idGenerator: IdGenerator;
   private readonly idleTimeoutMs: number;
@@ -256,7 +258,42 @@ export class BrowserSessionStore {
     const tab: BrowserTab = { tabId: `tab-${String(session.nextTabNumber)}`, page };
     session.nextTabNumber += 1;
     session.tabs = [...session.tabs, tab];
+    this.lastTabAddedAt.set(sessionId, this.clock.now());
+    for (const wake of this.tabWaiters.get(sessionId) ?? []) {
+      wake();
+    }
     return tab;
+  }
+
+  /** Milliseconds since a session was last used by a tool call; infinite when there is no such session. */
+  msSinceLastUse(sessionId: string): number {
+    const session = this.sessions.get(sessionId);
+    return session === undefined
+      ? Number.POSITIVE_INFINITY
+      : this.clock.now().getTime() - session.lastActivityAt.getTime();
+  }
+
+  /**
+   * Waits until the browser announces a page the session did not know about, for at most
+   * `timeoutMs`. A page announced within `sinceMs` before the call counts as already seen, so a
+   * page that arrived between two tool calls does not make the caller wait for another.
+   */
+  async waitForTabAnnouncement(sessionId: string, sinceMs: number, timeoutMs: number): Promise<void> {
+    const lastAddedAt = this.lastTabAddedAt.get(sessionId);
+    if (lastAddedAt !== undefined && this.clock.now().getTime() - lastAddedAt.getTime() <= sinceMs) {
+      return;
+    }
+    const waiters = this.tabWaiters.get(sessionId) ?? new Set<() => void>();
+    this.tabWaiters.set(sessionId, waiters);
+    await new Promise<void>((resolve) => {
+      const finish = (): void => {
+        clearTimeout(timer);
+        waiters.delete(finish);
+        resolve();
+      };
+      const timer = setTimeout(finish, timeoutMs);
+      waiters.add(finish);
+    });
   }
 
   /**
@@ -412,6 +449,11 @@ export class BrowserSessionStore {
     this.queuedRecords.delete(sessionId);
     this.snapshots.delete(sessionId);
     this.pendingTabWork.delete(sessionId);
+    this.lastTabAddedAt.delete(sessionId);
+    for (const wake of this.tabWaiters.get(sessionId) ?? []) {
+      wake();
+    }
+    this.tabWaiters.delete(sessionId);
     if (!session.ownsBrowser) {
       // Closing an attached browser's context would close the operator's own tabs; closing the
       // connection only disconnects.
