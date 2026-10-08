@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/cli",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "The qa command: init, doctor and every deterministic engine operation exposed for CI and humans.",
   "type": "module",
   "license": "Apache-2.0",
@@ -31,12 +31,12 @@
     "clean": "node ../../scripts/clean-dir.mjs dist"
   },
   "dependencies": {
-    "@qa-ai-stlc/core": "1.5.0",
-    "@qa-ai-stlc/explorer": "1.5.0",
-    "@qa-ai-stlc/runner-a11y": "1.5.0",
-    "@qa-ai-stlc/runner-api": "1.5.0",
-    "@qa-ai-stlc/runner-playwright": "1.5.0",
-    "@qa-ai-stlc/schemas": "1.5.0",
+    "@qa-ai-stlc/core": "1.6.0",
+    "@qa-ai-stlc/explorer": "1.6.0",
+    "@qa-ai-stlc/runner-a11y": "1.6.0",
+    "@qa-ai-stlc/runner-api": "1.6.0",
+    "@qa-ai-stlc/runner-playwright": "1.6.0",
+    "@qa-ai-stlc/schemas": "1.6.0",
     "yaml": "2.9.1"
   },
   "devDependencies": {
