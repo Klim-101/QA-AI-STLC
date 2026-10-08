@@ -58,6 +58,46 @@ async function seedEvidence(context: EngineContext, runId: string, id: string): 
   }
 }
 
+/** Registers an `expect` action record the way `qa.browser_expect` does, so the run holds a real verdict. */
+async function seedExpectation(
+  context: EngineContext,
+  runId: string,
+  id: string,
+  options: {
+    readonly passed: boolean;
+    readonly at: string;
+    readonly stepId?: string;
+    readonly selector?: string;
+    readonly ref?: { readonly id: string; readonly role: string };
+    readonly type?: string;
+    readonly raw?: string;
+  },
+): Promise<void> {
+  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+  const manifest = new ManifestStore({ store, clock: context.clock });
+  const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
+  const registration = await evidenceStore.register({
+    id,
+    runId,
+    kind: 'action',
+    ...(options.stepId === undefined ? {} : { stepId: options.stepId }),
+    content:
+      options.raw ??
+      JSON.stringify({
+        schemaVersion: 1,
+        type: options.type ?? 'expect',
+        sessionId: 'session-1',
+        ...(options.stepId === undefined ? {} : { stepId: options.stepId }),
+        ...(options.ref === undefined ? { selector: options.selector ?? '#done' } : { ref: options.ref }),
+        expectation: { kind: 'visible', passed: options.passed },
+        at: options.at,
+      }),
+  });
+  if (registration.status !== 'registered') {
+    throw new Error('Test setup expected evidence to register cleanly.');
+  }
+}
+
 describe('runRegisterCaseResult', () => {
   it('registers a passed run result and returns its path', async () => {
     const { context, fs } = createContext();
@@ -211,5 +251,199 @@ describe('runRegisterCaseResult', () => {
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('RUN_RESULT_MISSING_EVIDENCE');
+  });
+
+  it('rejects a passed status while the run still holds a failed expectation', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', {
+      passed: false,
+      at: '2026-09-25T09:59:10.000Z',
+      stepId: 'expected-result',
+    });
+
+    await expect(
+      runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: ['evidence-1'],
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_RESULT_FAILED_EXPECTATION' });
+  });
+
+  it('finds the failed expectation even when the caller does not cite it', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: false, at: '2026-09-25T09:59:10.000Z' });
+    await seedEvidence(context, 'run-1', 'evidence-2');
+
+    await expect(
+      runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: ['evidence-2'],
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_RESULT_FAILED_EXPECTATION' });
+  });
+
+  it('accepts a passed status when a later attempt of the same expectation passed', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: false, at: '2026-09-25T09:59:10.000Z' });
+    await seedExpectation(context, 'run-1', 'evidence-2', { passed: true, at: '2026-09-25T09:59:20.000Z' });
+
+    const result = await runRegisterCaseResult(context, {
+      testCaseId: CASE_ID,
+      testType: 'e2e',
+      runId: 'run-1',
+      status: 'passed',
+      startedAt: '2026-09-25T09:59:00.000Z',
+      evidenceIds: ['evidence-1', 'evidence-2'],
+    });
+
+    expect(result.runResultPath).toContain('runs/login-case/');
+  });
+
+  it('does not let a pass of a different expectation resolve a failed one', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', {
+      passed: false,
+      at: '2026-09-25T09:59:10.000Z',
+      selector: '#saved',
+    });
+    await seedExpectation(context, 'run-1', 'evidence-2', {
+      passed: true,
+      at: '2026-09-25T09:59:20.000Z',
+      selector: '#other',
+    });
+
+    await expect(
+      runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: ['evidence-1', 'evidence-2'],
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_RESULT_FAILED_EXPECTATION' });
+  });
+
+  it('still registers a failed status when an expectation failed', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: false, at: '2026-09-25T09:59:10.000Z' });
+
+    const result = await runRegisterCaseResult(context, {
+      testCaseId: CASE_ID,
+      testType: 'e2e',
+      runId: 'run-1',
+      status: 'failed',
+      startedAt: '2026-09-25T09:59:00.000Z',
+      evidenceIds: ['evidence-1'],
+      failure: { message: 'The saved record was not visible.' },
+    });
+
+    expect(result.id).toMatch(/^run-result-/);
+  });
+
+  it('ignores evidence that is not an expectation record', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: 'x', raw: 'not json' });
+    await seedExpectation(context, 'run-1', 'evidence-2', {
+      passed: true,
+      at: '2026-09-25T09:59:10.000Z',
+      type: 'click',
+    });
+    await seedExpectation(context, 'run-1', 'evidence-3', {
+      passed: true,
+      at: 'x',
+      raw: '{"unrelated":true}',
+    });
+
+    const result = await runRegisterCaseResult(context, {
+      testCaseId: CASE_ID,
+      testType: 'e2e',
+      runId: 'run-1',
+      status: 'passed',
+      startedAt: '2026-09-25T09:59:00.000Z',
+      evidenceIds: ['evidence-1', 'evidence-2'],
+    });
+
+    expect(result.id).toMatch(/^run-result-/);
+  });
+
+  it('judges an expectation by its time, not by the order of its evidence ids', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: '2026-09-25T09:59:20.000Z' });
+    await seedExpectation(context, 'run-1', 'evidence-2', { passed: false, at: '2026-09-25T09:59:10.000Z' });
+
+    const result = await runRegisterCaseResult(context, {
+      testCaseId: CASE_ID,
+      testType: 'e2e',
+      runId: 'run-1',
+      status: 'passed',
+      startedAt: '2026-09-25T09:59:00.000Z',
+      evidenceIds: ['evidence-1', 'evidence-2'],
+    });
+
+    expect(result.id).toMatch(/^run-result-/);
+  });
+
+  it('names a ref-targeted failed expectation by its ref', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', {
+      passed: false,
+      at: '2026-09-25T09:59:10.000Z',
+      ref: { id: 'e7', role: 'button' },
+    });
+
+    await expect(
+      runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: ['evidence-1'],
+      }),
+    ).rejects.toThrow('"e7"');
+  });
+
+  it('describes a page-level failed expectation without a target', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedExpectation(context, 'run-1', 'evidence-1', {
+      passed: false,
+      at: '2026-09-25T09:59:10.000Z',
+      raw: JSON.stringify({
+        schemaVersion: 1,
+        type: 'expect',
+        sessionId: 'session-1',
+        expectation: { kind: 'url', passed: false },
+        at: '2026-09-25T09:59:10.000Z',
+      }),
+    });
+
+    await expect(
+      runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: ['evidence-1'],
+      }),
+    ).rejects.toThrow('on the page');
   });
 });
