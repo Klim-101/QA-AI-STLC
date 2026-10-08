@@ -16,6 +16,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { toCanonicalJson } from '../json-file.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
+import { findUnresolvedFailedExpectations } from './case-result-expectations.js';
 import { findCasePath } from './cases-render.js';
 
 export interface RegisterCaseResultOptions {
@@ -71,6 +72,20 @@ export async function runRegisterCaseResult(
       `Run result for test case "${options.testCaseId}" claims "passed" with no registered evidence.`,
       { remediation: 'Register at least one piece of evidence for this run before reporting it as passed.' },
     );
+  }
+  if (options.status === 'passed') {
+    const unresolved = await findUnresolvedFailedExpectations(store, options.runId);
+    if (unresolved.length > 0) {
+      throw new QaError(
+        'RUN_RESULT_FAILED_EXPECTATION',
+        `Run result for test case "${options.testCaseId}" claims "passed" but run "${options.runId}" ` +
+          `still has failed expectation(s): ${unresolved.join('; ')}`,
+        {
+          remediation:
+            'Re-run the failed expectation until it passes, or register the result as "failed" or "partial".',
+        },
+      );
+    }
   }
 
   const idGenerator = options.idGenerator ?? randomIdGenerator;
