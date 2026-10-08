@@ -283,4 +283,67 @@ describe('BrowserSessionStore', () => {
     await expect(store.get(session.sessionId)).resolves.toMatchObject({ sessionId: session.sessionId });
     expect(DEFAULT_SESSION_IDLE_TIMEOUT_MS).toBe(300_000);
   });
+
+  describe('waiting for a page the browser announces late', () => {
+    it('reports how long ago a session was used, and no limit for an unknown one', async () => {
+      const clock = movableClock();
+      const { store, session } = await storeWithSession({ clock });
+      clock.advance(300);
+
+      expect(store.msSinceLastUse(session.sessionId)).toBe(300);
+      expect(store.msSinceLastUse('missing')).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it('returns as soon as a page is announced, well before the deadline', async () => {
+      const { store, session, parts } = await storeWithSession();
+
+      const waiting = store.waitForTabAnnouncement(session.sessionId, 0, 60_000);
+      store.addTab(session.sessionId, parts.page);
+
+      await expect(waiting).resolves.toBeUndefined();
+    });
+
+    it('gives up at the deadline when nothing is announced', async () => {
+      const { store, session } = await storeWithSession();
+
+      await expect(store.waitForTabAnnouncement(session.sessionId, 0, 5)).resolves.toBeUndefined();
+    });
+
+    it('does not wait for a page announced since the previous use', async () => {
+      const clock = movableClock();
+      const { store, session, parts } = await storeWithSession({ clock });
+      clock.advance(100);
+      store.addTab(session.sessionId, parts.page);
+      clock.advance(50);
+
+      await expect(store.waitForTabAnnouncement(session.sessionId, 150, 60_000)).resolves.toBeUndefined();
+    });
+
+    it('still waits when the last page was announced before the previous use', async () => {
+      const clock = movableClock();
+      const { store, session, parts } = await storeWithSession({ clock });
+      store.addTab(session.sessionId, parts.page);
+      clock.advance(500);
+
+      let settled = false;
+      const waiting = store.waitForTabAnnouncement(session.sessionId, 100, 60_000).then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      store.addTab(session.sessionId, parts.page);
+      await waiting;
+      expect(settled).toBe(true);
+    });
+
+    it('releases a waiter when the session closes', async () => {
+      const { store, session } = await storeWithSession();
+
+      const waiting = store.waitForTabAnnouncement(session.sessionId, 0, 60_000);
+      await store.close(session.sessionId);
+
+      await expect(waiting).resolves.toBeUndefined();
+    });
+  });
 });

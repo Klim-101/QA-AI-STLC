@@ -8,15 +8,16 @@ import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
 /**
- * How long `qa.browser_tabs` waits for a page the last action opened. The browser announces a new
- * page after the action that opened it has already returned, and nothing says whether one is on
- * its way, so a short fixed wait is the only way to ask the question the agent is asking.
+ * The longest `qa.browser_tabs` waits, counted from the previous tool call, for a page that call
+ * opened. The browser announces a new page after the action that opened it has already returned
+ * (about 650 ms on a slow Windows machine) and nothing says whether one is on its way, so the wait
+ * ends at the first announcement or at this deadline, whichever comes first.
  */
-export const DEFAULT_TAB_SETTLE_MS = 250;
+export const DEFAULT_TAB_SETTLE_MS = 2_000;
 
 export interface BrowserTabsOptions {
   readonly sessionId: string;
-  /** Overrides how long to wait for a page that is still opening; tests use 0. */
+  /** Overrides the deadline for a page that is still opening; tests use 0. */
   readonly settleMs?: number;
   /** The id of the tab to make active. Omit to only list the tabs. */
   readonly switchTo?: string;
@@ -51,8 +52,13 @@ export async function runBrowserTabs(
   context: BrowserOperationContext,
   options: BrowserTabsOptions,
 ): Promise<BrowserTabsResult> {
+  // Read before `get`, which counts as a use: the wait only covers what is left of the deadline.
+  const idleMs = context.sessions.msSinceLastUse(options.sessionId);
   const session = await context.sessions.get(options.sessionId);
-  await new Promise<void>((resolve) => setTimeout(resolve, options.settleMs ?? DEFAULT_TAB_SETTLE_MS));
+  const remainingMs = (options.settleMs ?? DEFAULT_TAB_SETTLE_MS) - idleMs;
+  if (remainingMs > 0) {
+    await context.sessions.waitForTabAnnouncement(session.sessionId, idleMs, remainingMs);
+  }
   // Settles dialog and popup handling still in flight before anything is listed.
   const earlierNotices = await settleSessionPages(context, session);
   await closeDisallowedTabs(context, session);

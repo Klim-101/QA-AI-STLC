@@ -145,6 +145,10 @@ function addFixture(links: FixtureLinks): void {
   }
 }
 
+// The browser announces a new page late on a loaded machine (4 s measured while the whole suite
+// ran in parallel). The wait ends at the announcement, so a generous deadline costs nothing.
+const TAB_DEADLINE_MS = 20_000;
+
 const LINKS: FixtureLinks = {
   sameHost: `${BASE_URL}login#second-tab`,
   // The same server, reached under a host the environment does not allow.
@@ -223,7 +227,7 @@ describe('dialogs and tabs on the demo app', () => {
       const firstPage = session.page;
 
       await runBrowserClick(context, { sessionId, selector: '#same' });
-      const listed = await runBrowserTabs(context, { sessionId });
+      const listed = await runBrowserTabs(context, { sessionId, settleMs: TAB_DEADLINE_MS });
 
       expect(listed.tabs.map((tab) => [tab.tabId, tab.active])).toEqual([
         ['tab-1', true],
@@ -253,13 +257,17 @@ describe('dialogs and tabs on the demo app', () => {
       await session.page.evaluate(addFixture, LINKS);
 
       const click = await runBrowserClick(context, { sessionId, selector: '#other' });
-      const listed = await runBrowserTabs(context, { sessionId });
+      const listed = await runBrowserTabs(context, { sessionId, settleMs: TAB_DEADLINE_MS });
 
       expect(listed.tabs.map((tab) => tab.tabId)).toEqual(['tab-1']);
       expect([...(click.notices ?? []), ...listed.notices]).toMatchObject([
         { kind: 'tab-blocked', url: expect.stringContaining('127.0.0.1') as unknown },
       ]);
       expect(session.activeTabId).toBe('tab-1');
+      // Safe mode aborted the popup's very first request, so nothing reached the other host.
+      expect(session.blockedRequests.map((request) => request.url)).toEqual([
+        expect.stringContaining('127.0.0.1') as unknown,
+      ]);
       expect(await recordsOfType(context, session.runId, 'tab-blocked')).toHaveLength(1);
       expect(await recordsOfType(context, session.runId, 'tab-opened')).toHaveLength(0);
     });
