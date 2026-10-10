@@ -74,6 +74,7 @@ function createAuthContext(
         ok: reply.status < 400,
         status: reply.status,
         headers: reply.headers ?? {},
+        setCookies: [],
         bodyText: reply.bodyText ?? '',
       });
     },

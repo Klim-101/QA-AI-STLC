@@ -26,6 +26,8 @@ describe('artifactSchemas', () => {
         'run-record',
         'run-result',
         'scope',
+        'security-audit-result',
+        'security-authorization',
         'selector-registry',
         'state',
         'test-case',

@@ -56,6 +56,7 @@ function httpClientServing(
         ok: route.status < 400,
         status: route.status,
         headers: {},
+        setCookies: [],
         bodyText: route.bodyText,
       });
     },
@@ -143,7 +144,7 @@ describe('runApiDiff', () => {
         get: () => Promise.reject(new Error('unused')),
         request: (_url: string, options?: { readonly tlsInsecure?: boolean }) => {
           seen.push(options?.tlsInsecure);
-          return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: SPEC });
+          return Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: SPEC });
         },
       },
     };
@@ -171,7 +172,7 @@ describe('runApiDiff', () => {
         get: () => Promise.reject(new Error('unused')),
         request: (_url: string, options?: { readonly tlsInsecure?: boolean }) => {
           seen.push(options?.tlsInsecure);
-          return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: SPEC });
+          return Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: SPEC });
         },
       },
     };

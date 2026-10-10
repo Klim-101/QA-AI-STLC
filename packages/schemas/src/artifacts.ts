@@ -7,6 +7,7 @@ import { ApprovalLedgerSchema } from './approval-ledger.js';
 import { CasesIndexSchema, FeatureCaseIndexSchema } from './case-index.js';
 import { ConfigSchema } from './config.js';
 import { DefectDraftSchema } from './defect.js';
+import { SecurityAuditResultSchema, SecurityAuthorizationSchema } from './security.js';
 import { BrowserActionSchema, EvidenceSchema } from './evidence.js';
 import { ManifestSchema } from './manifest.js';
 import { MissingTestIdReportSchema } from './missing-test-id-report.js';
@@ -38,6 +39,8 @@ export const artifactSchemas = {
   evidence: EvidenceSchema,
   'browser-action': BrowserActionSchema,
   'defect-draft': DefectDraftSchema,
+  'security-authorization': SecurityAuthorizationSchema,
+  'security-audit-result': SecurityAuditResultSchema,
   rca: RcaSchema,
   'selector-registry': SelectorRegistrySchema,
   'missing-test-id-report': MissingTestIdReportSchema,

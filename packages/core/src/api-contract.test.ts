@@ -61,6 +61,7 @@ function httpServing(
         ok: route.status < 400,
         status: route.status,
         headers: {},
+        setCookies: [],
         bodyText: route.bodyText,
       });
     },

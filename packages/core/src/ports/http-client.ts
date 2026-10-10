@@ -29,6 +29,11 @@ export interface HttpRequestDetailsOptions extends HttpRequestOptions {
 
 export interface HttpResponseDetails extends HttpResponse {
   readonly headers: Readonly<Record<string, string>>;
+  /**
+   * Each `Set-Cookie` header of the response on its own. `headers` cannot carry them: a cookie's
+   * attributes contain commas, so several cookies folded into one string cannot be told apart.
+   */
+  readonly setCookies: readonly string[];
   readonly bodyText: string;
 }
 
@@ -83,6 +88,7 @@ export const fetchHttpClient: HttpClient = {
       ok: response.ok,
       status: response.status,
       headers: headersToRecord(response.headers),
+      setCookies: response.headers.getSetCookie(),
       bodyText,
     };
   },

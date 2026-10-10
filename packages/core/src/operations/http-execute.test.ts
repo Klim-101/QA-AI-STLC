@@ -80,7 +80,7 @@ describe('runHttpExecute', () => {
       get: () => Promise.reject(new Error('get() not used in this fixture')),
       request: (url: string, options?: Parameters<ReturnType<typeof createFakeHttpClient>['request']>[1]) => {
         receivedOptions = options;
-        return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: '' });
+        return Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: '' });
       },
     };
     const { context } = createContext(httpClient);
@@ -106,7 +106,7 @@ describe('runHttpExecute', () => {
       get: () => Promise.reject(new Error('get() not used in this fixture')),
       request: (url: string, options?: Parameters<ReturnType<typeof createFakeHttpClient>['request']>[1]) => {
         receivedOptions = options;
-        return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: '' });
+        return Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: '' });
       },
     };
     const warn = vi.fn();
@@ -132,7 +132,7 @@ describe('runHttpExecute', () => {
       get: () => Promise.reject(new Error('get() not used in this fixture')),
       request: (url: string, options?: Parameters<ReturnType<typeof createFakeHttpClient>['request']>[1]) => {
         receivedOptions = options;
-        return Promise.resolve({ ok: true, status: 200, headers: {}, bodyText: '' });
+        return Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: '' });
       },
     };
     const warn = vi.fn();

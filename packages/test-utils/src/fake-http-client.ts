@@ -10,6 +10,8 @@ export interface HttpResponseLike {
   readonly status: number;
   /** Only read by `request()`; defaults to `{}` when omitted so existing `get()`-only fixtures are unaffected. */
   readonly headers?: Readonly<Record<string, string>>;
+  /** Only read by `request()`; defaults to `[]` when omitted. */
+  readonly setCookies?: readonly string[];
   /** Only read by `request()`; defaults to `''` when omitted. */
   readonly bodyText?: string;
 }
@@ -27,6 +29,7 @@ export interface HttpResponseDetailsLike {
   readonly ok: boolean;
   readonly status: number;
   readonly headers: Readonly<Record<string, string>>;
+  readonly setCookies: readonly string[];
   readonly bodyText: string;
 }
 
@@ -49,6 +52,7 @@ export function createFakeHttpClient(response: HttpResponseLike | Error): HttpCl
             ok: response.ok,
             status: response.status,
             headers: response.headers ?? {},
+            setCookies: response.setCookies ?? [],
             bodyText: response.bodyText ?? '',
           }),
   };
