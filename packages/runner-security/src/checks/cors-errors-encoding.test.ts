@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
+import { NO_IDENTITY_SESSIONS } from '../identity-sessions.js';
 import {
   scriptedProbe,
   type ScriptedRequest,
@@ -15,7 +16,7 @@ const FOREIGN = 'https://qa-audit-untrusted.example.test';
 
 async function runWith(check: typeof corsCheck, respond: (request: ScriptedRequest) => ScriptedResponse) {
   const { probe, authorization, requests } = scriptedProbe(respond);
-  const outcome = await check.run({ probe, authorization });
+  const outcome = await check.run({ probe, authorization, identities: NO_IDENTITY_SESSIONS });
   return { outcome, requests, ids: outcome.findings.map((finding) => finding.id) };
 }
 

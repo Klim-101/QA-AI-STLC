@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
+import { NO_IDENTITY_SESSIONS } from '../identity-sessions.js';
 import { scriptedProbe, type ScriptedResponse } from '../test-support/scripted-probe.js';
 import { headersCheck } from './headers-check.js';
 
@@ -14,7 +15,7 @@ const PROTECTED: Readonly<Record<string, string>> = {
 
 async function runRoutes(routes: Readonly<Record<string, ScriptedResponse>>, baseUrl: string) {
   const { probe, authorization, requests } = scriptedProbe((request) => routes[request.path] ?? {}, baseUrl);
-  const outcome = await headersCheck.run({ probe, authorization });
+  const outcome = await headersCheck.run({ probe, authorization, identities: NO_IDENTITY_SESSIONS });
   return { outcome, requests, ids: outcome.findings.map((finding) => finding.id) };
 }
 

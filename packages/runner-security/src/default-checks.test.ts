@@ -10,6 +10,9 @@ describe('DEFAULT_SECURITY_CHECKS', () => {
       'headers',
       'cookies',
       'cors',
+      'csrf',
+      'authz',
+      'session',
       'errors',
       'encoding',
     ]);

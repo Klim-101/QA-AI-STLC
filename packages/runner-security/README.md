@@ -21,7 +21,11 @@ redirect followed. Every request, sent or refused, is logged in the audit result
 | `errors`   | Stack traces, database errors and framework banners in a missing-page and a malformed-escape response                                                                                                                              |
 | `encoding` | Whether the usual query parameters are written into a page unencoded. A clean result is `uncertain`: the parameters the application really reads are not discovered                                                                |
 
-`csrf`, `authz` and `session` are authorizable but not implemented yet and report `skipped`.
+| `csrf` | Replays each mutation the authorization names, with the identity's session, a foreign `Origin` and no anti-forgery token. The authorization should carry a complete request body the operator vouches for, otherwise a refusal is `uncertain`. The sign-out path is never replayed |
+| `authz` | Opens each restricted route as the identity that may, as the one that must not (role `low`), and with no session. First confirms the low identity's session is alive, because a dead one is refused everywhere |
+| `session` | Signs out and replays the old session cookie on a page that tells signed-in from anonymous; it ends the identity's session, so it runs after the checks that use it |
+
+Identities sign in through the saved storage state under `.qa/auth/`, or through `authenticate()` (a scripted login whose page must be inside the authorized origin, or an attached Chrome). An identity that cannot sign in makes the checks that need it `blocked`, not `passed`.
 
 A check ends `passed`, `failed`, `skipped`, `blocked` or `uncertain`; the last three are never
 reported as `passed`, and an audit with a blocked check or an exhausted budget is `partial`.

@@ -3,6 +3,8 @@
 
 import type { HttpClient } from '@qa-ai-stlc/core';
 import type { SecurityAuthorization } from '@qa-ai-stlc/schemas';
+import type { CookieFlags } from '../cookie-flags.js';
+import { IdentitySessions, type IdentitySession } from '../identity-sessions.js';
 import { SecurityProbe } from '../security-probe.js';
 
 export interface ScriptedResponse {
@@ -81,4 +83,23 @@ export function scriptedProbe(
     authorization,
     requests,
   };
+}
+
+export function identitySession(
+  name: string,
+  role: IdentitySession['role'],
+  cookies: readonly CookieFlags[] = [],
+): IdentitySession {
+  return { name, role, cookies, cookieHeader: `sid=${name}-session` };
+}
+
+/** Signed-in identities for a check, plus the identities that failed to sign in and why. */
+export function sessionsOf(
+  sessions: readonly IdentitySession[],
+  failures: Readonly<Record<string, string>> = {},
+): IdentitySessions {
+  return new IdentitySessions(
+    new Map(sessions.map((session) => [session.name, session])),
+    new Map(Object.entries(failures)),
+  );
 }
