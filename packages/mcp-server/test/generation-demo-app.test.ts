@@ -1,10 +1,11 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startDemoApp } from '@qa-ai-stlc/test-utils/demo-app-server';
+import type { ManagedServer } from '@qa-ai-stlc/test-utils/managed-server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { casesAddTool } from '../src/tools/cases-add.js';
 import { exploreTool } from '../src/tools/explore.js';
@@ -19,20 +20,7 @@ const PORT = 4396;
 const BASE_URL = `http://localhost:${String(PORT)}/`;
 const STARTUP_TIMEOUT_MS = 60_000;
 
-let demoApp: ChildProcess;
-
-async function waitForServer(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      await fetch(url);
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  }
-  throw new Error(`Demo app did not become reachable at ${url} within ${String(timeoutMs)}ms`);
-}
+let demoApp: ManagedServer;
 
 // A scratch project inside the checkout, not `os.tmpdir()`: the generated spec's own
 // `import { test } from '@playwright/test'` only resolves via Node's directory-walking lookup
@@ -61,16 +49,7 @@ const CONFIG_YAML = [
 let originalCwd: string;
 
 beforeAll(async () => {
-  const npmExecPath = process.env.npm_execpath;
-  if (npmExecPath === undefined) {
-    throw new Error('This test must run through an npm script (npm_execpath is unset).');
-  }
-  demoApp = spawn(process.execPath, [npmExecPath, 'run', 'start', '--workspace', '@qa-ai-stlc/demo-app'], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, DEMO_APP_PORT: String(PORT) },
-    stdio: 'ignore',
-  });
-  await waitForServer(`${BASE_URL}login`, STARTUP_TIMEOUT_MS);
+  demoApp = await startDemoApp(PORT);
 
   process.env.QA_DEMO_CLIENT_ID = 'demo-client';
   process.env.QA_DEMO_CLIENT_SECRET = 'demo-secret';
@@ -133,7 +112,7 @@ beforeAll(async () => {
 }, STARTUP_TIMEOUT_MS + 15_000);
 
 afterAll(async () => {
-  demoApp.kill();
+  await demoApp.stop();
   process.chdir(originalCwd);
   await rm(PROJECT_ROOT, { recursive: true, force: true });
 });

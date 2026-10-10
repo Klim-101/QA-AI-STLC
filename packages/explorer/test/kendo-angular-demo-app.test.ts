@@ -1,9 +1,9 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { spawn, type ChildProcess } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { playwrightBrowserLauncher } from '@qa-ai-stlc/core';
+import { startDemoApp } from '@qa-ai-stlc/test-utils/demo-app-server';
+import type { ManagedServer } from '@qa-ai-stlc/test-utils/managed-server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { analyzePages } from '../src/analyze-pages.js';
 import { buildSelectorRegistry } from '../src/build-selector-registry.js';
@@ -14,37 +14,14 @@ const BASE_URL = `http://localhost:${String(PORT)}`;
 const PAGE_URL = `${BASE_URL}/kendo-angular.html`;
 const STARTUP_TIMEOUT_MS = 60_000;
 
-let demoApp: ChildProcess;
-
-async function waitForServer(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      await fetch(url);
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  }
-  throw new Error(`Demo app did not become reachable at ${url} within ${String(timeoutMs)}ms`);
-}
+let demoApp: ManagedServer;
 
 beforeAll(async () => {
-  const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
-  const npmExecPath = process.env.npm_execpath;
-  if (npmExecPath === undefined) {
-    throw new Error('This test must run through an npm script (npm_execpath is unset).');
-  }
-  demoApp = spawn(process.execPath, [npmExecPath, 'run', 'start', '--workspace', '@qa-ai-stlc/demo-app'], {
-    cwd: repoRoot,
-    env: { ...process.env, DEMO_APP_PORT: String(PORT) },
-    stdio: 'ignore',
-  });
-  await waitForServer(PAGE_URL, STARTUP_TIMEOUT_MS);
+  demoApp = await startDemoApp(PORT);
 }, STARTUP_TIMEOUT_MS + 5_000);
 
-afterAll(() => {
-  demoApp.kill();
+afterAll(async () => {
+  await demoApp.stop();
 });
 
 async function exploreKendoPage(): Promise<Awaited<ReturnType<typeof buildSelectorRegistry>>['registry']> {
