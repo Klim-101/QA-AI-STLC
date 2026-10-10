@@ -157,4 +157,40 @@ describe('playwrightRunner (demo app)', () => {
     },
     STARTUP_TIMEOUT_MS,
   );
+
+  // F3 (#605): the title of a `test.step()` is written by whoever wrote the spec. Against the real
+  // Playwright process, what a step owes is judged by the actions and assertions it contains.
+  it(
+    'holds each required step to real work, and the expected result to a real check',
+    async () => {
+      const engine: EngineContext = {
+        projectRoot: fileURLToPath(new URL('../', import.meta.url)),
+        fs: nodeFileSystem,
+        clock: systemClock,
+        logger: noopLogger,
+        processRunner: nodeProcessRunner,
+        httpClient: fetchHttpClient,
+        browserLauncher: playwrightBrowserLauncher,
+        env: process.env,
+      };
+      const specFile = fileURLToPath(new URL('./fixtures/step-work.playwright-spec.ts', import.meta.url));
+
+      const outcomes = await playwrightRunner.run(engine, {
+        runId: 'run-step-work',
+        baseUrl: BASE_URL,
+        specFiles: [specFile],
+        requiredStepIds: ['step-1', 'expected-result'],
+      });
+
+      const byCase = (id: string) => outcomes.find((outcome) => outcome.result.testCaseId === id)?.result;
+      expect(byCase('empty-steps')).toMatchObject({
+        status: 'partial',
+        missingStepIds: ['step-1', 'expected-result'],
+      });
+      expect(byCase('real-work')?.status).toBe('passed');
+      expect(byCase('tautology')).toMatchObject({ status: 'partial', missingStepIds: ['expected-result'] });
+      expect(byCase('violation')?.status).toBe('failed');
+    },
+    STARTUP_TIMEOUT_MS,
+  );
 });

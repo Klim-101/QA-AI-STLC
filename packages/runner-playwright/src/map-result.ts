@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  EXPECTED_RESULT_STEP_ID,
   QaError,
   randomIdGenerator,
   type FileSystem,
@@ -23,6 +24,7 @@ import {
   type PlaywrightJsonReport,
   type PlaywrightTestResult,
 } from './json-report.js';
+import { findStepsWithoutWork, type ExpectedResultCheck, type StepWorkReport } from './step-work.js';
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled Playwright test status: ${String(value)}`);
@@ -69,6 +71,14 @@ function parseDeclaredStepIds(description: string | undefined): readonly string[
   return description.split(',').map((id) => id.trim());
 }
 
+function describeIncompleteSteps(notRun: readonly string[], idle: readonly string[]): string {
+  const parts = [
+    ...(notRun.length > 0 ? [`Missing step coverage for: ${notRun.join(', ')}`] : []),
+    ...(idle.length > 0 ? [`Steps that ran no action or check: ${idle.join(', ')}`] : []),
+  ];
+  return `${parts.join('. ')}.`;
+}
+
 export interface MapReportOptions {
   readonly report: PlaywrightJsonReport;
   readonly runId: Identifier;
@@ -77,6 +87,11 @@ export interface MapReportOptions {
   readonly idGenerator?: IdGenerator;
   /** See `RunnerInput.requiredStepIds` (`@qa-ai-stlc/core`, P3-20). */
   readonly requiredStepIds?: readonly string[];
+  /**
+   * What each step did, when the caller has a canonical step set to hold the spec to (`requiredStepIds`).
+   * A step that ran no action or check is reported like a step that did not run.
+   */
+  readonly stepWork?: StepWorkReport;
   /** Attachment content types a runner of another test type turns into evidence on top of the capture ones. */
   readonly extraEvidenceKindsByContentType?: Readonly<Record<string, EvidenceKind>>;
 }
@@ -85,6 +100,12 @@ export interface MapReportOptions {
 // attachments this runner turns into evidence; a hand-written spec's own `testInfo.attach()` calls
 // produce attachments with other content types, which are left for the operator to inspect through
 // Playwright's own HTML report instead of duplicating them into the evidence store.
+const EXPECTED_RESULT_CHECK_BY_TEST_TYPE: Readonly<Record<TestType, ExpectedResultCheck>> = {
+  e2e: 'web-first-assertion',
+  api: 'any-assertion',
+  a11y: 'any-work',
+};
+
 const EVIDENCE_KIND_BY_CONTENT_TYPE: Readonly<Record<string, EvidenceKind>> = {
   'image/png': 'screenshot',
   'application/zip': 'trace',
@@ -158,7 +179,19 @@ export async function mapReportToRunResults(options: MapReportOptions): Promise<
       const declaredStepIds = parseDeclaredStepIds(stepIdsAnnotation?.description);
       const requiredStepIds = options.requiredStepIds ?? declaredStepIds;
       const observedStepIds = new Set(collectStepIds(lastResult.steps));
-      const missingStepIds = requiredStepIds.filter((id) => !observedStepIds.has(id));
+      const notRunStepIds = requiredStepIds.filter((id) => !observedStepIds.has(id));
+      // A step whose title appeared but that contained no action or check is as unexercised as one
+      // that never ran: the generated code picks the titles, the Playwright process reports the work.
+      const idleStepIds =
+        options.stepWork === undefined
+          ? []
+          : findStepsWithoutWork(
+              requiredStepIds.filter((id) => observedStepIds.has(id)),
+              EXPECTED_RESULT_STEP_ID,
+              options.stepWork[annotation.description] ?? {},
+              EXPECTED_RESULT_CHECK_BY_TEST_TYPE[options.testType],
+            );
+      const missingStepIds = [...notRunStepIds, ...idleStepIds];
 
       // Incomplete step coverage on a test Playwright itself considers finished (passed or
       // failed) means the case was not actually exercised in full — reporting it as `passed` or
@@ -185,7 +218,7 @@ export async function mapReportToRunResults(options: MapReportOptions): Promise<
                 message: stripAnsiCodes(
                   failureMessage ??
                     (status === 'partial'
-                      ? `Missing step coverage for: ${missingStepIds.join(', ')}.`
+                      ? describeIncompleteSteps(notRunStepIds, idleStepIds)
                       : 'Playwright reported a failure with no error message.'),
                 ),
               },

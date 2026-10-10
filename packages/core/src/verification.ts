@@ -138,7 +138,7 @@ function executionIssues(result: RunResult): readonly SpokeValidationIssue[] {
     case 'partial':
       return (result.missingStepIds ?? []).map((stepId) => ({
         path: [stepId],
-        message: `Step "${stepId}" did not run or did not complete.`,
+        message: `Step "${stepId}" did not run, did not complete, or ran no action or check.`,
       }));
     case 'blocked':
     case 'skipped':
@@ -234,6 +234,12 @@ async function readRegisteredTestCase(
  * `'verified'` record's `verificationId` lets `registerVerifiedGeneratedTestSpec` write the spec.
  * Either failure mode returns `SpokeValidationIssue[]` in the same shape `SpokeErrorSchema.issues`
  * already uses, so the hub can re-dispatch the generating spoke with exactly what to fix.
+ *
+ * `'verified'` guarantees that the spec compiles, passed a real run, and that every step the case
+ * has ran at least one action or assertion, observed by the Playwright process itself rather than
+ * read from step titles. The expected result must also contain a check: a web-first assertion for
+ * a browser test, any assertion for an API test. It does not guarantee that the checks are the
+ * right ones for the case; that stays a judgment for the agent and the reviewer.
  */
 export async function verifyGeneratedTestSpec(
   context: EngineContext,

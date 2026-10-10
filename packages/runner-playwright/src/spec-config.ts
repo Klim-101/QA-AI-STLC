@@ -49,6 +49,11 @@ export interface SpecConfigOptions {
    * inside a compressed archive.
    */
   readonly isTraceEnabled?: boolean;
+  /**
+   * The step-work reporter (`step-work-reporter.ts`) to run next to the JSON one, and the file it
+   * writes. Only a verification run asks for it: it has a single required step set to check.
+   */
+  readonly stepWork?: { readonly reporterPath: string; readonly outputFile: string };
 }
 
 const DEFAULT_TEST_ID_ATTRIBUTE = 'data-testid';
@@ -84,7 +89,12 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
       screenshot: 'only-on-failure',
       trace: options.isTraceEnabled === false ? 'off' : 'retain-on-failure',
     },
-    reporter: [['json', { outputFile: options.reportPath }]],
+    reporter: [
+      ['json', { outputFile: options.reportPath }],
+      ...(options.stepWork === undefined
+        ? []
+        : [[options.stepWork.reporterPath, { outputFile: options.stepWork.outputFile }]]),
+    ],
   };
   return { source: `export default ${JSON.stringify(config, null, 2)};\n`, testDir };
 }
