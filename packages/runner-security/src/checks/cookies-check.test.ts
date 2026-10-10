@@ -2,12 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { scriptedProbe, type ScriptedResponse } from '../test-support/scripted-probe.js';
+import { NO_IDENTITY_SESSIONS, type IdentitySessions } from '../identity-sessions.js';
+import {
+  identitySession,
+  scriptedProbe,
+  sessionsOf,
+  type ScriptedResponse,
+} from '../test-support/scripted-probe.js';
 import { cookiesCheck } from './cookies-check.js';
 
-async function run(routes: Readonly<Record<string, ScriptedResponse>>, baseUrl: string) {
+async function run(
+  routes: Readonly<Record<string, ScriptedResponse>>,
+  baseUrl: string,
+  identities: IdentitySessions = NO_IDENTITY_SESSIONS,
+) {
   const { probe, authorization } = scriptedProbe((request) => routes[request.path] ?? {}, baseUrl);
-  const outcome = await cookiesCheck.run({ probe, authorization });
+  const outcome = await cookiesCheck.run({ probe, authorization, identities });
   return { outcome, ids: outcome.findings.map((finding) => finding.id) };
 }
 
@@ -19,7 +29,7 @@ describe('cookiesCheck', () => {
     const { outcome } = await run({}, HTTP);
 
     expect(outcome.status).toBe('skipped');
-    expect(outcome.note).toContain('once an identity signs in');
+    expect(outcome.note).toContain('no identity was signed in');
     expect(outcome.findings).toEqual([]);
   });
 
@@ -37,7 +47,7 @@ describe('cookiesCheck', () => {
 
     expect(outcome).toMatchObject({
       status: 'passed',
-      note: 'Checked 1 cookie(s) set for an anonymous visitor.',
+      note: 'Checked 1 cookie(s) held by anonymous visitors and signed-in identities.',
       findings: [],
     });
   });
@@ -95,7 +105,7 @@ describe('cookiesCheck', () => {
     );
 
     expect(outcome.findings.map((finding) => finding.id)).toEqual(['cookies-sid-httponly']);
-    expect(outcome.note).toBe('Checked 2 cookie(s) set for an anonymous visitor.');
+    expect(outcome.note).toBe('Checked 2 cookie(s) held by anonymous visitors and signed-in identities.');
   });
 
   it('keeps the last Set-Cookie of a name, as a browser would', async () => {
@@ -108,12 +118,87 @@ describe('cookiesCheck', () => {
     );
 
     expect(outcome.findings).toEqual([]);
-    expect(outcome.note).toBe('Checked 1 cookie(s) set for an anonymous visitor.');
+    expect(outcome.note).toBe('Checked 1 cookie(s) held by anonymous visitors and signed-in identities.');
   });
 
   it('cites the request that set the cookie', async () => {
     const { outcome } = await run({ '/login': { setCookies: ['sid=abc; SameSite=Lax'] } }, HTTP);
 
     expect(outcome.findings[0]?.requestIndexes).toEqual([1]);
+  });
+});
+
+describe('cookiesCheck with signed-in identities', () => {
+  const unprotected = { name: 'connect.sid', isHttpOnly: false, isSecure: false, sameSite: 'lax' };
+
+  it('finds the session cookie of a signed-in identity that scripts can read, citing no request', async () => {
+    const { outcome } = await run({}, HTTP, sessionsOf([identitySession('member', 'low', [unprotected])]));
+
+    expect(outcome.findings).toHaveLength(1);
+    expect(outcome.findings[0]).toMatchObject({
+      id: 'cookies-connect-sid-httponly',
+      severityProposal: 'major',
+      confidence: 'high',
+      requestIndexes: [],
+      steps: [
+        'Sign in as the signed-in identity "member"',
+        'Read the attributes of the cookies the browser session holds',
+      ],
+    });
+  });
+
+  it('passes when the identity holds protected cookies', async () => {
+    const protectedCookie = { name: 'sid', isHttpOnly: true, isSecure: true, sameSite: 'strict' };
+
+    const { outcome } = await run(
+      {},
+      HTTPS,
+      sessionsOf([identitySession('member', 'low', [protectedCookie])]),
+    );
+
+    expect(outcome).toMatchObject({ status: 'passed', findings: [] });
+  });
+
+  it('prefers the session cookie over the anonymous one of the same name', async () => {
+    const { outcome } = await run(
+      { '/': { setCookies: ['sid=anon; HttpOnly; SameSite=Lax'] } },
+      HTTP,
+      sessionsOf([
+        identitySession('member', 'low', [
+          { name: 'sid', isHttpOnly: false, isSecure: false, sameSite: 'lax' },
+        ]),
+      ]),
+    );
+
+    expect(outcome.findings.map((finding) => finding.id)).toEqual(['cookies-sid-httponly']);
+  });
+
+  it('is blocked, not skipped, when an identity could not sign in and no cookie was seen', async () => {
+    const { outcome } = await run({}, HTTP, sessionsOf([], { member: 'sign-in failed' }));
+
+    expect(outcome.status).toBe('blocked');
+    expect(outcome.note).toContain('member: sign-in failed');
+  });
+
+  it('is uncertain when cookies are fine but an identity could not sign in', async () => {
+    const { outcome } = await run(
+      { '/': { setCookies: ['sid=abc; HttpOnly; SameSite=Lax'] } },
+      HTTP,
+      sessionsOf([], { member: 'sign-in failed' }),
+    );
+
+    expect(outcome.status).toBe('uncertain');
+    expect(outcome.note).toContain('could not sign in');
+  });
+
+  it('still reports a finding when an identity could not sign in', async () => {
+    const { outcome } = await run(
+      { '/': { setCookies: ['sid=abc; SameSite=Lax'] } },
+      HTTP,
+      sessionsOf([], { member: 'sign-in failed' }),
+    );
+
+    expect(outcome.status).toBe('passed');
+    expect(outcome.findings).toHaveLength(1);
   });
 });

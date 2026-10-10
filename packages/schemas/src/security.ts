@@ -38,6 +38,12 @@ export const SecurityAllowedMutationSchema = z.object({
   method: SecurityMutationMethodSchema,
   path: AuthorizedPathSchema,
   reason: z.string().min(1),
+  // A complete request the operator vouches for as harmless (a record carrying the project's owner
+  // marker, for instance). The CSRF check sends it without any token: only a request that would
+  // succeed is a fair test, because an empty body is refused for reasons that have nothing to do
+  // with CSRF. Without it the check can report only `uncertain`.
+  body: z.string().min(1).optional(),
+  contentType: z.string().min(1).optional(),
 });
 export type SecurityAllowedMutation = z.infer<typeof SecurityAllowedMutationSchema>;
 

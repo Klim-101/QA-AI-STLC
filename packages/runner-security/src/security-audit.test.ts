@@ -497,3 +497,73 @@ describe('runSecurityAudit scope', () => {
     expect(clientOptions).toHaveLength(2);
   });
 });
+
+describe('runSecurityAudit identities', () => {
+  it('signs the authorized identities in and hands them to the checks', async () => {
+    const { context } = await harness({ authorizationValue: authorization({ checks: ['authz'] }) });
+    let seen: readonly string[] = [];
+
+    await runSecurityAudit(context, {
+      identities: {
+        storageStateFor: () =>
+          Promise.resolve({
+            cookies: [
+              {
+                name: 'sid',
+                value: 'v',
+                domain: 'staging.example.test',
+                path: '/',
+                expires: -1,
+                httpOnly: true,
+                secure: false,
+                sameSite: 'Lax',
+              },
+            ],
+            origins: [],
+          }),
+      },
+      checks: [
+        check('authz', ({ identities }) => {
+          seen = identities.all().map((session) => `${session.name}:${session.role}`);
+          return Promise.resolve(PASSING);
+        }),
+      ],
+    });
+
+    expect(seen).toEqual(['member:low']);
+  });
+
+  it('gives the checks no identities when the authorization names none, and signs nobody in', async () => {
+    const { context } = await harness({
+      authorizationValue: authorization({ checks: ['authz'], identities: [] }),
+    });
+    let count = -1;
+
+    await runSecurityAudit(context, {
+      checks: [
+        check('authz', ({ identities }) => {
+          count = identities.all().length;
+          return Promise.resolve(PASSING);
+        }),
+      ],
+    });
+
+    expect(count).toBe(0);
+  });
+
+  it('lets a check report an identity that could not sign in', async () => {
+    const { context } = await harness({ authorizationValue: authorization({ checks: ['authz'] }) });
+    let failures: string | undefined;
+
+    await runSecurityAudit(context, {
+      checks: [
+        check('authz', ({ identities }) => {
+          failures = identities.describeFailures();
+          return Promise.resolve(PASSING);
+        }),
+      ],
+    });
+
+    expect(failures).toContain('member');
+  });
+});

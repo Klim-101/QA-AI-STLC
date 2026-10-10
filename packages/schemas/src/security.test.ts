@@ -115,6 +115,35 @@ describe('SecurityAuthorizationSchema', () => {
   });
 });
 
+describe('SecurityAllowedMutationSchema body', () => {
+  it('accepts a request body with its content type, and neither', () => {
+    const withBody = {
+      ...baseAuthorization(),
+      allowedMutations: [
+        {
+          method: 'POST',
+          path: '/tasks',
+          reason: 'Creates a record that carries the owner marker',
+          body: 'title=qa-ai-stlc+audit',
+          contentType: 'application/x-www-form-urlencoded',
+        },
+      ],
+    };
+
+    expect(SecurityAuthorizationSchema.safeParse(withBody).success).toBe(true);
+    expect(SecurityAuthorizationSchema.safeParse(baseAuthorization()).success).toBe(true);
+  });
+
+  it('rejects an empty body', () => {
+    const empty = {
+      ...baseAuthorization(),
+      allowedMutations: [{ method: 'POST', path: '/tasks', reason: 'r', body: '' }],
+    };
+
+    expect(SecurityAuthorizationSchema.safeParse(empty).success).toBe(false);
+  });
+});
+
 describe('SecurityFindingSchema', () => {
   it('accepts a complete finding', () => {
     expect(SecurityFindingSchema.safeParse(baseFinding()).success).toBe(true);

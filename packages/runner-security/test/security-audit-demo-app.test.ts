@@ -42,7 +42,9 @@ const CONFIG_YAML = [
   'schemaVersion: 1',
   'testing: { e2e: undecided, api: undecided, a11y: undecided, security: in-scope }',
   `environments:\n  demo: { baseUrl: "${BASE_URL}", allowlist: ["localhost"] }`,
-  'identities: {}',
+  'identities:',
+  `  member: { auth: storage-state, secret: QA_DEMO_EMPLOYEE_PASSWORD, loginUrl: "${BASE_URL}login", username: employee@example.com }`,
+  `  admin: { auth: storage-state, secret: QA_DEMO_ADMIN_PASSWORD, loginUrl: "${BASE_URL}login", username: admin@example.com }`,
   'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
   'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
   'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
@@ -52,12 +54,24 @@ const CONFIG_YAML = [
 const AUTHORIZATION = {
   schemaVersion: 1,
   environment: { name: 'demo', baseUrl: BASE_URL, allowlist: ['localhost'] },
-  // `csrf` is authorized but not implemented yet: it must come back skipped, not passed.
-  checks: ['headers', 'cookies', 'cors', 'csrf', 'errors', 'encoding'],
-  identities: [],
+  checks: ['headers', 'cookies', 'cors', 'csrf', 'authz', 'session', 'errors', 'encoding'],
+  identities: [
+    { name: 'member', role: 'low' },
+    { name: 'admin', role: 'high' },
+  ],
   prohibitedActions: ['brute force', 'denial of service', 'writes outside owned test records'],
-  allowedMutations: [],
-  restrictedRoutes: [],
+  allowedMutations: [
+    {
+      method: 'POST',
+      path: '/tasks',
+      reason: 'Creates one task that carries the project owner marker',
+      body: 'title=qa-ai-stlc+security+audit&priority=low&assignee=',
+      contentType: 'application/x-www-form-urlencoded',
+    },
+    { method: 'POST', path: '/logout', reason: 'Ends the audit identity session' },
+  ],
+  restrictedRoutes: ['/admin/users'],
+  logoutPath: '/logout',
   rateLimit: { requestsPerSecond: 50, maxRequests: 100 },
   createdAt: '2026-10-10T10:00:00Z',
 };
@@ -75,7 +89,8 @@ async function createProject(projectRoot: string): Promise<EngineContext> {
     processRunner: nodeProcessRunner,
     httpClient: fetchHttpClient,
     browserLauncher: playwrightBrowserLauncher,
-    env: process.env,
+    // The demo app's published sample credentials, passed the way a real secret would be.
+    env: { ...process.env, QA_DEMO_EMPLOYEE_PASSWORD: 'employee123', QA_DEMO_ADMIN_PASSWORD: 'admin123' },
   };
 }
 
@@ -105,20 +120,28 @@ describe('security audit (demo app)', () => {
 
       const statusOf = (checkClass: string) =>
         result.checks.find((entry) => entry.checkClass === checkClass)?.status;
-      expect(statusOf('headers')).toBe('failed');
-      expect(statusOf('cookies')).toBe('skipped');
-      expect(statusOf('cors')).toBe('passed');
-      expect(statusOf('csrf')).toBe('skipped');
-      expect(statusOf('encoding')).toBe('uncertain');
-      const headerFindings = result.findings
-        .filter((finding) => finding.checkClass === 'headers')
-        .map((finding) => finding.id);
-      expect(headerFindings).toEqual(
+      const findingIds = result.findings.map((finding) => finding.id);
+
+      // The catalogued security bugs: BUG-005 (any signed-in user opens the admin list), BUG-010
+      // (the anti-forgery token is never verified) and BUG-012 (the session cookie lacks HttpOnly).
+      expect(findingIds).toEqual(
         expect.arrayContaining([
-          'headers-content-security-policy',
-          'headers-x-content-type-options',
-          'headers-technology-banner',
+          'authz-admin-users-low-privilege',
+          'csrf-post-tasks',
+          'cookies-connect-sid-httponly',
         ]),
+      );
+      expect(findingIds).not.toContain('authz-admin-users-anonymous');
+      expect(statusOf('authz')).toBe('failed');
+      expect(statusOf('csrf')).toBe('failed');
+      expect(statusOf('cookies')).toBe('failed');
+      expect(statusOf('headers')).toBe('failed');
+      expect(statusOf('cors')).toBe('passed');
+      expect(statusOf('encoding')).toBe('uncertain');
+      // The demo app does end the session on sign-out, so this check has nothing to report.
+      expect(statusOf('session')).toBe('passed');
+      expect(findingIds).toEqual(
+        expect.arrayContaining(['headers-content-security-policy', 'headers-technology-banner']),
       );
 
       // Zero requests outside the allowlist: everything the audit sent stayed on the demo origin.
@@ -135,17 +158,22 @@ describe('security audit (demo app)', () => {
       };
       expect(stored.auditId).toBe(result.auditId);
       expect(drafts).toHaveLength(result.findings.length);
-      const draft = drafts.find((candidate) => candidate.id === 'security-headers-content-security-policy');
-      expect(draft).toMatchObject({ category: 'security', status: 'draft', evidencePaths: [evidencePath] });
+      const draft = drafts.find((candidate) => candidate.id === 'security-authz-admin-users-low-privilege');
+      expect(draft).toMatchObject({
+        category: 'security',
+        status: 'draft',
+        severityProposal: 'critical',
+        evidencePaths: [evidencePath],
+      });
 
       // The draft goes through the ordinary defect gate unchanged.
       await mkdir(join(projectRoot, 'defects'), { recursive: true });
-      await writeFile(join(projectRoot, 'defects', 'csp.json'), JSON.stringify(draft));
-      await expect(runDefectAdd(engine, { path: 'defects/csp.json' })).resolves.toMatchObject({
-        id: 'security-headers-content-security-policy',
+      await writeFile(join(projectRoot, 'defects', 'authz.json'), JSON.stringify(draft));
+      await expect(runDefectAdd(engine, { path: 'defects/authz.json' })).resolves.toMatchObject({
+        id: 'security-authz-admin-users-low-privilege',
       });
       await expect(
-        runDefectAccept(engine, { id: 'security-headers-content-security-policy', approvedBy: 'operator' }),
+        runDefectAccept(engine, { id: 'security-authz-admin-users-low-privilege', approvedBy: 'operator' }),
       ).resolves.toMatchObject({ status: 'accepted' });
     });
   }, 120_000);

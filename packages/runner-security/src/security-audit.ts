@@ -23,6 +23,12 @@ import {
   type SecurityCheckStatus,
   type SecurityFinding,
 } from '@qa-ai-stlc/schemas';
+import {
+  NO_IDENTITY_SESSIONS,
+  openIdentitySessions,
+  type IdentitySessions,
+  type OpenIdentitySessionsOptions,
+} from './identity-sessions.js';
 import type { SecurityCheck } from './security-check.js';
 import { SecurityProbe } from './security-probe.js';
 
@@ -33,6 +39,8 @@ export interface RunSecurityAuditOptions {
   /** See `SecurityProbeOptions.pause`. */
   readonly pause?: (milliseconds: number) => Promise<void>;
   readonly requestTimeoutMs?: number;
+  /** See `OpenIdentitySessionsOptions`. */
+  readonly identities?: OpenIdentitySessionsOptions;
 }
 
 export interface SecurityAuditOutcome {
@@ -74,7 +82,17 @@ export async function runSecurityAudit(
     ...(options.requestTimeoutMs !== undefined ? { requestTimeoutMs: options.requestTimeoutMs } : {}),
   });
 
-  const { checks, findings, stoppedReason } = await runChecks(context, authorization, probe, options.checks);
+  const identities =
+    authorization.identities.length > 0
+      ? await openIdentitySessions(context, authorization, options.identities)
+      : NO_IDENTITY_SESSIONS;
+  const { checks, findings, stoppedReason } = await runChecks(
+    context,
+    authorization,
+    probe,
+    identities,
+    options.checks,
+  );
   const isClean = stoppedReason === undefined && checks.every((entry) => entry.status !== 'blocked');
   const result: SecurityAuditResult = {
     schemaVersion: 1,
@@ -105,6 +123,7 @@ async function runChecks(
   context: EngineContext,
   authorization: SecurityAuthorization,
   probe: SecurityProbe,
+  identities: IdentitySessions,
   implementations: readonly SecurityCheck[],
 ): Promise<{ checks: CheckEntry[]; findings: SecurityFinding[]; stoppedReason?: string }> {
   const entries: CheckEntry[] = [];
@@ -125,7 +144,7 @@ async function runChecks(
       continue;
     }
     try {
-      const outcome = await implementation.run({ probe, authorization });
+      const outcome = await implementation.run({ probe, authorization, identities });
       for (const finding of outcome.findings) {
         if (finding.checkClass !== checkClass || findings.some((known) => known.id === finding.id)) {
           throw new QaError(

@@ -7,12 +7,15 @@ import type {
   SecurityCheckStatus,
   SecurityFinding,
 } from '@qa-ai-stlc/schemas';
+import type { IdentitySessions } from './identity-sessions.js';
 import type { SecurityProbe } from './security-probe.js';
 
 export interface SecurityCheckInput {
   /** The only way a check reaches the application; every authorized limit is enforced inside it. */
   readonly probe: SecurityProbe;
   readonly authorization: SecurityAuthorization;
+  /** The identities the authorization names, signed in; empty when it names none. */
+  readonly identities: IdentitySessions;
 }
 
 export interface SecurityCheckOutcome {
