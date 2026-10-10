@@ -14,6 +14,9 @@ vi.mock('@qa-ai-stlc/runner-playwright', () => ({
   runPlaywrightSpecs: (...args: unknown[]) => runPlaywrightSpecs(...args),
 }));
 
+// The rule tags of the default target (WCAG 2.1 AA), which axe-core echoes back in a real result.
+const AXE_DEFAULT_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+
 const { a11yRunner } = await import('./a11y-runner.js');
 
 function engine(): EngineContext {
@@ -69,7 +72,20 @@ describe('a11yRunner', () => {
           finishedAt: '2026-10-06T12:00:01.000Z',
           evidenceIds: [],
         },
-        evidence: [{ kind: 'other', content: JSON.stringify({ violations: [{ id: 'image-alt' }] }) }],
+        evidence: [
+          {
+            kind: 'other',
+            content: JSON.stringify({
+              testEngine: { name: 'axe-core', version: '4.0.0' },
+              url: 'https://staging.example.test/',
+              toolOptions: { runOnly: { type: 'tag', values: AXE_DEFAULT_TAGS } },
+              violations: [{ id: 'image-alt' }],
+              incomplete: [],
+              passes: [],
+              inapplicable: [],
+            }),
+          },
+        ],
       },
     ]);
 
