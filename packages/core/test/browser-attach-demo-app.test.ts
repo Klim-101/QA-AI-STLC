@@ -1,14 +1,14 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { chromium, type BrowserContext } from 'playwright-core';
+import { startDemoApp } from '@qa-ai-stlc/test-utils/demo-app-server';
+import type { ManagedServer } from '@qa-ai-stlc/test-utils/managed-server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BrowserSessionStore } from '../src/browser-session-store.js';
 import type { EngineContext } from '../src/engine-context.js';
@@ -33,7 +33,7 @@ const OFF_ALLOWLIST_URL = `http://127.0.0.1:${String(PORT)}/api/whoami`;
 const STARTUP_TIMEOUT_MS = 60_000;
 const TOKEN_PATTERN = /demo-token-\d+/u;
 
-let demoApp: ChildProcess;
+let demoApp: ManagedServer;
 let operatorBrowser: BrowserContext;
 let operatorProfileDir: string;
 let debugPort: number;
@@ -70,16 +70,7 @@ function freePort(): Promise<number> {
 
 beforeAll(
   async () => {
-    const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
-    const npmExecPath = process.env.npm_execpath;
-    if (npmExecPath === undefined) {
-      throw new Error('This test must run through an npm script (npm_execpath is unset).');
-    }
-    demoApp = spawn(process.execPath, [npmExecPath, 'run', 'start', '--workspace', '@qa-ai-stlc/demo-app'], {
-      cwd: repoRoot,
-      env: { ...process.env, DEMO_APP_PORT: String(PORT) },
-      stdio: 'ignore',
-    });
+    demoApp = await startDemoApp(PORT);
     await waitFor(`${BASE_URL}login`, STARTUP_TIMEOUT_MS);
 
     // The operator's own Chrome: a browser with a debugging port that is already on the page that
@@ -100,7 +91,7 @@ beforeAll(
 
 afterAll(async () => {
   await operatorBrowser.close();
-  demoApp.kill();
+  await demoApp.stop();
   // Chrome may hold files in its profile for a moment after it exits; a leftover directory under
   // the OS temp folder is harmless, a failed teardown is not.
   await rm(operatorProfileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }).catch(
