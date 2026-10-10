@@ -1,5 +1,16 @@
 # @qa-ai-stlc/runner-a11y
 
+## 1.6.1
+
+### Patch Changes
+
+- Updated dependencies [f6dd64c]
+- Updated dependencies [05ec635]
+- Updated dependencies [597ec65]
+- Updated dependencies [3ef1938]
+  - @qa-ai-stlc/core@1.6.1
+  - @qa-ai-stlc/runner-playwright@1.6.1
+
 ## 1.6.0
 
 ### Minor Changes
