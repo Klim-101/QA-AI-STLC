@@ -8,6 +8,8 @@ import {
   type A11yException,
   type A11yScanRecord,
 } from '@qa-ai-stlc/schemas';
+import { z } from 'zod';
+import { QaError } from '../errors.js';
 
 export interface AxeRunPlan {
   readonly tags: readonly string[];
@@ -144,6 +146,55 @@ export function classifyAxeResult(
   };
 }
 
+// The fields of a real `axe.run` result the engine relies on. axe-core always returns all four
+// result lists, its own `testEngine` and the options it ran with, so a `{}` or a hand-written
+// stand-in cannot pass as a completed scan. Entries stay open: the rest of a result is evidence.
+const AxeEntrySchema = z.looseObject({ id: z.string().min(1) });
+const AxeResultSchema = z.looseObject({
+  testEngine: z.looseObject({ name: z.literal('axe-core'), version: z.string().min(1) }),
+  url: z.string().min(1),
+  toolOptions: z.looseObject({ runOnly: z.looseObject({ values: z.array(z.string()) }) }),
+  violations: z.array(AxeEntrySchema),
+  incomplete: z.array(AxeEntrySchema),
+  passes: z.array(AxeEntrySchema),
+  inapplicable: z.array(AxeEntrySchema),
+});
+
+/**
+ * Validates a raw axe-core result and checks it ran the rule tags the plan asked for. The tags are
+ * the only part of the plan axe-core echoes back, so they are the evidence the configuration was
+ * applied rather than assumed.
+ */
+export function parseAxeResult(raw: unknown, plan: AxeRunPlan): z.infer<typeof AxeResultSchema> {
+  const parsed = AxeResultSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new QaError(
+      'A11Y_SCAN_RESULT_INVALID',
+      `The accessibility scan result is not a complete axe-core result: ${parsed.error.issues
+        .slice(0, 3)
+        .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+        .join('; ')}`,
+      {
+        remediation:
+          'Produce the result with `scanAccessibility(page, testInfo)` or the engine scan tool, which run axe-core itself.',
+      },
+    );
+  }
+  const ranTags = [...parsed.data.toolOptions.runOnly.values].sort();
+  const plannedTags = [...plan.tags].sort();
+  if (ranTags.length !== plannedTags.length || ranTags.some((tag, index) => tag !== plannedTags[index])) {
+    throw new QaError(
+      'A11Y_SCAN_CONFIG_MISMATCH',
+      `The scan ran rule tags [${ranTags.join(', ')}] but the configured accessibility target needs [${plannedTags.join(', ')}].`,
+      {
+        remediation:
+          'Re-run the scan after the accessibility configuration is final; do not reuse a result produced under another target.',
+      },
+    );
+  }
+  return parsed.data;
+}
+
 export interface BuildA11yScanRecordOptions {
   readonly a11y: A11yConfig;
   readonly plan: AxeRunPlan;
@@ -162,7 +213,8 @@ export interface BuildA11yScanRecordOptions {
 export function buildA11yScanRecord(
   options: BuildA11yScanRecordOptions,
 ): Omit<A11yScanRecord, 'schemaVersion'> {
-  const { a11y, plan, scanResult } = options;
+  const { a11y, plan } = options;
+  const scanResult = parseAxeResult(options.scanResult, plan);
   const classified = classifyAxeResult(scanResult, a11y.exceptions, options.today);
   return {
     type: 'a11y-scan',

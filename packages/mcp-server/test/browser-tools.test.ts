@@ -37,6 +37,9 @@ import { createBrowserSnapshotTool } from '../src/tools/browser-snapshot.js';
 import type { BrowserToolDependencies } from '../src/tools/browser-dependencies.js';
 import { createRegistryExecuteRegisterTool } from '../src/tools/registry-execute-register.js';
 
+// The rule tags of the default target (WCAG 2.1 AA), which axe-core echoes back in a real result.
+const AXE_DEFAULT_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+
 const CONFIG_YAML = [
   'schemaVersion: 1',
   'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
@@ -117,7 +120,16 @@ function createFakeBrowser(): FakeBrowser {
     },
     // Only `qa.browser_accessibility_scan` calls `evaluate` (it runs axe-core's injected `run()`),
     // so a fixed one-violation result is safe to return unconditionally here.
-    evaluate: () => Promise.resolve({ violations: [{ id: 'color-contrast' }] }),
+    evaluate: () =>
+      Promise.resolve({
+        testEngine: { name: 'axe-core', version: '4.0.0' },
+        url: 'https://staging.example.test/',
+        toolOptions: { runOnly: { type: 'tag', values: AXE_DEFAULT_TAGS } },
+        violations: [{ id: 'color-contrast' }],
+        incomplete: [],
+        passes: [],
+        inapplicable: [],
+      }),
     ariaSnapshotJSON: () =>
       Promise.resolve({
         role: 'document',

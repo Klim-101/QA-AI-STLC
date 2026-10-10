@@ -7,6 +7,9 @@ import {
   BROWSER_TEST_CONFIG_YAML,
   createBrowserTestHarness,
 } from '../test-support/browser-session-harness.js';
+import { DEFAULT_A11Y_CONFIG } from '@qa-ai-stlc/schemas';
+import { axeResult } from '../test-support/axe-result.js';
+import { planAxeRun } from './a11y-scan-plan.js';
 import { runBrowserAccessibilityScan } from './browser-accessibility-scan.js';
 import { runBrowserNavigate } from './browser-navigate.js';
 import { runBrowserOpen } from './browser-open.js';
@@ -14,7 +17,9 @@ import { runBrowserOpen } from './browser-open.js';
 describe('runBrowserAccessibilityScan', () => {
   it('injects axe-core, runs a scan and registers the raw result as evidence', async () => {
     const harness = createBrowserTestHarness({
-      launcherOptions: { evaluateResult: { violations: [{ id: 'color-contrast' }, { id: 'label' }] } },
+      launcherOptions: {
+        evaluateResult: axeResult({ violations: [{ id: 'color-contrast' }, { id: 'label' }] }),
+      },
     });
     const { sessionId } = await runBrowserOpen(harness.context);
     await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/login' });
@@ -36,7 +41,7 @@ describe('runBrowserAccessibilityScan', () => {
   });
 
   it('records the axe-core version and a hash of the effective a11y config in the evidence', async () => {
-    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: { violations: [] } } });
+    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: axeResult() } });
     const { sessionId } = await runBrowserOpen(harness.context);
 
     const result = await runBrowserAccessibilityScan(harness.context, { sessionId });
@@ -58,8 +63,11 @@ describe('runBrowserAccessibilityScan', () => {
   it('hashes a different effective config differently', async () => {
     const strict = createBrowserTestHarness({
       configYaml: `${BROWSER_TEST_CONFIG_YAML}a11y: { level: AAA }\n`,
+      launcherOptions: {
+        evaluateResult: axeResult({ tags: planAxeRun({ ...DEFAULT_A11Y_CONFIG, level: 'AAA' }).tags }),
+      },
     });
-    const defaults = createBrowserTestHarness();
+    const defaults = createBrowserTestHarness({ launcherOptions: { evaluateResult: axeResult() } });
     const strictSession = await runBrowserOpen(strict.context);
     const defaultSession = await runBrowserOpen(defaults.context);
 
@@ -77,12 +85,12 @@ describe('runBrowserAccessibilityScan', () => {
     const harness = createBrowserTestHarness({
       configYaml: `${BROWSER_TEST_CONFIG_YAML}a11y: { exceptions: [{ ruleId: image-alt, reason: Legacy logo }] }\n`,
       launcherOptions: {
-        evaluateResult: {
+        evaluateResult: axeResult({
           violations: [{ id: 'image-alt' }, { id: 'label' }],
           incomplete: [{ id: 'color-contrast' }],
           passes: [{ id: 'html-has-lang' }],
           inapplicable: [{ id: 'video-caption' }],
-        },
+        }),
       },
     });
     const { sessionId } = await runBrowserOpen(harness.context);
@@ -111,7 +119,7 @@ describe('runBrowserAccessibilityScan', () => {
   it('passes the level-derived tags and the include selectors to axe-core', async () => {
     const harness = createBrowserTestHarness({
       configYaml: `${BROWSER_TEST_CONFIG_YAML}a11y: { level: A, include: [main] }\n`,
-      launcherOptions: { evaluateResult: { violations: [] } },
+      launcherOptions: { evaluateResult: axeResult({ tags: ['wcag2a', 'wcag21a'] }) },
     });
     const { sessionId } = await runBrowserOpen(harness.context);
 
@@ -124,8 +132,8 @@ describe('runBrowserAccessibilityScan', () => {
     });
   });
 
-  it('reports zero violations when the scan result has none', async () => {
-    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: { violations: [] } } });
+  it('reports zero violations for a complete scan result that has none', async () => {
+    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: axeResult() } });
     const { sessionId } = await runBrowserOpen(harness.context);
 
     const result = await runBrowserAccessibilityScan(harness.context, { sessionId });
@@ -133,31 +141,31 @@ describe('runBrowserAccessibilityScan', () => {
     expect(result.violationCount).toBe(0);
   });
 
-  it('reports zero violations when the violations field is not an array', async () => {
-    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: { violations: 'oops' } } });
+  it.each([
+    ['an empty object', {}],
+    ['null', null],
+    ['an unrelated object', { unexpected: true }],
+    ['a result whose violations are not a list', { ...axeResult(), violations: 'oops' }],
+    ['a result without a test engine', { ...axeResult(), testEngine: undefined }],
+    ['a result from another engine', { ...axeResult(), testEngine: { name: 'other', version: '1' } }],
+  ])('rejects %s instead of reporting a clean scan', async (_label, evaluateResult) => {
+    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult } });
     const { sessionId } = await runBrowserOpen(harness.context);
 
-    const result = await runBrowserAccessibilityScan(harness.context, { sessionId });
-
-    expect(result.violationCount).toBe(0);
+    await expect(runBrowserAccessibilityScan(harness.context, { sessionId })).rejects.toMatchObject({
+      code: 'A11Y_SCAN_RESULT_INVALID',
+    });
   });
 
-  it('reports zero violations when the scan result has no violations field', async () => {
-    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: { unexpected: true } } });
+  it('rejects a result that ran other rule tags than the configured target', async () => {
+    const harness = createBrowserTestHarness({
+      launcherOptions: { evaluateResult: axeResult({ tags: ['wcag2a'] }) },
+    });
     const { sessionId } = await runBrowserOpen(harness.context);
 
-    const result = await runBrowserAccessibilityScan(harness.context, { sessionId });
-
-    expect(result.violationCount).toBe(0);
-  });
-
-  it('reports zero violations when the scan result is not an object', async () => {
-    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: null } });
-    const { sessionId } = await runBrowserOpen(harness.context);
-
-    const result = await runBrowserAccessibilityScan(harness.context, { sessionId });
-
-    expect(result.violationCount).toBe(0);
+    await expect(runBrowserAccessibilityScan(harness.context, { sessionId })).rejects.toMatchObject({
+      code: 'A11Y_SCAN_CONFIG_MISMATCH',
+    });
   });
 
   it('rejects an unknown session', async () => {
