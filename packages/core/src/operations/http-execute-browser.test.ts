@@ -66,6 +66,7 @@ function createHarness(): {
           ok: true,
           status: 200,
           headers: { 'x-echo': echoed },
+          setCookies: [],
           bodyText: `you sent ${echoed}`,
         });
       },

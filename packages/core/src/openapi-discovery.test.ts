@@ -22,7 +22,9 @@ function clientAnswering(
     request: (url, options) => {
       recorded.push({ url, options });
       const result = answer(url);
-      return result instanceof Error ? Promise.reject(result) : Promise.resolve({ ...result, headers: {} });
+      return result instanceof Error
+        ? Promise.reject(result)
+        : Promise.resolve({ ...result, headers: {}, setCookies: [] });
     },
   };
 }

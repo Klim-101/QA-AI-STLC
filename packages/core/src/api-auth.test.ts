@@ -76,7 +76,7 @@ function createContext(
       get: () => Promise.reject(new Error('get() is not used')),
       request: (url, options) => {
         calls.push({ url, options });
-        return Promise.resolve({ headers: {}, ...tokenResponse });
+        return Promise.resolve({ headers: {}, setCookies: [], ...tokenResponse });
       },
     },
   });

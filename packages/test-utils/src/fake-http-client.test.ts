@@ -24,6 +24,7 @@ describe('createFakeHttpClient', () => {
       ok: true,
       status: 200,
       headers: {},
+      setCookies: [],
       bodyText: '',
     });
   });
@@ -33,6 +34,7 @@ describe('createFakeHttpClient', () => {
       ok: false,
       status: 401,
       headers: { 'content-type': 'text/html' },
+      setCookies: ['sid=abc; HttpOnly'],
       bodyText: 'Invalid email or password.',
     });
 
@@ -40,6 +42,7 @@ describe('createFakeHttpClient', () => {
       ok: false,
       status: 401,
       headers: { 'content-type': 'text/html' },
+      setCookies: ['sid=abc; HttpOnly'],
       bodyText: 'Invalid email or password.',
     });
   });

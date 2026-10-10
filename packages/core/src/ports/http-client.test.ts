@@ -93,7 +93,7 @@ describe('fetchHttpClient', () => {
 
     const response = await fetchHttpClient.request('https://example.com');
 
-    expect(response).toEqual({ ok: true, status: 200, headers: {}, bodyText: '' });
+    expect(response).toEqual({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: '' });
     expect(fetchMock).toHaveBeenCalledWith('https://example.com', { method: 'GET' });
   });
 
@@ -116,6 +116,7 @@ describe('fetchHttpClient', () => {
       ok: false,
       status: 401,
       headers: { 'content-type': 'text/html' },
+      setCookies: [],
       bodyText: '<p>Invalid email or password.</p>',
     });
     expect(fetchMock).toHaveBeenCalledWith('https://example.com/login', {
@@ -141,5 +142,22 @@ describe('fetchHttpClient', () => {
     const [, options] = undiciFetch.mock.calls[0] ?? [];
     expect(options).toMatchObject({ method: 'POST' });
     expect((options as { dispatcher?: unknown } | undefined)?.dispatcher).toBeDefined();
+  });
+
+  it('request() returns each Set-Cookie header separately, attributes intact', async () => {
+    const headers = new Headers();
+    headers.append('set-cookie', 'sid=abc; Path=/; HttpOnly; Expires=Wed, 21 Oct 2026 07:28:00 GMT');
+    headers.append('set-cookie', 'theme=dark; Path=/; SameSite=Lax');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, headers, text: () => Promise.resolve('') }),
+    );
+
+    const response = await fetchHttpClient.request('https://example.com/login');
+
+    expect(response.setCookies).toEqual([
+      'sid=abc; Path=/; HttpOnly; Expires=Wed, 21 Oct 2026 07:28:00 GMT',
+      'theme=dark; Path=/; SameSite=Lax',
+    ]);
   });
 });
