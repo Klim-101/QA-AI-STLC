@@ -358,5 +358,125 @@ describe('mapReportToRunResults', () => {
       expect(outcome?.result.status).toBe('passed');
       expect(outcome?.result.missingStepIds).toBeUndefined();
     });
+
+    describe('step work', () => {
+      const work = (actions: number, assertions: number, webFirstAssertions: number) => ({
+        actions,
+        assertions,
+        webFirstAssertions,
+      });
+
+      it('reports "partial" for a step whose title appeared but that ran no action or check', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({
+            status: 'passed',
+            stepTitles: ['[step-1] Save the form', '[expected-result] Read the saved record'],
+          }),
+          runId: 'run-1',
+          testType: 'e2e',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['step-1', 'expected-result'],
+          stepWork: { 'tc-1': {} },
+        });
+
+        expect(outcome?.result.status).toBe('partial');
+        expect(outcome?.result.missingStepIds).toEqual(['step-1', 'expected-result']);
+        expect(outcome?.result.failure?.message).toBe(
+          'Steps that ran no action or check: step-1, expected-result.',
+        );
+      });
+
+      it('names a step that never ran and a step that ran idle separately', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({ status: 'passed', stepTitles: ['[step-1] Save the form'] }),
+          runId: 'run-1',
+          testType: 'e2e',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['step-1', 'expected-result'],
+          stepWork: { 'tc-1': {} },
+        });
+
+        expect(outcome?.result.missingStepIds).toEqual(['expected-result', 'step-1']);
+        expect(outcome?.result.failure?.message).toBe(
+          'Missing step coverage for: expected-result. Steps that ran no action or check: step-1.',
+        );
+      });
+
+      it('stays "passed" when every step did work and a browser test has a web-first check', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({
+            status: 'passed',
+            stepTitles: ['[step-1] Save the form', '[expected-result] Read the saved record'],
+          }),
+          runId: 'run-1',
+          testType: 'e2e',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['step-1', 'expected-result'],
+          stepWork: { 'tc-1': { 'step-1': work(1, 0, 0), 'expected-result': work(0, 1, 1) } },
+        });
+
+        expect(outcome?.result.status).toBe('passed');
+      });
+
+      it('does not accept a generic matcher as the check of a browser test', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({
+            status: 'passed',
+            stepTitles: ['[expected-result] Read the saved record'],
+          }),
+          runId: 'run-1',
+          testType: 'e2e',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['expected-result'],
+          stepWork: { 'tc-1': { 'expected-result': work(0, 1, 0) } },
+        });
+
+        expect(outcome?.result.status).toBe('partial');
+      });
+
+      it('accepts a plain value assertion as the check of an API test', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({ status: 'passed', stepTitles: ['[expected-result] Status is 200'] }),
+          runId: 'run-1',
+          testType: 'api',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['expected-result'],
+          stepWork: { 'tc-1': { 'expected-result': work(0, 1, 0) } },
+        });
+
+        expect(outcome?.result.status).toBe('passed');
+      });
+
+      it('lets an accessibility test check through its scan, which is an action', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({ status: 'passed', stepTitles: ['[expected-result] No violations'] }),
+          runId: 'run-1',
+          testType: 'a11y',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['expected-result'],
+          stepWork: { 'tc-1': { 'expected-result': work(1, 0, 0) } },
+        });
+
+        expect(outcome?.result.status).toBe('passed');
+      });
+
+      it('keeps a failed test failed only when no step is idle, and "partial" otherwise', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({
+            status: 'failed',
+            errorMessage: 'boom',
+            stepTitles: ['[step-1] Save the form'],
+          }),
+          runId: 'run-1',
+          testType: 'e2e',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['step-1'],
+          stepWork: { 'tc-1': {} },
+        });
+
+        expect(outcome?.result.status).toBe('partial');
+        expect(outcome?.result.failure?.message).toBe('boom');
+      });
+    });
   });
 });

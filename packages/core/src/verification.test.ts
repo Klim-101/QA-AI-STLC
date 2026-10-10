@@ -456,8 +456,14 @@ describe('verifyGeneratedTestSpec', () => {
       verificationId: expect.stringMatching(/^verification-/) as string,
       status: 'execution_failed',
       issues: [
-        { path: ['step-2'], message: 'Step "step-2" did not run or did not complete.' },
-        { path: ['expected-result'], message: 'Step "expected-result" did not run or did not complete.' },
+        {
+          path: ['step-2'],
+          message: 'Step "step-2" did not run, did not complete, or ran no action or check.',
+        },
+        {
+          path: ['expected-result'],
+          message: 'Step "expected-result" did not run, did not complete, or ran no action or check.',
+        },
       ],
       result: expect.objectContaining({ status: 'partial' }) as RunResult,
     });

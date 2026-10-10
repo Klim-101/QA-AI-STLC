@@ -69,4 +69,34 @@ describe('generateSpecConfigSource', () => {
 
     expect(source).toContain(`"trace": "${expected}"`);
   });
+
+  it('runs only the JSON reporter unless a step-work reporter is asked for', () => {
+    const { source } = generateSpecConfigSource({
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+    });
+
+    expect(source).not.toContain('step-work');
+  });
+
+  it('adds the step-work reporter with its output file when asked for', () => {
+    const { source } = generateSpecConfigSource({
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+      stepWork: {
+        reporterPath: join('dist', 'step-work-reporter.js'),
+        outputFile: join('tmp', 'step-work.json'),
+      },
+    });
+
+    const config = JSON.parse(source.replace('export default ', '').replace(/;\s*$/, '')) as {
+      reporter: [string, { outputFile: string }][];
+    };
+    expect(config.reporter.map(([name]) => name)).toEqual(['json', join('dist', 'step-work-reporter.js')]);
+    expect(config.reporter[1]?.[1]).toEqual({ outputFile: join('tmp', 'step-work.json') });
+  });
 });
