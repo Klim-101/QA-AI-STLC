@@ -54,6 +54,7 @@ The agent can drive the engine inside Claude Code.
 - Reusable, non-secret test-data sets a case references by id instead of inlining repeated values
 - Test cases render as a presentable Markdown document instead of raw JSON
 - Claude Code plugin generated from one canonical source
+- Skill triggering evaluations run in CI (waiting for an owner decision on model-call budget)
 
 ## Phase 3 — Runner and generation
 
