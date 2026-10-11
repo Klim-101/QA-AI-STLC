@@ -1,5 +1,23 @@
 # @qa-ai-stlc/core
 
+## 1.7.0
+
+### Minor Changes
+
+- 62612a1: Add the code-assisted security level, used when `source.path` is set. Three new check classes, `dependencies` (`npm audit` over the lockfile), `secrets` (credentials committed with the code; the value is never reported) and `configuration` (debug and test-only routes, debug mode, cookies without HttpOnly or Secure, disabled certificate verification, a wildcard CORS origin), read the checkout through a read-only view and run only when the authorization names them. Findings now carry `codeReferences` (project-relative file and line), and a security defect draft lists them under "Code references". Without `source.path`, or when it points at nothing, the code-assisted classes are `skipped` and the audit logs a notice that it ran black-box only.
+- 2663897: Foundation of the on-demand black-box security audit (no command or MCP tool yet). A security audit authorization (`SecurityAuthorizationSchema`: environment snapshot, check classes, identities, prohibited actions, the exact mutations allowed, rate limit and request budget) is registered and approved through a hash-bound `security-authorization` gate; an audit refuses to start (`SECURITY_NOT_AUTHORIZED`, `SECURITY_AUTHORIZATION_STALE`, `SECURITY_OUT_OF_SCOPE`) unless it is approved, unedited, security testing is in scope and the environment's address and allowlist still match. The new `@qa-ai-stlc/runner-security` package sends every request through one probe that enforces the authorized origin and allowlist, only the authorized non-read requests, the rate limit and the request budget, follows no redirects and logs every request sent or refused. Checks end `passed`, `failed`, `skipped`, `blocked` or `uncertain`; an audit with a blocked check or an exhausted budget is `partial`. Findings are registered as evidence and drafted as `category: security` defect drafts. `HttpClient.request()` now also returns each `Set-Cookie` header separately (`setCookies`).
+
+### Patch Changes
+
+- f6dd64c: An accessibility scan result must now be a complete axe-core result: `{}`, `null`, an array, a result without its four result lists, its `testEngine` or the options it ran with is rejected with `A11Y_SCAN_RESULT_INVALID` instead of counting as a clean scan, and a result scanned under other rule tags than the configured WCAG target is rejected with `A11Y_SCAN_CONFIG_MISMATCH`. This covers both the `a11y` runner and `qa.browser_a11y_scan`.
+- 05ec635: Refuse to register a case result as `passed` while its run still holds a failed browser expectation (`RUN_RESULT_FAILED_EXPECTATION`). Every expectation under the run is considered, not only the cited evidence, and a failed expectation followed by a later passing one of the same step, target and kind counts as a retry.
+- 597ec65: `qa.browser_tabs` no longer misses a page a link opened on a slow machine. It used to sleep a fixed 250 ms, shorter than the time Chromium takes to announce a new page here (about 650 ms); it now waits for the browser's announcement, up to a 2 s deadline counted from the previous tool call, and returns at once when the page was already announced.
+- 3ef1938: Generated-spec verification no longer accepts empty named steps. When a run has a canonical step set (verification), a Playwright reporter records, from the step categories Playwright itself reports, how many actions and assertions each `[id]` step contains. A step with neither is reported like a step that did not run (`partial`, with the idle steps named), and the expected result needs a real check: a web-first assertion for a browser test, any assertion for an API test. A spec of empty `test.step()` calls, or one whose only check is `expect(true).toBe(true)`, is no longer `verified`.
+- Updated dependencies [62612a1]
+- Updated dependencies [2663897]
+- Updated dependencies [3691ab0]
+  - @qa-ai-stlc/schemas@1.7.0
+
 ## 1.6.0
 
 ### Minor Changes

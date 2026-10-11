@@ -1,6 +1,6 @@
 {
   "name": "@qa-ai-stlc/runner-security",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "On-demand, non-destructive black-box security audit: an authorization-gated probe, security checks and findings registered as evidence and defect drafts.",
   "type": "module",
   "license": "Apache-2.0",
@@ -28,8 +28,8 @@
     "clean": "node ../../scripts/clean-dir.mjs dist"
   },
   "dependencies": {
-    "@qa-ai-stlc/core": "1.6.0",
-    "@qa-ai-stlc/schemas": "1.6.0",
+    "@qa-ai-stlc/core": "1.7.0",
+    "@qa-ai-stlc/schemas": "1.7.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
