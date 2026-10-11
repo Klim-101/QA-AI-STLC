@@ -3,6 +3,7 @@
 
 import type { Config, EnvironmentConfig, Evidence } from '@qa-ai-stlc/schemas';
 import type { BlockedRequest } from '../browser-safe-mode.js';
+import { authenticate, withDefaultLoginSelectors } from '../auth.js';
 import { SafeModeRequestTally } from '../safe-mode-requests.js';
 import {
   ALL_REQUESTS_PATTERN,
@@ -10,6 +11,7 @@ import {
   resolveSessionSettings,
   type ComponentLibraryResolvers,
 } from '../browser-session-setup.js';
+import type { StorageState } from '../ports/browser-launcher.js';
 import type { BrowserSession, DialogPolicy } from '../browser-session-store.js';
 import { watchSessionPages } from '../browser-tabs.js';
 import { loadConfig } from '../config-loader.js';
@@ -33,6 +35,14 @@ export interface BrowserOpenOptions extends ComponentLibraryResolvers {
    * carry on; safe mode still aborts any non-GET request that follows.
    */
   readonly dialogPolicy?: DialogPolicy;
+  /**
+   * Identity name from config.yaml (P6-74). The session signs in through the same `authenticate`
+   * flow crawling uses and starts with the resulting storage state, so a protected page opens
+   * authenticated. The state itself is never returned or registered.
+   */
+  readonly identity?: string;
+  /** Required, and only used, when the identity uses `cdp-attach`. */
+  readonly cdpEndpointUrl?: string;
 }
 
 export interface BrowserOpenResult {
@@ -41,6 +51,8 @@ export interface BrowserOpenResult {
   readonly environment: string;
   readonly baseUrl: string;
   readonly allowlist: readonly string[];
+  /** The identity the session signed in as; absent for an anonymous session. */
+  readonly identity?: string;
   readonly evidence: Evidence;
 }
 
@@ -77,6 +89,32 @@ export function resolveBrowserEnvironment(
   );
 }
 
+async function signIn(
+  context: BrowserOperationContext,
+  config: Config,
+  environment: EnvironmentConfig,
+  options: BrowserOpenOptions,
+): Promise<StorageState | undefined> {
+  if (options.identity === undefined) {
+    return undefined;
+  }
+  const identityConfig = config.identities[options.identity];
+  if (identityConfig === undefined) {
+    throw new QaError('BROWSER_IDENTITY_UNKNOWN', `No identity named "${options.identity}" in config.yaml`, {
+      remediation: `Use one of: ${Object.keys(config.identities).join(', ')}.`,
+    });
+  }
+  return authenticate(
+    context.engine.browserLauncher,
+    withDefaultLoginSelectors(identityConfig, config),
+    context.engine.env,
+    {
+      ...(options.cdpEndpointUrl === undefined ? {} : { cdpEndpointUrl: options.cdpEndpointUrl }),
+      ...(environment.tlsInsecure === true ? { tlsInsecure: true } : {}),
+    },
+  );
+}
+
 /**
  * MCP `qa.browser_open` (P2-06): launches a headless browser for an exploratory session and
  * records opening it as evidence. Safe mode is applied here, once, for the whole session
@@ -104,14 +142,16 @@ export async function runBrowserOpen(
   }
 
   const browser = await context.engine.browserLauncher.launch();
+  const storageState = await signIn(context, config, environment.config, options);
   const blockedRequests: BlockedRequest[] = [];
   const observedRequestHeaders = new Map<string, string>();
   const requestTally = new SafeModeRequestTally();
   let session: BrowserSession;
   try {
-    const browserContext = await browser.newContext(
-      environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {},
-    );
+    const browserContext = await browser.newContext({
+      ...(storageState === undefined ? {} : { storageState }),
+      ...(environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+    });
     const page = await browserContext.newPage();
     // On the context, not the page: a popup's first request happens before any handler could be
     // attached to the new page, and it must meet safe mode and the allowlist like every other one.
@@ -162,6 +202,7 @@ export async function runBrowserOpen(
     environment: environment.name,
     baseUrl: environment.config.baseUrl,
     allowlist: session.allowlist,
+    ...(options.identity === undefined ? {} : { identity: options.identity }),
     evidence,
   };
 }

@@ -211,6 +211,22 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
     process.chdir(originalCwd);
   });
 
+  it('forwards identity and cdpEndpointUrl to the session sign-in (P6-74)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+      const open = createBrowserOpenTool(createDependencies(createFakeBrowser()));
+
+      const refused = await open
+        .handler({ identity: 'nobody', cdpEndpointUrl: 'http://127.0.0.1:9222' })
+        .catch((caught: unknown) => caught);
+
+      expect(refused).toMatchObject({ code: 'BROWSER_IDENTITY_UNKNOWN' });
+      process.chdir(originalCwd);
+    });
+  });
+
   // A longer timeout than the 5000ms default: this drives open/navigate/click/fill/snapshot/close
   // plus two extra evidence-file reads (P3-07's stepId assertions) through a real temp-directory
   // filesystem, which the default budget can miss under CI load on a slower runner (observed

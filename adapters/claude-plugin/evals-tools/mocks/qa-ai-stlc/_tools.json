@@ -15,6 +15,14 @@
             "description": "Interactive case execution only (ADR-0009): allows a non-GET request (a real form submission) through safe mode, so an e2e case can be proven to actually work. The domain allowlist still applies unconditionally. Never set this for exploration or pick mode.",
             "type": "boolean"
           },
+          "identity": {
+            "description": "Identity name from config.yaml. The session signs in as it before the first navigation, so pages behind a login open authenticated. The result names the identity, never its credentials or session.",
+            "type": "string"
+          },
+          "cdpEndpointUrl": {
+            "description": "Required, and only used, when the identity uses cdp-attach.",
+            "type": "string"
+          },
           "dialogPolicy": {
             "description": "What the session does with an alert, confirm or prompt: dismiss (the default) or accept. Either way each dialog is recorded as evidence and reported in a later result. Accepting only lets the page carry on; safe mode still blocks any non-GET request that follows.",
             "type": "string",

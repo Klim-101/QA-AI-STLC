@@ -11,6 +11,7 @@ import {
   resolveRelativePath,
   toCanonicalJson,
   toRelativePath,
+  withDefaultLoginSelectors,
   type EngineContext,
   type FileSystem,
   type RequestSummary,
@@ -23,7 +24,6 @@ import {
   SelectorRegistrySchema,
   type Config,
   type EnvironmentConfig,
-  type IdentityConfig,
   type SelectorElement,
   type SelectorPolicy,
   type SelectorRegistry,
@@ -137,23 +137,6 @@ export function resolveEnvironment(
           : `Pass --environment, one of: ${names.join(', ')}.`,
     },
   );
-}
-
-/**
- * Fills every login-form selector the identity itself does not set from the project's
- * `selectors.defaultLoginSelectors` (P6-23), so `loginWithCredentials`'s own hardcoded fallback
- * is reached only when a caller bypasses config entirely (for example a unit test).
- */
-function withDefaultLoginSelectors(identityConfig: IdentityConfig, config: Config): IdentityConfig {
-  const defaults = config.selectors.defaultLoginSelectors;
-  return {
-    ...identityConfig,
-    selectors: {
-      username: identityConfig.selectors?.username ?? defaults.username,
-      password: identityConfig.selectors?.password ?? defaults.password,
-      submit: identityConfig.selectors?.submit ?? defaults.submit,
-    },
-  };
 }
 
 export function resolveIdentity(
