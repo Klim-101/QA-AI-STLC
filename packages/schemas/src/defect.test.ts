@@ -44,6 +44,21 @@ describe('DefectDraftSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts code references on a security defect and rejects them on another category', () => {
+    const securityReferences = [{ path: 'app/server.ts', line: 24 }, { path: 'package.json' }];
+
+    expect(
+      DefectDraftSchema.safeParse({
+        ...baseDefect(),
+        category: 'security',
+        securityCodeReferences: securityReferences,
+      }).success,
+    ).toBe(true);
+    expect(
+      DefectDraftSchema.safeParse({ ...baseDefect(), securityCodeReferences: securityReferences }).success,
+    ).toBe(false);
+  });
+
   it('rejects an empty steps list', () => {
     const defect = { ...baseDefect(), steps: [] };
     const result = DefectDraftSchema.safeParse(defect);

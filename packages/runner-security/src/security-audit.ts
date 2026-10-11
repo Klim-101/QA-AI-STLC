@@ -15,6 +15,7 @@ import {
   type IdGenerator,
 } from '@qa-ai-stlc/core';
 import {
+  CODE_ASSISTED_CHECK_CLASSES,
   SECURITY_CHECK_CLASSES,
   type DefectDraft,
   type RelativePath,
@@ -26,11 +27,11 @@ import {
 import {
   NO_IDENTITY_SESSIONS,
   openIdentitySessions,
-  type IdentitySessions,
   type OpenIdentitySessionsOptions,
 } from './identity-sessions.js';
-import type { SecurityCheck } from './security-check.js';
+import type { SecurityCheck, SecurityCheckInput } from './security-check.js';
 import { SecurityProbe } from './security-probe.js';
+import { SourceCheckout } from './source-checkout.js';
 
 export interface RunSecurityAuditOptions {
   /** The check implementations to run; only classes the authorization names are used. */
@@ -52,6 +53,10 @@ export interface SecurityAuditOutcome {
 }
 
 type CheckEntry = SecurityAuditResult['checks'][number];
+
+function isCodeAssisted(checkClass: CheckEntry['checkClass']): boolean {
+  return (CODE_ASSISTED_CHECK_CLASSES as readonly string[]).includes(checkClass);
+}
 
 function skipped(checkClass: CheckEntry['checkClass'], note: string): CheckEntry {
   return { checkClass, status: 'skipped', note, findingIds: [] };
@@ -86,12 +91,13 @@ export async function runSecurityAudit(
     authorization.identities.length > 0
       ? await openIdentitySessions(context, authorization, options.identities)
       : NO_IDENTITY_SESSIONS;
+  const source = await openSourceCheckout(context, config.source?.path, authorization);
   const { checks, findings, stoppedReason } = await runChecks(
     context,
     authorization,
-    probe,
-    identities,
+    { probe, identities, ...(source.checkout !== undefined ? { source: source.checkout } : {}) },
     options.checks,
+    source.unavailableReason,
   );
   const isClean = stoppedReason === undefined && checks.every((entry) => entry.status !== 'blocked');
   const result: SecurityAuditResult = {
@@ -119,12 +125,56 @@ export async function runSecurityAudit(
   return { result, evidencePath, drafts };
 }
 
+interface OpenedSource {
+  readonly checkout?: SourceCheckout;
+  /** Why the code-assisted checks cannot run, when the authorization names any and there is no checkout. */
+  readonly unavailableReason?: string;
+}
+
+// The code-assisted level needs `source.path`; without it the audit still runs its black-box checks
+// and says so, rather than failing a request the operator may have made for the whole set.
+async function openSourceCheckout(
+  context: EngineContext,
+  sourcePath: string | undefined,
+  authorization: SecurityAuthorization,
+): Promise<OpenedSource> {
+  const requested = CODE_ASSISTED_CHECK_CLASSES.filter((checkClass) =>
+    authorization.checks.includes(checkClass),
+  );
+  if (requested.length === 0) {
+    return {};
+  }
+  const checkout =
+    sourcePath === undefined
+      ? undefined
+      : new SourceCheckout({
+          projectRoot: context.projectRoot,
+          relativeRoot: sourcePath,
+          fs: context.fs,
+          processRunner: context.processRunner,
+        });
+  const unavailableReason =
+    checkout === undefined
+      ? 'source.path is not configured'
+      : (await context.fs.pathExists(checkout.absoluteDirectory(checkout.relativeRoot)))
+        ? undefined
+        : `source.path "${sourcePath ?? ''}" does not exist`;
+  if (unavailableReason !== undefined) {
+    context.logger.info('Code-assisted security checks are skipped; the audit runs black-box only', {
+      reason: unavailableReason,
+      checks: requested,
+    });
+    return { unavailableReason };
+  }
+  return { ...(checkout !== undefined ? { checkout } : {}) };
+}
+
 async function runChecks(
   context: EngineContext,
   authorization: SecurityAuthorization,
-  probe: SecurityProbe,
-  identities: IdentitySessions,
+  checkInput: Omit<SecurityCheckInput, 'authorization'>,
   implementations: readonly SecurityCheck[],
+  codeAssistedUnavailableReason: string | undefined,
 ): Promise<{ checks: CheckEntry[]; findings: SecurityFinding[]; stoppedReason?: string }> {
   const entries: CheckEntry[] = [];
   const findings: SecurityFinding[] = [];
@@ -138,13 +188,25 @@ async function runChecks(
       entries.push(skipped(checkClass, `Not run: ${stoppedReason}.`));
       continue;
     }
+    if (codeAssistedUnavailableReason !== undefined && isCodeAssisted(checkClass)) {
+      entries.push(
+        skipped(checkClass, `Not run: ${codeAssistedUnavailableReason}, so only the black-box checks ran.`),
+      );
+      continue;
+    }
     const implementation = implementations.find((candidate) => candidate.checkClass === checkClass);
     if (implementation === undefined) {
       entries.push(skipped(checkClass, 'This version has no implementation of the check.'));
       continue;
     }
     try {
-      const outcome = await implementation.run({ probe, authorization, identities });
+      // Only the code-assisted checks are given the checkout: a black-box check has no business reading code.
+      const { source, ...blackBoxInput } = checkInput;
+      const outcome = await implementation.run({
+        ...blackBoxInput,
+        authorization,
+        ...(source !== undefined && isCodeAssisted(checkClass) ? { source } : {}),
+      });
       for (const finding of outcome.findings) {
         if (finding.checkClass !== checkClass || findings.some((known) => known.id === finding.id)) {
           throw new QaError(

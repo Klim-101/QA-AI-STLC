@@ -74,6 +74,16 @@ describe('renderDefectDraftMarkdown', () => {
     expect(markdown).not.toContain('**Regression check:**');
   });
 
+  it('lists the code references of a code-assisted security draft', () => {
+    const markdown = renderDefectDraftMarkdown({
+      ...DEFECT,
+      category: 'security',
+      securityCodeReferences: [{ path: 'app/server.ts', line: 24 }, { path: 'package.json' }],
+    });
+
+    expect(markdown).toContain('**Code references:**\n- app/server.ts:24\n- package.json');
+  });
+
   it('ends with a single trailing newline', () => {
     const markdown = renderDefectDraftMarkdown(DEFECT);
 

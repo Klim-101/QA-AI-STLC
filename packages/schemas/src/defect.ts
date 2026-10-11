@@ -26,6 +26,14 @@ export type DefectStatus = z.infer<typeof DefectStatusSchema>;
 export const SecurityConfidenceSchema = z.enum(['low', 'medium', 'high']);
 export type SecurityConfidence = z.infer<typeof SecurityConfidenceSchema>;
 
+// Where in the source checkout a finding was seen. The path is project-relative; the line is
+// absent when the evidence is a whole file or a package rather than one line.
+export const SecurityCodeReferenceSchema = z.object({
+  path: RelativePathSchema,
+  line: z.number().int().positive().optional(),
+});
+export type SecurityCodeReference = z.infer<typeof SecurityCodeReferenceSchema>;
+
 // A defect draft is tracker-neutral (AGENTS.md 2.3, development plan section 2.4): the operator
 // files it in their own tracker. The `security*` fields are populated only for
 // `category: "security"` drafts produced by the on-demand audit.
@@ -48,9 +56,15 @@ export const DefectDraftSchema = z
     securityConfidence: SecurityConfidenceSchema.optional(),
     securitySuggestedRemediation: z.string().optional(),
     securityRegressionCheck: z.string().optional(),
+    securityCodeReferences: z.array(SecurityCodeReferenceSchema).optional(),
   })
-  .refine((defect) => defect.category === 'security' || defect.securityRiskArea === undefined, {
-    message: 'security fields are only valid on a "security" category defect',
-    path: ['securityRiskArea'],
-  });
+  .refine(
+    (defect) =>
+      defect.category === 'security' ||
+      (defect.securityRiskArea === undefined && defect.securityCodeReferences === undefined),
+    {
+      message: 'security fields are only valid on a "security" category defect',
+      path: ['securityRiskArea'],
+    },
+  );
 export type DefectDraft = z.infer<typeof DefectDraftSchema>;

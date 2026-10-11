@@ -15,6 +15,9 @@ describe('DEFAULT_SECURITY_CHECKS', () => {
       'session',
       'errors',
       'encoding',
+      'dependencies',
+      'secrets',
+      'configuration',
     ]);
   });
 });

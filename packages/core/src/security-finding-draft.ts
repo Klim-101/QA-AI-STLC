@@ -36,5 +36,8 @@ export function securityFindingToDefectDraft(
     securityConfidence: finding.confidence,
     securitySuggestedRemediation: finding.remediation,
     securityRegressionCheck: finding.regressionCheck,
+    ...(finding.codeReferences !== undefined && finding.codeReferences.length > 0
+      ? { securityCodeReferences: [...finding.codeReferences] }
+      : {}),
   };
 }

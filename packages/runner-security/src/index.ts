@@ -7,3 +7,4 @@ export * from './identity-sessions.js';
 export * from './security-audit.js';
 export * from './security-check.js';
 export * from './security-probe.js';
+export * from './source-checkout.js';
