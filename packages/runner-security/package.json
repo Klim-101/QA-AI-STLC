@@ -3,7 +3,6 @@
   "version": "1.6.0",
   "description": "On-demand, non-destructive black-box security audit: an authorization-gated probe, security checks and findings registered as evidence and defect drafts.",
   "type": "module",
-  "private": true,
   "license": "Apache-2.0",
   "homepage": "https://github.com/Klim-101/QA-AI-STLC/tree/main/packages/runner-security#readme",
   "repository": {
