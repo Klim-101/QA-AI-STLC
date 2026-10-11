@@ -1,9 +1,9 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { IdentityConfig } from '@qa-ai-stlc/schemas';
+import { ConfigSchema, type IdentityConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
-import { attachViaCdp, authenticate, loginWithCredentials } from './auth.js';
+import { attachViaCdp, authenticate, loginWithCredentials, withDefaultLoginSelectors } from './auth.js';
 import { QaError } from './errors.js';
 import type { AuthBrowserContext, StorageState } from './ports/browser-launcher.js';
 import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
@@ -265,5 +265,31 @@ describe('authenticate', () => {
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('LOGIN_CONFIG_INCOMPLETE');
+  });
+});
+
+describe('withDefaultLoginSelectors', () => {
+  const config = ConfigSchema.parse({
+    testing: { e2e: 'undecided', api: 'undecided', a11y: 'undecided', security: 'undecided' },
+    environments: {},
+    identities: {},
+    data: { strategy: 'manual', ownerMarker: 'qa' },
+    selectors: { policy: 'playwright-default', testIdAttribute: 'data-testid' },
+    agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 },
+  });
+
+  it('fills every selector from the project defaults when the identity sets none', () => {
+    const result = withDefaultLoginSelectors({ auth: 'cdp-attach', secret: 'QA_X' }, config);
+
+    expect(result.selectors).toStrictEqual(config.selectors.defaultLoginSelectors);
+  });
+
+  it("keeps the identity's own selector and fills only the ones it omits", () => {
+    const result = withDefaultLoginSelectors(
+      { auth: 'cdp-attach', secret: 'QA_X', selectors: { username: '#own' } },
+      config,
+    );
+
+    expect(result.selectors).toStrictEqual({ ...config.selectors.defaultLoginSelectors, username: '#own' });
   });
 });

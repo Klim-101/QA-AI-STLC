@@ -129,6 +129,14 @@ then `qa.browser_tabs` with `switchTo` to act on one; take a new snapshot after 
 belong to the page they came from. A page that opens off the allowlist is closed and reported as
 `tab-blocked`: that is a finding, not something to retry.
 
+## Signing in
+
+When the case's environment sits behind a login page, pass `identity` (a name from `config.yaml`) to
+`qa.browser_open`: the engine signs in before the first navigation and the result names the
+identity. `BROWSER_IDENTITY_UNKNOWN` lists the configured names; `IDENTITY_SECRET_MISSING` means the
+operator has not set the identity's password variable — report it, do not look for the value. Omit
+`identity` for an anonymous session.
+
 ## When the engine cannot sign in itself
 
 An application behind single sign-on or MFA cannot be signed into by the engine. Ask the operator to

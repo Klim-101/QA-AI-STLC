@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { IdentityConfig } from '@qa-ai-stlc/schemas';
+import type { Config, IdentityConfig } from '@qa-ai-stlc/schemas';
 import { QaError } from './errors.js';
 import type { AuthBrowser, BrowserLauncher, StorageState } from './ports/browser-launcher.js';
 
@@ -115,4 +115,21 @@ export async function authenticate(
     ...(identity.selectors?.submit !== undefined ? { submitSelector: identity.selectors.submit } : {}),
     ...(options.tlsInsecure === true ? { tlsInsecure: true } : {}),
   });
+}
+
+/**
+ * Fills every login-form selector the identity itself does not set from the project's
+ * `selectors.defaultLoginSelectors` (P6-23), so `loginWithCredentials`'s own hardcoded fallback
+ * is reached only when a caller bypasses config entirely (for example a unit test).
+ */
+export function withDefaultLoginSelectors(identityConfig: IdentityConfig, config: Config): IdentityConfig {
+  const defaults = config.selectors.defaultLoginSelectors;
+  return {
+    ...identityConfig,
+    selectors: {
+      username: identityConfig.selectors?.username ?? defaults.username,
+      password: identityConfig.selectors?.password ?? defaults.password,
+      submit: identityConfig.selectors?.submit ?? defaults.submit,
+    },
+  };
 }

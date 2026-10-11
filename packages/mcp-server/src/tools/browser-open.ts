@@ -21,6 +21,17 @@ const InputSchema = z.object({
         'submission) through safe mode, so an e2e case can be proven to actually work. The ' +
         'domain allowlist still applies unconditionally. Never set this for exploration or pick mode.',
     ),
+  identity: z
+    .string()
+    .optional()
+    .describe(
+      'Identity name from config.yaml. The session signs in as it before the first navigation, so ' +
+        'pages behind a login open authenticated. The result names the identity, never its credentials or session.',
+    ),
+  cdpEndpointUrl: z
+    .string()
+    .optional()
+    .describe('Required, and only used, when the identity uses cdp-attach.'),
   dialogPolicy: z
     .enum(['dismiss', 'accept'])
     .optional()
@@ -37,6 +48,7 @@ const OutputSchema = z.object({
   environment: z.string(),
   baseUrl: z.string(),
   allowlist: z.array(z.string()),
+  identity: z.string().optional(),
   evidence: EvidenceSchema,
 });
 
@@ -60,6 +72,8 @@ export function createBrowserOpenTool(
       const result = await runBrowserOpen(toBrowserOperationContext(dependencies), {
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
         ...(input.executionMode !== undefined ? { executionMode: input.executionMode } : {}),
+        ...(input.identity !== undefined ? { identity: input.identity } : {}),
+        ...(input.cdpEndpointUrl !== undefined ? { cdpEndpointUrl: input.cdpEndpointUrl } : {}),
         ...(input.dialogPolicy !== undefined ? { dialogPolicy: input.dialogPolicy } : {}),
         resolveLibraryBusySelectors: (library) =>
           resolveComponentLibraryProfile(library)?.busySelectors ?? [],

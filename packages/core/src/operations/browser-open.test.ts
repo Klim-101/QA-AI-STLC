@@ -4,7 +4,7 @@
 import { join } from 'node:path';
 import { ConfigSchema, type Config } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
-import type { AuthBrowser } from '../ports/browser-launcher.js';
+import type { AuthBrowser, AuthBrowserContext } from '../ports/browser-launcher.js';
 import {
   BROWSER_TEST_CONFIG_YAML,
   createBrowserTestHarness,
@@ -75,6 +75,117 @@ describe('resolveBrowserEnvironment', () => {
       expect(error).toMatchObject({ code: 'BROWSER_ENVIRONMENT_AMBIGUOUS' });
       expect((error as { remediation?: string }).remediation).toContain('Add an environment');
     }
+  });
+});
+
+const LOGIN_CONFIG_YAML = BROWSER_TEST_CONFIG_YAML.replace(
+  'admin: { auth: cdp-attach, secret: QA_ADMIN_PASSWORD }',
+  'admin: { auth: storage-state, secret: QA_ADMIN_PASSWORD, loginUrl: "https://staging.example.test/login", username: "qa.admin@example.test" }',
+);
+const SIGNED_IN_STATE = {
+  cookies: [
+    {
+      name: 'session',
+      value: 'opaque-session-value',
+      domain: 'staging.example.test',
+      path: '/',
+      expires: -1,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax' as const,
+    },
+  ],
+  origins: [],
+};
+
+describe('runBrowserOpen with an identity (P6-74)', () => {
+  function loginHarness(env: Record<string, string> = { QA_ADMIN_PASSWORD: 'placeholder-password' }) {
+    const harness = createBrowserTestHarness({
+      configYaml: LOGIN_CONFIG_YAML,
+      launcherOptions: { storageState: SIGNED_IN_STATE },
+    });
+    return { ...harness, context: { ...harness.context, engine: { ...harness.context.engine, env } } };
+  }
+
+  it('seeds the session context with the identity storage state and names the identity', async () => {
+    const harness = loginHarness();
+
+    const result = await runBrowserOpen(harness.context, { identity: 'admin' });
+
+    expect(harness.launcher.newContextCalls.at(-1)?.storageState).toEqual(SIGNED_IN_STATE);
+    expect(result.identity).toBe('admin');
+  });
+
+  it('never puts the storage state in the result or the registered evidence', async () => {
+    const harness = loginHarness();
+
+    const result = await runBrowserOpen(harness.context, { identity: 'admin' });
+
+    expect(JSON.stringify(result)).not.toContain('opaque-session-value');
+    const written = harness.fs.getRawFile(join('project', '.qa', result.evidence.path));
+    expect(String(written)).not.toContain('opaque-session-value');
+  });
+
+  it('starts anonymous, without an identity field, when none is given', async () => {
+    const harness = loginHarness();
+
+    const result = await runBrowserOpen(harness.context);
+
+    expect(harness.launcher.newContextCalls.at(-1)?.storageState).toBeUndefined();
+    expect(result).not.toHaveProperty('identity');
+  });
+
+  it('throws BROWSER_IDENTITY_UNKNOWN for an identity that is not configured, before launching a browser', async () => {
+    const harness = loginHarness();
+
+    await expect(runBrowserOpen(harness.context, { identity: 'nobody' })).rejects.toMatchObject({
+      code: 'BROWSER_IDENTITY_UNKNOWN',
+    });
+    expect(harness.launcher.newContextCalls).toHaveLength(0);
+    expect(harness.sessions.sessionIds).toEqual([]);
+  });
+
+  it('surfaces IDENTITY_SECRET_MISSING and opens no session', async () => {
+    const harness = loginHarness({});
+
+    await expect(runBrowserOpen(harness.context, { identity: 'admin' })).rejects.toMatchObject({
+      code: 'IDENTITY_SECRET_MISSING',
+    });
+    expect(harness.sessions.sessionIds).toEqual([]);
+  });
+
+  it('signs in with the project default login selectors and ignores TLS errors for a tlsInsecure environment', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: LOGIN_CONFIG_YAML.replace(
+        'allowlist: ["staging.example.test"] }',
+        'allowlist: ["staging.example.test"], tlsInsecure: true }',
+      ),
+      launcherOptions: { storageState: SIGNED_IN_STATE },
+    });
+    const context = {
+      ...harness.context,
+      engine: { ...harness.context.engine, env: { QA_ADMIN_PASSWORD: 'x' } },
+    };
+
+    await runBrowserOpen(context, { identity: 'admin' });
+
+    expect(harness.launcher.newContextCalls.map((call) => call.ignoreHttpsErrors)).toEqual([true, true]);
+  });
+
+  it('passes the CDP endpoint through for a cdp-attach identity', async () => {
+    const attached: AuthBrowserContext = {
+      newPage: () => Promise.reject(new Error('not used')),
+      pages: () => [],
+      storageState: () => Promise.resolve(SIGNED_IN_STATE),
+      route: () => Promise.resolve(),
+      on: () => undefined,
+      close: () => Promise.resolve(),
+    };
+    const harness = createBrowserTestHarness({ launcherOptions: { contexts: [attached] } });
+
+    await runBrowserOpen(harness.context, { identity: 'admin', cdpEndpointUrl: 'http://localhost:9222' });
+
+    expect(harness.launcher.newContextCalls.at(-1)?.storageState).toEqual(SIGNED_IN_STATE);
   });
 });
 
