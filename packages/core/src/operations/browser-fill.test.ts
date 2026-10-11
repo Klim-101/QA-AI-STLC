@@ -80,4 +80,61 @@ describe('runBrowserFill', () => {
       runBrowserFill(harness.context, { sessionId: 'session-gone', selector: '#q', value: 'x' }),
     ).rejects.toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
   });
+
+  describe('valueFromEnv (P6-75)', () => {
+    function withEnv(env: Record<string, string>) {
+      const harness = createBrowserTestHarness();
+      const context = { ...harness.context, engine: { ...harness.context.engine, env } };
+      return { harness, context };
+    }
+
+    it('types the variable value and keeps it out of the result and the evidence', async () => {
+      const { harness, context } = withEnv({ QA_STAGE_PASSWORD: 'env-secret-value' });
+      const { sessionId } = await runBrowserOpen(context);
+
+      const result = await runBrowserFill(context, {
+        sessionId,
+        selector: '#password',
+        valueFromEnv: 'QA_STAGE_PASSWORD',
+      });
+
+      expect(harness.launcher.pageCalls.filter((call) => call.method === 'fill')).toEqual([
+        { method: 'fill', args: ['#password', 'env-secret-value', { timeout: 30_000 }] },
+      ]);
+      expect(result.valueLength).toBe('env-secret-value'.length);
+      expect(JSON.stringify(result)).not.toContain('env-secret-value');
+      const written = String(harness.fs.getRawFile(join('project', '.qa', result.evidence.path)));
+      expect(written).not.toContain('env-secret-value');
+    });
+
+    it('rejects a name without the QA_ prefix, without reading the variable', async () => {
+      const { context } = withEnv({ HOME: '/home/someone' });
+      const { sessionId } = await runBrowserOpen(context);
+
+      await expect(
+        runBrowserFill(context, { sessionId, selector: '#password', valueFromEnv: 'HOME' }),
+      ).rejects.toMatchObject({ code: 'BROWSER_FILL_ENV_NAME_INVALID' });
+    });
+
+    it.each([{ QA_STAGE_PASSWORD: '' }, {}])('rejects an unset or empty variable (%j)', async (env) => {
+      const { context } = withEnv(env);
+      const { sessionId } = await runBrowserOpen(context);
+
+      await expect(
+        runBrowserFill(context, { sessionId, selector: '#password', valueFromEnv: 'QA_STAGE_PASSWORD' }),
+      ).rejects.toMatchObject({ code: 'BROWSER_FILL_ENV_UNSET' });
+    });
+
+    it.each([{ value: 'x', valueFromEnv: 'QA_STAGE_PASSWORD' }, {}])(
+      'requires exactly one of value and valueFromEnv (%j)',
+      async (given) => {
+        const { context } = withEnv({ QA_STAGE_PASSWORD: 'p' });
+        const { sessionId } = await runBrowserOpen(context);
+
+        await expect(
+          runBrowserFill(context, { sessionId, selector: '#password', ...given }),
+        ).rejects.toMatchObject({ code: 'BROWSER_FILL_VALUE_AMBIGUOUS' });
+      },
+    );
+  });
 });

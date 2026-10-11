@@ -129,7 +129,7 @@
     },
     {
       "name": "qa.browser_fill",
-      "description": "Types a value into one field in an open browser session and records the fill as evidence. The evidence names the field and how much was typed, never the value itself, so filling a credential leaves no secret in .qa/.",
+      "description": "Types a value into one field in an open browser session and records the fill as evidence. The evidence names the field and how much was typed, never the value itself, so filling a credential leaves no secret in .qa/. For a credential, pass \"valueFromEnv\" instead of \"value\" so the secret never passes through you.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -147,8 +147,12 @@
             "type": "string"
           },
           "value": {
-            "type": "string",
-            "description": "The text to type. It is never written to evidence, only its length."
+            "description": "The text to type. It is never written to evidence, only its length. Give this or `valueFromEnv`.",
+            "type": "string"
+          },
+          "valueFromEnv": {
+            "description": "Name of a QA_-prefixed environment variable the engine reads itself, for a password or other credential: the value never appears in this call or its result. Give this or `value`. Never read the variable yourself.",
+            "type": "string"
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this fill performs, when executing a registered case.",
@@ -156,8 +160,7 @@
           }
         },
         "required": [
-          "sessionId",
-          "value"
+          "sessionId"
         ],
         "additionalProperties": false
       }
