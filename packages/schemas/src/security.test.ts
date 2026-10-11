@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  CODE_ASSISTED_CHECK_CLASSES,
   SECURITY_CHECK_CLASSES,
   SecurityAuditResultSchema,
   SecurityAuthorizationSchema,
@@ -48,6 +49,32 @@ function baseFinding() {
     requestIndexes: [0],
   };
 }
+
+describe('SecurityFindingSchema code references', () => {
+  it('accepts project-relative references with or without a line', () => {
+    const finding = {
+      ...baseFinding(),
+      codeReferences: [{ path: 'app/server.ts', line: 24 }, { path: 'package.json' }],
+    };
+
+    expect(SecurityFindingSchema.safeParse(finding).success).toBe(true);
+  });
+
+  it.each([{ path: '../outside.ts' }, { path: 'app/server.ts', line: 0 }])(
+    'rejects the reference %j',
+    (reference) => {
+      expect(SecurityFindingSchema.safeParse({ ...baseFinding(), codeReferences: [reference] }).success).toBe(
+        false,
+      );
+    },
+  );
+});
+
+describe('CODE_ASSISTED_CHECK_CLASSES', () => {
+  it('names the classes that read the source checkout', () => {
+    expect([...CODE_ASSISTED_CHECK_CLASSES]).toEqual(['dependencies', 'secrets', 'configuration']);
+  });
+});
 
 describe('SecurityAuthorizationSchema', () => {
   it('accepts a complete authorization and fills the schema version', () => {
@@ -200,7 +227,7 @@ describe('SecurityAuditResultSchema', () => {
 });
 
 describe('SECURITY_CHECK_CLASSES', () => {
-  it('lists the eight classes of the development plan', () => {
+  it('lists the black-box classes of the development plan, then the code-assisted ones', () => {
     expect([...SECURITY_CHECK_CLASSES]).toEqual([
       'headers',
       'cookies',
@@ -210,6 +237,9 @@ describe('SECURITY_CHECK_CLASSES', () => {
       'session',
       'encoding',
       'errors',
+      'dependencies',
+      'secrets',
+      'configuration',
     ]);
   });
 });

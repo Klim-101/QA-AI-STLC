@@ -15,19 +15,22 @@ import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-l
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
 import { describe, expect, it } from 'vitest';
+import { secretsCheck } from './checks/secrets-check.js';
 import { runSecurityAudit } from './security-audit.js';
 import type { SecurityCheck, SecurityCheckInput, SecurityCheckOutcome } from './security-check.js';
+import type { SourceCheckout } from './source-checkout.js';
 
 const PROJECT_ROOT = 'project';
 const CONFIG_PATH = join(PROJECT_ROOT, '.qa', 'config.yaml');
 const NOW = new Date('2026-10-10T11:00:00Z');
 
-function configYaml(environmentExtras = ''): string {
+function configYaml(environmentExtras = '', sourcePath?: string): string {
   return [
     'schemaVersion: 1',
     'testing: { e2e: undecided, api: undecided, a11y: undecided, security: in-scope }',
     'environments:',
     `  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"]${environmentExtras} }`,
+    ...(sourcePath !== undefined ? [`source: { path: ${sourcePath} }`] : []),
     'identities:',
     '  member: { auth: cdp-attach, secret: QA_MEMBER_PASSWORD }',
     'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
@@ -60,6 +63,12 @@ interface Harness {
   readonly context: EngineContext;
   readonly requestedUrls: string[];
   readonly clientOptions: unknown[];
+  readonly notices: LoggedNotice[];
+}
+
+interface LoggedNotice {
+  readonly message: string;
+  readonly meta: unknown;
 }
 
 async function harness(
@@ -67,10 +76,13 @@ async function harness(
     readonly authorizationValue?: SecurityAuthorization;
     readonly isApproved?: boolean;
     readonly environmentExtras?: string;
+    readonly sourcePath?: string;
+    readonly extraFiles?: Readonly<Record<string, string>>;
   } = {},
 ): Promise<Harness> {
   const requestedUrls: string[] = [];
   const clientOptions: unknown[] = [];
+  const notices: LoggedNotice[] = [];
   const httpClient: HttpClient = {
     get: () => Promise.reject(new Error('get() is not used')),
     request: (url, requestOptions) => {
@@ -82,13 +94,19 @@ async function harness(
   const context: EngineContext = {
     projectRoot: PROJECT_ROOT,
     fs: createFakeFileSystem({
-      [CONFIG_PATH]: configYaml(options.environmentExtras),
+      [CONFIG_PATH]: configYaml(options.environmentExtras, options.sourcePath),
+      ...options.extraFiles,
       [join(PROJECT_ROOT, 'security', 'authorization.json')]: JSON.stringify(
         options.authorizationValue ?? authorization(),
       ),
     }),
     clock: { now: () => NOW },
-    logger: noopLogger,
+    logger: {
+      ...noopLogger,
+      info: (message, meta) => {
+        notices.push({ message, meta });
+      },
+    },
     processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
     httpClient,
     browserLauncher: createFakeBrowserLauncher(),
@@ -98,7 +116,7 @@ async function harness(
   if (options.isApproved !== false) {
     await runSecurityAuthorizationApprove(context, { approvedBy: 'operator' });
   }
-  return { context, requestedUrls, clientOptions };
+  return { context, requestedUrls, clientOptions, notices };
 }
 
 function sequentialIds(): IdGenerator {
@@ -565,5 +583,120 @@ describe('runSecurityAudit identities', () => {
     });
 
     expect(failures).toContain('member');
+  });
+});
+
+describe('runSecurityAudit code-assisted checks', () => {
+  const CODE_CHECKS: SecurityCheckClass[] = ['dependencies', 'secrets', 'configuration'];
+
+  function recordingChecks(received: Map<string, SourceCheckout | undefined>): SecurityCheck[] {
+    return ['headers', ...CODE_CHECKS].map((checkClass) =>
+      check(checkClass as SecurityCheckClass, ({ source }) => {
+        received.set(checkClass, source);
+        return Promise.resolve(PASSING);
+      }),
+    );
+  }
+
+  it('hands the checkout to the code-assisted checks only', async () => {
+    const { context, notices } = await harness({
+      authorizationValue: authorization({ checks: ['headers', ...CODE_CHECKS], identities: [] }),
+      sourcePath: 'app',
+      extraFiles: { [join(PROJECT_ROOT, 'app', 'index.ts')]: 'export {};' },
+    });
+    await context.fs.mkdir(join(PROJECT_ROOT, 'app'));
+    const received = new Map<string, SourceCheckout | undefined>();
+
+    const { result } = await runSecurityAudit(context, { checks: recordingChecks(received) });
+
+    expect(result.checks.map((entry) => [entry.checkClass, entry.status])).toEqual([
+      ['headers', 'passed'],
+      ['dependencies', 'passed'],
+      ['secrets', 'passed'],
+      ['configuration', 'passed'],
+    ]);
+    expect(received.get('headers')).toBeUndefined();
+    for (const checkClass of CODE_CHECKS) {
+      expect(received.get(checkClass)?.relativeRoot).toBe('app');
+    }
+    expect(notices).toEqual([]);
+  });
+
+  it('degrades to black-box only, with a logged notice, when source.path is not configured', async () => {
+    const { context, notices } = await harness({
+      authorizationValue: authorization({ checks: ['headers', ...CODE_CHECKS], identities: [] }),
+    });
+    const received = new Map<string, SourceCheckout | undefined>();
+
+    const { result } = await runSecurityAudit(context, { checks: recordingChecks(received) });
+
+    expect(result.status).toBe('completed');
+    expect(result.checks.map((entry) => [entry.checkClass, entry.status])).toEqual([
+      ['headers', 'passed'],
+      ['dependencies', 'skipped'],
+      ['secrets', 'skipped'],
+      ['configuration', 'skipped'],
+    ]);
+    expect(result.checks[1]?.note).toBe(
+      'Not run: source.path is not configured, so only the black-box checks ran.',
+    );
+    expect([...received.keys()]).toEqual(['headers']);
+    expect(notices).toEqual([
+      {
+        message: 'Code-assisted security checks are skipped; the audit runs black-box only',
+        meta: { reason: 'source.path is not configured', checks: CODE_CHECKS },
+      },
+    ]);
+  });
+
+  it('degrades the same way when source.path points at nothing', async () => {
+    const { context, notices } = await harness({
+      authorizationValue: authorization({ checks: ['secrets'], identities: [] }),
+      sourcePath: 'missing',
+    });
+
+    const { result } = await runSecurityAudit(context, { checks: [secretsCheck] });
+
+    expect(result.checks[0]).toMatchObject({ checkClass: 'secrets', status: 'skipped' });
+    expect(result.checks[0]?.note).toContain('source.path "missing" does not exist');
+    expect(notices).toHaveLength(1);
+  });
+
+  it('says nothing about the code level when the authorization names none of its checks', async () => {
+    const { context, notices } = await harness({
+      authorizationValue: authorization({ checks: ['headers'], identities: [] }),
+    });
+
+    await runSecurityAudit(context, { checks: [check('headers', () => Promise.resolve(PASSING))] });
+
+    expect(notices).toEqual([]);
+  });
+
+  it('turns a finding with code references into a draft that carries them', async () => {
+    const { context } = await harness({
+      authorizationValue: authorization({ checks: ['secrets'], identities: [] }),
+      sourcePath: 'app',
+      extraFiles: { [join(PROJECT_ROOT, 'app', 'index.ts')]: 'export {};' },
+    });
+    await context.fs.mkdir(join(PROJECT_ROOT, 'app'));
+
+    const { result, drafts } = await runSecurityAudit(context, {
+      checks: [
+        check('secrets', () =>
+          Promise.resolve({
+            status: 'passed',
+            findings: [
+              finding('secrets', 'secrets-1', {
+                requestIndexes: [],
+                codeReferences: [{ path: 'app/index.ts', line: 3 }],
+              }),
+            ],
+          }),
+        ),
+      ],
+    });
+
+    expect(result.findings[0]?.codeReferences).toEqual([{ path: 'app/index.ts', line: 3 }]);
+    expect(drafts[0]?.securityCodeReferences).toEqual([{ path: 'app/index.ts', line: 3 }]);
   });
 });

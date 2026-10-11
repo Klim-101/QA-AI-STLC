@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from 'zod';
-import { DefectSeverityProposalSchema, SecurityConfidenceSchema } from './defect.js';
+import {
+  DefectSeverityProposalSchema,
+  SecurityCodeReferenceSchema,
+  SecurityConfidenceSchema,
+} from './defect.js';
 import { IdentifierSchema, IsoDateTimeSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
@@ -15,9 +19,21 @@ export const SECURITY_CHECK_CLASSES = [
   'session',
   'encoding',
   'errors',
+  'dependencies',
+  'secrets',
+  'configuration',
 ] as const;
 export const SecurityCheckClassSchema = z.enum(SECURITY_CHECK_CLASSES);
 export type SecurityCheckClass = z.infer<typeof SecurityCheckClassSchema>;
+
+// The classes that read the application's source checkout (`source.path`) instead of probing the
+// running application. Naming one in an authorization is the operator's consent to that read; the
+// dependency audit also sends package names and versions to the package registry.
+export const CODE_ASSISTED_CHECK_CLASSES = [
+  'dependencies',
+  'secrets',
+  'configuration',
+] as const satisfies readonly (typeof SECURITY_CHECK_CLASSES)[number][];
 
 // A path on the audited host: absolute-path form only, so an authorization can never name another
 // host or a protocol-relative URL (`//host/x`), whatever the environment's allowlist says.
@@ -102,6 +118,8 @@ export const SecurityFindingSchema = z.object({
   regressionCheck: z.string().min(1),
   /** Positions in the audit's request log that demonstrate the finding. */
   requestIndexes: z.array(z.number().int().nonnegative()),
+  /** Locations in the source checkout, for findings from the code-assisted checks. */
+  codeReferences: z.array(SecurityCodeReferenceSchema).optional(),
 });
 export type SecurityFinding = z.infer<typeof SecurityFindingSchema>;
 

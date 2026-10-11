@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { authzCheck } from './checks/authz-check.js';
+import { configurationCheck } from './checks/configuration-check.js';
 import { cookiesCheck } from './checks/cookies-check.js';
 import { corsCheck } from './checks/cors-check.js';
 import { csrfCheck } from './checks/csrf-check.js';
+import { dependenciesCheck } from './checks/dependencies-check.js';
 import { encodingCheck } from './checks/encoding-check.js';
 import { errorsCheck } from './checks/errors-check.js';
 import { headersCheck } from './checks/headers-check.js';
+import { secretsCheck } from './checks/secrets-check.js';
 import { sessionCheck } from './checks/session-check.js';
 import type { SecurityCheck } from './security-check.js';
 
@@ -21,4 +24,7 @@ export const DEFAULT_SECURITY_CHECKS: readonly SecurityCheck[] = [
   sessionCheck,
   errorsCheck,
   encodingCheck,
+  dependenciesCheck,
+  secretsCheck,
+  configurationCheck,
 ];

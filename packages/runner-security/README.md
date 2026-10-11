@@ -27,6 +27,23 @@ redirect followed. Every request, sent or refused, is logged in the audit result
 
 Identities sign in through the saved storage state under `.qa/auth/`, or through `authenticate()` (a scripted login whose page must be inside the authorized origin, or an attached Chrome). An identity that cannot sign in makes the checks that need it `blocked`, not `passed`.
 
+## Code-assisted level
+
+When `source.path` is set, three more classes read the application's source checkout. They run only
+when the authorization names them, and they only read: the checkout is exposed without any write,
+directories such as `node_modules`, `dist` and `.git` are left out, and binary or oversized files are
+counted but not read. Findings carry `codeReferences` (project-relative file and line), which the
+defect draft lists under "Code references".
+
+| Class           | What it looks at                                                                                                                                                                                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dependencies`  | `npm audit` over the lockfile (found at or above `source.path`; a workspace is audited on its own). It sends package names and versions to the configured package registry, so naming the class is also consent to that. Other package managers are `skipped`; an audit that cannot run is `blocked`  |
+| `secrets`       | Provider key shapes, private key headers, JWTs, bearer tokens, password and API key assignments, and secrets with a literal value or literal fallback. Only the kind of secret and where it is are reported, never the value. A match in test code or sample data has low confidence                  |
+| `configuration` | Debug and test-only routes, debug mode, cookies without HttpOnly or Secure, disabled certificate verification, a wildcard CORS origin. A setting beside an environment check (`NODE_ENV`) is not reported. These are patterns in text, so a clean result is `uncertain` and test code is not examined |
+
+Without `source.path`, or when it points at nothing, these classes are `skipped` with a note and the
+audit logs a notice that it ran black-box only.
+
 A check ends `passed`, `failed`, `skipped`, `blocked` or `uncertain`; the last three are never
 reported as `passed`, and an audit with a blocked check or an exhausted budget is `partial`.
 Findings become tracker-neutral defect drafts with `category: security`; accepting them is the

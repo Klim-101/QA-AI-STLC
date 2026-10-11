@@ -9,6 +9,7 @@ import type {
 } from '@qa-ai-stlc/schemas';
 import type { IdentitySessions } from './identity-sessions.js';
 import type { SecurityProbe } from './security-probe.js';
+import type { SourceCheckout } from './source-checkout.js';
 
 export interface SecurityCheckInput {
   /** The only way a check reaches the application; every authorized limit is enforced inside it. */
@@ -16,6 +17,8 @@ export interface SecurityCheckInput {
   readonly authorization: SecurityAuthorization;
   /** The identities the authorization names, signed in; empty when it names none. */
   readonly identities: IdentitySessions;
+  /** The source checkout (`source.path`), read-only; absent when none is configured. */
+  readonly source?: SourceCheckout;
 }
 
 export interface SecurityCheckOutcome {

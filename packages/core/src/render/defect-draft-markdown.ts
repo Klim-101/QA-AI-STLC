@@ -53,6 +53,15 @@ function renderSecurity(defect: DefectDraft): string | undefined {
     ...(defect.securityRegressionCheck !== undefined
       ? [`**Regression check:** ${defect.securityRegressionCheck}`]
       : []),
+    ...(defect.securityCodeReferences !== undefined && defect.securityCodeReferences.length > 0
+      ? [
+          '**Code references:**',
+          ...defect.securityCodeReferences.map(
+            (reference) =>
+              `- ${reference.path}${reference.line !== undefined ? `:${String(reference.line)}` : ''}`,
+          ),
+        ]
+      : []),
   ];
   return rows.length === 0 ? undefined : ['## Security assessment', '', ...rows].join('\n');
 }

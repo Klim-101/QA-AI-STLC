@@ -43,6 +43,23 @@ describe('securityFindingToDefectDraft', () => {
     });
   });
 
+  it('carries the code references of a code-assisted finding and omits an empty list', () => {
+    const options = { environment: 'staging', evidencePaths: [], createdAt: '2026-10-10T10:00:00Z' };
+
+    const withReferences = securityFindingToDefectDraft(
+      { ...FINDING, codeReferences: [{ path: 'app/server.ts', line: 24 }, { path: 'package.json' }] },
+      options,
+    );
+    const withoutReferences = securityFindingToDefectDraft({ ...FINDING, codeReferences: [] }, options);
+
+    expect(DefectDraftSchema.safeParse(withReferences).success).toBe(true);
+    expect(withReferences.securityCodeReferences).toEqual([
+      { path: 'app/server.ts', line: 24 },
+      { path: 'package.json' },
+    ]);
+    expect(withoutReferences).not.toHaveProperty('securityCodeReferences');
+  });
+
   it('copies the evidence list instead of sharing it with the caller', () => {
     const evidencePaths = ['evidence/security-1/audit-1.json'];
 
