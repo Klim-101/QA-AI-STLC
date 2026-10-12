@@ -137,6 +137,11 @@ identity. `BROWSER_IDENTITY_UNKNOWN` lists the configured names; `IDENTITY_SECRE
 operator has not set the identity's password variable — report it, do not look for the value. Omit
 `identity` for an anonymous session.
 
+A one-off credential field (a re-authentication dialog, a step-up prompt) is typed with
+`qa.browser_fill` and `valueFromEnv`, the name of a `QA_*` environment variable. The engine reads it
+itself; never read, echo or ask for the secret, and never pass it as `value`.
+`BROWSER_FILL_ENV_UNSET` means the operator has to set the variable.
+
 ## When the engine cannot sign in itself
 
 An application behind single sign-on or MFA cannot be signed into by the engine. Ask the operator to
