@@ -163,14 +163,14 @@ describe('waitForPickModeCompletion', () => {
     const injectedWith: unknown[] = [];
     let reads = 0;
     const page = fakePage({
-      evaluate: ((_script: unknown, argument?: unknown) => {
+      evaluate: (_script: unknown, argument?: unknown) => {
         if (argument !== undefined) {
           injectedWith.push(argument);
           return Promise.resolve(undefined);
         }
         reads += 1;
         return Promise.resolve({ done: reads >= 3, captures: [] });
-      }) as AuthPage['evaluate'],
+      },
     });
 
     await waitForPickModeCompletion(page, { testIdAttribute: 'data-qa', wait: () => Promise.resolve() });
@@ -224,6 +224,8 @@ describe('waitForPickModeCompletion', () => {
   it.each([new Error('boom'), 'not an error object'])(
     'rethrows an unrelated failure (%s)',
     async (failure) => {
+      // A non-Error rejection reason is the case under test.
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       const page = fakePage({ evaluate: () => Promise.reject(failure) });
 
       await expect(waitForPickModeCompletion(page)).rejects.toBe(failure);
