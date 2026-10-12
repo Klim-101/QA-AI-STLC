@@ -2,12 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runCasesAdd } from '@qa-ai-stlc/core';
+import { TestCaseSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = z.object({
-  path: z.string().describe('Project-relative path to a test case written as JSON (TestCaseSchema).'),
+  testCase: TestCaseSchema.optional().describe(
+    'The test case itself (TestCaseSchema). Prefer this: it needs no file in the project.',
+  ),
+  path: z
+    .string()
+    .optional()
+    .describe('Project-relative path to a test case already written as JSON (TestCaseSchema).'),
 });
 
 const OutputSchema = z.object({
@@ -26,14 +33,18 @@ const OutputSchema = z.object({
 export const casesAddTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = {
   name: 'qa.cases_add',
   description:
-    'Validates a test case written as JSON at the given path and registers it under ' +
+    'Validates a test case, given inline as "testCase" or as the JSON file at "path" (exactly one), ' +
+    'and registers it under ' +
     'artifacts/cases/<feature>/<id>.json, using the case\'s own "feature" field. Fails with ' +
     'CASE_UNLINKED_REQUIREMENT if any requirementIds entry does not exist in artifacts/scope.json ' +
     '— run qa.scope first to register it.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   async handler(input) {
-    const result = await runCasesAdd(createNodeEngineContext(), { path: input.path });
+    const result = await runCasesAdd(createNodeEngineContext(), {
+      ...(input.path === undefined ? {} : { path: input.path }),
+      ...(input.testCase === undefined ? {} : { testCase: input.testCase }),
+    });
     return { casePath: result.casePath, id: result.id, requirementIds: [...result.requirementIds] };
   },
 };

@@ -5,8 +5,8 @@ back to the requirements approved in the `scope` phase, then gets the case set a
 
 ## What the hub calls
 
-1. `qa.cases_add` with a project-relative `path` to a test case written as JSON
-   (`TestCaseSchema`). The tool rejects a case whose `requirementIds` do not resolve against
+1. `qa.cases_add` with the test case inline as `testCase` (`TestCaseSchema`), or a project-relative
+   `path` to a case file the operator already has. The tool rejects a case whose `requirementIds` do not resolve against
    `artifacts/scope.json` with `CASE_UNLINKED_REQUIREMENT` — resolve the requirement id in the
    `scope` phase first, it is never invented here.
 2. Once the operator is satisfied with the registered case set, `qa.approve` with `gate: 'cases'`

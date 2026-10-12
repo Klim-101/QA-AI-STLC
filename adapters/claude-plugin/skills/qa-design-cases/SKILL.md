@@ -55,7 +55,9 @@ to skip under time pressure:
 
 ## What this skill calls
 
-- `qa.cases_add` to register each case, after it passes the checks above.
+- `qa.cases_add` to register each case, after it passes the checks above. Pass the case as the
+  `testCase` input; never write it to a file in the project first (a crash would leave the file in
+  the repository under test). `path` is only for a case file the operator already has.
 
 ## What this skill does not do
 
