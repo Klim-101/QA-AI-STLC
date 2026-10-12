@@ -509,6 +509,58 @@ describe('runExplore', () => {
     );
   });
 
+  describe('startUrls (P6-77)', () => {
+    it('crawls an absolute URL and a path resolved against baseUrl in addition to baseUrl', async () => {
+      const context = fakeContext({
+        elementsByUrl: {
+          [START_URL]: ONE_ELEMENT,
+          'https://staging.example.com/nodes/monitor': ONE_ELEMENT,
+          'https://staging.example.com/reports': ONE_ELEMENT,
+        },
+        locatorCount: 1,
+      });
+
+      const report = await runExplore(context, {
+        startUrls: ['/nodes/monitor', 'https://staging.example.com/reports'],
+      });
+
+      expect(report.elementCount).toBe(3);
+    });
+
+    it('crawls only baseUrl when none are given', async () => {
+      const context = fakeContext({
+        elementsByUrl: {
+          [START_URL]: ONE_ELEMENT,
+          'https://staging.example.com/nodes/monitor': ONE_ELEMENT,
+        },
+        locatorCount: 1,
+      });
+
+      const report = await runExplore(context);
+
+      expect(report.elementCount).toBe(1);
+    });
+
+    it.each(['http://', 'ftp://staging.example.com/x', 'javascript:alert(1)'])(
+      'rejects %s as EXPLORE_START_URL_INVALID',
+      async (startUrl) => {
+        const context = fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
+
+        await expect(runExplore(context, { startUrls: [startUrl] })).rejects.toMatchObject({
+          code: 'EXPLORE_START_URL_INVALID',
+        });
+      },
+    );
+
+    it('rejects a URL off the environment allowlist before launching a browser', async () => {
+      const context = fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
+
+      await expect(runExplore(context, { startUrls: ['https://evil.example.com/'] })).rejects.toMatchObject({
+        code: 'EXPLORE_START_URL_NOT_ALLOWED',
+      });
+    });
+  });
+
   it('warns when the crawl visits 0 pages because baseUrl is not on the allowlist (#329)', async () => {
     const warn = vi.fn();
     const context = fakeContext(

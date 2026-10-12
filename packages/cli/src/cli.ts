@@ -524,6 +524,7 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
     static: { type: 'boolean', default: false },
     pick: { type: 'string' },
     'max-pages': { type: 'string' },
+    url: { type: 'string', multiple: true },
     verify: { type: 'boolean', default: false },
   });
   const json = values.json === true;
@@ -542,6 +543,7 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
     ...(typeof values['max-pages'] === 'string'
       ? { maxPages: parsePositiveInt(values['max-pages'], '--max-pages') }
       : {}),
+    ...(Array.isArray(values.url) && values.url.length > 0 ? { startUrls: values.url as string[] } : {}),
     verify: values.verify === true,
   });
   printResult(context.io, json, 'explore', report, formatExploreReport(report));

@@ -20,6 +20,13 @@ const InputSchema = z.object({
   policy: SelectorPolicySchema.optional().describe('Overrides config.yaml selectors.policy for this run.'),
   static: z.boolean().optional().describe('Also scan config.yaml source.path for framework attributes.'),
   maxPages: z.number().int().positive().optional().describe('Caps how many pages the crawl visits.'),
+  startUrls: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Further pages to crawl besides the environment baseUrl, for a page the crawl did not reach: ' +
+        'absolute URLs or paths such as /nodes/monitor, each on the environment allowlist. Ignored by verify.',
+    ),
   verify: z
     .boolean()
     .optional()
@@ -79,6 +86,7 @@ export const exploreTool: ToolDefinition<typeof InputSchema, typeof OutputSchema
       ...(input.policy !== undefined ? { policy: input.policy } : {}),
       ...(input.static !== undefined ? { static: input.static } : {}),
       ...(input.maxPages !== undefined ? { maxPages: input.maxPages } : {}),
+      ...(input.startUrls !== undefined ? { startUrls: input.startUrls } : {}),
       ...(input.verify !== undefined ? { verify: input.verify } : {}),
     });
     return {

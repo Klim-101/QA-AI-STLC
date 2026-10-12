@@ -228,6 +228,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           policy: 'testid-first',
           static: true,
           maxPages: 5,
+          startUrls: ['/nodes/monitor'],
           verify: true,
         })
         .catch((caught: unknown) => caught);

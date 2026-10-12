@@ -585,6 +585,28 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_SUCCESS);
   });
 
+  it('accepts a repeatable --url and crawls those pages too (P6-77)', async () => {
+    const { fs, deps } = exploreDeps({ locatorCount: 1 });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(['explore', '--url', '/a', '--url', '/b'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+  });
+
+  it('fails explore --url for a page off the environment allowlist (P6-77)', async () => {
+    const { fs, deps } = exploreDeps({ locatorCount: 1 });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
+    deps.stdout.length = 0;
+
+    const exitCode = await runCli(['explore', '--url', 'https://evil.example.com/'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+  });
+
   it('reports no degraded selectors and exits successfully on --verify when nothing changed', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
     await runCli(['init', '--defer-scope'], deps);

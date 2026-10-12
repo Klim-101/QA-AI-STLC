@@ -16,6 +16,11 @@ export type CrawlIdentity = ExplorerIdentity;
 
 export interface CrawlOptions {
   readonly startUrl: string;
+  /**
+   * Further pages to visit right after `startUrl`, for a page link-following does not reach
+   * (P6-77). Each must pass the same allowlist check as any discovered link, or it is dropped.
+   */
+  readonly startUrls?: readonly string[];
   /** Hostnames the crawl may navigate to (development plan section 6.4); a link outside it is dropped. */
   readonly allowlist: readonly string[];
   readonly browserLauncher: BrowserLauncher;
@@ -110,7 +115,10 @@ async function visitAllowedRoutes(
 ): Promise<DiscoveredRoute[]> {
   const visited = new Set<string>();
   const routes: DiscoveredRoute[] = [];
-  const queue: QueueItem[] = [{ url: options.startUrl, discoveredVia: 'link' }];
+  const queue: QueueItem[] = [options.startUrl, ...(options.startUrls ?? [])].map((url) => ({
+    url,
+    discoveredVia: 'link',
+  }));
 
   while (queue.length > 0 && visited.size < maxPages) {
     const next = queue.shift();

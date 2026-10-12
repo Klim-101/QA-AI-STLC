@@ -70,6 +70,11 @@ export interface ExploreOptions {
   readonly policy?: string;
   readonly static?: boolean;
   readonly maxPages?: number;
+  /**
+   * Pages to crawl in addition to the environment's `baseUrl` (P6-77): absolute URLs, or paths
+   * resolved against `baseUrl`. Each must be on the environment allowlist. Ignored by `verify`.
+   */
+  readonly startUrls?: readonly string[];
   /** Re-checks the stored registry's candidates live instead of building a new one. */
   readonly verify?: boolean;
   /** Overrides the shipped component-library profiles; a test seam, unset in production. */
@@ -242,6 +247,37 @@ async function readStaticSourceFiles(
   );
 }
 
+function resolveStartUrls(
+  environmentName: string,
+  environment: EnvironmentConfig,
+  given: readonly string[],
+): string[] {
+  return given.map((input) => {
+    let url: URL;
+    try {
+      url = new URL(input, environment.baseUrl);
+    } catch (error) {
+      throw new QaError('EXPLORE_START_URL_INVALID', `"${input}" is not a URL`, {
+        remediation: 'Give an absolute http(s) URL, or a path such as /nodes/monitor.',
+        cause: error,
+      });
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new QaError('EXPLORE_START_URL_INVALID', `"${input}" is not an http(s) URL`, {
+        remediation: 'Give an absolute http(s) URL, or a path such as /nodes/monitor.',
+      });
+    }
+    if (!isAllowedUrl(url.toString(), environment.allowlist)) {
+      throw new QaError(
+        'EXPLORE_START_URL_NOT_ALLOWED',
+        `"${input}" is not on environment "${environmentName}"'s allowlist (${environment.allowlist.join(', ')})`,
+        { remediation: 'Use a page on an allowlisted host, or add the host to the environment allowlist.' },
+      );
+    }
+    return url.toString();
+  });
+}
+
 async function runCrawlAndBuild(
   context: EngineContext,
   config: Config,
@@ -263,8 +299,10 @@ async function runCrawlAndBuild(
   const settle = resolveSettleOptions(context, config, profile);
   const tally = new SafeModeRequestTally();
   const safeMode = { tally, ...safeRequestsOf(environment.config) };
+  const startUrls = resolveStartUrls(environment.name, environment.config, options.startUrls ?? []);
   const crawlResult = await crawl({
     startUrl: environment.config.baseUrl,
+    startUrls,
     allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
