@@ -170,6 +170,60 @@ describe('runCasesAdd', () => {
     await expect(runCasesAdd(context, { path: 'cases/login.json' })).rejects.toThrow(QaError);
   });
 
+  describe('inline test case', () => {
+    function registeredScopeFiles(): Record<string, string> {
+      return {
+        [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+        [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
+      };
+    }
+
+    it('registers a case given inline, without any file in the project', async () => {
+      const context = fakeContext(registeredScopeFiles());
+
+      const result = await runCasesAdd(context, {
+        testCase: JSON.parse(testCaseJson({ id: 'inline-1', requirementIds: ['r1'] })) as unknown,
+      });
+
+      expect(result.casePath).toBe('artifacts/cases/checkout/inline-1.json');
+      await expect(
+        context.fs.readFile(join(QA_DIR, 'artifacts', 'cases', 'checkout', 'inline-1.json')),
+      ).resolves.toContain('"inline-1"');
+    });
+
+    it('rejects an inline case that fails schema validation, naming the failing fields', async () => {
+      const context = fakeContext(registeredScopeFiles());
+
+      const error = await runCasesAdd(context, { testCase: { id: 'x', requirementIds: [] } }).catch(
+        (caught: unknown) => caught,
+      );
+
+      expect(error).toBeInstanceOf(QaError);
+      expect((error as QaError).code).toBe('CASE_INVALID');
+      expect((error as QaError).remediation).toContain('feature');
+    });
+
+    it('names the case itself when the inline value is not an object', async () => {
+      const context = fakeContext(registeredScopeFiles());
+
+      const error = await runCasesAdd(context, { testCase: 'not a case' }).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('CASE_INVALID');
+      expect((error as QaError).remediation).toContain('(case)');
+    });
+
+    it('rejects a call that gives both a path and an inline case', async () => {
+      const context = fakeContext(registeredScopeFiles());
+
+      const error = await runCasesAdd(context, {
+        path: 'cases/login.json',
+        testCase: JSON.parse(testCaseJson({ requirementIds: ['r1'] })) as unknown,
+      }).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('CASES_ADD_USAGE');
+    });
+  });
+
   it('rejects no --path given', async () => {
     const context = fakeContext();
 

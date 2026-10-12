@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
@@ -252,6 +252,37 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
       expect(withoutOptions).toMatchObject({ code: 'CONFIG_MISSING' });
       expect(withEnvironment).toMatchObject({ code: 'CONFIG_MISSING' });
+    });
+  });
+
+  it('qa.cases_add registers a case given inline and leaves no file in the project tree (#635)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      const before = (await readdir(projectRoot)).sort();
+
+      const result = await casesAddTool.handler({
+        testCase: {
+          schemaVersion: 1,
+          id: 'inline-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Submit the login form' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        },
+      });
+
+      const after = (await readdir(projectRoot)).sort();
+      process.chdir(originalCwd);
+
+      expect(result.casePath).toBe('artifacts/cases/login/inline-case.json');
+      expect(after).toEqual(before);
     });
   });
 

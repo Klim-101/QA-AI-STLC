@@ -7,6 +7,7 @@ import {
   TestCaseSchema,
   type RelativePath,
   type Scope,
+  type TestCase,
 } from '@qa-ai-stlc/schemas';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
@@ -24,6 +25,8 @@ const DEFAULT_SCOPE_GENERATED_AT = new Date(0).toISOString();
 
 export interface CasesAddOptions {
   readonly path?: string;
+  /** The case itself, instead of a file holding it; validated by `TestCaseSchema` exactly like a file's content. */
+  readonly testCase?: unknown;
 }
 
 export interface CasesAddResult {
@@ -42,23 +45,11 @@ export interface CasesAddResult {
  * using the case's own `feature` field. A case linking to a requirement id that does not exist in
  * `artifacts/scope.json` is rejected here, before it is ever written; `qa validate` re-checks every
  * already-registered case the same way, so a link broken later by editing `scope.json` is caught
- * too.
+ * too. The case comes from a file (`path`) or inline (`testCase`, so an agent needs no scratch file in
+ * the project tree); exactly one of the two is given.
  */
 export async function runCasesAdd(context: EngineContext, options: CasesAddOptions): Promise<CasesAddResult> {
-  if (options.path === undefined) {
-    throw new QaError('CASES_ADD_USAGE', 'Usage: qa cases add --path <path>', {
-      remediation: 'Example: qa cases add --path cases/login.json',
-    });
-  }
-  const path = assertRelativePath(options.path);
-  const absolutePath = resolveRelativePath(context.projectRoot, path);
-  const exists = await context.fs.pathExists(absolutePath);
-  if (!exists) {
-    throw new QaError('CASES_ADD_FILE_NOT_FOUND', `"${path}" does not exist`, {
-      remediation: 'Check --path points at a real, readable file relative to the project root.',
-    });
-  }
-  const testCase = await readJsonFile(context.fs, absolutePath, TestCaseSchema);
+  const testCase = await readTestCase(context, options);
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const config = await loadConfig(context);
@@ -103,6 +94,42 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   await regenerateCaseIndexes(store, manifestStore);
 
   return { casePath, id: testCase.id, requirementIds: testCase.requirementIds };
+}
+
+function casesAddUsageError(): QaError {
+  return new QaError('CASES_ADD_USAGE', 'Usage: qa cases add --path <path>', {
+    remediation: 'Give exactly one of a file path (--path cases/login.json) or an inline test case.',
+  });
+}
+
+async function readTestCase(context: EngineContext, options: CasesAddOptions): Promise<TestCase> {
+  if (options.testCase !== undefined) {
+    if (options.path !== undefined) {
+      throw casesAddUsageError();
+    }
+    const result = TestCaseSchema.safeParse(options.testCase);
+    if (!result.success) {
+      throw new QaError('CASE_INVALID', 'The test case does not match TestCaseSchema', {
+        remediation: result.error.issues
+          .map((issue) => `${issue.path.join('.') || '(case)'}: ${issue.message}`)
+          .join('; '),
+        cause: result.error,
+      });
+    }
+    return result.data;
+  }
+  if (options.path === undefined) {
+    throw casesAddUsageError();
+  }
+  const path = assertRelativePath(options.path);
+  const absolutePath = resolveRelativePath(context.projectRoot, path);
+  const exists = await context.fs.pathExists(absolutePath);
+  if (!exists) {
+    throw new QaError('CASES_ADD_FILE_NOT_FOUND', `"${path}" does not exist`, {
+      remediation: 'Check --path points at a real, readable file relative to the project root.',
+    });
+  }
+  return readJsonFile(context.fs, absolutePath, TestCaseSchema);
 }
 
 /**
