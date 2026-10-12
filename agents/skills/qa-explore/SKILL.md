@@ -125,6 +125,10 @@ ending on the registry report alone.
   _operator_ to click through — it cannot run over MCP's stdio transport (AGENTS.md 12.4). If the
   registry is missing a locator this skill cannot resolve by crawling, tell the operator to run pick
   mode themselves; do not attempt it as a spoke task.
+  Give the exact command, never a guessed package name. In a project without the CLI installed:
+  `npx @qa-ai-stlc/cli explore --pick <url>`; with it installed: `npx qa explore --pick <url>`. Add
+  `--identity <name>` whenever the page needs sign-in (without it the browser opens on the login
+  page), and `--environment <name>` when `config.yaml` has more than one.
 - It does not write test cases or dispatch execution — that is `qa-design-cases` and later skills.
 - It does not re-implement the explorer's crawl, static-analysis or scoring logic; it calls
   `qa.explore` and reports the structured result.
