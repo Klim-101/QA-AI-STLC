@@ -18,6 +18,7 @@ import {
   runReport,
   runScope,
   runTestDataAdd,
+  runStatus,
   runValidate,
   type ApproveResult,
   type CasesAddResult,
@@ -36,6 +37,7 @@ import {
   type RequestSummary,
   type ScopeResult,
   type TestDataAddResult,
+  type StatusReport,
   type ValidateReport,
   type A11yTargetAnswers,
 } from '@qa-ai-stlc/core';
@@ -93,6 +95,7 @@ Commands:
   rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
   rca approve   Approve a registered RCA: "rca approve <defect-id> --approved-by <name> [--note <text>]"
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
+  status        Show the pipeline gates and what to do next, including exploring, executing and generating after the last gate
   validate      Recompute every gate's status and every case's requirement links: "validate [--run]" also sweeps every run result for a fabricated evidence link or a failed result missing evidence; nonzero exit on any of these
 
 Global options:
@@ -155,6 +158,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchRca(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
+      case 'status':
+        return await dispatchStatus(rest, dependencies);
       case 'validate':
         return await dispatchValidate(rest, dependencies);
       default:
@@ -961,6 +966,19 @@ async function dispatchApprove(rest: readonly string[], dependencies: RunCliDepe
   return EXIT_SUCCESS;
 }
 
+async function dispatchStatus(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, { json: { type: 'boolean', default: false } });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const report = await runStatus(context);
+  printResult(context.io, json, 'status', report, formatStatusReport(report));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchValidate(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const values = parseCommandArgs(rest, {
     json: { type: 'boolean', default: false },
@@ -1194,6 +1212,24 @@ function formatApproveResult(result: ApproveResult): readonly string[] {
     `Approved "${result.gate}": ${result.state.gates[result.gate].status}.`,
     `Current phase: ${result.state.currentPhase}.`,
   ];
+}
+
+function formatStatusReport(report: StatusReport): readonly string[] {
+  const lines = PHASES.map((phase) => `[${report.state.gates[phase].status}] ${phase}`);
+  if (report.nextActions.length === 0) {
+    lines.push('Nothing left to do: every approved case has a passing result and a generated spec.');
+    return lines;
+  }
+  lines.push('Next:');
+  report.nextActions.forEach((action, index) => {
+    lines.push(`  ${String(index + 1)}. ${action.title}: ${action.detail}`);
+    lines.push(`     skill ${action.skill}, starting with ${action.tool}`);
+    if (action.cases !== undefined) {
+      const more = action.cases.total - action.cases.ids.length;
+      lines.push(`     cases: ${action.cases.ids.join(', ')}${more > 0 ? ` and ${String(more)} more` : ''}`);
+    }
+  });
+  return lines;
 }
 
 function formatValidateReport(report: ValidateReport): readonly string[] {

@@ -26,9 +26,8 @@ design work and registering + gating its output, not inventing cases.
 
 ## What comes next
 
-`cases` is the last phase `packages/core/src/phases.ts`'s `PHASES` currently defines — execution
-and generation (development plan section 2.7 step 6 onward) are Phase 3+ and not built yet. Once
-`cases` is approved, the hub says exactly that per
-[`agents/hub/HUB.md`](../hub/HUB.md#announcing-what-comes-next): there is nothing implemented
-after this phase yet, not a fabricated "run the tests now." Update this section when a phase after
-`cases` actually ships.
+`cases` is the last phase `packages/core/src/phases.ts`'s `PHASES` defines, but not the end of the
+work: exploring the application, executing the approved cases and generating tests happen after it,
+outside any gate. Once `cases` is approved, call `qa.status` and relay its `nextActions` per
+[`agents/hub/HUB.md`](../hub/HUB.md#announcing-what-comes-next), starting with the first one. Do not
+say there is nothing next while `nextActions` is not empty.

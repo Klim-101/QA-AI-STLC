@@ -29,6 +29,7 @@ import { linkTool } from '../src/tools/link.js';
 import { reportTool } from '../src/tools/report.js';
 import { runTool } from '../src/tools/run.js';
 import { scopeTool } from '../src/tools/scope.js';
+import { statusTool } from '../src/tools/status.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
 
@@ -762,6 +763,44 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
 
     expect(Object.keys(httpExecuteTool.inputSchema.shape)).not.toContain('tlsInsecure');
     expect(parsed).not.toHaveProperty('tlsInsecure');
+  });
+
+  it('qa.status names the phase to finish, then what follows the last gate (#634)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+
+      const fresh = await statusTool.handler({});
+      const scopeResult = await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await approveTool.handler({ gate: 'scope', artifactPath: scopeResult.scopePath, approvedBy: 'test' });
+      await casesAddTool.handler({
+        testCase: {
+          schemaVersion: 1,
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Submit the login form' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        },
+      });
+      await approveTool.handler({
+        gate: 'cases',
+        artifactPath: 'artifacts/cases-index.json',
+        approvedBy: 'test',
+      });
+      const afterGates = await statusTool.handler({});
+      process.chdir(originalCwd);
+
+      expect(fresh.nextActions).toEqual([expect.objectContaining({ kind: 'phase', skill: 'qa-start' })]);
+      expect(fresh.nextActions[0]).not.toHaveProperty('cases');
+      expect(afterGates.nextActions.map((action) => action.kind)).toEqual(['explore', 'execute']);
+      expect(afterGates.nextActions[1]).toMatchObject({ cases: { ids: ['login-case'], total: 1 } });
+    });
   });
 
   it('qa.case_result_register ties evidence ids together into a registered run result', async () => {

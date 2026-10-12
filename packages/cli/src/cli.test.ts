@@ -2533,4 +2533,154 @@ describe('"config show"', () => {
     expect(exitCode).toBe(EXIT_FAILURE);
     expect(stdout).toStrictEqual([]);
   });
+
+  describe('status (#634)', () => {
+    const SCOPE_JSON = JSON.stringify({
+      generatedAt: '2026-09-20T12:00:00Z',
+      requirements: [{ id: 'r1', title: 'R1', source: { kind: 'text', label: 'x' }, inScope: true }],
+    });
+
+    function caseJson(id: string): string {
+      return JSON.stringify({
+        schemaVersion: 1,
+        id,
+        feature: 'checkout',
+        requirementIds: ['r1'],
+        testType: 'e2e',
+        title: `Case ${id}`,
+        steps: [{ description: 'Do something' }],
+        expectedResult: 'Something happens',
+        status: 'draft',
+        createdAt: '2026-09-20T12:00:00Z',
+      });
+    }
+
+    function passedResultJson(id: string, testCaseId: string): string {
+      return JSON.stringify({
+        schemaVersion: 1,
+        id,
+        runId: `run-${id}`,
+        testCaseId,
+        testType: 'e2e',
+        status: 'passed',
+        startedAt: '2026-09-20T12:00:00Z',
+        finishedAt: '2026-09-20T12:01:00Z',
+        evidenceIds: [],
+      });
+    }
+
+    /** A project with scope approved, the given cases registered and the cases gate approved. */
+    async function approvedProject(
+      caseIds: readonly string[],
+      extraFiles: Readonly<Record<string, string>> = {},
+    ) {
+      const deps = dependencies({
+        fs: createFakeFileSystem({
+          [CONFIG_PATH]: CONFIG_YAML,
+          [join(PROJECT_ROOT, '.qa', 'artifacts', 'scope.json')]: SCOPE_JSON,
+          [join(PROJECT_ROOT, '.qa', 'manifest.json')]: manifestRegistering({
+            'artifacts/scope.json': SCOPE_JSON,
+          }),
+          ...Object.fromEntries(
+            caseIds.map((id) => [join(PROJECT_ROOT, 'cases', `${id}.json`), caseJson(id)]),
+          ),
+          ...extraFiles,
+        }),
+      });
+      await runCli(
+        ['approve', 'scope', '--artifact', 'artifacts/scope.json', '--approved-by', 'operator'],
+        deps,
+      );
+      for (const id of caseIds) {
+        await runCli(['cases', 'add', '--path', `cases/${id}.json`], deps);
+      }
+      await runCli(
+        ['approve', 'cases', '--artifact', 'artifacts/cases-index.json', '--approved-by', 'operator'],
+        deps,
+      );
+      deps.stdout.length = 0;
+      return deps;
+    }
+
+    it('shows the open gates and the phase to finish on a fresh project', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+      const exitCode = await runCli(['status'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      const output = deps.stdout.join('\n');
+      expect(output).toContain('[open] scope');
+      expect(output).toContain('Finish the "scope" phase');
+      expect(output).toContain('skill qa-start, starting with qa.scope');
+    });
+
+    it('prints machine-readable JSON with --json', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
+
+      await runCli(['status', '--json'], deps);
+
+      const parsed = JSON.parse(deps.stdout[0] ?? '{}') as {
+        command: string;
+        data: { nextActions: { kind: string }[] };
+      };
+      expect(parsed.command).toBe('status');
+      expect(parsed.data.nextActions.map((action) => action.kind)).toEqual(['phase']);
+    });
+
+    it('after the last gate, names exploring and executing, and how many cases are not listed', async () => {
+      const ids = Array.from({ length: 12 }, (_, index) => `case-${String(index + 10)}`);
+      const deps = await approvedProject(ids);
+
+      await runCli(['status'], deps);
+
+      const output = deps.stdout.join('\n');
+      expect(output).toContain('Explore the application');
+      expect(output).toContain('skill qa-execute, starting with qa.browser_open');
+      expect(output).toContain('cases: case-10, case-11');
+      expect(output).toContain('and 2 more');
+    });
+
+    it('says nothing is left once every case has a passing result and a generated spec', async () => {
+      const spec =
+        "test('x', { annotation: { type: 'testCaseId', description: 'case-a' } }, async () => undefined);";
+      const deps = await approvedProject(['case-a'], {
+        [join(PROJECT_ROOT, '.qa', 'selectors', 'registry.json')]: '{}',
+        [join(PROJECT_ROOT, '.qa', 'runs', 'case-a', 'r1.json')]: passedResultJson('r1', 'case-a'),
+        [join(PROJECT_ROOT, 'tests', 'qa', 'a.spec.ts')]: spec,
+      });
+      const manifestPath = join(PROJECT_ROOT, '.qa', 'manifest.json');
+      const manifest = JSON.parse((await deps.fs?.readFile(manifestPath)) ?? '{}') as {
+        artifacts: Record<string, unknown>;
+      };
+      manifest.artifacts['tests/qa/a.spec.ts'] = {
+        sha256: hashText(spec),
+        mode: 'text',
+        registeredAt: '2026-09-20T12:00:00Z',
+      };
+      await deps.fs?.writeFile(manifestPath, JSON.stringify(manifest));
+
+      await runCli(['status'], deps);
+
+      expect(deps.stdout.join('\n')).toContain('Nothing left to do');
+    });
+
+    it('lists the cases without "and N more" when all fit', async () => {
+      const deps = await approvedProject(['case-a']);
+
+      await runCli(['status'], deps);
+
+      const output = deps.stdout.join('\n');
+      expect(output).toContain('cases: case-a');
+      expect(output).not.toContain('more');
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io, stdout } = captureIO();
+
+      const exitCode = await runCli(['status'], { io, fs: createFakeFileSystem(), env: {} });
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(stdout.join('\n')).toContain('Finish the "scope" phase');
+    });
+  });
 });

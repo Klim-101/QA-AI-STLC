@@ -53,6 +53,7 @@ import { reportTool } from './report.js';
 import { runTool } from './run.js';
 import { scopeTool } from './scope.js';
 import { testDataAddTool } from './test-data-add.js';
+import { statusTool } from './status.js';
 import { validateTool } from './validate.js';
 import type { ToolDefinition } from '../tool.js';
 
@@ -77,6 +78,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   rcaAddTool,
   rcaApproveTool,
   validateTool,
+  statusTool,
   caseResultRegisterTool,
   generationProvenSessionTool,
   generationSpokeInputTool,
