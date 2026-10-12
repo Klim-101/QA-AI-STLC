@@ -6,7 +6,6 @@ import {
   buildRequestLogHar,
   capturePickModeElements,
   finalizeManualSelectorEntries,
-  injectPickModeOverlay,
   mergeGeneratedIdPatterns,
   persistExploreResult,
   resolveEnvironment,
@@ -64,11 +63,12 @@ async function runPickModeSession(
     });
     const page = await browserContext.newPage();
     await page.goto(options.pick);
-    await injectPickModeOverlay(page, config.selectors.testIdAttribute);
     context.io.stdout(
       `Pick mode: a browser window opened at ${options.pick}. Click every element to capture, then click "Finish picking".`,
     );
-    const captures = await waitForPickModeCompletion(page);
+    const captures = await waitForPickModeCompletion(page, {
+      testIdAttribute: config.selectors.testIdAttribute,
+    });
     const pickModeElements = await capturePickModeElements(page, options.pick, captures, {
       policy,
       viewports: config.selectors.stabilityViewports,
