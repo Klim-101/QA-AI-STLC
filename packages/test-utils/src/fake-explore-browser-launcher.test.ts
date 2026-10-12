@@ -84,6 +84,7 @@ describe('createFakeExploreBrowserLauncher', () => {
 
     await expect(page.ariaSnapshotJSON()).resolves.toEqual({ role: 'document' });
     await expect(page.addScriptTag({ content: 'window.foo = 1;' })).resolves.toBeUndefined();
+    await expect(page.addInitScript({ content: 'window.foo = 1;' })).resolves.toBeUndefined();
     expect(page.viewportSize()).toBeNull();
     await expect(page.reload()).resolves.toEqual(expect.objectContaining({}));
     await expect(page.setViewportSize({ width: 100, height: 100 })).resolves.toBeUndefined();
@@ -96,6 +97,28 @@ describe('createFakeExploreBrowserLauncher', () => {
     await expect(page.keyboard.press('Escape')).resolves.toBeUndefined();
     await expect(page.waitForLoadState()).resolves.toBeUndefined();
     await expect(page.route('**/*', () => undefined)).resolves.toBeUndefined();
+  });
+
+  it('finds nothing for the route-discovery page functions, even when the page has links', async () => {
+    const launcher = createFakeExploreBrowserLauncher({
+      linksByUrl: { 'https://example.com/': ['https://example.com/a'] },
+    });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    await page.goto('https://example.com/');
+    function readRouteAttributeValues(): undefined {
+      return undefined;
+    }
+    function readCapturedHistoryUrls(): undefined {
+      return undefined;
+    }
+    function listProbeControlIndexes(): undefined {
+      return undefined;
+    }
+
+    await expect(page.evaluate(readRouteAttributeValues)).resolves.toEqual([]);
+    await expect(page.evaluate(readCapturedHistoryUrls)).resolves.toEqual([]);
+    await expect(page.evaluate(listProbeControlIndexes)).resolves.toEqual([]);
+    await expect(page.evaluate(() => 'ignored')).resolves.toEqual(['https://example.com/a']);
   });
 
   it('resolves evaluate() to undefined before any goto() call and no options configured', async () => {

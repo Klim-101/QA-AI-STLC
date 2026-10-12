@@ -7,8 +7,17 @@ import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
 // Sitemap discovery has no referrer inside the crawled page graph; a link click always does
 // (development plan section 6.3 step 2). `static` (P1-19) has neither: it comes from a client-side
-// router declaration in source, never a live navigation.
-export const RouteDiscoveryMethodSchema = z.enum(['link', 'sitemap', 'static']);
+// router declaration in source, never a live navigation. The last three are how a single-page
+// application's routes are found without an `<a href>` (P6-78, ADR-0015): a router attribute on the
+// page, a URL the page pushed through the History API, and the URL a probed control navigated to.
+export const RouteDiscoveryMethodSchema = z.enum([
+  'link',
+  'sitemap',
+  'static',
+  'router-attribute',
+  'history-api',
+  'click-probe',
+]);
 export type RouteDiscoveryMethod = z.infer<typeof RouteDiscoveryMethodSchema>;
 
 export const DiscoveredRouteSchema = z.object({

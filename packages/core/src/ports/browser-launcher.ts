@@ -146,6 +146,8 @@ export interface AuthPage {
   ariaSnapshotJSON(): Promise<unknown>;
   /** Injects a script into the page (P3-14: loading axe-core for an accessibility scan). */
   addScriptTag(options: { readonly content: string }): Promise<unknown>;
+  /** Runs a script in every document the page loads from now on, before the page's own scripts. */
+  addInitScript(options: { readonly content: string }): Promise<unknown>;
   getByRole(role: string, options?: GetByRoleOptions): PageLocator;
   getByTestId(testId: string): PageLocator;
   getByLabel(text: string): PageLocator;

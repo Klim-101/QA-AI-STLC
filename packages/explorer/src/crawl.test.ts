@@ -108,6 +108,157 @@ describe('crawl', () => {
     expect(result.routeMap.routes[1]).not.toHaveProperty('discoveredFrom');
   });
 
+  it('finds routes a page declares without a link, and records how (P6-78)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      routeAttributeValuesByUrl: {
+        'https://staging.example.com/': ['/overview', 'https://evil.example.com/x'],
+      },
+      historyUrlsByUrl: { 'https://staging.example.com/': ['https://staging.example.com/pushed'] },
+      linksByUrl: { 'https://staging.example.com/': ['https://staging.example.com/overview'] },
+    });
+
+    const result = await crawl({
+      startUrl: 'https://staging.example.com/',
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+    });
+
+    expect(result.routeMap.routes.map((route) => [route.url, route.discoveredVia])).toEqual([
+      ['https://staging.example.com/', 'link'],
+      ['https://staging.example.com/overview', 'link'],
+      ['https://staging.example.com/pushed', 'history-api'],
+    ]);
+    expect(browserLauncher.page.initScripts).toHaveLength(1);
+    expect(result.probeCount).toBe(0);
+    expect(browserLauncher.newContextCalls).toHaveLength(1);
+  });
+
+  it('records a router attribute as the way a route was found when no link points to it (P6-78)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      routeAttributeValuesByUrl: { 'https://staging.example.com/': ['/overview'] },
+    });
+
+    const result = await crawl({
+      startUrl: 'https://staging.example.com/',
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+    });
+
+    expect(result.routeMap.routes[1]).toEqual({
+      url: 'https://staging.example.com/overview',
+      discoveredVia: 'router-attribute',
+      discoveredFrom: 'https://staging.example.com/',
+      httpStatus: 200,
+    });
+  });
+
+  describe('navigation probing (P6-78, ADR-0015)', () => {
+    const START = 'https://staging.example.com/';
+
+    it('clicks no control unless asked to', async () => {
+      const browserLauncher = createFakeCrawlBrowserLauncher({
+        probeControlIndexesByUrl: { [START]: [0] },
+        clickResultsByUrl: { [START]: { 0: { url: 'https://staging.example.com/nodes' } } },
+      });
+
+      const result = await crawl({ startUrl: START, allowlist: ['staging.example.com'], browserLauncher });
+
+      expect(result.routeMap.routes).toHaveLength(1);
+      expect(result.probeCount).toBe(0);
+    });
+
+    it('visits a page a probed control led to, and keeps probing from it', async () => {
+      const browserLauncher = createFakeCrawlBrowserLauncher({
+        probeControlIndexesByUrl: { [START]: [0], 'https://staging.example.com/nodes': [0] },
+        clickResultsByUrl: {
+          [START]: { 0: { url: 'https://staging.example.com/nodes' } },
+          'https://staging.example.com/nodes': { 0: { url: 'https://staging.example.com/nodes/detail' } },
+        },
+      });
+
+      const result = await crawl({
+        startUrl: START,
+        allowlist: ['staging.example.com'],
+        browserLauncher,
+        probeNavigation: true,
+        maxProbesPerPage: 3,
+      });
+
+      expect(result.routeMap.routes.map((route) => [route.url, route.discoveredVia])).toEqual([
+        [START, 'link'],
+        ['https://staging.example.com/nodes', 'click-probe'],
+        ['https://staging.example.com/nodes/detail', 'click-probe'],
+      ]);
+      expect(result.routeMap.routes[1]?.discoveredFrom).toBe(START);
+      expect(result.probeCount).toBe(2);
+      expect(browserLauncher.closedContexts).toBe(2);
+    });
+
+    it('probes under safe mode: a request the click makes is aborted, counted, and costs the route', async () => {
+      const browserLauncher = createFakeCrawlBrowserLauncher({
+        probeControlIndexesByUrl: { [START]: [0] },
+        clickResultsByUrl: {
+          [START]: {
+            0: {
+              url: 'https://staging.example.com/nodes',
+              subRequests: [{ method: 'DELETE', url: 'https://staging.example.com/api/nodes/1' }],
+            },
+          },
+        },
+      });
+
+      const result = await crawl({
+        startUrl: START,
+        allowlist: ['staging.example.com'],
+        browserLauncher,
+        probeNavigation: true,
+      });
+
+      expect(result.routeMap.routes).toHaveLength(1);
+      expect(result.blockedRequestCount).toBe(1);
+      const har = JSON.parse(result.requestLogHar) as { log: { entries: { blocked: boolean }[] } };
+      expect(har.log.entries.some((entry) => entry.blocked)).toBe(true);
+    });
+
+    it('gives each probe the identity session and the TLS setting of the crawl', async () => {
+      const browserLauncher = createFakeCrawlBrowserLauncher({
+        probeControlIndexesByUrl: { [START]: [0] },
+      });
+
+      await crawl({
+        startUrl: START,
+        allowlist: ['staging.example.com'],
+        browserLauncher,
+        probeNavigation: true,
+        tlsInsecure: true,
+      });
+
+      expect(browserLauncher.newContextCalls).toEqual([
+        { ignoreHttpsErrors: true },
+        { ignoreHttpsErrors: true },
+      ]);
+    });
+
+    it('carries the stored session into a probe context', async () => {
+      const storageState = { cookies: [], origins: [] };
+      const browserLauncher = createFakeCrawlBrowserLauncher({
+        authStorageState: storageState,
+        probeControlIndexesByUrl: { [START]: [0] },
+      });
+      const identityConfig: IdentityConfig = { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' };
+
+      await crawl({
+        startUrl: START,
+        allowlist: ['staging.example.com'],
+        browserLauncher,
+        probeNavigation: true,
+        identity: { config: identityConfig, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
+      });
+
+      expect(browserLauncher.newContextCalls).toEqual([{ storageState }, { storageState }]);
+    });
+  });
+
   it('caps the crawl at maxPages', async () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({
       linksByUrl: {

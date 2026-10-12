@@ -17,6 +17,11 @@ import type {
 import { evaluateNothing } from './fake-browser-launcher.js';
 
 const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
+const ROUTE_DISCOVERY_FUNCTIONS: ReadonlySet<string> = new Set([
+  'readRouteAttributeValues',
+  'readCapturedHistoryUrls',
+  'listProbeControlIndexes',
+]);
 const DEFAULT_RESPONSE: PageResponseLike = { status: () => 200 };
 // Not a real PNG: no code path under test decodes a screenshot, it only has to be bytes.
 const PLACEHOLDER_SCREENSHOT_BYTES = new TextEncoder().encode('fake-screenshot');
@@ -96,7 +101,12 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
       routeHandlers.push(handler);
       return Promise.resolve();
     },
-    evaluate: () => {
+    evaluate: (pageFunction) => {
+      // Route discovery beyond anchor links is not exercised through this fake: those page functions
+      // find nothing, instead of mistaking the page's links for route attributes.
+      if (ROUTE_DISCOVERY_FUNCTIONS.has(pageFunction.name)) {
+        return Promise.resolve([]);
+      }
       if (options.pickModeState !== undefined) {
         return Promise.resolve(options.pickModeState);
       }
@@ -107,6 +117,7 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
     },
     ariaSnapshotJSON: () => Promise.resolve({ role: 'document' }),
     addScriptTag: () => Promise.resolve(undefined),
+    addInitScript: () => Promise.resolve(undefined),
     getByRole: locatorMethod,
     getByTestId: locatorMethod,
     getByLabel: locatorMethod,

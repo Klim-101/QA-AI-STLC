@@ -116,6 +116,47 @@ describe('crawl (demo app)', () => {
   }, 30_000);
 });
 
+// P6-78 against a real browser: the in-page functions that read router attributes, record History
+// API pushes and list probe-able controls run in Chromium, where no Node coverage can see them.
+describe('crawl of a page with no link href (demo app)', () => {
+  const START = `${BASE_URL}/spa-routes.html`;
+
+  it('finds a router attribute and a History API push without clicking anything', async () => {
+    const result = await crawl({
+      startUrl: START,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+    });
+
+    expect(result.routeMap.routes.map((route) => [route.url, route.discoveredVia])).toEqual([
+      [START, 'link'],
+      [`${BASE_URL}/spa-routes-overview.html`, 'router-attribute'],
+      [`${START}?view=pushed`, 'history-api'],
+    ]);
+    expect(result.probeCount).toBe(0);
+  }, 30_000);
+
+  it('also probes buttons, but never a form button or one named like a sign-out', async () => {
+    const result = await crawl({
+      startUrl: START,
+      allowlist: ['localhost'],
+      browserLauncher: playwrightBrowserLauncher,
+      probeNavigation: true,
+    });
+
+    const urls = result.routeMap.routes.map((route) => route.url);
+    expect(
+      result.routeMap.routes.find((route) => route.url === `${BASE_URL}/spa-routes-button.html`),
+    ).toEqual(
+      expect.objectContaining({ discoveredVia: 'click-probe', discoveredFrom: START, httpStatus: 200 }),
+    );
+    expect(urls).not.toContain(`${BASE_URL}/spa-routes-signout.html`);
+    // "To Button Page" is the one control probed, on the start page and again on its ?view=pushed copy.
+    expect(result.probeCount).toBe(2);
+    expect(result.blockedRequestCount).toBe(0);
+  }, 60_000);
+});
+
 // P6-02's exit criterion against the real app: the demo app serves an intentionally imperfect
 // contract at /openapi.json, so a diff of a real crawl must produce a matched finding under a
 // differently named path parameter and one undocumented and one unobserved finding.

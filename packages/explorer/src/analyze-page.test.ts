@@ -32,6 +32,7 @@ function fakePage(
     },
     ariaSnapshotJSON: () => Promise.resolve(options.ariaSnapshot),
     addScriptTag: () => Promise.resolve(undefined),
+    addInitScript: () => Promise.resolve(undefined),
     ...createLocatorMethods(),
   };
 }

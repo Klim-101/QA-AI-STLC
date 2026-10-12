@@ -112,6 +112,7 @@ export interface AuthPageLike {
   evaluate<Arg = void>(pageFunction: (arg: Arg) => unknown, arg?: Arg): Promise<unknown>;
   ariaSnapshotJSON(): Promise<unknown>;
   addScriptTag(options: { readonly content: string }): Promise<unknown>;
+  addInitScript(options: { readonly content: string }): Promise<unknown>;
   getByRole(role: string, options?: GetByRoleOptionsLike): PageLocatorLike;
   getByTestId(testId: string): PageLocatorLike;
   getByLabel(text: string): PageLocatorLike;
@@ -176,6 +177,7 @@ export interface FakePageCall {
     | 'evaluate'
     | 'ariaSnapshotJSON'
     | 'addScriptTag'
+    | 'addInitScript'
     | 'getByRole'
     | 'getByTestId'
     | 'getByLabel'
@@ -412,6 +414,10 @@ function createFakePage(
     },
     addScriptTag: (...args) => {
       calls.push({ method: 'addScriptTag', args });
+      return Promise.resolve(undefined);
+    },
+    addInitScript: (...args) => {
+      calls.push({ method: 'addInitScript', args });
       return Promise.resolve(undefined);
     },
     getByRole: (...args) => fakeLocator('getByRole', args),

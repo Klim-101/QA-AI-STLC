@@ -39,6 +39,7 @@ function fakePage(overrides: Partial<AuthPage> = {}): AuthPage {
     evaluate: () => Promise.resolve(undefined),
     ariaSnapshotJSON: () => Promise.resolve(undefined),
     addScriptTag: () => Promise.resolve(undefined),
+    addInitScript: () => Promise.resolve(undefined),
     getByRole: () => locatorStub,
     getByTestId: () => locatorStub,
     getByLabel: () => locatorStub,

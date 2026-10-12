@@ -37,6 +37,7 @@ function recordingPage(calls: unknown[]): AuthPage {
     },
     ariaSnapshotJSON: () => Promise.resolve(undefined),
     addScriptTag: () => Promise.resolve(undefined),
+    addInitScript: () => Promise.resolve(undefined),
     ...createLocatorMethods(),
   };
 }

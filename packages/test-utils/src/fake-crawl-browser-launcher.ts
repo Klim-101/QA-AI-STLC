@@ -17,6 +17,7 @@ import { evaluateNothing } from './fake-browser-launcher.js';
 
 const EMPTY_STORAGE_STATE: StorageStateLike = { cookies: [], origins: [] };
 const DEFAULT_RESPONSE: PageResponseLike = { status: () => 200 };
+const CLICKED_CONTROL_INDEX = /nth=(\d+)$/;
 
 function createFakeRoute(method: string, url: string): PageRouteLike {
   return {
@@ -31,6 +32,16 @@ export interface FakeSubRequest {
   readonly url: string;
 }
 
+/** What clicking a control during a navigation probe does on a scripted page. */
+export interface FakeClickResult {
+  /** Where the page ends up; omit for a click that navigates nowhere. */
+  readonly url?: string;
+  /** Makes the click fail with this message, as an element that is not actionable does. */
+  readonly error?: string;
+  /** Requests the click makes through the registered route handlers. */
+  readonly subRequests?: readonly FakeSubRequest[];
+}
+
 export interface FakeCrawlPageOptions {
   /** Maps a normalized URL to the response `goto()` resolves with for it; defaults to a 200. */
   readonly responsesByUrl?: Readonly<Record<string, PageResponseLike | null>>;
@@ -40,6 +51,17 @@ export interface FakeCrawlPageOptions {
   readonly ariaSnapshotByUrl?: Readonly<Record<string, unknown>>;
   /** Maps a normalized URL to the raw page-elements `extractPageElements()` should see on it. */
   readonly elementsByUrl?: Readonly<Record<string, unknown>>;
+  /**
+   * Maps a normalized URL to the raw route-attribute values (`routerLink`, `data-href`) the page
+   * evaluates to. As in the generic fake, the page functions are told apart by their names.
+   */
+  readonly routeAttributeValuesByUrl?: Readonly<Record<string, readonly string[]>>;
+  /** Maps a normalized URL to the URLs the page pushed through the History API while loading. */
+  readonly historyUrlsByUrl?: Readonly<Record<string, readonly string[]>>;
+  /** Maps a normalized URL to the indexes of its navigation controls that are safe to probe. */
+  readonly probeControlIndexesByUrl?: Readonly<Record<string, readonly number[]>>;
+  /** Maps a page URL, then a control index, to what clicking that control does. */
+  readonly clickResultsByUrl?: Readonly<Record<string, Readonly<Record<number, FakeClickResult>>>>;
   /** The session `authenticate()` resolves to for a `cdp-attach` identity in these tests. */
   readonly authStorageState?: StorageStateLike;
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
@@ -55,11 +77,18 @@ export interface FakeCrawlPageOptions {
 export interface FakeCrawlPage extends AuthPageLike {
   readonly gotoUrls: string[];
   readonly routeHandlers: RouteHandlerLike[];
+  readonly initScripts: string[];
+  readonly clickedSelectors: string[];
 }
 
-export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCrawlPage {
+export function createFakeCrawlPage(
+  options: FakeCrawlPageOptions = {},
+  contextRouteHandlers: readonly RouteHandlerLike[] = [],
+): FakeCrawlPage {
   const gotoUrls: string[] = [];
   const routeHandlers: RouteHandlerLike[] = [];
+  const initScripts: string[] = [];
+  const clickedSelectors: string[] = [];
   let currentUrl: string | undefined;
   const locatorCounts = options.locatorCounts ?? [1];
   let locatorCallIndex = 0;
@@ -74,22 +103,40 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
     return { count: () => Promise.resolve(nextLocatorCount()), evaluate: evaluateNothing };
   }
 
+  async function fireSubRequests(subRequests: readonly FakeSubRequest[]): Promise<void> {
+    for (const subRequest of subRequests) {
+      for (const handler of [...contextRouteHandlers, ...routeHandlers]) {
+        await handler(createFakeRoute(subRequest.method, subRequest.url));
+      }
+    }
+  }
+
   return {
     gotoUrls,
     routeHandlers,
+    initScripts,
+    clickedSelectors,
     goto: async (url) => {
       gotoUrls.push(url);
       currentUrl = url;
-      for (const subRequest of options.subRequestsByUrl?.[url] ?? []) {
-        for (const handler of routeHandlers) {
-          await handler(createFakeRoute(subRequest.method, subRequest.url));
-        }
-      }
+      await fireSubRequests(options.subRequestsByUrl?.[url] ?? []);
       const configured = options.responsesByUrl?.[url];
       return configured === undefined ? DEFAULT_RESPONSE : configured;
     },
     fill: () => Promise.resolve(),
-    click: () => Promise.resolve(),
+    click: async (selector) => {
+      clickedSelectors.push(selector);
+      const index = Number(CLICKED_CONTROL_INDEX.exec(selector)?.[1]);
+      const result = currentUrl === undefined ? undefined : options.clickResultsByUrl?.[currentUrl]?.[index];
+      if (result === undefined) {
+        return;
+      }
+      if (result.error !== undefined) {
+        throw new Error(result.error);
+      }
+      await fireSubRequests(result.subRequests ?? []);
+      currentUrl = result.url ?? currentUrl;
+    },
     press: () => Promise.resolve(),
     hover: () => Promise.resolve(),
     selectOption: () => Promise.resolve([]),
@@ -104,15 +151,28 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
       routeHandlers.push(handler);
       return Promise.resolve();
     },
-    evaluate: () => {
+    evaluate: (pageFunction) => {
       if (currentUrl === undefined) {
         return Promise.resolve(undefined);
       }
-      return Promise.resolve(options.elementsByUrl?.[currentUrl] ?? options.linksByUrl?.[currentUrl]);
+      switch (pageFunction.name) {
+        case 'readRouteAttributeValues':
+          return Promise.resolve(options.routeAttributeValuesByUrl?.[currentUrl]);
+        case 'readCapturedHistoryUrls':
+          return Promise.resolve(options.historyUrlsByUrl?.[currentUrl]);
+        case 'listProbeControlIndexes':
+          return Promise.resolve(options.probeControlIndexesByUrl?.[currentUrl]);
+        default:
+          return Promise.resolve(options.elementsByUrl?.[currentUrl] ?? options.linksByUrl?.[currentUrl]);
+      }
     },
     ariaSnapshotJSON: () =>
       Promise.resolve(currentUrl === undefined ? undefined : options.ariaSnapshotByUrl?.[currentUrl]),
     addScriptTag: () => Promise.resolve(undefined),
+    addInitScript: (script) => {
+      initScripts.push(script.content);
+      return Promise.resolve(undefined);
+    },
     getByRole: () => locator(),
     getByTestId: () => locator(),
     getByLabel: () => locator(),
@@ -130,38 +190,61 @@ export function createFakeCrawlPage(options: FakeCrawlPageOptions = {}): FakeCra
 }
 
 export interface FakeCrawlBrowserLauncher extends BrowserLauncherLike {
+  /** The page of the first context a launched browser opens: the crawl's own. */
   readonly page: FakeCrawlPage;
+  /** Every page a launched browser's contexts handed out, in order: the crawl's, then one per probe. */
+  readonly pages: readonly FakeCrawlPage[];
   readonly newContextCalls: NewContextOptionsLike[];
   readonly closedBrowsers: number;
+  readonly closedContexts: number;
 }
 
 /** A fake `BrowserLauncher` for crawl tests across the monorepo (AGENTS.md 5.3, 13): no real browser or network call. */
 export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {}): FakeCrawlBrowserLauncher {
   const page = createFakeCrawlPage(options);
+  const pages: FakeCrawlPage[] = [];
   const newContextCalls: NewContextOptionsLike[] = [];
   let closedBrowsers = 0;
+  let closedContexts = 0;
 
   return {
     page,
+    pages,
     newContextCalls,
     get closedBrowsers() {
       return closedBrowsers;
     },
+    get closedContexts() {
+      return closedContexts;
+    },
     launch: () => {
-      const context: AuthBrowserContextLike = {
-        newPage: () => Promise.resolve(page),
-        pages: () => [page],
-        storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
-        route: () => Promise.resolve(),
-        on: () => undefined,
-        close: () => Promise.resolve(),
-      };
+      const openedContexts: AuthBrowserContextLike[] = [];
       const browser: AuthBrowserLike = {
         newContext: (newContextOptions = {}) => {
           newContextCalls.push(newContextOptions);
+          // The first context is the crawl's own and shares `page`; every later one is a fresh
+          // navigation probe, whose page is its own so a test can tell a probe from the crawl.
+          const contextRouteHandlers: RouteHandlerLike[] = [];
+          const contextPage = pages.length === 0 ? page : createFakeCrawlPage(options, contextRouteHandlers);
+          pages.push(contextPage);
+          const context: AuthBrowserContextLike = {
+            newPage: () => Promise.resolve(contextPage),
+            pages: () => [contextPage],
+            storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
+            route: (_pattern, handler) => {
+              contextRouteHandlers.push(handler);
+              return Promise.resolve();
+            },
+            on: () => undefined,
+            close: () => {
+              closedContexts += 1;
+              return Promise.resolve();
+            },
+          };
+          openedContexts.push(context);
           return Promise.resolve(context);
         },
-        contexts: () => [context],
+        contexts: () => openedContexts,
         close: () => {
           closedBrowsers += 1;
           return Promise.resolve();

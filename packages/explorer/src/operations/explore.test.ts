@@ -561,6 +561,21 @@ describe('runExplore', () => {
     });
   });
 
+  describe('probeNavigation (P6-78)', () => {
+    it('reports how many controls were clicked only when probing was asked for', async () => {
+      const probed = await runExplore(
+        fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 }),
+        { probeNavigation: true },
+      );
+      const notProbed = await runExplore(
+        fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 }),
+      );
+
+      expect(probed.navigationProbeCount).toBe(0);
+      expect(notProbed).not.toHaveProperty('navigationProbeCount');
+    });
+  });
+
   it('warns when the crawl visits 0 pages because baseUrl is not on the allowlist (#329)', async () => {
     const warn = vi.fn();
     const context = fakeContext(

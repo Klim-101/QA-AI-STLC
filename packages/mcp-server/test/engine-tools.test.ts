@@ -229,6 +229,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
           static: true,
           maxPages: 5,
           startUrls: ['/nodes/monitor'],
+          probeNavigation: true,
           verify: true,
         })
         .catch((caught: unknown) => caught);
