@@ -1,11 +1,20 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { systemClock, type AuthPage, type BrowserLauncher, type Clock } from '@qa-ai-stlc/core';
+import {
+  systemClock,
+  type AuthBrowserContext,
+  type AuthPage,
+  type BrowserLauncher,
+  type Clock,
+  type RouteHandler,
+} from '@qa-ai-stlc/core';
 import { SCHEMA_VERSION, type DiscoveredRoute, type RouteMap } from '@qa-ai-stlc/schemas';
 import { isAllowedUrl, normalizeUrl } from './allowlist.js';
 import { extractLinks } from './extract-links.js';
+import { extractRouteCandidates, installHistoryCapture } from './extract-route-candidates.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
+import { probeNavigationControls } from './probe-navigation.js';
 import { buildRequestLogHar, type RequestLogEntry } from './request-log.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
@@ -35,6 +44,13 @@ export interface CrawlOptions {
   readonly safeMode?: Omit<SafeModeRequests, 'onAllowed'>;
   /** What to wait for after each navigation before the page is read (P6-63). */
   readonly settle?: PageSettleOptions;
+  /**
+   * Also clicks each page's navigation-only controls in a fresh context to find routes that no
+   * link or router attribute declares (P6-78, ADR-0015). Off unless the operator asks for it.
+   */
+  readonly probeNavigation?: boolean;
+  /** Caps the controls clicked per page when `probeNavigation` is on. */
+  readonly maxProbesPerPage?: number;
 }
 
 export interface CrawlResult {
@@ -43,6 +59,8 @@ export interface CrawlResult {
   readonly requestLogHar: string;
   /** Every non-GET request safe mode intercepted and cancelled; always 0 unless something is broken. */
   readonly blockedRequestCount: number;
+  /** How many controls the navigation probe clicked; 0 unless `probeNavigation` was on. */
+  readonly probeCount: number;
 }
 
 interface QueueItem {
@@ -52,7 +70,8 @@ interface QueueItem {
 }
 
 /**
- * Crawls from `startUrl` by following in-allowlist links only, in safe mode: every non-GET
+ * Crawls from `startUrl` by following in-allowlist links, router attributes and History API
+ * navigations (and, when asked, probed controls), in safe mode: every non-GET
  * request is intercepted and aborted before it reaches the network (development plan section 6.4
  * — mutation budget zero). Produces a `RouteMap` and a redactable request log, never a live
  * browser or page the caller has to manage.
@@ -76,20 +95,41 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
 
     const logEntries: RequestLogEntry[] = [];
     let blockedRequestCount = 0;
-    await page.route(
-      '**/*',
+    const createRouteHandler = (onBlocked: () => void): RouteHandler =>
       createSafeModeRouteHandler(
         options.allowlist,
         options.startUrl,
         (entry) => {
           blockedRequestCount += 1;
           logEntries.push(entry);
+          onBlocked();
         },
         { ...options.safeMode, onAllowed: (entry) => logEntries.push(entry) },
-      ),
+      );
+    await page.route(
+      '**/*',
+      createRouteHandler(() => undefined),
     );
+    await installHistoryCapture(page);
 
-    const routes = await visitAllowedRoutes(page, options, maxPages, logEntries);
+    // Each probe gets a context of its own, carrying the same session and the same safe-mode
+    // handler, so nothing a click changes survives it and a popup it opens is covered as well.
+    const openProbeContext = async (onBlocked: () => void): Promise<AuthBrowserContext> => {
+      const probeContext = await browser.newContext({
+        ...(storageState === undefined ? {} : { storageState }),
+        ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+      });
+      await probeContext.route('**/*', createRouteHandler(onBlocked));
+      return probeContext;
+    };
+
+    const { routes, probeCount } = await visitAllowedRoutes(
+      page,
+      options,
+      maxPages,
+      logEntries,
+      openProbeContext,
+    );
 
     const routeMap: RouteMap = {
       schemaVersion: SCHEMA_VERSION,
@@ -101,6 +141,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
       routeMap,
       requestLogHar: buildRequestLogHar(logEntries, routeMap.generatedAt),
       blockedRequestCount,
+      probeCount,
     };
   } finally {
     await browser.close();
@@ -112,7 +153,9 @@ async function visitAllowedRoutes(
   options: CrawlOptions,
   maxPages: number,
   logEntries: RequestLogEntry[],
-): Promise<DiscoveredRoute[]> {
+  openProbeContext: (onBlocked: () => void) => Promise<AuthBrowserContext>,
+): Promise<{ routes: DiscoveredRoute[]; probeCount: number }> {
+  let probeCount = 0;
   const visited = new Set<string>();
   const routes: DiscoveredRoute[] = [];
   const queue: QueueItem[] = [options.startUrl, ...(options.startUrls ?? [])].map((url) => ({
@@ -151,12 +194,30 @@ async function visitAllowedRoutes(
 
     if (httpStatus !== undefined && httpStatus < 400) {
       await settlePage(page, url, options.settle);
-      for (const link of await extractLinks(page)) {
-        if (isAllowedUrl(link, options.allowlist)) {
-          queue.push({ url: link, discoveredVia: 'link', discoveredFrom: url });
+      const found: QueueItem[] = (await extractLinks(page)).map((link) => ({
+        url: link,
+        discoveredVia: 'link',
+        discoveredFrom: url,
+      }));
+      for (const candidate of await extractRouteCandidates(page)) {
+        found.push({ url: candidate.url, discoveredVia: candidate.discoveredVia, discoveredFrom: url });
+      }
+      if (options.probeNavigation === true) {
+        const probe = await probeNavigationControls({
+          page,
+          pageUrl: url,
+          allowlist: options.allowlist,
+          openContext: openProbeContext,
+          ...(options.settle === undefined ? {} : { settle: options.settle }),
+          ...(options.maxProbesPerPage === undefined ? {} : { maxProbes: options.maxProbesPerPage }),
+        });
+        probeCount += probe.probeCount;
+        for (const landedUrl of probe.urls) {
+          found.push({ url: landedUrl, discoveredVia: 'click-probe', discoveredFrom: url });
         }
       }
+      queue.push(...found.filter((item) => isAllowedUrl(item.url, options.allowlist)));
     }
   }
-  return routes;
+  return { routes, probeCount };
 }

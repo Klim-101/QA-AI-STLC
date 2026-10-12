@@ -75,6 +75,11 @@ export interface ExploreOptions {
    * resolved against `baseUrl`. Each must be on the environment allowlist. Ignored by `verify`.
    */
   readonly startUrls?: readonly string[];
+  /**
+   * Clicks each page's navigation-only controls in a fresh context to find routes that no link or
+   * router attribute declares (P6-78, ADR-0015). Slower, so off unless asked for. Ignored by `verify`.
+   */
+  readonly probeNavigation?: boolean;
   /** Re-checks the stored registry's candidates live instead of building a new one. */
   readonly verify?: boolean;
   /** Overrides the shipped component-library profiles; a test seam, unset in production. */
@@ -96,6 +101,8 @@ export interface ExploreReport {
   readonly blockedRequests: readonly RequestSummary[];
   readonly endpointsPath: string;
   readonly endpointCount: number;
+  /** Controls the navigation probe clicked; present only when `probeNavigation` was on. */
+  readonly navigationProbeCount?: number;
 }
 
 export function resolvePolicy(config: Config, given: string | undefined): SelectorPolicy {
@@ -287,6 +294,7 @@ async function runCrawlAndBuild(
   blockedRequestCount: number;
   requestLogHar: string;
   requests: SafeModeRequestSummaries;
+  probeCount: number;
 }> {
   const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
@@ -308,6 +316,7 @@ async function runCrawlAndBuild(
     tlsInsecure,
     settle,
     safeMode,
+    ...(options.probeNavigation === true ? { probeNavigation: true } : {}),
     ...(identity !== undefined ? { identity } : {}),
     ...(options.maxPages !== undefined ? { maxPages: options.maxPages } : {}),
   });
@@ -368,6 +377,7 @@ async function runCrawlAndBuild(
     blockedRequestCount: crawlResult.blockedRequestCount + analyzeBlocked + buildBlocked,
     requestLogHar: crawlResult.requestLogHar,
     requests: tally.summary(),
+    probeCount: crawlResult.probeCount,
   };
 }
 
@@ -495,6 +505,7 @@ export async function persistExploreResult(
   blockedRequestCount: number,
   requestLogHar: string,
   requests: SafeModeRequestSummaries = { allowed: [], blocked: [] },
+  navigationProbeCount?: number,
 ): Promise<ExploreReport> {
   const generatedAt = context.clock.now().toISOString();
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
@@ -552,6 +563,7 @@ export async function persistExploreResult(
     ...requestSummaryFields(requests),
     endpointsPath: ENDPOINTS_PATH,
     endpointCount: apiSurface.endpoints.length,
+    ...(navigationProbeCount === undefined ? {} : { navigationProbeCount }),
   };
 }
 
@@ -580,7 +592,7 @@ export async function runExplore(
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : undefined;
 
-  const { elements, blockedRequestCount, requestLogHar, requests } = await runCrawlAndBuild(
+  const { elements, blockedRequestCount, requestLogHar, requests, probeCount } = await runCrawlAndBuild(
     context,
     config,
     options,
@@ -595,5 +607,6 @@ export async function runExplore(
     blockedRequestCount,
     requestLogHar,
     requests,
+    options.probeNavigation === true ? probeCount : undefined,
   );
 }

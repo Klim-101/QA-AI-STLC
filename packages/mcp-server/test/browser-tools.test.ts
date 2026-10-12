@@ -137,6 +137,7 @@ function createFakeBrowser(): FakeBrowser {
         children: [{ role: 'button', name: 'Log in' }],
       }),
     addScriptTag: () => Promise.resolve(undefined),
+    addInitScript: () => Promise.resolve(undefined),
     getByRole: locator,
     getByTestId: locator,
     getByLabel: locator,

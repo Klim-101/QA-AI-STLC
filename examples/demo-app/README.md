@@ -70,6 +70,13 @@ busy indicators and fail with a coded error when one never clears.
 prove that explore waits for the render before it reads a page, and gives up with a warning when the page
 never settles.
 
+## Router-only navigation fixture
+
+`/spa-routes.html` (P6-78, ADR-0015) renders no `<a href>`. It declares one route with a `routerLink`
+attribute, pushes another through the History API while it loads, reaches a third only through a
+"To Button Page" button, and has a "Sign out" button that a navigation probe must never click. A
+button inside a form is there to show that one is not clicked either.
+
 ## Session-by-POST fixture
 
 `/spa-session.html` (P6-67, ADR-0014) is an empty `<app-root>` that opens its session with

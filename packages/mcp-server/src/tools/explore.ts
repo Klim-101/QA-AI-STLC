@@ -27,6 +27,15 @@ const InputSchema = z.object({
       'Further pages to crawl besides the environment baseUrl, for a page the crawl did not reach: ' +
         'absolute URLs or paths such as /nodes/monitor, each on the environment allowlist. Ignored by verify.',
     ),
+  probeNavigation: z
+    .boolean()
+    .optional()
+    .describe(
+      'Also clicks the buttons and role="link" elements of each page that are outside any form, each in a ' +
+        'fresh browser context under safe mode, and keeps the page a click led to. Use when pages that ' +
+        'only a button reaches (a single-page application) are missing from the registry. Slower. ' +
+        'Ignored by verify.',
+    ),
   verify: z
     .boolean()
     .optional()
@@ -58,6 +67,7 @@ const OutputSchema = z.object({
   blockedRequests: z.array(RequestSummarySchema),
   endpointsPath: z.string(),
   endpointCount: z.number(),
+  navigationProbeCount: z.number().optional(),
 });
 
 /**
@@ -87,6 +97,7 @@ export const exploreTool: ToolDefinition<typeof InputSchema, typeof OutputSchema
       ...(input.static !== undefined ? { static: input.static } : {}),
       ...(input.maxPages !== undefined ? { maxPages: input.maxPages } : {}),
       ...(input.startUrls !== undefined ? { startUrls: input.startUrls } : {}),
+      ...(input.probeNavigation !== undefined ? { probeNavigation: input.probeNavigation } : {}),
       ...(input.verify !== undefined ? { verify: input.verify } : {}),
     });
     return {

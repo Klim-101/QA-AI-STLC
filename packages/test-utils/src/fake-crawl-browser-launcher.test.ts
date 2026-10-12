@@ -132,7 +132,103 @@ describe('createFakeCrawlPage', () => {
   });
 });
 
+describe('createFakeCrawlPage navigation probing support', () => {
+  const PAGE = 'https://example.com/';
+
+  it('records init scripts', async () => {
+    const page = createFakeCrawlPage();
+
+    await expect(page.addInitScript({ content: 'window.x = 1;' })).resolves.toBeUndefined();
+
+    expect(page.initScripts).toEqual(['window.x = 1;']);
+  });
+
+  it('answers the route-discovery page functions by name, and nothing before a goto()', async () => {
+    const page = createFakeCrawlPage({
+      routeAttributeValuesByUrl: { [PAGE]: ['/a'] },
+      historyUrlsByUrl: { [PAGE]: ['https://example.com/b'] },
+      probeControlIndexesByUrl: { [PAGE]: [1] },
+    });
+    function readRouteAttributeValues(): undefined {
+      return undefined;
+    }
+    function readCapturedHistoryUrls(): undefined {
+      return undefined;
+    }
+    function listProbeControlIndexes(): undefined {
+      return undefined;
+    }
+
+    await expect(page.evaluate(readRouteAttributeValues)).resolves.toBeUndefined();
+    await page.goto(PAGE);
+
+    await expect(page.evaluate(readRouteAttributeValues)).resolves.toEqual(['/a']);
+    await expect(page.evaluate(readCapturedHistoryUrls)).resolves.toEqual(['https://example.com/b']);
+    await expect(page.evaluate(listProbeControlIndexes)).resolves.toEqual([1]);
+  });
+
+  it('navigates, fails or stays put on a click according to the scripted result for the control', async () => {
+    const page = createFakeCrawlPage({
+      clickResultsByUrl: {
+        [PAGE]: {
+          0: {
+            url: 'https://example.com/next',
+            subRequests: [{ method: 'POST', url: 'https://example.com/x' }],
+          },
+          1: {},
+          2: { error: 'not visible' },
+        },
+      },
+    });
+    const seen: string[] = [];
+    await page.route('**/*', (route) => {
+      seen.push(route.request().method());
+    });
+
+    await page.click('button >> nth=0');
+    expect(page.url()).toBe('about:blank');
+
+    await page.goto(PAGE);
+    await page.click('button >> nth=7');
+    await page.click('button >> nth=1');
+    expect(page.url()).toBe(PAGE);
+    await expect(page.click('button >> nth=2')).rejects.toThrow('not visible');
+    await page.click('button >> nth=0');
+
+    expect(page.url()).toBe('https://example.com/next');
+    expect(seen).toEqual(['POST']);
+    expect(page.clickedSelectors).toHaveLength(5);
+  });
+});
+
 describe('createFakeCrawlBrowserLauncher', () => {
+  it('hands each later context a page of its own, replays requests through its context route, and counts closes', async () => {
+    const launcher = createFakeCrawlBrowserLauncher({
+      clickResultsByUrl: {
+        'https://example.com/': { 0: { subRequests: [{ method: 'POST', url: 'https://example.com/x' }] } },
+      },
+    });
+    const browser = await launcher.launch();
+    const first = await (await browser.newContext()).newPage();
+    const probeContext = await browser.newContext();
+    const probePage = await probeContext.newPage();
+    const seen: string[] = [];
+    await probeContext.route('**/*', (route) => {
+      seen.push(route.request().method());
+    });
+
+    await probePage.goto('https://example.com/');
+    await probePage.click('button >> nth=0');
+    await probeContext.close();
+
+    expect(first).toBe(launcher.page);
+    expect(probePage).not.toBe(launcher.page);
+    expect(launcher.pages).toEqual([launcher.page, probePage]);
+    expect(seen).toEqual(['POST']);
+    expect(launcher.closedContexts).toBe(1);
+    expect(probeContext.on('page', () => undefined)).toBeUndefined();
+  });
+
   it('exposes a closable context through launch() and contexts(), tracking close()', async () => {
     const launcher = createFakeCrawlBrowserLauncher();
 

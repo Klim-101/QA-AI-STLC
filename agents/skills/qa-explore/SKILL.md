@@ -72,6 +72,10 @@ steps use instead of raw clicks.
    `maxPages` to bound the crawl if the operator wants a cap, or `verify: true` for the re-check
    path instead of a crawl. When the operator names a page the crawl missed, pass its URL or path in
    `startUrls` and explore again before falling back to manual pick mode.
+   When pages are missing because the application navigates with buttons that have no link (a
+   single-page application), ask the operator before setting `probeNavigation: true`: it clicks
+   buttons outside forms, each in a throwaway context under safe mode, and is slower. Do not turn it
+   on unprompted, and tell the operator it skips controls named like a sign-out or delete.
 
 ## Reading the result
 
@@ -91,6 +95,9 @@ steps use instead of raw clicks.
   the operator which entry they could add to the environment's `safeNonGetRequests` (they edit
   `config.yaml`; you cannot, and must not suggest widening it for a request that changes data).
   `allowedRequests` lists what the environment's list let through.
+- `navigationProbeCount` (present only when `probeNavigation` was on) — how many controls were clicked.
+  Zero means the pages had no such control; the route map says which pages were found by a click
+  (`click-probe`) and which by a router attribute or the History API.
 - `EXPLORE_PAGE_NOT_SETTLED` (a logged warning, one per page) — a page still showed a busy indicator or
   kept changing when the wait for it to render ran out, so it was read as it was. A registry that is
   thin for that page means the page never settled: tell the operator, and check `ui.busySelectors`
