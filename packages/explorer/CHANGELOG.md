@@ -1,5 +1,28 @@
 # @qa-ai-stlc/explorer
 
+## 1.8.0
+
+### Minor Changes
+
+- 8e41570: The crawl can start from operator-given pages, not only `baseUrl`: `qa explore --url <url-or-path>` (repeatable) and the `startUrls` input of `qa.explore`. Each must be on the environment allowlist.
+- 48e3c2f: The crawl finds single-page-application routes that have no `<a href>`: it reads `routerLink`, `ng-reflect-router-link` and `data-href` attributes and the URLs a page pushes through the History API. With `qa explore --probe-navigation` (`probeNavigation` on `qa.explore`) it also clicks buttons outside forms, each in a throwaway context under safe mode, and keeps the page a click led to (ADR-0015). The route map records how each route was found (`router-attribute`, `history-api`, `click-probe`).
+
+### Patch Changes
+
+- 6160291: `qa.browser_open` takes an optional `identity` and signs the interactive session in before the first navigation, so `qa-execute` can run a case on an application behind a login page. The result names the identity and never carries its session.
+- 00d3d15: `qa explore --pick` brings the pick-mode toolbar back after a login redirect or any other navigation, and reports a closed window as `explorer.pick_mode.page_closed` instead of a raw Playwright error.
+- Updated dependencies [585653b]
+- Updated dependencies [6160291]
+- Updated dependencies [b1d0516]
+- Updated dependencies [c1f6ed4]
+- Updated dependencies [e78749c]
+- Updated dependencies [c0707e2]
+- Updated dependencies [940b19d]
+- Updated dependencies [48e3c2f]
+- Updated dependencies [dafa6ab]
+  - @qa-ai-stlc/core@1.8.0
+  - @qa-ai-stlc/schemas@1.8.0
+
 ## 1.7.0
 
 ### Patch Changes

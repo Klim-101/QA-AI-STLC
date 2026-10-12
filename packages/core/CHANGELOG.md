@@ -1,5 +1,26 @@
 # @qa-ai-stlc/core
 
+## 1.8.0
+
+### Minor Changes
+
+- b1d0516: Every registered test case now has a readable Markdown copy with its preconditions, steps and expected result at `artifacts/cases-md/<feature>/<id>.md`, written when the case is added or linked and registered in the manifest. `qa cases add` and `qa.cases_add` return its path as `markdownPath`, and the feature index Markdown links to each copy, so cases can be reviewed before approving the `cases` gate without reading JSON.
+- c1f6ed4: `qa.case_result_register` accepts `passed` only when the cited evidence proves it: every step has successful evidence linked to its `stepId`, and the expected result has a successful check of the case's type (e2e: a passing `qa.browser_expect`; api: a response below 400; a11y: a scan with no violations and nothing uncertain). Otherwise it fails with `RUN_RESULT_STEP_NOT_PROVEN` or `RUN_RESULT_EXPECTED_RESULT_UNCHECKED`. A run can hold results for one case only (`RUN_RESULT_RUN_BOUND_TO_OTHER_CASE`). `qa.browser_accessibility_scan` takes a `stepId`.
+- e78749c: `qa.cases_add` takes the test case inline as `testCase`, so `qa-design-cases` no longer writes temporary case files into the project tree. `path` still works for an existing file; giving both, or neither, fails with `CASES_ADD_USAGE`.
+- c0707e2: API testing can be turned on after `qa init`: `qa config set testing.api in-scope --api-source <file, URL, discover or synthesize>` (and `apiSource` on `qa.config_set`) writes the `api` section with the scope change. Without a source the call fails with `CONFIG_SET_API_SOURCE_REQUIRED` and says how to give one. Switching `testing.api` off again keeps the `api` section.
+- 940b19d: New `qa status` command and `qa.status` tool: the pipeline gates plus an ordered list of next actions. Once the last gate (`cases`) is approved it names what follows outside the pipeline: exploring the application, executing approved cases that have no passing result, and generating tests for passing ones, each with the skill and first tool to use. The hub and `qa-start` relay it instead of saying nothing comes next.
+- 48e3c2f: The crawl finds single-page-application routes that have no `<a href>`: it reads `routerLink`, `ng-reflect-router-link` and `data-href` attributes and the URLs a page pushes through the History API. With `qa explore --probe-navigation` (`probeNavigation` on `qa.explore`) it also clicks buttons outside forms, each in a throwaway context under safe mode, and keeps the page a click led to (ADR-0015). The route map records how each route was found (`router-attribute`, `history-api`, `click-probe`).
+- dafa6ab: A test case can declare structured expectations: `expectations` on a step and `resultExpectations` for the final result (visible, hidden, text, value, count, checked, url, http-status, http-body-contains, a11y-clean). The engine derives from the cited evidence whether each is met, and `qa.case_result_register` refuses `passed` with `RUN_RESULT_EXPECTATION_UNMET` while any is unmet or never checked (ADR-0016). An api case that expects an error status can now be `passed`. Existing cases are unchanged. The readable Markdown copy of a case lists the declared checks.
+
+### Patch Changes
+
+- 585653b: `qa.browser_fill` takes `valueFromEnv`, the name of a `QA_*` environment variable the engine reads itself, so a password or other credential can be typed without passing through the agent.
+- 6160291: `qa.browser_open` takes an optional `identity` and signs the interactive session in before the first navigation, so `qa-execute` can run a case on an application behind a login page. The result names the identity and never carries its session.
+- Updated dependencies [c1f6ed4]
+- Updated dependencies [48e3c2f]
+- Updated dependencies [dafa6ab]
+  - @qa-ai-stlc/schemas@1.8.0
+
 ## 1.7.0
 
 ### Minor Changes

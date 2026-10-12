@@ -1,5 +1,37 @@
 # @qa-ai-stlc/cli
 
+## 1.8.0
+
+### Minor Changes
+
+- b1d0516: Every registered test case now has a readable Markdown copy with its preconditions, steps and expected result at `artifacts/cases-md/<feature>/<id>.md`, written when the case is added or linked and registered in the manifest. `qa cases add` and `qa.cases_add` return its path as `markdownPath`, and the feature index Markdown links to each copy, so cases can be reviewed before approving the `cases` gate without reading JSON.
+- c0707e2: API testing can be turned on after `qa init`: `qa config set testing.api in-scope --api-source <file, URL, discover or synthesize>` (and `apiSource` on `qa.config_set`) writes the `api` section with the scope change. Without a source the call fails with `CONFIG_SET_API_SOURCE_REQUIRED` and says how to give one. Switching `testing.api` off again keeps the `api` section.
+- 8e41570: The crawl can start from operator-given pages, not only `baseUrl`: `qa explore --url <url-or-path>` (repeatable) and the `startUrls` input of `qa.explore`. Each must be on the environment allowlist.
+- 940b19d: New `qa status` command and `qa.status` tool: the pipeline gates plus an ordered list of next actions. Once the last gate (`cases`) is approved it names what follows outside the pipeline: exploring the application, executing approved cases that have no passing result, and generating tests for passing ones, each with the skill and first tool to use. The hub and `qa-start` relay it instead of saying nothing comes next.
+- 48e3c2f: The crawl finds single-page-application routes that have no `<a href>`: it reads `routerLink`, `ng-reflect-router-link` and `data-href` attributes and the URLs a page pushes through the History API. With `qa explore --probe-navigation` (`probeNavigation` on `qa.explore`) it also clicks buttons outside forms, each in a throwaway context under safe mode, and keeps the page a click led to (ADR-0015). The route map records how each route was found (`router-attribute`, `history-api`, `click-probe`).
+
+### Patch Changes
+
+- daf89be: The `qa-explore` skill now gives the exact pick-mode command (`npx @qa-ai-stlc/cli explore --pick <url>`, or `npx qa explore --pick <url>` when installed) and tells the agent to add `--identity` for a page behind sign-in.
+- 00d3d15: `qa explore --pick` brings the pick-mode toolbar back after a login redirect or any other navigation, and reports a closed window as `explorer.pick_mode.page_closed` instead of a raw Playwright error.
+- Updated dependencies [585653b]
+- Updated dependencies [6160291]
+- Updated dependencies [b1d0516]
+- Updated dependencies [c1f6ed4]
+- Updated dependencies [e78749c]
+- Updated dependencies [c0707e2]
+- Updated dependencies [8e41570]
+- Updated dependencies [00d3d15]
+- Updated dependencies [940b19d]
+- Updated dependencies [48e3c2f]
+- Updated dependencies [dafa6ab]
+  - @qa-ai-stlc/core@1.8.0
+  - @qa-ai-stlc/explorer@1.8.0
+  - @qa-ai-stlc/schemas@1.8.0
+  - @qa-ai-stlc/runner-a11y@1.8.0
+  - @qa-ai-stlc/runner-api@1.8.0
+  - @qa-ai-stlc/runner-playwright@1.8.0
+
 ## 1.7.0
 
 ### Patch Changes
