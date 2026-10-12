@@ -70,7 +70,8 @@ steps use instead of raw clicks.
    rather than a clear error, so confirm the environment first when in doubt.
 2. **`qa.explore`**, with the answers from the survey above: `environment`/`identity`, `static`,
    `maxPages` to bound the crawl if the operator wants a cap, or `verify: true` for the re-check
-   path instead of a crawl.
+   path instead of a crawl. When the operator names a page the crawl missed, pass its URL or path in
+   `startUrls` and explore again before falling back to manual pick mode.
 
 ## Reading the result
 

@@ -84,6 +84,30 @@ describe('crawl', () => {
     expect(result.routeMap.routes).toEqual([{ url: 'https://staging.example.com/', discoveredVia: 'link' }]);
   });
 
+  it('visits operator-given start URLs after the base URL, and drops one outside the allowlist (P6-77)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      linksByUrl: { 'https://staging.example.com/': ['https://staging.example.com/tasks'] },
+    });
+
+    const result = await crawl({
+      startUrl: 'https://staging.example.com/',
+      startUrls: [
+        'https://staging.example.com/nodes/monitor',
+        'https://evil.example.com/',
+        'https://staging.example.com/tasks',
+      ],
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+    });
+
+    expect(result.routeMap.routes.map((route) => route.url)).toEqual([
+      'https://staging.example.com/',
+      'https://staging.example.com/nodes/monitor',
+      'https://staging.example.com/tasks',
+    ]);
+    expect(result.routeMap.routes[1]).not.toHaveProperty('discoveredFrom');
+  });
+
   it('caps the crawl at maxPages', async () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({
       linksByUrl: {
