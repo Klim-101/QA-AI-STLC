@@ -81,6 +81,7 @@ export * from './rca-store.js';
 export * from './defect-store.js';
 export * from './security-authorization-store.js';
 export * from './security-finding-draft.js';
+export * from './operations/status.js';
 export * from './operations/validate.js';
 export * from './operations/browser-context.js';
 export * from './operations/browser-evidence.js';

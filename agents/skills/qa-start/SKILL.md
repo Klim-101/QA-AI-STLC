@@ -52,9 +52,9 @@ than continuing past it.
    to the matching [`agents/phase-prompts/<phase>.md`](../../phase-prompts) for what to actually
    call next — this skill's job ends at knowing which phase prompt to load, not doing that phase's
    work itself. If every phase's gate in `.qa/state.json` is already `satisfied`, do not stop with
-   just that status: relay what comes next the same way a gate approval would (P2-21) — the
-   `currentPhase`'s own phase prompt states it (see
-   [`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)).
+   just that status: call `qa.status` and relay its `nextActions` the same way a gate approval
+   would (see [`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)). Calling it at the
+   start of a resumed session is also the quickest way to tell the operator where they left off.
 
 ## First-time setup
 

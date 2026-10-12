@@ -69,9 +69,11 @@ After `qa.approve` succeeds for gate `<phase>`:
    phase prompt states its own normal next step and which skill starts it (see
    [`scope.md`](../phase-prompts/scope.md) and [`cases.md`](../phase-prompts/cases.md)), so the hub
    relays that instead of guessing.
-4. If `<phase>` is the last phase `PHASES` currently defines, say so plainly: this release has
-   nothing implemented after it yet. Never invent a phase, gate or skill that does not exist just
-   to have something to announce.
+4. If `<phase>` is the last phase `PHASES` defines, the pipeline has no gate after it, but work
+   remains: call `qa.status` and relay its `nextActions` in order (explore the application, execute
+   the approved cases, generate tests for the passing ones), naming each action's skill. Say that
+   nothing is left only when `nextActions` is empty. Never invent a phase, gate or skill that
+   `qa.status` did not return.
 
 A skill that produces its own end-of-run report (`qa-explore`, and later spokes) relays through
 this same mechanism rather than stopping silently after presenting its own result — it checks the

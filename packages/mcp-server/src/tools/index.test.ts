@@ -43,6 +43,7 @@ describe('createBuiltinTools', () => {
     ]);
     expect(names).toContain('qa.registry_execute_register');
     expect(names).toContain('qa.config_show');
+    expect(names).toContain('qa.status');
   });
 
   it('gives every tool a unique name', () => {
