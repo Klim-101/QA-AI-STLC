@@ -315,6 +315,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       const casesResult = await casesAddTool.handler({ path: 'login-case.json' });
       expect(casesResult).toEqual({
         casePath: 'artifacts/cases/login/login-case.json',
+        markdownPath: 'artifacts/cases-md/login/login-case.md',
         id: 'login-case',
         requirementIds: ['login'],
       });

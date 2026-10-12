@@ -1140,7 +1140,10 @@ function formatScopeResult(result: ScopeResult): readonly string[] {
 }
 
 function formatCasesAddResult(result: CasesAddResult): readonly string[] {
-  return [`Registered ${result.casePath}: linked to ${result.requirementIds.join(', ')}.`];
+  return [
+    `Registered ${result.casePath}: linked to ${result.requirementIds.join(', ')}.`,
+    `Readable copy for review: ${result.markdownPath}.`,
+  ];
 }
 
 function formatCasesRenderResult(result: CasesRenderResult): readonly string[] {

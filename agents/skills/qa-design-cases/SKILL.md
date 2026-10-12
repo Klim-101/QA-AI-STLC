@@ -57,7 +57,10 @@ to skip under time pressure:
 
 - `qa.cases_add` to register each case, after it passes the checks above. Pass the case as the
   `testCase` input; never write it to a file in the project first (a crash would leave the file in
-  the repository under test). `path` is only for a case file the operator already has.
+  the repository under test). `path` is only for a case file the operator already has. Each call returns
+  `markdownPath`, a readable copy of the case with its steps and expected result: when the cases are
+  ready for review, list those paths for the operator so they can read the cases without opening JSON
+  before the hub asks for gate approval.
 
 ## What this skill does not do
 

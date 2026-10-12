@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { join } from 'node:path';
-import { FeatureCaseIndexSchema, type CasesIndex } from '@qa-ai-stlc/schemas';
+import { CasesIndexSchema, FeatureCaseIndexSchema, type CasesIndex } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { CASES_INDEX_PATH } from '../gate.js';
@@ -10,7 +10,7 @@ import { hashText } from '../hash.js';
 import { toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { QaStore } from '../qa-store.js';
-import { regenerateCaseIndexes } from './cases-index.js';
+import { caseMarkdownPath, regenerateCaseIndexes } from './cases-index.js';
 
 const PROJECT_ROOT = join('project');
 
@@ -75,6 +75,54 @@ describe('regenerateCaseIndexes', () => {
     expect(markdown).toContain('# Test cases: checkout');
     expect(markdown).toContain('Case case-1');
     expect(markdown).not.toContain('Do something');
+  });
+
+  it('writes a readable Markdown copy of each case with its steps and expected result, linked from the index (#636)', async () => {
+    const { store, manifest } = setup();
+    const case1 = caseJson({ id: 'case-1', feature: 'checkout', requirementIds: ['r1'] });
+    await store.writeText('artifacts/cases/checkout/case-1.json', case1);
+    await manifest.register('artifacts/cases/checkout/case-1.json', case1);
+
+    await regenerateCaseIndexes(store, manifest);
+
+    const markdown = await store.readText(caseMarkdownPath('checkout', 'case-1'));
+    expect(markdown).toBe(
+      [
+        '# Case case-1',
+        '',
+        '**Feature:** checkout',
+        '**Requirements:** r1',
+        '**Test type:** e2e',
+        '**Status:** draft',
+        '',
+        '## Steps',
+        '',
+        '1. Do something',
+        '',
+        '## Expected result',
+        '',
+        'Something happens',
+        '',
+      ].join('\n'),
+    );
+    expect(await store.readText('artifacts/cases-index/checkout.md')).toContain(
+      '[case-1](../cases-md/checkout/case-1.md)',
+    );
+    const registered = await manifest.load();
+    expect(registered.artifacts).toHaveProperty('artifacts/cases-md/checkout/case-1.md');
+  });
+
+  it('keeps the readable copies out of the cases-gate aggregate', async () => {
+    const { store, manifest } = setup();
+    const case1 = caseJson({ id: 'case-1', feature: 'checkout', requirementIds: ['r1'] });
+    await store.writeText('artifacts/cases/checkout/case-1.json', case1);
+    await manifest.register('artifacts/cases/checkout/case-1.json', case1);
+
+    await regenerateCaseIndexes(store, manifest);
+    await regenerateCaseIndexes(store, manifest);
+
+    const aggregate = await store.readJson(CASES_INDEX_PATH, CasesIndexSchema);
+    expect(aggregate.files.map((file) => file.path)).toEqual(['artifacts/cases/checkout/case-1.json']);
   });
 
   it('groups cases into separate indexes per feature', async () => {

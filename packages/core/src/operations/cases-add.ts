@@ -18,7 +18,7 @@ import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 import { findUndecidedTestingTypes } from '../testing-scope.js';
-import { regenerateCaseIndexes } from './cases-index.js';
+import { caseMarkdownPath, regenerateCaseIndexes } from './cases-index.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
 const DEFAULT_SCOPE_GENERATED_AT = new Date(0).toISOString();
@@ -31,6 +31,8 @@ export interface CasesAddOptions {
 
 export interface CasesAddResult {
   readonly casePath: string;
+  /** The readable copy of the case (steps, expected result), for review before the gate is approved. */
+  readonly markdownPath: string;
   readonly id: string;
   readonly requirementIds: readonly string[];
 }
@@ -93,7 +95,12 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
   // added or edited after approval go undetected by `qa validate`.
   await regenerateCaseIndexes(store, manifestStore);
 
-  return { casePath, id: testCase.id, requirementIds: testCase.requirementIds };
+  return {
+    casePath,
+    markdownPath: caseMarkdownPath(testCase.feature, testCase.id),
+    id: testCase.id,
+    requirementIds: testCase.requirementIds,
+  };
 }
 
 function casesAddUsageError(): QaError {
