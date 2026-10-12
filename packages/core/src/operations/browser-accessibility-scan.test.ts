@@ -40,6 +40,19 @@ describe('runBrowserAccessibilityScan', () => {
     expect(written.violations).toHaveLength(2);
   });
 
+  it('records the case step a scan performs, and leaves it out when none is given (#603)', async () => {
+    const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: axeResult() } });
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    const withStep = await runBrowserAccessibilityScan(harness.context, { sessionId, stepId: 'step-2' });
+    const withoutStep = await runBrowserAccessibilityScan(harness.context, { sessionId });
+
+    const read = (path: string): Record<string, unknown> =>
+      JSON.parse(String(harness.fs.getRawFile(join('project', '.qa', path)))) as Record<string, unknown>;
+    expect(read(withStep.evidence.path).stepId).toBe('step-2');
+    expect(read(withoutStep.evidence.path)).not.toHaveProperty('stepId');
+  });
+
   it('records the axe-core version and a hash of the effective a11y config in the evidence', async () => {
     const harness = createBrowserTestHarness({ launcherOptions: { evaluateResult: axeResult() } });
     const { sessionId } = await runBrowserOpen(harness.context);

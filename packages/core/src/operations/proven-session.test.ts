@@ -131,14 +131,23 @@ describe('findLatestProvenSession', () => {
       url: 'https://staging.example.test/login',
       method: 'POST',
     });
-    await runRegisterCaseResult(context, {
-      testCaseId: testCase.id,
-      testType: 'api',
-      runId: 'run-1',
-      status: 'passed',
-      startedAt: '2026-09-25T09:59:00.000Z',
-      evidenceIds: [result.evidence.id],
-    });
+    // Written directly: `runRegisterCaseResult` now refuses a `passed` result whose evidence carries
+    // no step id, which is exactly the situation this test needs to exist.
+    await context.fs.mkdir(join('project', '.qa', 'runs', testCase.id));
+    await context.fs.writeFile(
+      join('project', '.qa', 'runs', testCase.id, 'run-result-legacy.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'run-result-legacy',
+        runId: 'run-1',
+        testCaseId: testCase.id,
+        testType: 'api',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        finishedAt: '2026-09-25T10:00:00.000Z',
+        evidenceIds: [result.evidence.id],
+      }),
+    );
 
     const session = await findLatestProvenSession(context, testCase, { testCaseId: testCase.id });
 

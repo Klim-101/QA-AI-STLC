@@ -5,7 +5,7 @@
 // bundled browser script, for exactly this "inject into a page" use case) as a property on its
 // default-exported object, not a statically analyzable named export.
 import axeCore from 'axe-core';
-import type { Evidence } from '@qa-ai-stlc/schemas';
+import type { Evidence, Identifier } from '@qa-ai-stlc/schemas';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerEvidenceOrThrow } from './browser-evidence.js';
 import { loadConfig } from '../config-loader.js';
@@ -21,6 +21,8 @@ import {
 
 export interface BrowserAccessibilityScanOptions {
   readonly sessionId: string;
+  /** The case step this scan performs (`'step-<N>'`), stored in the scan record. */
+  readonly stepId?: Identifier;
 }
 
 export interface BrowserAccessibilityScanResult {
@@ -74,7 +76,8 @@ export async function runBrowserAccessibilityScan(
     runId: session.runId,
     kind: 'other',
     fileExtension: 'json',
-    content: toCanonicalJson(record),
+    content: toCanonicalJson(options.stepId === undefined ? record : { ...record, stepId: options.stepId }),
+    ...(options.stepId === undefined ? {} : { stepId: options.stepId }),
   });
 
   return {

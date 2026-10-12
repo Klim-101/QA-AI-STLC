@@ -31,7 +31,7 @@ async function seedCase(fs: FakeFileSystem, id: string = CASE_ID): Promise<void>
       schemaVersion: 1,
       id,
       feature: 'login',
-      requirementIds: [],
+      requirementIds: ['login'],
       testType: 'e2e',
       title: 'A registered user can log in',
       steps: [{ description: 'Submit valid credentials' }],
@@ -80,14 +80,14 @@ async function seedExpectation(
     id,
     runId,
     kind: 'action',
-    ...(options.stepId === undefined ? {} : { stepId: options.stepId }),
+    stepId: options.stepId ?? 'step-1',
     content:
       options.raw ??
       JSON.stringify({
         schemaVersion: 1,
         type: options.type ?? 'expect',
         sessionId: 'session-1',
-        ...(options.stepId === undefined ? {} : { stepId: options.stepId }),
+        stepId: options.stepId ?? 'step-1',
         ...(options.ref === undefined ? { selector: options.selector ?? '#done' } : { ref: options.ref }),
         expectation: { kind: 'visible', passed: options.passed },
         at: options.at,
@@ -102,7 +102,7 @@ describe('runRegisterCaseResult', () => {
   it('registers a passed run result and returns its path', async () => {
     const { context, fs } = createContext();
     await seedCase(fs);
-    await seedEvidence(context, 'run-1', 'evidence-1');
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: '2026-09-25T09:59:30.000Z' });
     await seedEvidence(context, 'run-1', 'evidence-2');
 
     const result = await runRegisterCaseResult(context, {
@@ -135,7 +135,7 @@ describe('runRegisterCaseResult', () => {
   it('registers the run result in the manifest', async () => {
     const { context, fs } = createContext();
     await seedCase(fs);
-    await seedEvidence(context, 'run-1', 'evidence-1');
+    await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: '2026-09-25T09:59:30.000Z' });
 
     const result = await runRegisterCaseResult(context, {
       testCaseId: CASE_ID,
@@ -368,6 +368,7 @@ describe('runRegisterCaseResult', () => {
       at: 'x',
       raw: '{"unrelated":true}',
     });
+    await seedExpectation(context, 'run-1', 'evidence-4', { passed: true, at: '2026-09-25T09:59:30.000Z' });
 
     const result = await runRegisterCaseResult(context, {
       testCaseId: CASE_ID,
@@ -375,7 +376,7 @@ describe('runRegisterCaseResult', () => {
       runId: 'run-1',
       status: 'passed',
       startedAt: '2026-09-25T09:59:00.000Z',
-      evidenceIds: ['evidence-1', 'evidence-2'],
+      evidenceIds: ['evidence-1', 'evidence-2', 'evidence-4'],
     });
 
     expect(result.id).toMatch(/^run-result-/);
@@ -445,5 +446,310 @@ describe('runRegisterCaseResult', () => {
         evidenceIds: ['evidence-1'],
       }),
     ).rejects.toThrow('on the page');
+  });
+
+  describe('what a passed result must prove (#603)', () => {
+    const STARTED_AT = '2026-09-25T09:59:00.000Z';
+
+    async function seedTypedCase(
+      fs: FakeFileSystem,
+      testType: 'e2e' | 'api' | 'a11y',
+      stepCount: number,
+      id: string = CASE_ID,
+    ): Promise<void> {
+      await fs.mkdir(join('project', '.qa', 'artifacts', 'cases', 'login'));
+      await fs.writeFile(
+        join('project', '.qa', 'artifacts', 'cases', 'login', `${id}.json`),
+        JSON.stringify({
+          schemaVersion: 1,
+          id,
+          feature: 'login',
+          requirementIds: ['login'],
+          testType,
+          title: 'A case',
+          steps: Array.from({ length: stepCount }, (_, index) => ({
+            description: `Step ${String(index + 1)}`,
+          })),
+          expectedResult: 'It works',
+          status: 'approved',
+          createdAt: '2026-09-25T09:00:00.000Z',
+        }),
+      );
+    }
+
+    async function seedRecord(
+      context: EngineContext,
+      runId: string,
+      id: string,
+      record: Readonly<Record<string, unknown>>,
+    ): Promise<void> {
+      const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+      const manifest = new ManifestStore({ store, clock: context.clock });
+      const registration = await new EvidenceStore({ store, manifest, clock: context.clock }).register({
+        id,
+        runId,
+        kind: 'other',
+        fileExtension: 'json',
+        content: JSON.stringify(record),
+      });
+      if (registration.status !== 'registered') {
+        throw new Error('Test setup expected evidence to register cleanly.');
+      }
+    }
+
+    const request = (stepId: string | undefined, status: number): Record<string, unknown> => ({
+      type: 'http-request',
+      ...(stepId === undefined ? {} : { stepId }),
+      method: 'GET',
+      url: 'https://staging.example.test/x',
+      status,
+      responseHeaders: {},
+      bodyPreview: '',
+      truncated: false,
+      at: '2026-09-25T09:59:30.000Z',
+    });
+
+    const scan = (
+      stepId: string | undefined,
+      found: { violations?: number; uncertain?: number } = {},
+    ): Record<string, unknown> => ({
+      type: 'a11y-scan',
+      ...(stepId === undefined ? {} : { stepId }),
+      axeVersion: '4.0.0',
+      configHash: 'a'.repeat(64),
+      wcagVersion: '2.1',
+      level: 'AA',
+      bestPractices: false,
+      tags: [],
+      include: [],
+      exclude: [],
+      violations: Array.from({ length: found.violations ?? 0 }, () => ({ id: 'color-contrast' })),
+      excepted: [],
+      expiredExceptions: [],
+      uncertain: Array.from({ length: found.uncertain ?? 0 }, () => ({ id: 'color-contrast' })),
+      passedRuleIds: [],
+      inapplicableRuleIds: [],
+    });
+
+    function registerPassed(
+      context: EngineContext,
+      testType: 'e2e' | 'api' | 'a11y',
+      evidenceIds: readonly string[],
+      testCaseId: string = CASE_ID,
+    ): Promise<unknown> {
+      return runRegisterCaseResult(context, {
+        testCaseId,
+        testType,
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: STARTED_AT,
+        evidenceIds,
+      });
+    }
+
+    it('refuses passed while a step has no evidence linked to it, naming the step', async () => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'e2e', 2);
+      await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: NOW.toISOString() });
+
+      const error = await registerPassed(context, 'e2e', ['evidence-1']).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('RUN_RESULT_STEP_NOT_PROVEN');
+      expect((error as QaError).message).toContain('step(s) 2');
+    });
+
+    it('refuses passed when no cited evidence is linked to a step, whatever the screenshots say', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedEvidence(context, 'run-1', 'evidence-1');
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+
+    it('refuses passed when every step is performed but nothing checks the expected result', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        type: 'click',
+      });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_EXPECTED_RESULT_UNCHECKED',
+      });
+    });
+
+    it('does not count a record that carries no step id', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        raw: JSON.stringify({
+          schemaVersion: 1,
+          type: 'expect',
+          sessionId: 'session-1',
+          selector: '#done',
+          expectation: { kind: 'visible', passed: true },
+          at: NOW.toISOString(),
+        }),
+      });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+
+    it('does not count an a11y scan that carries no step id', async () => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'a11y', 1);
+      await seedRecord(context, 'run-1', 'evidence-1', scan(undefined));
+
+      await expect(registerPassed(context, 'a11y', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+
+    it('does not count a step proven by a blocked tab', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        type: 'tab-blocked',
+      });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+
+    it('accepts a complete passing e2e set: every step performed and the expected result checked', async () => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'e2e', 2);
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        type: 'click',
+        stepId: 'step-1',
+      });
+      await seedExpectation(context, 'run-1', 'evidence-2', {
+        passed: true,
+        at: NOW.toISOString(),
+        stepId: 'step-2',
+      });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1', 'evidence-2'])).resolves.toBeDefined();
+    });
+
+    it('ignores records of another test type when judging an e2e case', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedRecord(context, 'run-1', 'evidence-1', request('step-1', 200));
+      await seedRecord(context, 'run-1', 'evidence-2', scan('step-1'));
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1', 'evidence-2'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+
+    it('accepts an api case whose every step got a response below 400', async () => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'api', 2);
+      await seedRecord(context, 'run-1', 'evidence-1', request('step-1', 201));
+      await seedRecord(context, 'run-1', 'evidence-2', request('step-2', 200));
+
+      await expect(registerPassed(context, 'api', ['evidence-1', 'evidence-2'])).resolves.toBeDefined();
+    });
+
+    it('refuses an api case whose request came back with an error status or carries no step id', async () => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'api', 2);
+      await seedRecord(context, 'run-1', 'evidence-1', request('step-1', 200));
+      await seedRecord(context, 'run-1', 'evidence-2', request('step-2', 500));
+      await seedRecord(context, 'run-1', 'evidence-3', request(undefined, 200));
+
+      await expect(
+        registerPassed(context, 'api', ['evidence-1', 'evidence-2', 'evidence-3']),
+      ).rejects.toMatchObject({ code: 'RUN_RESULT_STEP_NOT_PROVEN' });
+    });
+
+    it('accepts an a11y case that navigated and then scanned clean', async () => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'a11y', 2);
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        type: 'navigate',
+        stepId: 'step-1',
+      });
+      await seedRecord(context, 'run-1', 'evidence-2', scan('step-2'));
+
+      await expect(registerPassed(context, 'a11y', ['evidence-1', 'evidence-2'])).resolves.toBeDefined();
+    });
+
+    it.each([
+      ['violations', { violations: 1 }],
+      ['uncertain results', { uncertain: 1 }],
+    ])('refuses an a11y case whose scan has %s', async (_label, found) => {
+      const { context, fs } = createContext();
+      await seedTypedCase(fs, 'a11y', 1);
+      await seedRecord(context, 'run-1', 'evidence-1', scan('step-1', found));
+
+      await expect(registerPassed(context, 'a11y', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+
+    it('does not let evidence of another run satisfy a step', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedExpectation(context, 'run-2', 'evidence-1', { passed: true, at: NOW.toISOString() });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_UNRESOLVED_EVIDENCE',
+      });
+    });
+
+    it('refuses to reuse a run that already holds a result for another case', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedTypedCase(fs, 'e2e', 1, 'other-case');
+      await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: NOW.toISOString() });
+      await registerPassed(context, 'e2e', ['evidence-1']);
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'], 'other-case')).rejects.toMatchObject({
+        code: 'RUN_RESULT_RUN_BOUND_TO_OTHER_CASE',
+      });
+    });
+
+    it('lets the same case register again under its own run', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: NOW.toISOString() });
+      await registerPassed(context, 'e2e', ['evidence-1']);
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).resolves.toBeDefined();
+    });
+
+    it('still lets a failed result through without any proof', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+
+      await expect(
+        runRegisterCaseResult(context, {
+          testCaseId: CASE_ID,
+          testType: 'e2e',
+          runId: 'run-1',
+          status: 'failed',
+          startedAt: STARTED_AT,
+          evidenceIds: [],
+          failure: { message: 'The dashboard never loaded' },
+        }),
+      ).resolves.toBeDefined();
+    });
   });
 });

@@ -11,7 +11,14 @@ import {
 } from './browser-dependencies.js';
 import type { ToolDefinition } from '../tool.js';
 
-const InputSchema = SessionIdInputSchema;
+const InputSchema = SessionIdInputSchema.extend({
+  stepId: z
+    .string()
+    .optional()
+    .describe(
+      "'step-<N>', N the case step's 1-based position this scan performs, when executing a registered case.",
+    ),
+});
 
 const OutputSchema = z.object({
   sessionId: z.string(),
@@ -41,6 +48,10 @@ export function createBrowserAccessibilityScanTool(
       'expected result yourself.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
-    handler: (input) => runBrowserAccessibilityScan(toBrowserOperationContext(dependencies), input),
+    handler: (input) =>
+      runBrowserAccessibilityScan(toBrowserOperationContext(dependencies), {
+        sessionId: input.sessionId,
+        ...(input.stepId === undefined ? {} : { stepId: input.stepId }),
+      }),
   };
 }
