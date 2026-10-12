@@ -41,15 +41,15 @@ function resolveFillValue(
   env: Readonly<Record<string, string | undefined>>,
   options: BrowserFillOptions,
 ): string {
-  if ((options.value === undefined) === (options.valueFromEnv === undefined)) {
+  const { value, valueFromEnv: name } = options;
+  if (value !== undefined && name === undefined) {
+    return value;
+  }
+  if (name === undefined || value !== undefined) {
     throw new QaError('BROWSER_FILL_VALUE_AMBIGUOUS', 'Give exactly one of "value" and "valueFromEnv"', {
       remediation: 'Pass the text as "value", or the name of a QA_ environment variable as "valueFromEnv".',
     });
   }
-  if (options.value !== undefined) {
-    return options.value;
-  }
-  const name = options.valueFromEnv ?? '';
   if (!name.startsWith(ENV_NAME_PREFIX)) {
     throw new QaError(
       'BROWSER_FILL_ENV_NAME_INVALID',
@@ -57,13 +57,13 @@ function resolveFillValue(
       { remediation: `Only variables whose name starts with ${ENV_NAME_PREFIX} can be typed into a field.` },
     );
   }
-  const value = env[name];
-  if (value === undefined || value === '') {
+  const secret = env[name];
+  if (secret === undefined || secret === '') {
     throw new QaError('BROWSER_FILL_ENV_UNSET', `Environment variable "${name}" is not set`, {
       remediation: `Ask the operator to set ${name} before the engine process starts; do not look for its value.`,
     });
   }
-  return value;
+  return secret;
 }
 
 /**
