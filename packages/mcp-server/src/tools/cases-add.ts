@@ -19,6 +19,7 @@ const InputSchema = z.object({
 
 const OutputSchema = z.object({
   casePath: z.string(),
+  markdownPath: z.string(),
   id: z.string(),
   requirementIds: z.array(z.string()),
 });
@@ -45,6 +46,11 @@ export const casesAddTool: ToolDefinition<typeof InputSchema, typeof OutputSchem
       ...(input.path === undefined ? {} : { path: input.path }),
       ...(input.testCase === undefined ? {} : { testCase: input.testCase }),
     });
-    return { casePath: result.casePath, id: result.id, requirementIds: [...result.requirementIds] };
+    return {
+      casePath: result.casePath,
+      markdownPath: result.markdownPath,
+      id: result.id,
+      requirementIds: [...result.requirementIds],
+    };
   },
 };

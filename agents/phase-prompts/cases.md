@@ -9,7 +9,10 @@ back to the requirements approved in the `scope` phase, then gets the case set a
    `path` to a case file the operator already has. The tool rejects a case whose `requirementIds` do not resolve against
    `artifacts/scope.json` with `CASE_UNLINKED_REQUIREMENT` — resolve the requirement id in the
    `scope` phase first, it is never invented here.
-2. Once the operator is satisfied with the registered case set, `qa.approve` with `gate: 'cases'`
+2. Before asking for approval, point the operator to the readable copies: each `qa.cases_add` result
+   carries `markdownPath` (`artifacts/cases-md/<feature>/<id>.md`, steps and expected result), and
+   `artifacts/cases-index/<feature>.md` lists every case of a feature with a link to its copy. Once
+   the operator is satisfied with the registered case set, `qa.approve` with `gate: 'cases'`
    and `artifactPath: 'artifacts/cases-index.json'` — the case-set aggregate `qa.cases_add`
    regenerates after every registration, never a single case's own file (#357: approving one case's
    file left every other case unapproved and undetected). This is the case review gate (development

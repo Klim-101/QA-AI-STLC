@@ -91,6 +91,7 @@ describe('runCasesAdd', () => {
 
     expect(result).toEqual({
       casePath: 'artifacts/cases/checkout/case-1.json',
+      markdownPath: 'artifacts/cases-md/checkout/case-1.md',
       id: 'case-1',
       requirementIds: ['r1'],
     });

@@ -20,8 +20,17 @@ import type { QaStore } from '../qa-store.js';
 const CASES_DIR: RelativePath = 'artifacts/cases';
 
 /**
+ * Where a registered case's readable Markdown lives. Not under `artifacts/cases/`: everything there
+ * is a case file the `cases` gate hashes and every reader parses as a `TestCase`.
+ */
+export function caseMarkdownPath(feature: string, id: string): RelativePath {
+  return `artifacts/cases-md/${feature}/${id}.md`;
+}
+
+/**
  * Regenerates every feature's steps-free case index and the `cases` gate's canonical snapshot
- * (#357) from the case files registered under `artifacts/cases/**` right now. `qa cases add` calls
+ * (#357), and each case's readable Markdown (#636), from the case files registered under
+ * `artifacts/cases/**` right now. `qa cases add` calls
  * this after registering a case, so the gate's aggregate always reflects the current case set — an
  * approval bound to a stale snapshot would defeat the point of hashing it.
  */
@@ -53,6 +62,17 @@ export async function regenerateCaseIndexes(store: QaStore, manifest: ManifestSt
       manifest,
       `artifacts/cases-index/${feature}.md`,
       renderMarkdownArtifact('case-index', featureIndex),
+    );
+  }
+
+  // The review copy of each case, with every step and the expected result: the operator reads these
+  // before approving the `cases` gate. JSON stays canonical (ADR-002); these are rendered from it.
+  for (const testCase of testCases) {
+    await writeAndRegister(
+      store,
+      manifest,
+      caseMarkdownPath(testCase.feature, testCase.id),
+      renderMarkdownArtifact('test-case', testCase),
     );
   }
 

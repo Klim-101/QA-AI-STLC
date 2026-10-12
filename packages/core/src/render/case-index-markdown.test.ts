@@ -29,6 +29,7 @@ describe('renderCaseIndexMarkdown', () => {
     expect(markdown).toContain('**Test type:** e2e');
     expect(markdown).toContain('**Requirements:** r1');
     expect(markdown).toContain('**Description:** Happy-path checkout with a valid card');
+    expect(markdown).toContain('[case-1](../cases-md/checkout/case-1.md)');
   });
 
   it('renders a case with no description without a Description row', () => {
