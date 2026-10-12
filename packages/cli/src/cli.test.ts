@@ -792,6 +792,22 @@ describe('runCli', () => {
     expect(deps.stdout).toContain('Set testing.e2e = in-scope');
   });
 
+  it('turns API testing on after init with --api-source, and refuses without it (#632)', async () => {
+    const deps = dependencies();
+    await runCli(['init', '--defer-scope'], deps);
+    deps.stderr.length = 0;
+
+    const withoutSource = await runCli(['config', 'set', 'testing.api', 'in-scope'], deps);
+    const withSource = await runCli(
+      ['config', 'set', 'testing.api', 'in-scope', '--api-source', 'discover'],
+      deps,
+    );
+
+    expect(withoutSource).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('--api-source');
+    expect(withSource).toBe(EXIT_SUCCESS);
+  });
+
   it('runs "config set" and prints machine-readable JSON with --json', async () => {
     const deps = dependencies();
     await runCli(['init', '--defer-scope'], deps);

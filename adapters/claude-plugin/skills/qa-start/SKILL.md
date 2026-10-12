@@ -41,7 +41,10 @@ than continuing past it.
    `undecided`, ask the operator to resolve it as `in-scope` or `out-of-scope` (never leave it
    `undecided` and continue — the engine blocks `qa scope` and later phases on an undecided type,
    P2-16). Resolve it with `qa.config_set` (`key: testing.<type>`, `value`) using the operator's
-   answer, never one you chose yourself. An explicit `out-of-scope` answer is a real
+   answer, never one you chose yourself. For `testing.api` = `in-scope` in a project with no `api`
+   section, ask where the OpenAPI contract comes from in the same step and pass it as `apiSource` (a
+   file, a URL, `discover` or `synthesize`); without it the call fails with
+   `CONFIG_SET_API_SOURCE_REQUIRED`. Never edit `.qa/config.yaml` by hand. An explicit `out-of-scope` answer is a real
    decision — that type is recorded `not-applicable` and takes no further part in the session, it is
    not silently skipped.
 4. **Resume or start.** Read `.qa/state.json`. If it does not exist, the session starts at the first

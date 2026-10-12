@@ -341,7 +341,7 @@ async function dispatchConfigShow(
 async function dispatchConfigSet(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const { values, positionals } = parseArgs({
     args: rest,
-    options: { json: { type: 'boolean', default: false } },
+    options: { json: { type: 'boolean', default: false }, 'api-source': { type: 'string' } },
     allowPositionals: true,
     strict: true,
   });
@@ -357,7 +357,11 @@ async function dispatchConfigSet(rest: readonly string[], dependencies: RunCliDe
     projectRoot: dependencies.projectRoot ?? process.cwd(),
     json,
   });
-  const result = await runConfigSet(context, { key, value });
+  const result = await runConfigSet(context, {
+    key,
+    value,
+    ...(values['api-source'] === undefined ? {} : { apiSource: values['api-source'] }),
+  });
   printResult(context.io, json, 'config-set', result, formatConfigSetResult(result));
   return EXIT_SUCCESS;
 }

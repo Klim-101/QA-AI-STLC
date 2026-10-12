@@ -142,6 +142,21 @@ describe('init and config tools (real filesystem, temp project directory)', () =
     });
   });
 
+  it('qa.config_set turns API testing on with apiSource and refuses without it (#632)', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+
+      await expect(configSetTool.handler({ key: 'testing.api', value: 'in-scope' })).rejects.toMatchObject({
+        code: 'CONFIG_SET_API_SOURCE_REQUIRED',
+      });
+      await configSetTool.handler({ key: 'testing.api', value: 'in-scope', apiSource: 'discover' });
+      const config = await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8');
+
+      expect(config).toContain('api: in-scope');
+      expect(config).toContain('source: discover');
+    });
+  });
+
   it('qa.config_set fails without writing when no project is initialized', async () => {
     await withProject(async (projectRoot) => {
       await expect(configSetTool.handler({ key: 'testing.e2e', value: 'in-scope' })).rejects.toMatchObject({
