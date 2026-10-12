@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BrowserSessionStore } from '../src/browser-session-store.js';
 import { runBrowserAccessibilityScan } from '../src/operations/browser-accessibility-scan.js';
 import { runBrowserClick } from '../src/operations/browser-click.js';
+import { runBrowserExpect } from '../src/operations/browser-expect.js';
 import type { BrowserOperationContext } from '../src/operations/browser-context.js';
 import { runBrowserFill } from '../src/operations/browser-fill.js';
 import { runBrowserNavigate } from '../src/operations/browser-navigate.js';
@@ -78,7 +79,7 @@ describe('interactive case execution (demo app)', () => {
           schemaVersion: 1,
           id: 'login-valid-credentials',
           feature: 'login',
-          requirementIds: [],
+          requirementIds: ['login'],
           testType: 'e2e',
           title: 'A registered user can log in',
           steps: [{ description: 'Submit valid credentials' }],
@@ -128,8 +129,19 @@ describe('interactive case execution (demo app)', () => {
         expect.objectContaining({ elementId: registration.elementId, source: 'execute', kind: 'button' }),
       ]);
 
-      const click = await runBrowserClick(context, { sessionId, selector: loginButtonSelector });
+      const click = await runBrowserClick(context, {
+        sessionId,
+        selector: loginButtonSelector,
+        stepId: 'step-1',
+      });
       expect(click.url).toBe(`${BASE_URL}dashboard`);
+      const expectation = await runBrowserExpect(context, {
+        sessionId,
+        kind: 'url',
+        expected: `${BASE_URL}dashboard`,
+        stepId: 'step-1',
+      });
+      expect(expectation.passed).toBe(true);
 
       // 3. Accessibility: a real axe-core scan of the authenticated dashboard.
       const scan = await runBrowserAccessibilityScan(context, { sessionId });
@@ -150,7 +162,7 @@ describe('interactive case execution (demo app)', () => {
         runId,
         status: 'passed',
         startedAt,
-        evidenceIds: [click.evidence.id, scan.evidence.id, httpResult.evidence.id],
+        evidenceIds: [click.evidence.id, expectation.evidence.id, scan.evidence.id, httpResult.evidence.id],
       });
       const runResult = (await readQaFile(projectRoot, result.runResultPath)) as RunResult;
       expect(runResult.status).toBe('passed');

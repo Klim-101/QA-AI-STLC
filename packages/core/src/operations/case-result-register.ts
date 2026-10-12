@@ -3,6 +3,7 @@
 
 import {
   RunResultSchema,
+  TestCaseSchema,
   type Identifier,
   type RelativePath,
   type RunResultFailure,
@@ -17,6 +18,7 @@ import { toCanonicalJson } from '../json-file.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
 import { findUnresolvedFailedExpectations } from './case-result-expectations.js';
+import { findPassedProofGaps } from './case-result-proof.js';
 import { findCasePath } from './cases-render.js';
 
 export interface RegisterCaseResultOptions {
@@ -49,7 +51,9 @@ export async function runRegisterCaseResult(
   // Resolving the case first rejects a caller-fabricated testCaseId before anything is written
   // (AGENTS.md 12.5 — evidence and the results built on it are the engine's own record, never a
   // caller's unverified claim); `findCasePath` is the same lookup `qa cases render` already uses.
-  await findCasePath(store, options.testCaseId);
+  const casePath = await findCasePath(store, options.testCaseId);
+
+  await assertRunNotBoundToAnotherCase(store, options);
 
   const manifest = new ManifestStore({ store, clock: context.clock });
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
@@ -88,6 +92,33 @@ export async function runRegisterCaseResult(
     }
   }
 
+  if (options.status === 'passed') {
+    const testCase = await store.readJson(casePath, TestCaseSchema);
+    const gaps = await findPassedProofGaps(store, testCase, options.runId, options.evidenceIds);
+    if (gaps.stepsWithoutProof.length > 0) {
+      throw new QaError(
+        'RUN_RESULT_STEP_NOT_PROVEN',
+        `Run result for test case "${options.testCaseId}" claims "passed" but step(s) ${gaps.stepsWithoutProof.join(', ')} ` +
+          'have no successful evidence linked to them in the cited evidence.',
+        {
+          remediation:
+            "Perform each step with its stepId ('step-<N>', N the step's 1-based position) and cite that evidence, or register the result as 'failed' or 'partial'.",
+        },
+      );
+    }
+    if (!gaps.hasPassedCheck) {
+      throw new QaError(
+        'RUN_RESULT_EXPECTED_RESULT_UNCHECKED',
+        `Run result for test case "${options.testCaseId}" claims "passed" but no successful check of its ` +
+          `${testCase.testType} expected result is among the cited evidence.`,
+        {
+          remediation:
+            'Check the expected result with the engine (e2e: qa.browser_expect that passes; api: a request below 400; a11y: a scan with no violations) and cite that evidence, or register the result as "failed" or "partial".',
+        },
+      );
+    }
+  }
+
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const id = `run-result-${idGenerator.next()}`;
   const finishedAt = context.clock.now().toISOString();
@@ -110,4 +141,28 @@ export async function runRegisterCaseResult(
   await manifest.register(runResultPath, serialized);
 
   return { runResultPath, id };
+}
+
+/**
+ * A run belongs to the first case a result is registered for. Evidence carries no case id, so
+ * without this a run that proved case A could be cited again as proof of case B.
+ */
+async function assertRunNotBoundToAnotherCase(
+  store: QaStore,
+  options: RegisterCaseResultOptions,
+): Promise<void> {
+  const files = await store.listFiles('runs');
+  for (const path of files.filter((file) => file.endsWith('.json'))) {
+    const existing = await store.readJson(path, RunResultSchema);
+    if (existing.runId === options.runId && existing.testCaseId !== options.testCaseId) {
+      throw new QaError(
+        'RUN_RESULT_RUN_BOUND_TO_OTHER_CASE',
+        `Run "${options.runId}" already holds a result for test case "${existing.testCaseId}", not "${options.testCaseId}"`,
+        {
+          remediation:
+            'Execute each case in a session of its own (qa.browser_open) and register it under that run.',
+        },
+      );
+    }
+  }
 }

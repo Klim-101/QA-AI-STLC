@@ -799,6 +799,10 @@
           "sessionId": {
             "type": "string",
             "description": "The session id returned by qa.browser_open."
+          },
+          "stepId": {
+            "description": "'step-<N>', N the case step's 1-based position this scan performs, when executing a registered case.",
+            "type": "string"
           }
         },
         "required": [

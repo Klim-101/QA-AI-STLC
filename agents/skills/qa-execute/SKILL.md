@@ -127,6 +127,14 @@ weigh, not the case result. `status: 'failed'` requires a `failure.message` nami
 went wrong; never report `failed` without one, and never report `passed` when the evidence does not
 actually support it.
 
+`passed` is accepted only when the cited evidence proves it: every step has successful evidence
+linked to its `stepId`, and the expected result has a successful check of the case's type (e2e: a
+`qa.browser_expect` that passed; api: a response below 400; a11y: a scan with no violations and
+nothing uncertain). Otherwise the call fails with `RUN_RESULT_STEP_NOT_PROVEN` or
+`RUN_RESULT_EXPECTED_RESULT_UNCHECKED`: perform or re-check what is missing, or register `partial` or
+`failed`. A run belongs to one case: execute each case in a session of its own. A screenshot proves
+nothing here, and an api case that expects an error status cannot be `passed` yet.
+
 ## What this skill does not do
 
 - It does not write or edit case content — that is `qa-design-cases`. A case that turns out to be

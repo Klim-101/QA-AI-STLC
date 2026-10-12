@@ -791,7 +791,18 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       // written directly here, the same way this file's qa.generation_proven_session test seeds
       // evidence, rather than driving a real browser or HTTP call for a check-only test.
       await mkdir(join(projectRoot, '.qa', 'evidence', 'run-1'), { recursive: true });
-      await writeFile(join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-1.json'), '{}', 'utf-8');
+      await writeFile(
+        join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-1.json'),
+        JSON.stringify({
+          type: 'expect',
+          sessionId: 'session-1',
+          stepId: 'step-1',
+          selector: '#done',
+          expectation: { kind: 'visible', passed: true },
+          at: '2026-09-25T09:59:30.000Z',
+        }),
+        'utf-8',
+      );
       await writeFile(join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-2.json'), '{}', 'utf-8');
 
       // Well in the past, so this test never flakes on "finishedAt (real clock) must not be
@@ -893,13 +904,25 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
         }),
         'utf-8',
       );
+      await writeFile(
+        join(projectRoot, '.qa', 'evidence', 'run-1', 'evidence-3.json'),
+        JSON.stringify({
+          type: 'expect',
+          sessionId: 'session-1',
+          stepId: 'step-2',
+          url: 'https://staging.example.test/dashboard',
+          expectation: { kind: 'url', passed: true },
+          at: '2026-09-25T09:59:50.000Z',
+        }),
+        'utf-8',
+      );
       await caseResultRegisterTool.handler({
         testCaseId: 'login-case',
         testType: 'e2e',
         runId: 'run-1',
         status: 'passed',
         startedAt: '2026-09-25T09:59:00.000Z',
-        evidenceIds: ['evidence-1', 'evidence-2'],
+        evidenceIds: ['evidence-1', 'evidence-2', 'evidence-3'],
       });
 
       const executed = await generationProvenSessionTool.handler({ testCaseId: 'login-case' });

@@ -185,6 +185,9 @@ const AxeRuleResultSchema = z.looseObject({ id: z.string().min(1) });
 export const A11yScanRecordSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   type: z.literal('a11y-scan'),
+  // The case step the scan performed, as `BrowserActionSchema` carries it, so a `passed` result can
+  // tell which steps the engine has evidence for.
+  stepId: IdentifierSchema.optional(),
   axeVersion: z.string().min(1),
   configHash: Sha256HexSchema,
   wcagVersion: A11yWcagVersionSchema,
