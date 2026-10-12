@@ -236,6 +236,12 @@ export interface WaitForPickModeCompletionOptions {
   readonly signal?: AbortSignal;
   /** Injected so tests do not wait on real timers (AGENTS.md 5.5, 13). */
   readonly wait?: (ms: number) => Promise<void>;
+  /**
+   * When set, the overlay is injected again on every poll. A navigation (a redirect to a login
+   * page, a full reload) replaces the document and drops the overlay, and injection is idempotent,
+   * so repeating it is what brings the toolbar back.
+   */
+  readonly testIdAttribute?: string;
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 500;
@@ -244,6 +250,36 @@ const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 
 function defaultWait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Playwright words both failures only in the message; neither has a stable error class to test.
+const PAGE_CLOSED_PATTERN = /has been closed|target closed/i;
+const NAVIGATION_IN_PROGRESS_PATTERN = /execution context was destroyed/i;
+
+/** Re-injects the overlay and reads its state; `undefined` when a navigation interrupted the read. */
+async function pollPickModeState(
+  page: AuthPage,
+  testIdAttribute: string | undefined,
+): Promise<PickModeState | undefined> {
+  try {
+    if (testIdAttribute !== undefined) {
+      await injectPickModeOverlay(page, testIdAttribute);
+    }
+    return await readPickModeState(page);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (PAGE_CLOSED_PATTERN.test(message)) {
+      throw new QaError('explorer.pick_mode.page_closed', 'The pick-mode browser window was closed', {
+        remediation:
+          'Keep the window open and click "Finish picking" when every element is captured; run the command again to restart.',
+        cause: error,
+      });
+    }
+    if (NAVIGATION_IN_PROGRESS_PATTERN.test(message)) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -263,8 +299,8 @@ export async function waitForPickModeCompletion(
 
   for (;;) {
     options.signal?.throwIfAborted();
-    const state = await readPickModeState(page);
-    if (state.done) {
+    const state = await pollPickModeState(page, options.testIdAttribute);
+    if (state?.done === true) {
       return state.captures;
     }
     if (Date.now() >= deadline) {

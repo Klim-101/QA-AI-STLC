@@ -76,4 +76,42 @@ describe('pick mode (demo app)', () => {
     await context.close();
     await browser.close();
   }, 30_000);
+
+  it('brings the overlay back after the document is replaced by a navigation (P6-76)', async () => {
+    const browser = await playwrightBrowserLauncher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/login`);
+    await injectPickModeOverlay(page, 'data-testid');
+    await page.goto(`${BASE_URL}/login?redirected=1`);
+
+    // The first poll finds no overlay and injects it; the pause between polls is where the human
+    // would click "Finish picking".
+    const captures = await waitForPickModeCompletion(page, {
+      testIdAttribute: 'data-testid',
+      wait: async () => {
+        await page.click('#qa-pick-mode-finish');
+      },
+    });
+
+    expect(captures).toEqual([]);
+    await context.close();
+    await browser.close();
+  }, 30_000);
+
+  it('reports a closed window as explorer.pick_mode.page_closed rather than a raw Playwright error (P6-76)', async () => {
+    const browser = await playwrightBrowserLauncher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/login`);
+
+    await expect(
+      waitForPickModeCompletion(page, {
+        testIdAttribute: 'data-testid',
+        wait: () => context.close(),
+      }),
+    ).rejects.toMatchObject({ code: 'explorer.pick_mode.page_closed' });
+
+    await browser.close();
+  }, 30_000);
 });

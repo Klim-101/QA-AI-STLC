@@ -159,6 +159,77 @@ describe('waitForPickModeCompletion', () => {
     await expect(waitForPickModeCompletion(page, { signal: controller.signal })).rejects.toThrow();
   });
 
+  it('injects the overlay again before every poll when given the test id attribute (P6-76)', async () => {
+    const injectedWith: unknown[] = [];
+    let reads = 0;
+    const page = fakePage({
+      evaluate: ((_script: unknown, argument?: unknown) => {
+        if (argument !== undefined) {
+          injectedWith.push(argument);
+          return Promise.resolve(undefined);
+        }
+        reads += 1;
+        return Promise.resolve({ done: reads >= 3, captures: [] });
+      }) as AuthPage['evaluate'],
+    });
+
+    await waitForPickModeCompletion(page, { testIdAttribute: 'data-qa', wait: () => Promise.resolve() });
+
+    expect(injectedWith).toEqual(['data-qa', 'data-qa', 'data-qa']);
+  });
+
+  it.each(['page.evaluate: Target page, context or browser has been closed', 'page.evaluate: Target closed'])(
+    'converts a closed window into explorer.pick_mode.page_closed (%s)',
+    async (message) => {
+      const page = fakePage({ evaluate: () => Promise.reject(new Error(message)) });
+
+      await expect(waitForPickModeCompletion(page, { testIdAttribute: 'data-qa' })).rejects.toMatchObject({
+        name: 'QaError',
+        code: 'explorer.pick_mode.page_closed',
+        cause: expect.objectContaining({ message }) as Error,
+      });
+    },
+  );
+
+  it('converts a closed window found while reading without re-injecting too', async () => {
+    const page = fakePage({
+      evaluate: () => Promise.reject(new Error('Target page, context or browser has been closed')),
+    });
+
+    await expect(waitForPickModeCompletion(page)).rejects.toMatchObject({
+      code: 'explorer.pick_mode.page_closed',
+    });
+  });
+
+  it('polls again when a navigation destroys the page context mid-read', async () => {
+    let calls = 0;
+    const page = fakePage({
+      evaluate: () => {
+        calls += 1;
+        return calls === 1
+          ? Promise.reject(
+              new Error(
+                'page.evaluate: Execution context was destroyed, most likely because of a navigation',
+              ),
+            )
+          : Promise.resolve({ done: true, captures: [CAPTURE] });
+      },
+    });
+
+    await expect(waitForPickModeCompletion(page, { wait: () => Promise.resolve() })).resolves.toEqual([
+      CAPTURE,
+    ]);
+  });
+
+  it.each([new Error('boom'), 'not an error object'])(
+    'rethrows an unrelated failure (%s)',
+    async (failure) => {
+      const page = fakePage({ evaluate: () => Promise.reject(failure) });
+
+      await expect(waitForPickModeCompletion(page)).rejects.toBe(failure);
+    },
+  );
+
   it('waits on a real timer between polls when no wait override is given', async () => {
     const states = [
       { done: false, captures: [] },
