@@ -62,6 +62,10 @@ filling it well, not a restatement of the Zod contract:
   stating what that banner must say.
 - **`expectedResult`** — the single outcome that makes the case pass or fail. A case that needs
   several independent expected results is usually several cases.
+- **`expectations` / `resultExpectations`** — optional, machine-checkable form of the same outcome:
+  per step and for the final result, each `{ kind, selector?, expected? }` the engine can compare with
+  what it observed (see `qa-design-cases`). They add to `expectedResult`, they do not replace it: the
+  text stays the human statement the reviewer approves.
 - **`regressionTier`** — one tier per case (`RegressionTierSchema`, `packages/schemas`), not a
   multi-tag set:
   - `smoke` — the smallest set that proves the build isn't broken; runs on every change.

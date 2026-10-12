@@ -212,3 +212,124 @@ describe('REGRESSION_TIERS', () => {
     expect(RegressionTierSchema.options).toEqual(REGRESSION_TIERS);
   });
 });
+
+describe('TestCaseSchema structured expectations (ADR-0016)', () => {
+  const base = {
+    id: 'case-1',
+    feature: 'checkout',
+    requirementIds: ['req-1'],
+    title: 'A case',
+    expectedResult: 'It works',
+    status: 'approved',
+    createdAt: '2026-09-16T12:00:00Z',
+  };
+
+  it('accepts step-level and result-level browser expectations on an e2e case', () => {
+    const result = TestCaseSchema.safeParse({
+      ...base,
+      testType: 'e2e',
+      steps: [
+        {
+          description: 'Submit the form',
+          expectations: [
+            { kind: 'visible', selector: '#done' },
+            { kind: 'hidden', selector: '.spinner' },
+            { kind: 'text', selector: 'h1', expected: 'Thanks' },
+            { kind: 'value', selector: '#email', expected: 'a@example.com' },
+            { kind: 'count', selector: 'li', expected: 3 },
+            { kind: 'checked', selector: '#terms' },
+            { kind: 'checked', selector: '#news', expected: false },
+          ],
+        },
+      ],
+      resultExpectations: [{ kind: 'url', expected: 'https://example.com/done' }],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts response expectations on an api case and a scan expectation on an a11y case', () => {
+    const api = TestCaseSchema.safeParse({
+      ...base,
+      testType: 'api',
+      steps: [
+        {
+          description: 'GET /missing',
+          expectations: [
+            { kind: 'http-status', expected: 404 },
+            { kind: 'http-body-contains', expected: 'not found' },
+          ],
+        },
+      ],
+    });
+    const a11y = TestCaseSchema.safeParse({
+      ...base,
+      testType: 'a11y',
+      steps: [{ description: 'Scan the page', expectations: [{ kind: 'a11y-clean' }] }],
+      resultExpectations: [{ kind: 'visible', selector: 'main' }],
+    });
+
+    expect(api.success).toBe(true);
+    expect(a11y.success).toBe(true);
+  });
+
+  it('keeps a case without any structured expectation valid', () => {
+    const result = TestCaseSchema.safeParse({
+      ...base,
+      testType: 'e2e',
+      steps: [{ description: 'Do something' }],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
+    ['http-status', { kind: 'http-status', expected: 200 }, 'e2e'],
+    ['http-body-contains', { kind: 'http-body-contains', expected: 'x' }, 'a11y'],
+    ['a browser kind', { kind: 'visible', selector: '#a' }, 'api'],
+    ['a11y-clean', { kind: 'a11y-clean' }, 'e2e'],
+  ])('rejects %s on a case of the wrong type, naming where', (_label, expectation, testType) => {
+    const step = TestCaseSchema.safeParse({
+      ...base,
+      testType,
+      steps: [{ description: 'A step', expectations: [expectation] }],
+    });
+    const result = TestCaseSchema.safeParse({
+      ...base,
+      testType,
+      steps: [{ description: 'A step' }],
+      resultExpectations: [expectation],
+    });
+
+    expect(step.success).toBe(false);
+    expect(step.error?.issues[0]?.path).toEqual(['steps', 0, 'expectations', 0]);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['resultExpectations', 0]);
+  });
+
+  it.each([
+    { kind: 'text', selector: '#a' },
+    { kind: 'visible' },
+    { kind: 'count', selector: '#a', expected: -1 },
+    { kind: 'http-status', expected: 99 },
+    { kind: 'unknown' },
+  ])('rejects the malformed expectation %j', (expectation) => {
+    const result = TestCaseSchema.safeParse({
+      ...base,
+      testType: 'e2e',
+      steps: [{ description: 'A step', expectations: [expectation] }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an empty expectation list', () => {
+    const result = TestCaseSchema.safeParse({
+      ...base,
+      testType: 'e2e',
+      steps: [{ description: 'A step', expectations: [] }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});

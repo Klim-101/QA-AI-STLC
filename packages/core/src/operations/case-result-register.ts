@@ -3,7 +3,6 @@
 
 import {
   RunResultSchema,
-  TestCaseSchema,
   type Identifier,
   type RelativePath,
   type RunResultFailure,
@@ -18,7 +17,7 @@ import { toCanonicalJson } from '../json-file.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
 import { findUnresolvedFailedExpectations } from './case-result-expectations.js';
-import { findPassedProofGaps } from './case-result-proof.js';
+import { assertPassedIsProven } from './case-result-passed.js';
 import { findCasePath } from './cases-render.js';
 
 export interface RegisterCaseResultOptions {
@@ -93,30 +92,7 @@ export async function runRegisterCaseResult(
   }
 
   if (options.status === 'passed') {
-    const testCase = await store.readJson(casePath, TestCaseSchema);
-    const gaps = await findPassedProofGaps(store, testCase, options.runId, options.evidenceIds);
-    if (gaps.stepsWithoutProof.length > 0) {
-      throw new QaError(
-        'RUN_RESULT_STEP_NOT_PROVEN',
-        `Run result for test case "${options.testCaseId}" claims "passed" but step(s) ${gaps.stepsWithoutProof.join(', ')} ` +
-          'have no successful evidence linked to them in the cited evidence.',
-        {
-          remediation:
-            "Perform each step with its stepId ('step-<N>', N the step's 1-based position) and cite that evidence, or register the result as 'failed' or 'partial'.",
-        },
-      );
-    }
-    if (!gaps.hasPassedCheck) {
-      throw new QaError(
-        'RUN_RESULT_EXPECTED_RESULT_UNCHECKED',
-        `Run result for test case "${options.testCaseId}" claims "passed" but no successful check of its ` +
-          `${testCase.testType} expected result is among the cited evidence.`,
-        {
-          remediation:
-            'Check the expected result with the engine (e2e: qa.browser_expect that passes; api: a request below 400; a11y: a scan with no violations) and cite that evidence, or register the result as "failed" or "partial".',
-        },
-      );
-    }
+    await assertPassedIsProven(store, casePath, options);
   }
 
   const idGenerator = options.idGenerator ?? randomIdGenerator;

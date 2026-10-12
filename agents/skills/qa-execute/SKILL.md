@@ -77,6 +77,13 @@ toolChoices:
       dialog opened. Read only what changed on the page since that snapshot, then stop.
     expect: qa.browser_snapshot
     inputMatch: '"since"\s*:\s*"evidence-5"'
+  - id: declared-expectation
+    prompt: >-
+      Browser session session-1 is open on the order page. Case step 3 declares the expectation
+      {kind: text, selector: "#total", expected: "$42.00"}. Check exactly that with the engine, passing
+      the step's stepId, then stop.
+    expect: qa.browser_expect
+    inputMatch: '"selector"\s*:\s*"#total"'
 references:
   - ../../references/testing-standards.md
   - ../../references/component-libraries.md
@@ -127,7 +134,11 @@ weigh, not the case result. `status: 'failed'` requires a `failure.message` nami
 went wrong; never report `failed` without one, and never report `passed` when the evidence does not
 actually support it.
 
-`passed` is accepted only when the cited evidence proves it: every step has successful evidence
+When a step or the case declares `expectations`/`resultExpectations`, check each one with the engine
+exactly as written: the same kind, the same `selector` (not a snapshot `ref`) and the same expected
+value, with the step's `stepId`; an api expectation is met by the request the step made, an
+`a11y-clean` one by the step's scan. The engine compares them itself, and a check made for a
+different selector or value does not count. `passed` is accepted only when the cited evidence proves it: every step has successful evidence
 linked to its `stepId`, and the expected result has a successful check of the case's type (e2e: a
 `qa.browser_expect` that passed; api: a response below 400; a11y: a scan with no violations and
 nothing uncertain). Otherwise the call fails with `RUN_RESULT_STEP_NOT_PROVEN` or

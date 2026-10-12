@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { TestCase } from '@qa-ai-stlc/schemas';
+import { describeCaseExpectation } from '../case-expectation-text.js';
 
 /**
  * Renders a `TestCaseSchema` artifact as a numbered, presentable Markdown document (ADR-002):
@@ -21,10 +22,17 @@ export function renderTestCaseMarkdown(testCase: TestCase): string {
     sections.push(['## Preconditions', '', renderNumberedList(testCase.preconditions)].join('\n'));
   }
 
-  sections.push(
-    ['## Steps', '', renderNumberedList(testCase.steps.map((step) => step.description))].join('\n'),
-  );
+  sections.push(['## Steps', '', renderNumberedList(testCase.steps.map(renderStep))].join('\n'));
   sections.push(['## Expected result', '', testCase.expectedResult].join('\n'));
+  if (testCase.resultExpectations !== undefined) {
+    sections.push(
+      [
+        '### Checked by the engine',
+        '',
+        ...testCase.resultExpectations.map((expectation) => `- ${describeCaseExpectation(expectation)}`),
+      ].join('\n'),
+    );
+  }
 
   return `${sections.join('\n\n')}\n`;
 }
@@ -38,6 +46,14 @@ function renderMetadata(testCase: TestCase): string {
     `**Status:** ${testCase.status}`,
   ];
   return rows.join('\n');
+}
+
+// A step's engine-checked expectations hang under it, indented to stay inside the list item.
+function renderStep(step: TestCase['steps'][number]): string {
+  const checks = (step.expectations ?? []).map(
+    (expectation) => `   - Expect: ${describeCaseExpectation(expectation)}`,
+  );
+  return [step.description, ...checks].join('\n');
 }
 
 function renderNumberedList(items: readonly string[]): string {

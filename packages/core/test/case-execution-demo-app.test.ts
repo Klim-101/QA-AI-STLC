@@ -82,7 +82,12 @@ describe('interactive case execution (demo app)', () => {
           requirementIds: ['login'],
           testType: 'e2e',
           title: 'A registered user can log in',
-          steps: [{ description: 'Submit valid credentials' }],
+          steps: [
+            {
+              description: 'Submit valid credentials',
+              expectations: [{ kind: 'url', expected: `${BASE_URL}dashboard` }],
+            },
+          ],
           expectedResult: 'The dashboard loads',
           status: 'approved',
           createdAt: '2026-09-25T09:00:00.000Z',
