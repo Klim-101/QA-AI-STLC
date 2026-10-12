@@ -5,6 +5,7 @@ import { loadCommittedConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
 import { QaStore } from '../qa-store.js';
 import {
+  ApiConfigSchema,
   ConfigSchema,
   TestingScopeDecisionSchema,
   UiComponentLibrarySchema,
@@ -17,6 +18,12 @@ import type { EngineContext } from '../engine-context.js';
 export interface ConfigSetOptions {
   readonly key: string;
   readonly value: string;
+  /**
+   * Where the OpenAPI contract comes from (a project file, a URL, "discover" or "synthesize"),
+   * written to `api` together with `testing.api`. Needed to turn API testing on in a project
+   * `qa init` left without an `api` section (#632); only valid with the key `testing.api`.
+   */
+  readonly apiSource?: string;
 }
 
 export interface ConfigSetResult {
@@ -69,10 +76,31 @@ function parseSetting(options: ConfigSetOptions): ParsedSetting {
   return parseTestingSetting(keyMatch[1] as keyof TestingScope, options.value);
 }
 
+function parseApiSource(options: ConfigSetOptions): { contract: 'openapi'; source: string } | undefined {
+  if (options.apiSource === undefined) {
+    return undefined;
+  }
+  if (options.key !== 'testing.api') {
+    throw new QaError('CONFIG_SET_VALUE_INVALID', 'An API source only goes with the key testing.api', {
+      remediation: 'Drop the API source, or set testing.api in the same call.',
+    });
+  }
+  const result = ApiConfigSchema.safeParse({ contract: 'openapi', source: options.apiSource });
+  if (!result.success) {
+    throw new QaError('CONFIG_SET_VALUE_INVALID', `"${options.apiSource}" is not a valid API source`, {
+      remediation: 'Use a file path or URL of an OpenAPI 3.x contract, or "discover" or "synthesize".',
+      cause: result.error,
+    });
+  }
+  return result.data;
+}
+
 /**
  * `qa config set <key> <value>` (development plan section 2.7): changes one setting after
  * `qa init`'s survey. Supported keys are `testing.<type>` (`in-scope`, `out-of-scope` or
- * `undecided`) and `ui.componentLibrary`. Only changes and re-validates `config.yaml` itself; the
+ * `undecided`) and `ui.componentLibrary`. Turning `testing.api` on in a project without an `api`
+ * section needs `apiSource`, validated by the same schema `qa init` uses; turning it off again keeps
+ * the section, so re-enabling later needs no source. Only changes and re-validates `config.yaml` itself; the
  * `cases` gate reopening a scope change can trigger (P2-16) is not this command's job —
  * `GateStateMachine` recomputes it, the same as an edited artifact's hash, the next time
  * `qa approve`/`qa validate` runs. Any other key is a coded error naming what is supported
@@ -85,6 +113,7 @@ export async function runConfigSet(
   options: ConfigSetOptions,
 ): Promise<ConfigSetResult> {
   const setting = parseSetting(options);
+  const apiConfig = parseApiSource(options);
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   // Throws a coded QaError (CONFIG_MISSING/CONFIG_MALFORMED/CONFIG_INVALID) if there is nothing
@@ -94,9 +123,27 @@ export async function runConfigSet(
   const raw = await store.readText('config.yaml');
   const document = parseDocument(raw);
   document.setIn([...setting.path], setting.value);
+  if (apiConfig !== undefined) {
+    document.setIn(['api'], apiConfig);
+  }
 
   const updated = ConfigSchema.safeParse(document.toJS());
   if (!updated.success) {
+    // The schema's one cross-field rule (an in-scope api needs an `api` section) is the only way a
+    // single-key edit of a valid file can fail, so it gets its own, actionable error.
+    /* v8 ignore else -- the generic error below is defensive */
+    if (updated.error.issues.some((issue) => issue.path[0] === 'api')) {
+      throw new QaError(
+        'CONFIG_SET_API_SOURCE_REQUIRED',
+        'API testing needs to know where the OpenAPI contract comes from',
+        {
+          remediation:
+            'Pass the API source with it: qa config set testing.api in-scope --api-source <file, URL, "discover" or "synthesize">.',
+          cause: updated.error,
+        },
+      );
+    }
+    /* v8 ignore next 7 -- defensive: no other single-key edit of a valid file can fail the schema */
     throw new QaError(
       'CONFIG_SET_RESULT_INVALID',
       `Setting ${options.key} to "${setting.value}" would leave config.yaml invalid:

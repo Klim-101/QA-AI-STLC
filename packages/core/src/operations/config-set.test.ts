@@ -131,10 +131,76 @@ describe('runConfigSet', () => {
     await expect(runConfigSet(context, { key: 'testing.api', value: 'in-scope' })).rejects.toThrow(QaError);
   });
 
-  it('rejects setting testing.api to in-scope when no api contract is configured', async () => {
+  it('rejects setting testing.api to in-scope when no api contract is configured, saying how to give one', async () => {
     const context = fakeContext();
 
-    await expect(runConfigSet(context, { key: 'testing.api', value: 'in-scope' })).rejects.toThrow(QaError);
+    const error = await runConfigSet(context, { key: 'testing.api', value: 'in-scope' }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect((error as QaError).code).toBe('CONFIG_SET_API_SOURCE_REQUIRED');
+    expect((error as QaError).remediation).toContain('--api-source');
+  });
+
+  it('turns API testing on and writes the api section in one call (#632)', async () => {
+    const context = fakeContext();
+
+    const result = await runConfigSet(context, {
+      key: 'testing.api',
+      value: 'in-scope',
+      apiSource: 'discover',
+    });
+
+    expect(result).toEqual({ key: 'testing.api', value: 'in-scope' });
+    const written = parseYaml(await context.fs.readFile(join(QA_DIR, 'config.yaml'))) as {
+      testing: { api: string };
+      api: unknown;
+    };
+    expect(written.testing.api).toBe('in-scope');
+    expect(written.api).toEqual({ contract: 'openapi', source: 'discover' });
+  });
+
+  it('replaces an existing api section when a new source is given', async () => {
+    const withApi = BASE_CONFIG.replace(
+      'environments: {}',
+      'api: { contract: openapi, source: old.json }\nenvironments: {}',
+    );
+    const context = fakeContext({ [join(QA_DIR, 'config.yaml')]: withApi });
+
+    await runConfigSet(context, { key: 'testing.api', value: 'in-scope', apiSource: 'new.json' });
+
+    const written = parseYaml(await context.fs.readFile(join(QA_DIR, 'config.yaml'))) as { api: unknown };
+    expect(written.api).toEqual({ contract: 'openapi', source: 'new.json' });
+  });
+
+  it('keeps the api section when API testing is switched off again', async () => {
+    const context = fakeContext();
+    await runConfigSet(context, { key: 'testing.api', value: 'in-scope', apiSource: 'discover' });
+
+    await runConfigSet(context, { key: 'testing.api', value: 'out-of-scope' });
+
+    const written = parseYaml(await context.fs.readFile(join(QA_DIR, 'config.yaml'))) as {
+      testing: { api: string };
+      api: unknown;
+    };
+    expect(written.testing.api).toBe('out-of-scope');
+    expect(written.api).toEqual({ contract: 'openapi', source: 'discover' });
+  });
+
+  it('rejects an empty API source', async () => {
+    const context = fakeContext();
+
+    await expect(
+      runConfigSet(context, { key: 'testing.api', value: 'in-scope', apiSource: '' }),
+    ).rejects.toMatchObject({ code: 'CONFIG_SET_VALUE_INVALID' });
+  });
+
+  it('rejects an API source given with any other key', async () => {
+    const context = fakeContext();
+
+    await expect(
+      runConfigSet(context, { key: 'testing.e2e', value: 'in-scope', apiSource: 'discover' }),
+    ).rejects.toMatchObject({ code: 'CONFIG_SET_VALUE_INVALID' });
   });
 
   it('allows setting testing.api to in-scope when an api contract is already configured', async () => {
