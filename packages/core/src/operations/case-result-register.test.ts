@@ -752,4 +752,156 @@ describe('runRegisterCaseResult', () => {
       ).resolves.toBeDefined();
     });
   });
+
+  describe('structured expectations (ADR-0016, #651)', () => {
+    async function seedCaseWith(
+      fs: FakeFileSystem,
+      overrides: Readonly<Record<string, unknown>>,
+    ): Promise<void> {
+      await fs.mkdir(join('project', '.qa', 'artifacts', 'cases', 'login'));
+      await fs.writeFile(
+        join('project', '.qa', 'artifacts', 'cases', 'login', `${CASE_ID}.json`),
+        JSON.stringify({
+          schemaVersion: 1,
+          id: CASE_ID,
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'A case',
+          steps: [{ description: 'Step 1' }],
+          expectedResult: 'It works',
+          status: 'approved',
+          createdAt: '2026-09-25T09:00:00.000Z',
+          ...overrides,
+        }),
+      );
+    }
+
+    async function seedJson(
+      context: EngineContext,
+      id: string,
+      record: Readonly<Record<string, unknown>>,
+    ): Promise<void> {
+      const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+      const manifest = new ManifestStore({ store, clock: context.clock });
+      await new EvidenceStore({ store, manifest, clock: context.clock }).register({
+        id,
+        runId: 'run-1',
+        kind: 'other',
+        fileExtension: 'json',
+        content: JSON.stringify(record),
+      });
+    }
+
+    const httpRecord = (status: number, body = ''): Record<string, unknown> => ({
+      type: 'http-request',
+      stepId: 'step-1',
+      method: 'GET',
+      url: 'https://staging.example.test/missing',
+      status,
+      responseHeaders: {},
+      bodyPreview: body,
+      truncated: false,
+      at: '2026-09-25T09:59:30.000Z',
+    });
+
+    function registerPassed(
+      context: EngineContext,
+      testType: 'e2e' | 'api',
+      evidenceIds: readonly string[],
+    ): Promise<unknown> {
+      return runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType,
+        runId: 'run-1',
+        status: 'passed',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds,
+      });
+    }
+
+    it('accepts an api case that expects an error status once the engine saw that status', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, {
+        testType: 'api',
+        steps: [{ description: 'GET /missing', expectations: [{ kind: 'http-status', expected: 404 }] }],
+      });
+      await seedJson(context, 'evidence-1', httpRecord(404));
+
+      await expect(registerPassed(context, 'api', ['evidence-1'])).resolves.toBeDefined();
+    });
+
+    it('refuses passed when the response was not the declared one, listing the expectation', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, {
+        testType: 'api',
+        steps: [{ description: 'GET /missing', expectations: [{ kind: 'http-status', expected: 404 }] }],
+      });
+      await seedJson(context, 'evidence-1', httpRecord(200));
+
+      const error = await registerPassed(context, 'api', ['evidence-1']).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('RUN_RESULT_EXPECTATION_UNMET');
+      expect((error as QaError).message).toContain('step 1: http-status = 404 (unmet)');
+    });
+
+    it('refuses passed while a declared check was never made, though another check passed', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, {
+        steps: [{ description: 'Step 1', expectations: [{ kind: 'visible', selector: '#done' }] }],
+      });
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        selector: '#other',
+      });
+
+      const error = await registerPassed(context, 'e2e', ['evidence-1']).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('RUN_RESULT_EXPECTATION_UNMET');
+      expect((error as QaError).message).toContain('visible on "#done" (unobserved)');
+    });
+
+    it('accepts a web case whose declared step and result expectations were all met', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, {
+        steps: [{ description: 'Step 1', expectations: [{ kind: 'visible', selector: '#done' }] }],
+        resultExpectations: [{ kind: 'visible', selector: '#done' }],
+      });
+      await seedExpectation(context, 'run-1', 'evidence-1', {
+        passed: true,
+        at: NOW.toISOString(),
+        selector: '#done',
+      });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).resolves.toBeDefined();
+    });
+
+    it('does not ask for the generic check of a case that declares its own expectations', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, {
+        testType: 'api',
+        steps: [{ description: 'POST /orders' }],
+        resultExpectations: [{ kind: 'http-body-contains', expected: 'created' }],
+      });
+      await seedJson(context, 'evidence-1', httpRecord(201, '{"status":"created"}'));
+
+      await expect(registerPassed(context, 'api', ['evidence-1'])).resolves.toBeDefined();
+    });
+
+    it('still asks for proof of every step before judging the expectations', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, {
+        steps: [
+          { description: 'Step 1', expectations: [{ kind: 'visible', selector: '#done' }] },
+          { description: 'Step 2' },
+        ],
+      });
+      await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: NOW.toISOString() });
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).rejects.toMatchObject({
+        code: 'RUN_RESULT_STEP_NOT_PROVEN',
+      });
+    });
+  });
 });

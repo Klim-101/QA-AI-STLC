@@ -45,6 +45,15 @@ to skip under time pressure:
   you in another language.
 - **`regressionTier` is not optional in practice.** Pick one of the four tiers deliberately — do
   not leave it unset because the right tier is unclear; ask the operator instead.
+- **Declare what the engine can check.** Next to the free-text `expectedResult`, write the checks the
+  engine can compare itself: `expectations` on the step that observes something, and
+  `resultExpectations` for the final outcome. Kinds: `visible`, `hidden`, `text`, `value`, `count`,
+  `checked` (with a `selector`) and `url` for `e2e`/`a11y`; `http-status` and `http-body-contains`
+  for `api`; `a11y-clean` for `a11y`. Use selectors the registry holds and exact expected values;
+  an `api` case that expects an error status declares it with `http-status`. Without them the
+  engine only checks that some successful check exists, and `passed` rests on the executor's
+  judgement of the text
+  ([ADR-0016](../../../docs/adr/0016-structured-case-expectations-judged-by-the-engine.md)).
 - **`testDataRefs` before inlining.** If a value repeats across steps or cases (a test card number,
   a seeded username), write it once as a `TestDataSchema` set (`qa.test_data_add`) and reference it
   by id, instead of copying the literal value into every case. `qa-explore-data`

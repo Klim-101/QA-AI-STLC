@@ -19,6 +19,7 @@ An ADR records one significant, hard-to-reverse decision: the context that force
 | [ADR-013](0013-browser-toolset-parity-and-compact-page-views.md)           | Browser toolset parity and compact page views                        | Accepted |
 | [ADR-014](0014-environment-allowlist-for-safe-non-get-requests.md)         | Environment allowlist for safe non-GET requests                      | Accepted |
 | [ADR-015](0015-navigation-probing-clicks-controls-in-isolated-contexts.md) | Exploration may click navigation-only controls, in isolated contexts | Accepted |
+| [ADR-016](0016-structured-case-expectations-judged-by-the-engine.md)       | Cases declare structured expectations that the engine judges         | Accepted |
 
 New ADRs are numbered sequentially and never renumbered or deleted. A decision that is later reversed gets a new ADR that supersedes the old one; the old one stays, marked `Superseded by ADR-0NN`.
 

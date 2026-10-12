@@ -1,21 +1,14 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { basename } from 'node:path';
-import {
-  A11yScanRecordSchema,
-  BrowserActionSchema,
-  HttpRequestRecordSchema,
-  type Identifier,
-  type TestCase,
-} from '@qa-ai-stlc/schemas';
-import type { QaStore } from '../qa-store.js';
+import type { TestCase } from '@qa-ai-stlc/schemas';
+import type { CitedObservation } from './case-result-observations.js';
 
 const HTTP_ERROR_STATUS = 400;
 
-/** What one cited, engine-registered evidence record says about the step it is linked to. */
+/** What one cited record says about the step it is linked to. */
 interface EvidenceReading {
-  readonly stepId?: Identifier;
+  readonly stepId?: string;
   readonly isSuccessful: boolean;
   /** True when this record is, for the case's test type, a check that came out well. */
   readonly isPassedCheck: boolean;
@@ -23,9 +16,8 @@ interface EvidenceReading {
 
 /**
  * Why a case cannot be registered as `passed`, as engine-derived facts: the steps no successful
- * evidence is linked to, and whether any successful check exists at all. Empty `stepsWithoutProof`
- * and `hasPassedCheck` mean the case's evidence is complete (variant A of #603: the engine verifies
- * that the checks exist and succeeded, it does not interpret the free-text expected result).
+ * evidence is linked to, and whether any successful check exists at all (#603; the structured
+ * expectations of ADR-0016 are judged separately, in `case-result-expectations.ts`).
  */
 export interface PassedProofGaps {
   readonly stepsWithoutProof: readonly number[];
@@ -33,34 +25,32 @@ export interface PassedProofGaps {
 }
 
 /**
- * Reads the evidence a `passed` result cites and finds what it fails to prove. A step is proven by
- * a successful record linked to `step-<N>`; the expected result is supported by at least one
- * successful check of the case's own test type:
+ * Finds what the cited records fail to prove. A step is proven by a successful record linked to
+ * `step-<N>`; the expected result is supported by at least one successful check of the case's own
+ * test type:
  *
  * - `e2e`: a `qa.browser_expect` whose verdict is `passed`.
- * - `api`: a request that came back below 400. There is no response expectation yet (#651), so a
- *   case that expects an error status cannot be registered as `passed`.
+ * - `api`: a request that came back below 400, or, for a step that declares an `http-status`
+ *   expectation, any request (the expectation decides whether that status is the right one).
  * - `a11y`: a scan with no violations and nothing left uncertain.
  *
- * Only the cited ids count, and they were already verified to be registered under this run, so
- * evidence of another run never satisfies a step. A record the engine did not write in a shape it
- * knows is ignored rather than trusted.
+ * A record that is not of the case's type is ignored rather than trusted.
  */
-export async function findPassedProofGaps(
-  store: QaStore,
+export function findPassedProofGaps(
   testCase: TestCase,
-  runId: Identifier,
-  evidenceIds: readonly Identifier[],
-): Promise<PassedProofGaps> {
-  const files = await store.listFiles(`evidence/${runId}`);
-  const readings: EvidenceReading[] = [];
-  for (const evidenceId of evidenceIds) {
-    const path = files.find((file) => file.endsWith('.json') && basename(file).startsWith(`${evidenceId}.`));
-    const reading = path === undefined ? undefined : await readEvidence(store, path, testCase.testType);
-    if (reading !== undefined) {
-      readings.push(reading);
-    }
-  }
+  observations: readonly CitedObservation[],
+): PassedProofGaps {
+  const statusDeclaredSteps = new Set(
+    testCase.steps.flatMap((step, index) =>
+      step.expectations?.some((expectation) => expectation.kind === 'http-status') === true
+        ? [`step-${String(index + 1)}`]
+        : [],
+    ),
+  );
+  const readings = observations.flatMap((observation) => {
+    const reading = readObservation(observation, testCase.testType, statusDeclaredSteps);
+    return reading === undefined ? [] : [reading];
+  });
 
   const provenStepIds = new Set(
     readings.flatMap((reading) =>
@@ -73,48 +63,31 @@ export async function findPassedProofGaps(
   return { stepsWithoutProof, hasPassedCheck: readings.some((reading) => reading.isPassedCheck) };
 }
 
-async function readEvidence(
-  store: QaStore,
-  path: string,
+function readObservation(
+  observation: CitedObservation,
   testType: TestCase['testType'],
-): Promise<EvidenceReading | undefined> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await store.readText(path));
-  } catch {
-    // Evidence of another kind (a HAR, a log) is not a record this check reads.
-    return undefined;
-  }
-
-  const action = BrowserActionSchema.safeParse(parsed);
+  statusDeclaredSteps: ReadonlySet<string>,
+): EvidenceReading | undefined {
+  const stepId = observation.stepId === undefined ? {} : { stepId: observation.stepId };
   // An `a11y` case drives the page with the same browser actions an `e2e` case does; only an `e2e`
   // case is checked by `qa.browser_expect`.
-  if (action.success && testType !== 'api') {
-    const { type, expectation, stepId } = action.data;
+  if (observation.source === 'action' && testType !== 'api') {
+    const { type, expectation } = observation.action;
     const isFailedExpectation = type === 'expect' && expectation?.passed !== true;
     return {
-      ...(stepId === undefined ? {} : { stepId }),
+      ...stepId,
       isSuccessful: !isFailedExpectation && type !== 'tab-blocked',
       isPassedCheck: testType === 'e2e' && type === 'expect' && expectation?.passed === true,
     };
   }
-  const request = HttpRequestRecordSchema.safeParse(parsed);
-  if (request.success && testType === 'api') {
-    const isSuccessful = request.data.status < HTTP_ERROR_STATUS;
-    return {
-      ...(request.data.stepId === undefined ? {} : { stepId: request.data.stepId }),
-      isSuccessful,
-      isPassedCheck: isSuccessful,
-    };
+  if (observation.source === 'http' && testType === 'api') {
+    const isOk = observation.record.status < HTTP_ERROR_STATUS;
+    const isExpectedByStep = observation.stepId !== undefined && statusDeclaredSteps.has(observation.stepId);
+    return { ...stepId, isSuccessful: isOk || isExpectedByStep, isPassedCheck: isOk };
   }
-  const scan = A11yScanRecordSchema.safeParse(parsed);
-  if (scan.success && testType === 'a11y') {
-    const isClean = scan.data.violations.length === 0 && scan.data.uncertain.length === 0;
-    return {
-      ...(scan.data.stepId === undefined ? {} : { stepId: scan.data.stepId }),
-      isSuccessful: isClean,
-      isPassedCheck: isClean,
-    };
+  if (observation.source === 'scan' && testType === 'a11y') {
+    const isClean = observation.record.violations.length === 0 && observation.record.uncertain.length === 0;
+    return { ...stepId, isSuccessful: isClean, isPassedCheck: isClean };
   }
   return undefined;
 }

@@ -25,6 +25,28 @@ function baseCase(overrides: Partial<TestCase> = {}): TestCase {
 }
 
 describe('renderTestCaseMarkdown', () => {
+  it('shows the expectations the engine checks under their step and after the expected result (ADR-0016)', () => {
+    const markdown = renderTestCaseMarkdown(
+      baseCase({
+        steps: [
+          {
+            description: 'Click the "Log in" button',
+            expectations: [{ kind: 'url', expected: 'https://x/home' }],
+          },
+          { description: 'Read the heading' },
+        ],
+        resultExpectations: [{ kind: 'text', selector: 'h1', expected: 'Welcome' }],
+      }),
+    );
+
+    expect(markdown).toContain(
+      '1. Click the "Log in" button\n   - Expect: url = "https://x/home"\n2. Read the heading',
+    );
+    expect(markdown).toContain(
+      '## Expected result\n\nThe login page is redisplayed with an error message.\n\n### Checked by the engine\n\n- text on "h1" = "Welcome"',
+    );
+  });
+
   it('renders the title, metadata, steps and expected result', () => {
     const markdown = renderTestCaseMarkdown(baseCase());
 
