@@ -1412,6 +1412,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       );
 
       const result = await reportTool.handler({});
+      process.chdir(originalCwd);
 
       expect(result.runId).toBeUndefined();
       expect(result.runSummary).toBeUndefined();
