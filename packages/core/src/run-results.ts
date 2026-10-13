@@ -5,6 +5,7 @@ import type { RelativePath } from '@qa-ai-stlc/schemas';
 import type { QaStore } from './qa-store.js';
 
 const RUNS_DIR: RelativePath = 'runs';
+const INTERACTIVE_RESULT_PATH = /^runs\/[^/]+\/[^/]+\.json$/;
 
 /**
  * Every `RunResultSchema` artifact recorded under `runs/**`, in either layout `qa run`'s
@@ -16,4 +17,13 @@ const RUNS_DIR: RelativePath = 'runs';
 export async function listRunResultPaths(store: QaStore): Promise<readonly RelativePath[]> {
   const paths = await store.listFiles(RUNS_DIR);
   return paths.filter((path) => !path.endsWith('/run.json'));
+}
+
+/**
+ * Only the results interactive case execution registered (`runs/<test-case-id>/<result-id>.json`),
+ * which no `RunRecord` summarises because no spec set or runner stood behind them.
+ */
+export async function listInteractiveResultPaths(store: QaStore): Promise<readonly RelativePath[]> {
+  const paths = await listRunResultPaths(store);
+  return paths.filter((path) => INTERACTIVE_RESULT_PATH.test(path));
 }

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { describe, expect, it } from 'vitest';
 import { QaStore } from './qa-store.js';
-import { listRunResultPaths } from './run-results.js';
+import { listInteractiveResultPaths, listRunResultPaths } from './run-results.js';
 
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
@@ -38,5 +38,20 @@ describe('listRunResultPaths', () => {
     const store = new QaStore({ projectRoot: PROJECT_ROOT, fs: createFakeFileSystem() });
 
     expect(await listRunResultPaths(store)).toEqual([]);
+  });
+});
+
+describe('listInteractiveResultPaths', () => {
+  it('keeps only the flat layout interactive case execution writes', async () => {
+    const store = new QaStore({
+      projectRoot: PROJECT_ROOT,
+      fs: createFakeFileSystem({
+        [join(QA_DIR, 'runs', 'run-1', 'run.json')]: '{}',
+        [join(QA_DIR, 'runs', 'run-1', 'results', 'result-1.json')]: '{}',
+        [join(QA_DIR, 'runs', 'case-1', 'result-2.json')]: '{}',
+      }),
+    });
+
+    expect(await listInteractiveResultPaths(store)).toEqual(['runs/case-1/result-2.json']);
   });
 });

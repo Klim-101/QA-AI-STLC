@@ -1179,10 +1179,12 @@ function formatRunSummary(summary: RunSummary): readonly string[] {
 }
 
 function formatReportResult(result: ReportResult): readonly string[] {
-  const sections = [result.runSummary, result.traceabilityMatrix];
-  if (result.a11yConformance !== undefined) {
-    sections.push(result.a11yConformance);
-  }
+  const sections = [
+    result.runSummary,
+    result.interactiveSummary,
+    result.traceabilityMatrix,
+    result.a11yConformance,
+  ].filter((section) => section !== undefined);
   return sections.flatMap((section, index) => [...(index === 0 ? [] : ['']), ...section.split('\n')]);
 }
 

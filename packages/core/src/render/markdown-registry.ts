@@ -3,10 +3,12 @@
 
 import type { DefectDraft, FeatureCaseIndex, Rca, RunRecord, TestCase } from '@qa-ai-stlc/schemas';
 import type { A11yConformanceReport } from '../a11y-conformance.js';
+import type { InteractiveResultsSummary } from '../interactive-results-summary.js';
 import type { TraceabilityMatrix } from '../traceability.js';
 import { renderA11yConformanceMarkdown } from './a11y-conformance-markdown.js';
 import { renderCaseIndexMarkdown } from './case-index-markdown.js';
 import { renderDefectDraftMarkdown } from './defect-draft-markdown.js';
+import { renderInteractiveResultsSummaryMarkdown } from './interactive-results-summary-markdown.js';
 import { renderRcaMarkdown } from './rca-markdown.js';
 import { renderRunSummaryMarkdown } from './run-summary-markdown.js';
 import { renderTestCaseMarkdown } from './test-case-markdown.js';
@@ -22,6 +24,7 @@ export interface MarkdownArtifactByKind {
   'test-case': TestCase;
   'case-index': FeatureCaseIndex;
   'run-summary': RunRecord;
+  'interactive-results-summary': InteractiveResultsSummary;
   'traceability-matrix': TraceabilityMatrix;
   'a11y-conformance': A11yConformanceReport;
   'defect-draft': DefectDraft;
@@ -36,6 +39,7 @@ const MARKDOWN_RENDERERS: {
   'test-case': renderTestCaseMarkdown,
   'case-index': renderCaseIndexMarkdown,
   'run-summary': renderRunSummaryMarkdown,
+  'interactive-results-summary': renderInteractiveResultsSummaryMarkdown,
   'traceability-matrix': renderTraceabilityMatrixMarkdown,
   'a11y-conformance': renderA11yConformanceMarkdown,
   'defect-draft': renderDefectDraftMarkdown,

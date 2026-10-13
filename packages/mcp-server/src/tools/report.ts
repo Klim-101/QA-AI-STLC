@@ -15,10 +15,19 @@ const InputSchema = z.object({
 });
 
 const OutputSchema = z.object({
-  runId: z.string(),
-  runRecordPath: z.string(),
+  runId: z.string().optional().describe('Set only when a `qa run` record is reported.'),
+  runRecordPath: z.string().optional(),
   format: z.enum(['markdown', 'html']),
-  runSummary: z.string(),
+  runSummary: z
+    .string()
+    .optional()
+    .describe('Summary of a `qa run` record; absent when only live execution results exist.'),
+  interactiveSummary: z
+    .string()
+    .optional()
+    .describe(
+      'Results registered by live case execution (qa-execute), one row per case; absent when there are none.',
+    ),
   traceabilityMatrix: z.string(),
   a11yConformance: z
     .string()
@@ -36,8 +45,9 @@ export const reportTool: ToolDefinition<typeof InputSchema, typeof OutputSchema>
   name: 'qa.report',
   description:
     'Renders a run summary and the current requirement -> case -> result -> evidence traceability ' +
-    'matrix as Markdown or HTML, from the canonical JSON already recorded under .qa/. Defaults to ' +
-    'the most recently started run and Markdown format.',
+    'matrix as Markdown or HTML, from the canonical JSON already recorded under .qa/. Reports the most ' +
+    'recently started `qa run` and, separately, the results registered by live case execution ( ' +
+    'qa-execute), so a session that only executed cases still gets a report. Defaults to Markdown.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   async handler(input) {
@@ -46,10 +56,11 @@ export const reportTool: ToolDefinition<typeof InputSchema, typeof OutputSchema>
       ...(input.format !== undefined ? { format: input.format } : {}),
     });
     return {
-      runId: result.runId,
-      runRecordPath: result.runRecordPath,
+      ...(result.runId === undefined ? {} : { runId: result.runId }),
+      ...(result.runRecordPath === undefined ? {} : { runRecordPath: result.runRecordPath }),
       format: result.format,
-      runSummary: result.runSummary,
+      ...(result.runSummary === undefined ? {} : { runSummary: result.runSummary }),
+      ...(result.interactiveSummary === undefined ? {} : { interactiveSummary: result.interactiveSummary }),
       traceabilityMatrix: result.traceabilityMatrix,
       ...(result.a11yConformance === undefined ? {} : { a11yConformance: result.a11yConformance }),
     };

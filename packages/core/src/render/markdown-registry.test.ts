@@ -20,6 +20,15 @@ const TEST_CASE: TestCase = {
 };
 
 describe('renderMarkdownArtifact', () => {
+  it('dispatches "interactive-results-summary" to its renderer', () => {
+    const markdown = renderMarkdownArtifact('interactive-results-summary', {
+      rows: [],
+      counts: { passed: 0, failed: 0, blocked: 0, skipped: 0, uncertain: 0, partial: 0 },
+    });
+
+    expect(markdown).toContain('# Live execution results');
+  });
+
   it('dispatches "test-case" to the test-case renderer', () => {
     const markdown = renderMarkdownArtifact('test-case', TEST_CASE);
 
