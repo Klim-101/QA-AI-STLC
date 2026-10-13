@@ -26,6 +26,7 @@ function reportWithOneTest(overrides: {
   readonly attachments?: readonly AttachmentOverride[];
 }): PlaywrightJsonReport {
   return {
+    errors: [],
     suites: [
       {
         specs: [
@@ -147,6 +148,7 @@ describe('mapReportToRunResults', () => {
 
   it('throws a QaError when a test produced no result', async () => {
     const report: PlaywrightJsonReport = {
+      errors: [],
       suites: [{ specs: [{ title: 'no result', tests: [{ annotations: [], results: [] }] }] }],
     };
     await expect(

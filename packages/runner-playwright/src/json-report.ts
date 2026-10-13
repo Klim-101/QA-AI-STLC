@@ -70,6 +70,8 @@ const SuiteSchema: z.ZodType<Suite> = z.lazy(() =>
 
 export const PlaywrightJsonReportSchema = z.object({
   suites: z.array(SuiteSchema),
+  // Errors outside any test: a spec that failed to load, a config problem, "No tests found".
+  errors: z.array(z.object({ message: z.string().optional() })).default([]),
 });
 export type PlaywrightJsonReport = z.infer<typeof PlaywrightJsonReportSchema>;
 export type PlaywrightSpec = z.infer<typeof SpecSchema>;

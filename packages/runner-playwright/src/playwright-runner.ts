@@ -14,14 +14,17 @@ import {
 import type { EvidenceKind, TestType } from '@qa-ai-stlc/schemas';
 import { randomUUID } from 'node:crypto';
 import { PlaywrightJsonReportSchema } from './json-report.js';
+import { describeLoadFailure } from './load-failure.js';
 import { StepWorkReportSchema, type StepWorkReport } from './step-work.js';
 import { mapReportToRunResults } from './map-result.js';
+import { resolvePlaywrightCliPath } from './playwright-cli.js';
 import { generateSpecConfigSource } from './spec-config.js';
 
 // `@playwright/test`'s own CLI entry, resolved through Node's module graph rather than spawned
 // through `npx`: it works whether this package is installed inside the monorepo or, once
-// published, inside an operator's project, and needs no shell or PATH lookup (AGENTS.md 5.6).
-const cliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
+// published, inside an operator's project, and needs no shell or PATH lookup (AGENTS.md 5.6). This
+// is the fallback; a run prefers the copy its specs import (`resolvePlaywrightCliPath`).
+const bundledCliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
 // Next to this module with the extension this module has: `.js` once built, `.ts` when the sources run
 // directly (Playwright compiles a TypeScript reporter itself).
 const stepWorkReporterPath = fileURLToPath(
@@ -72,7 +75,7 @@ export async function runPlaywrightSpecs(
   const isStepWorkChecked = input.requiredStepIds !== undefined;
 
   await engine.fs.mkdir(runDir);
-  const { source } = generateSpecConfigSource({
+  const { source, testDir } = generateSpecConfigSource({
     baseUrl: input.baseUrl,
     specFiles: input.specFiles,
     reportPath,
@@ -85,6 +88,7 @@ export async function runPlaywrightSpecs(
   });
   await engine.fs.writeFile(configPath, source);
 
+  const cliPath = resolvePlaywrightCliPath(testDir, bundledCliPath);
   await engine.processRunner.run(
     process.execPath,
     [cliPath, 'test', `--config=${configPath}`],
@@ -101,6 +105,17 @@ export async function runPlaywrightSpecs(
   const raw = await engine.fs.readFile(reportPath);
   const parsed: unknown = JSON.parse(raw);
   const report = PlaywrightJsonReportSchema.parse(parsed);
+  const loadFailure = describeLoadFailure(report);
+  if (loadFailure !== undefined) {
+    throw new QaError(
+      'RUNNER_NO_TESTS_RAN',
+      `Playwright ran no tests for ${input.specFiles.join(', ')}: ${loadFailure}`,
+      {
+        remediation:
+          'Fix what Playwright reports above. If it mentions two versions of @playwright/test, make sure the project resolves a single copy.',
+      },
+    );
+  }
 
   const stepWork = isStepWorkChecked ? await readStepWork(engine, stepWorkPath) : undefined;
 
