@@ -526,6 +526,23 @@ describe('verifyGeneratedTestSpec', () => {
     ).rejects.toThrow(QaError);
   });
 
+  it('names the spec, the project root and the environment when the runner produces no result', async () => {
+    const { context } = createContext();
+    const runner = createFakeRunner(() => []);
+
+    const error = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: 'core.verification.unexpected_outcome_count' });
+    expect((error as QaError).message).toContain(`"${SPEC.filePath}"`);
+    expect((error as QaError).message).toContain(context.projectRoot);
+    expect((error as QaError).remediation).toContain('at least one test');
+  });
+
   it('throws when the runner produces more than one result', async () => {
     const { context } = createContext();
     const runner = createFakeRunner(() => [

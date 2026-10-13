@@ -329,7 +329,12 @@ export async function verifyGeneratedTestSpec(
     if (outcome === undefined || extra.length > 0) {
       throw new QaError(
         'core.verification.unexpected_outcome_count',
-        `Verifying a generated spec must produce exactly one run result; got ${String(outcomes.length)}.`,
+        `Verifying a generated spec must produce exactly one run result; got ${String(outcomes.length)} ` +
+          `for "${options.spec.filePath}" (run from "${context.projectRoot}", environment "${environment.name}").`,
+        {
+          remediation:
+            'Check that the spec file declares at least one test and that its imports resolve from the project.',
+        },
       );
     }
     if (outcome.result.testCaseId !== options.spec.testCaseId) {
