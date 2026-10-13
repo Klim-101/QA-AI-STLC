@@ -1,5 +1,13 @@
 # @qa-ai-stlc/schemas
 
+## 1.8.0
+
+### Minor Changes
+
+- c1f6ed4: `qa.case_result_register` accepts `passed` only when the cited evidence proves it: every step has successful evidence linked to its `stepId`, and the expected result has a successful check of the case's type (e2e: a passing `qa.browser_expect`; api: a response below 400; a11y: a scan with no violations and nothing uncertain). Otherwise it fails with `RUN_RESULT_STEP_NOT_PROVEN` or `RUN_RESULT_EXPECTED_RESULT_UNCHECKED`. A run can hold results for one case only (`RUN_RESULT_RUN_BOUND_TO_OTHER_CASE`). `qa.browser_accessibility_scan` takes a `stepId`.
+- 48e3c2f: The crawl finds single-page-application routes that have no `<a href>`: it reads `routerLink`, `ng-reflect-router-link` and `data-href` attributes and the URLs a page pushes through the History API. With `qa explore --probe-navigation` (`probeNavigation` on `qa.explore`) it also clicks buttons outside forms, each in a throwaway context under safe mode, and keeps the page a click led to (ADR-0015). The route map records how each route was found (`router-attribute`, `history-api`, `click-probe`).
+- dafa6ab: A test case can declare structured expectations: `expectations` on a step and `resultExpectations` for the final result (visible, hidden, text, value, count, checked, url, http-status, http-body-contains, a11y-clean). The engine derives from the cited evidence whether each is met, and `qa.case_result_register` refuses `passed` with `RUN_RESULT_EXPECTATION_UNMET` while any is unmet or never checked (ADR-0016). An api case that expects an error status can now be `passed`. Existing cases are unchanged. The readable Markdown copy of a case lists the declared checks.
+
 ## 1.7.0
 
 ### Minor Changes
