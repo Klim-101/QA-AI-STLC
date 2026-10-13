@@ -497,6 +497,7 @@ kept — or a hand-written spec covering it can be run directly and its result r
 ## Documentation
 
 - [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
+- [How to install and run](docs/public/how-to-install-and-run.md): prerequisites, the Claude Code plugin, the CLI, the local MCP server and a first run on the demo app.
 - [CI usage](docs/public/ci-usage.md): the deterministic, no-model pipeline (`qa explore --verify`, `qa link`, `qa run`, `qa validate`) as a copy-pasteable recipe, proven continuously in this repository's own CI.
 - [Filing defect drafts](docs/public/filing-defect-drafts.md): how to turn an accepted draft into a tracker issue with your own tooling, and where the framework's responsibility ends.
 - [Architecture diagram](docs/public/architecture-diagram.md): how the agent host, the engine and the pipeline state fit together.
