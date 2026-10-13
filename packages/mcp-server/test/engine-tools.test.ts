@@ -1389,4 +1389,34 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(notFoundError).toMatchObject({ code: 'REPORT_RUN_NOT_FOUND' });
     });
   });
+
+  it('qa.report reports registered case results when no qa run was ever recorded', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await mkdir(join(projectRoot, '.qa', 'runs', 'case-a'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'runs', 'case-a', 'result-1.json'),
+        JSON.stringify({
+          id: 'result-1',
+          runId: 'run-live-1',
+          testCaseId: 'case-a',
+          testType: 'e2e',
+          status: 'failed',
+          startedAt: '2026-09-25T10:00:00.000Z',
+          finishedAt: '2026-09-25T10:00:05.000Z',
+          evidenceIds: [],
+          failure: { message: 'The list request returned HTTP 500' },
+        }),
+        'utf-8',
+      );
+
+      const result = await reportTool.handler({});
+      process.chdir(originalCwd);
+
+      expect(result.runId).toBeUndefined();
+      expect(result.runSummary).toBeUndefined();
+      expect(result.interactiveSummary).toContain('| case-a | e2e | failed |');
+    });
+  });
 });

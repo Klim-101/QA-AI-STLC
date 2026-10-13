@@ -3,8 +3,10 @@
 
 import type { RunRecord } from '@qa-ai-stlc/schemas';
 import type { A11yConformanceReport } from '../a11y-conformance.js';
+import type { InteractiveResultsSummary } from '../interactive-results-summary.js';
 import type { TraceabilityMatrix } from '../traceability.js';
 import { renderA11yConformanceHtml } from './a11y-conformance-html.js';
+import { renderInteractiveResultsSummaryHtml } from './interactive-results-summary-html.js';
 import { renderRunSummaryHtml } from './run-summary-html.js';
 import { renderTraceabilityMatrixHtml } from './traceability-matrix-html.js';
 
@@ -16,6 +18,7 @@ import { renderTraceabilityMatrixHtml } from './traceability-matrix-html.js';
  */
 export interface HtmlArtifactByKind {
   'run-summary': RunRecord;
+  'interactive-results-summary': InteractiveResultsSummary;
   'traceability-matrix': TraceabilityMatrix;
   'a11y-conformance': A11yConformanceReport;
 }
@@ -26,6 +29,7 @@ const HTML_RENDERERS: {
   readonly [Kind in HtmlArtifactKind]: (artifact: HtmlArtifactByKind[Kind]) => string;
 } = {
   'run-summary': renderRunSummaryHtml,
+  'interactive-results-summary': renderInteractiveResultsSummaryHtml,
   'traceability-matrix': renderTraceabilityMatrixHtml,
   'a11y-conformance': renderA11yConformanceHtml,
 };

@@ -26,15 +26,20 @@ the hub's/operator's call, not this skill's.
 ## What this skill does
 
 1. Call `qa.report` with whatever `runId` the operator's request implies a specific run, or omit
-   it for the most recently started one. Leave `format` unset (Markdown default) unless the
-   operator explicitly asked for HTML — Markdown is what this skill reads back.
-2. Narrate `runSummary` and `traceabilityMatrix` in conversation: every count, status and
-   requirement/case link reported here must be one already present in the tool's own rendered
-   text. Never recompute, round, average or estimate a figure instead of reading it — the report
-   is engine-rendered from canonical JSON (AGENTS.md 12.5), not something this skill re-derives.
-3. If `qa.report` fails with `REPORT_NO_RUNS`, say so plainly and suggest `qa run` — do not guess a
-   status for a run that was never recorded. Any other `QaError` is relayed with its own message
-   and `remediation`, not swallowed or reworded.
+   it for the most recently started `qa run` plus every case result live execution registered.
+   Leave `format` unset (Markdown default) unless the operator explicitly asked for HTML —
+   Markdown is what this skill reads back.
+2. Narrate what came back, by origin: `runSummary` is a `qa run` of a spec set, `interactiveSummary`
+   holds the results `qa-execute` registered (one row per case, its latest result), and
+   `traceabilityMatrix` covers both. Either summary can be absent; say which one the report had.
+   Every count, status and requirement/case link reported here must be one already present in the
+   tool's own rendered text. Never recompute, round, average or estimate a figure instead of reading
+   it — the report is engine-rendered from canonical JSON (AGENTS.md 12.5), not something this skill
+   re-derives. Keep `blocked`, `uncertain`, `partial` and `skipped` apart from `passed` and `failed`.
+3. If `qa.report` fails with `REPORT_NO_RUNS`, say so plainly: nothing has been run and no case
+   result was registered yet, so suggest `qa run` or executing a case with `qa-execute` — do not
+   guess a status for a run that was never recorded. Any other `QaError` is relayed with its own
+   message and `remediation`, not swallowed or reworded.
 
 ## What this skill does not do
 
@@ -43,4 +48,4 @@ the hub's/operator's call, not this skill's.
 - It does not fire on its own the moment a run, generation or execution completes; the operator
   (or hub, per its own "announcing what comes next" convention) asks for a report explicitly.
 - It does not fabricate a number, trend or interpretation absent from `runSummary`/
-  `traceabilityMatrix`'s own rendered text.
+  `interactiveSummary`/`traceabilityMatrix`'s own rendered text.

@@ -2286,7 +2286,33 @@ describe('runCli', () => {
     const exitCode = await runCli(['report'], deps);
 
     expect(exitCode).toBe(EXIT_FAILURE);
-    expect(deps.stderr.join('\n')).toContain('No runs are recorded yet under .qa/runs/');
+    expect(deps.stderr.join('\n')).toContain('No runs or live execution results are recorded yet');
+  });
+
+  it('prints the live execution results when "report" finds no qa run record, only registered case results', async () => {
+    const deps = dependencies({
+      fs: createFakeFileSystem({
+        [CONFIG_PATH]: CONFIG_YAML,
+        [join(PROJECT_ROOT, '.qa', 'runs', 'case-a', 'result-1.json')]: JSON.stringify({
+          schemaVersion: 1,
+          id: 'result-1',
+          runId: 'run-live-1',
+          testCaseId: 'case-a',
+          testType: 'e2e',
+          status: 'passed',
+          startedAt: '2026-09-25T09:00:00.000Z',
+          finishedAt: '2026-09-25T09:01:00.000Z',
+          evidenceIds: ['evidence-1'],
+        }),
+      }),
+    });
+
+    const exitCode = await runCli(['report'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('# Live execution results');
+    expect(deps.stdout.join('\n')).toContain('| case-a | e2e | passed |');
+    expect(deps.stdout.join('\n')).not.toContain('# Run summary');
   });
 
   it('reports a coded error when "report --format" is an unknown value', async () => {

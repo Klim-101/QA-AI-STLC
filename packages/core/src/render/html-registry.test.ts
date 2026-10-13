@@ -7,6 +7,15 @@ import type { TraceabilityMatrix } from '../traceability.js';
 import { renderHtmlArtifact } from './html-registry.js';
 
 describe('renderHtmlArtifact', () => {
+  it('dispatches "interactive-results-summary" to its renderer', () => {
+    const html = renderHtmlArtifact('interactive-results-summary', {
+      rows: [],
+      counts: { passed: 0, failed: 0, blocked: 0, skipped: 0, uncertain: 0, partial: 0 },
+    });
+
+    expect(html).toContain('<h1>Live execution results</h1>');
+  });
+
   it('dispatches "run-summary" to the run-summary renderer', () => {
     const runRecord: RunRecord = {
       schemaVersion: 1,

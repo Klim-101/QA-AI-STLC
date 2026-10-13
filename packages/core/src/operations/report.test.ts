@@ -111,6 +111,106 @@ describe('runReport', () => {
     expect(result.runId).toBe('run-newer');
   });
 
+  describe('live execution results', () => {
+    function interactiveResultJson(overrides: { id: string; runId: string; testCaseId: string }): string {
+      return JSON.stringify({
+        schemaVersion: 1,
+        id: overrides.id,
+        runId: overrides.runId,
+        testCaseId: overrides.testCaseId,
+        testType: 'e2e',
+        status: 'failed',
+        startedAt: '2026-09-25T09:00:00.000Z',
+        finishedAt: '2026-09-25T09:01:00.000Z',
+        evidenceIds: ['evidence-1'],
+        failure: { message: 'The list request returned HTTP 500' },
+      });
+    }
+    const INTERACTIVE_FILES = {
+      [join(QA_DIR, 'config.yaml')]: CONFIG_YAML,
+      [join(QA_DIR, 'runs', 'case-a', 'result-1.json')]: interactiveResultJson({
+        id: 'result-1',
+        runId: 'run-live-1',
+        testCaseId: 'case-a',
+      }),
+    };
+
+    it('reports a session that only executed cases, without a qa run record', async () => {
+      const result = await runReport(fakeContext(INTERACTIVE_FILES), {});
+
+      expect(result.runId).toBeUndefined();
+      expect(result.runRecordPath).toBeUndefined();
+      expect(result.runSummary).toBeUndefined();
+      expect(result.interactiveSummary).toContain('# Live execution results');
+      expect(result.interactiveSummary).toContain('| case-a | e2e | failed |');
+      expect(result.interactiveSummary).toContain('The list request returned HTTP 500');
+      expect(result.traceabilityMatrix).toContain('# Traceability matrix');
+    });
+
+    it('reports a qa run record and the live results side by side', async () => {
+      const context = fakeContext({
+        ...INTERACTIVE_FILES,
+        [join(QA_DIR, 'runs', 'run-1', 'run.json')]: runRecordJson({
+          id: 'run-1',
+          startedAt: '2026-09-25T10:00:00.000Z',
+        }),
+      });
+
+      const result = await runReport(context, {});
+
+      expect(result.runId).toBe('run-1');
+      expect(result.runSummary).toContain('# Run summary: run-1');
+      expect(result.interactiveSummary).toContain('| case-a |');
+    });
+
+    it('renders the live results as HTML when asked', async () => {
+      const result = await runReport(fakeContext(INTERACTIVE_FILES), { format: 'html' });
+
+      expect(result.interactiveSummary).toContain('<h1>Live execution results</h1>');
+    });
+
+    it('reports one live execution run when its id is given', async () => {
+      const context = fakeContext({
+        ...INTERACTIVE_FILES,
+        [join(QA_DIR, 'runs', 'case-b', 'result-2.json')]: interactiveResultJson({
+          id: 'result-2',
+          runId: 'run-live-2',
+          testCaseId: 'case-b',
+        }),
+      });
+
+      const result = await runReport(context, { runId: 'run-live-2' });
+
+      expect(result.runSummary).toBeUndefined();
+      expect(result.interactiveSummary).toContain('# Live execution results: run-live-2');
+      expect(result.interactiveSummary).toContain('| case-b |');
+      expect(result.interactiveSummary).not.toContain('| case-a |');
+    });
+
+    it('leaves the live results out when a qa run record is asked for by id', async () => {
+      const context = fakeContext({
+        ...INTERACTIVE_FILES,
+        [join(QA_DIR, 'runs', 'run-1', 'run.json')]: runRecordJson({
+          id: 'run-1',
+          startedAt: '2026-09-25T10:00:00.000Z',
+        }),
+      });
+
+      const result = await runReport(context, { runId: 'run-1' });
+
+      expect(result.runSummary).toContain('# Run summary: run-1');
+      expect(result.interactiveSummary).toBeUndefined();
+    });
+
+    it('rejects an id that is neither a qa run record nor a live execution run', async () => {
+      const error = await runReport(fakeContext(INTERACTIVE_FILES), { runId: 'run-9' }).catch(
+        (caught: unknown) => caught,
+      );
+
+      expect((error as QaError).code).toBe('REPORT_RUN_NOT_FOUND');
+    });
+  });
+
   it('rejects when no run has ever been recorded', async () => {
     const context = fakeContext();
 
