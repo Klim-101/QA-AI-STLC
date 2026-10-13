@@ -43,7 +43,9 @@ The plugin brings seven skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa
 MCP server that it launches through `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. The first
 launch downloads that package, so it needs network access to npm.
 
-Then, in the project you want to test, open Claude Code and say:
+Set any secret the identity needs (see [Describe the application](#2-describe-the-application)) in
+the shell **before** you start `claude`: the MCP server inherits the environment of the process that
+launched it. Then, in the project you want to test, open Claude Code and say:
 
 > set up QA-AI-STLC for this repo
 
@@ -63,7 +65,27 @@ From there, ask for what you want in plain words and the matching skill takes ov
 | "do a root cause analysis for defect login-error" | `qa-rca`            |
 
 Phase order and approvals are enforced by the engine, not by the skills, so the agent cannot skip a
-gate. If the plugin's MCP server does not connect, see [Troubleshooting](#troubleshooting).
+gate. Do not ask the agent to edit files under `.qa/`; the plugin's hook blocks it on purpose. You
+give the approvals yourself.
+
+To confirm the setup, run `/plugin` (qa-ai-stlc enabled) and `/mcp` (server `qa-ai-stlc` connected)
+inside Claude Code, then say "call qa.status". It should return the gates and the next action, the
+same as `npx qa status`. If the server does not connect, see [Troubleshooting](#troubleshooting).
+
+### Updating the plugin
+
+Close every Claude Code window first; a running session does not pick up a new plugin. Then:
+
+```sh
+claude plugin marketplace update qa-ai-stlc
+claude plugin update qa-ai-stlc@qa-ai-stlc
+claude plugin list --json
+```
+
+In the list, `qa-ai-stlc` shows the new version and its `mcpServers` entry launches
+`npx -y @qa-ai-stlc/mcp-server@<same version>`. If the version is stale, run
+`claude plugin marketplace remove qa-ai-stlc` and add and install it again as above. If you also use
+the CLI in the project, keep it on the same version (see [Versions must match](#versions-must-match)).
 
 ## Option B: the CLI, for a shell or CI
 
@@ -73,12 +95,21 @@ repository or in a separate test project.
 ```sh
 mkdir my-app-qa && cd my-app-qa
 npm init -y
-npm install --save-dev @qa-ai-stlc/cli
+npm install --save-dev --save-exact @qa-ai-stlc/cli
 npx qa --version
 ```
 
-`npx @qa-ai-stlc/cli <command>` works without installing, but downloads the package on every call.
-The examples below use `npx qa`.
+Install the CLI into the project before you call `npx qa`. Without a local install, `npx` downloads
+an unrelated package named `qa`. If `npx qa` misbehaves, check that `node_modules/.bin/qa` (`qa.cmd`
+on Windows) exists. `npx @qa-ai-stlc/cli <command>` also works without installing, but downloads the
+package on every call. The examples below use `npx qa`.
+
+### Versions must match
+
+The CLI, the plugin and the MCP server it launches must be on the same version. The plugin pins the
+MCP server to its own version and tells it which engine version to expect; a mismatch shows up as an
+MCP server start-up error that names both versions. Compare `npx qa --version` with the plugin
+version from `claude plugin list --json`, bring the lagging one up to date and restart Claude Code.
 
 ### Install browsers
 
@@ -146,7 +177,13 @@ Check that everything resolves:
 npx qa doctor
 ```
 
-Expect a `PASS` line for the browser, the identity and the environment.
+Expect a `PASS` line for the browser, the identity and the environment. Export the identity's secret
+variable first, or the identity check fails.
+
+If scripted sign-in cannot find your login form, set `selectors` (for example `submit`) on the
+identity in `.qa/config.yaml`. If the application marks test ids with an attribute other than
+`data-testid`, set `selectors.testIdAttribute`. Both are checked against the schema on the next
+command.
 
 ### 3. Explore, then build on the registry
 
@@ -167,6 +204,18 @@ npx qa explore --environment staging --identity admin --verify
 
 It exits non-zero when a selector has degraded, so it works as a CI gate.
 
+If the crawl misses pages, start it from the pages you name, and let it click navigation-only
+buttons (outside forms, each in a throwaway context under safe mode):
+
+```sh
+npx qa explore --environment staging --identity admin --url /reports --url /settings
+npx qa explore --environment staging --identity admin --probe-navigation
+```
+
+For an element no crawl reaches, `npx qa explore --pick <url> --identity admin` opens a browser,
+already signed in, and records the element you click. Run it in an ordinary terminal; it needs a
+human.
+
 A typical path after exploring:
 
 ```sh
@@ -174,10 +223,15 @@ npx qa scope --from file --path requirements.md      # requirements, one "## Hea
 npx qa cases add --path cases/login.json             # a case linked to a real requirement
 npx qa approve scope --artifact artifacts/scope.json --approved-by <your name>
 npx qa validate                                      # recomputes every gate from the ledger
-npx qa run --spec tests/login.playwright-spec.ts     # records results under .qa/runs/<run-id>/
+npx qa cases render <case-id>                        # a readable Markdown copy of one case
+npx qa run --spec tests/login.playwright-spec.ts --test-type e2e --environment staging
 npx qa report                                        # run summary and traceability matrix
+npx qa validate --run                                # also re-checks every result's evidence
 npx qa status                                        # names what to do next
 ```
+
+Registering any case reopens the `cases` gate, and you approve it again. To turn API testing on
+after `init`, run `npx qa config set testing.api in-scope --api-source <path-or-url>`.
 
 Designing cases with a model, proving them live and generating specs are agent work (Option A or
 C). The CLI covers the deterministic parts. For a complete CI recipe, see [CI usage](ci-usage.md).
@@ -263,18 +317,19 @@ rules are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Troubleshooting
 
-| Symptom                                                  | Likely cause and fix                                                                                                                                                                             |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `INIT_SCOPE_UNDECIDED`                                   | `qa init` needs all four scope flags. Pass `in-scope` or `out-of-scope` for each, or add `--defer-scope`.                                                                                        |
-| `qa doctor` reports a browser as not installed           | Run `npx qa doctor --fix` or `npx playwright install chromium`.                                                                                                                                  |
-| `qa doctor` reports an environment as unreachable        | Start the application, check the URL, and connect to your VPN first if the environment is behind one.                                                                                            |
-| Identity check fails on a missing secret                 | The variable named by `--secret` is not set in the shell that runs the command. Set it, then re-run.                                                                                             |
-| `page.fill` times out on the login form                  | The sign-in form does not match the engine's default selectors. Use pick mode (`qa explore --pick <login-url>`) to find them, then add them as `selectors` on the identity in `.qa/config.yaml`. |
-| An application never gets past its sign-in page          | It may open its session with a `POST`, which safe mode blocks. See [Applications that open their session with a POST](../../README.md#applications-that-open-their-session-with-a-post).         |
-| The self-signed certificate of a test server is rejected | The target needs a certificate the operating system and Node already trust.                                                                                                                      |
-| The plugin's MCP server does not connect or times out    | The first launch downloads `@qa-ai-stlc/mcp-server` through `npx`. Check network access to npm, or run `npx -y @qa-ai-stlc/mcp-server` once by hand to warm the cache.                           |
-| `Cannot find module` after changing code in a workspace  | A direct `vitest` or `tsc` run skips the dependency build. Use the `npm run` scripts, or `npm run build --workspace <package>` first.                                                            |
-| Generation verification finds no tests on Windows        | Known gap, tracked as [#661](https://github.com/Klim-101/QA-AI-STLC/issues/661).                                                                                                                 |
+| Symptom                                                                                                   | Likely cause and fix                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `INIT_SCOPE_UNDECIDED`                                                                                    | `qa init` needs all four scope flags. Pass `in-scope` or `out-of-scope` for each, or add `--defer-scope`.                                                                                        |
+| `qa doctor` reports a browser as not installed                                                            | Run `npx qa doctor --fix` or `npx playwright install chromium`.                                                                                                                                  |
+| `qa doctor` reports an environment as unreachable                                                         | Start the application, check the URL, and connect to your VPN first if the environment is behind one.                                                                                            |
+| Identity check fails on a missing secret                                                                  | The variable named by `--secret` is not set in the shell that runs the command. Set it, then re-run.                                                                                             |
+| `page.fill` times out on the login form                                                                   | The sign-in form does not match the engine's default selectors. Use pick mode (`qa explore --pick <login-url>`) to find them, then add them as `selectors` on the identity in `.qa/config.yaml`. |
+| An application never gets past its sign-in page                                                           | It may open its session with a `POST`, which safe mode blocks. See [Applications that open their session with a POST](../../README.md#applications-that-open-their-session-with-a-post).         |
+| The self-signed certificate of a test server is rejected                                                  | The target needs a certificate the operating system and Node already trust.                                                                                                                      |
+| The plugin and the CLI report different versions, or the MCP server fails at start-up naming two versions | See [Versions must match](#versions-must-match). Update the lagging one and restart Claude Code.                                                                                                 |
+| The plugin's MCP server does not connect or times out                                                     | The first launch downloads `@qa-ai-stlc/mcp-server` through `npx`. Check network access to npm, or run `npx -y @qa-ai-stlc/mcp-server` once by hand to warm the cache.                           |
+| `Cannot find module` after changing code in a workspace                                                   | A direct `vitest` or `tsc` run skips the dependency build. Use the `npm run` scripts, or `npm run build --workspace <package>` first.                                                            |
+| Generation verification finds no tests on Windows                                                         | Known gap, tracked as [#661](https://github.com/Klim-101/QA-AI-STLC/issues/661).                                                                                                                 |
 
 Check the [roadmap](ROADMAP.md) for what is delivered and what is still open. A bug or a missing
 step in this guide belongs in an [issue](https://github.com/Klim-101/QA-AI-STLC/issues/new/choose);
