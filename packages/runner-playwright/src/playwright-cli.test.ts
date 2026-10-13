@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -20,7 +20,8 @@ describe('resolvePlaywrightCliPath', () => {
   });
 
   async function createProject(options: { readonly hasPlaywright: boolean }): Promise<string> {
-    const root = await mkdtemp(join(tmpdir(), 'qa-playwright-cli-'));
+    // The real path: macOS temp directories sit behind a symlink, and `require.resolve` returns the target.
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'qa-playwright-cli-')));
     projectRoot = root;
     await mkdir(join(root, 'tests', 'qa'), { recursive: true });
     if (options.hasPlaywright) {
