@@ -872,6 +872,55 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('qa.case_result_register stores a partial result with the steps that were not done (P6-91)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      await writeFile(
+        join(projectRoot, 'login-case.json'),
+        JSON.stringify({
+          id: 'login-case',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'Log in with valid credentials',
+          steps: [{ description: 'Open the page' }, { description: 'Click the login button' }],
+          expectedResult: 'The user lands on the dashboard',
+          status: 'draft',
+          createdAt: '2026-09-20T12:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-case.json' });
+
+      const base = {
+        testCaseId: 'login-case',
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'partial',
+        startedAt: '2020-01-01T00:00:00.000Z',
+        evidenceIds: [] as string[],
+      } as const;
+      const unknown = await caseResultRegisterTool
+        .handler({ ...base, missingStepIds: ['step-7'] })
+        .catch((caught: unknown) => caught);
+      const result = await caseResultRegisterTool.handler({
+        ...base,
+        missingStepIds: ['step-2', 'expected-result'],
+      });
+      const stored = JSON.parse(await readFile(join(projectRoot, '.qa', result.runResultPath), 'utf-8')) as {
+        status: string;
+        missingStepIds: string[];
+      };
+      process.chdir(originalCwd);
+
+      expect(unknown).toMatchObject({ code: 'RUN_RESULT_MISSING_STEP_UNKNOWN' });
+      expect(stored).toMatchObject({ status: 'partial', missingStepIds: ['step-2', 'expected-result'] });
+    });
+  });
+
   it('qa.case_result_register rejects a testCaseId with no registered test case', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);

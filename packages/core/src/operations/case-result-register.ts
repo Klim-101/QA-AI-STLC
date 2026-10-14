@@ -3,6 +3,7 @@
 
 import {
   RunResultSchema,
+  TestCaseSchema,
   type Identifier,
   type RelativePath,
   type RunResultFailure,
@@ -16,6 +17,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { toCanonicalJson } from '../json-file.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
+import { canonicalStepIds } from '../step-ids.js';
 import { findUnresolvedFailedExpectations } from './case-result-expectations.js';
 import { assertPassedIsProven } from './case-result-passed.js';
 import { findCasePath } from './cases-render.js';
@@ -28,6 +30,11 @@ export interface RegisterCaseResultOptions {
   readonly startedAt: string;
   readonly evidenceIds: readonly Identifier[];
   readonly failure?: RunResultFailure;
+  /**
+   * The case's step ids (`step-<N>`, `expected-result`) the execution did not reach. Required, and
+   * only allowed, when `status` is `partial`.
+   */
+  readonly missingStepIds?: readonly string[];
   readonly idGenerator?: IdGenerator;
 }
 
@@ -53,6 +60,7 @@ export async function runRegisterCaseResult(
   const casePath = await findCasePath(store, options.testCaseId);
 
   await assertRunNotBoundToAnotherCase(store, options);
+  const missingStepIds = await resolveMissingStepIds(store, casePath, options);
 
   const manifest = new ManifestStore({ store, clock: context.clock });
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
@@ -109,6 +117,7 @@ export async function runRegisterCaseResult(
     finishedAt,
     evidenceIds: options.evidenceIds,
     ...(options.failure !== undefined ? { failure: options.failure } : {}),
+    ...(missingStepIds !== undefined ? { missingStepIds } : {}),
   });
 
   const runResultPath: RelativePath = `runs/${options.testCaseId}/${id}.json`;
@@ -117,6 +126,49 @@ export async function runRegisterCaseResult(
   await manifest.register(runResultPath, serialized);
 
   return { runResultPath, id };
+}
+
+/**
+ * Checks `missingStepIds` against the status and the registered case, so a `partial` result names
+ * exactly the steps that were not done, and no other status carries the field.
+ */
+async function resolveMissingStepIds(
+  store: QaStore,
+  casePath: RelativePath,
+  options: RegisterCaseResultOptions,
+): Promise<readonly string[] | undefined> {
+  const requested = options.missingStepIds;
+  if (options.status !== 'partial') {
+    if (requested !== undefined) {
+      throw new QaError(
+        'RUN_RESULT_MISSING_STEPS_NOT_PARTIAL',
+        `"missingStepIds" is only allowed when status is "partial", not "${options.status}".`,
+        { remediation: 'Leave missingStepIds out, or register the result as "partial".' },
+      );
+    }
+    return undefined;
+  }
+  if (requested === undefined || requested.length === 0) {
+    throw new QaError(
+      'RUN_RESULT_MISSING_STEPS_REQUIRED',
+      `Run result for test case "${options.testCaseId}" is "partial" but names no missing step.`,
+      {
+        remediation:
+          "Pass missingStepIds with the step ids that were not done ('step-<N>', or 'expected-result').",
+      },
+    );
+  }
+  const testCase = await store.readJson(casePath, TestCaseSchema);
+  const knownStepIds = canonicalStepIds(testCase);
+  const unknown = requested.filter((stepId) => !knownStepIds.includes(stepId));
+  if (unknown.length > 0) {
+    throw new QaError(
+      'RUN_RESULT_MISSING_STEP_UNKNOWN',
+      `Test case "${options.testCaseId}" has no step id(s) ${unknown.join(', ')}.`,
+      { remediation: `Use ids of this case: ${knownStepIds.join(', ')}.` },
+    );
+  }
+  return [...new Set(requested)];
 }
 
 /**

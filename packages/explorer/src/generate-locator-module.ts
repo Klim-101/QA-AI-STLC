@@ -303,10 +303,12 @@ export function generateLocatorModule(
     )
     .sort((a, b) => a.elementId.localeCompare(b.elementId));
 
-  const functions = groups.map(
-    ({ owner, exportName }) =>
-      `export function ${exportName}(page: Page): Locator {\n  return ${owner.call};\n}`,
-  );
+  // The elements a function answers are written above it, so what a spec may import is read from
+  // the module itself and cannot drift from it (`parseLocatorModuleExports` in `@qa-ai-stlc/core`).
+  const functions = groups.map(({ owner, members, exportName }) => {
+    const elementIds = members.map((member) => member.element.elementId).sort();
+    return `// elements: ${elementIds.join(' ')}\nexport function ${exportName}(page: Page): Locator {\n  return ${owner.call};\n}`;
+  });
 
   const profiles = options.profiles ?? BUILT_IN_PROFILES;
   const exportedNames = new Set(groups.map(({ exportName }) => exportName));
