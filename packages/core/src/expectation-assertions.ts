@@ -117,7 +117,10 @@ function normalizeCode(text: string): string {
   return stripWhitespace(text).replace(/,\)/gu, ')');
 }
 
-function renderBrowserForm(expectation: CaseExpectation, locatorName: string): AssertionForm | undefined {
+type SelectorExpectation = Extract<CaseExpectation, { selector: string }>;
+type PageExpectation = Exclude<CaseExpectation, SelectorExpectation>;
+
+function renderSelectorForm(expectation: SelectorExpectation, locatorName: string): AssertionForm {
   const target = `expect(${locatorName}(page))`;
   switch (expectation.kind) {
     case 'visible':
@@ -136,13 +139,11 @@ function renderBrowserForm(expectation: CaseExpectation, locatorName: string): A
           ? `await ${target}.not.toBeChecked();`
           : `await ${target}.toBeChecked();`,
       );
-    default:
-      return undefined;
   }
 }
 
 /** The assertion of a kind that names no element: the page's URL, a response, an accessibility scan. */
-function renderPageForm(expectation: CaseExpectation): AssertionForm | undefined {
+function renderPageForm(expectation: PageExpectation): AssertionForm {
   switch (expectation.kind) {
     case 'url': {
       const source = JSON.stringify(escapeForRegExp(expectation.expected));
@@ -164,13 +165,7 @@ function renderPageForm(expectation: CaseExpectation): AssertionForm | undefined
     }
     case 'a11y-clean':
       return { code: 'await scanAccessibility(page, testInfo);', pattern: /scanAccessibility\(/u };
-    default:
-      return undefined;
   }
-}
-
-function selectorOf(expectation: CaseExpectation): string | undefined {
-  return 'selector' in expectation ? expectation.selector : undefined;
 }
 
 interface ResolvedExpectation extends DeclaredExpectation {
@@ -191,17 +186,14 @@ function resolveExpectations(
   const unresolved: UnresolvedExpectation[] = [];
   for (const declared of listDeclaredExpectations(testCase)) {
     const { where, expectation } = declared;
-    const selector = selectorOf(expectation);
-    if (selector === undefined) {
-      const form = renderPageForm(expectation);
-      if (form !== undefined) {
-        resolved.push({ ...declared, form });
-      }
+    if (!('selector' in expectation)) {
+      resolved.push({ ...declared, form: renderPageForm(expectation) });
       continue;
     }
+    const { selector } = expectation;
     const element = registry === undefined ? undefined : findElementForSelector(registry, selector);
     const locatorName = moduleExports.find((entry) => entry.elementId === element?.elementId)?.name;
-    const form = locatorName === undefined ? undefined : renderBrowserForm(expectation, locatorName);
+    const form = locatorName === undefined ? undefined : renderSelectorForm(expectation, locatorName);
     if (form !== undefined) {
       resolved.push({ ...declared, form });
     } else {
@@ -269,14 +261,15 @@ function stripComments(source: string): string {
   return output;
 }
 
-const STEP_TITLE_PATTERN = /\[(step-\d+|expected-result)\]/gu;
+const STEP_TITLE_PATTERN = /\[(?:step-\d+|expected-result)\]/gu;
 
 // The code of each `test.step('[step-N] ...')` block, taken as the text from its title to the next
 // step title (or the end), keyed by step id. A generated spec lists its steps in order, so this is
 // where the step's own assertions are.
 function segmentByStep(code: string): ReadonlyMap<string, string> {
   const marks = [...code.matchAll(STEP_TITLE_PATTERN)].map((match) => ({
-    stepId: match[1] ?? '',
+    // The match is `[step-N]`, brackets included.
+    stepId: match[0].slice(1, -1),
     start: match.index,
   }));
   const segments = new Map<string, string>();
