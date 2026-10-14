@@ -11,10 +11,12 @@ import type { Locator, Page } from 'playwright';
 
 export const GENERATOR_VERSION = "0.3.0";
 
+// elements: b
 export function cancel(page: Page): Locator {
   return page.getByRole("button", { name: "Cancel" });
 }
 
+// elements: a
 export function logIn(page: Page): Locator {
   return page.getByTestId("login-button");
 }

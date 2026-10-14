@@ -18,6 +18,7 @@ import { ensureApiAuthModule } from '../api-auth-module.js';
 import { loadApiContract, selectContractOperations } from '../api-contract.js';
 import { loadConfig } from '../config-loader.js';
 import { buildApiGenerationSpokeInput, buildGenerationSpokeInput } from '../generation-contract.js';
+import { parseLocatorModuleExports } from '../locator-module-exports.js';
 import { resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findCasePath } from './cases-render.js';
@@ -128,6 +129,7 @@ export async function runBuildGenerationSpokeInput(
     registry,
     elementIds: options.elementIds,
     locatorModuleGeneratorVersion,
+    locatorModuleExports: parseLocatorModuleExports(locatorModuleSource),
     ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
   });
 }

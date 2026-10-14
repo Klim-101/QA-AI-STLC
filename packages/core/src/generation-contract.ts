@@ -8,9 +8,9 @@ import {
   type GeneratedTestSpec,
   type GenerationSpokeInput,
   type Identifier,
+  type LocatorModuleExport,
   type ProvenSession,
   type RelativePath,
-  type SelectorElement,
   type SelectorRegistry,
   type TestCase,
 } from '@qa-ai-stlc/schemas';
@@ -47,22 +47,16 @@ export function buildRegistrySlice(
   };
 }
 
-// The same "does the locator module actually export this element" condition
-// `generateLocatorModule` (`@qa-ai-stlc/explorer`) uses to decide what gets a function: a name,
-// not deprecated, and at least one candidate to build a locator from. Duplicated rather than
-// imported — `core` cannot depend on `explorer` (dependencies point downward only, AGENTS.md
-// section 3) — and small enough that the duplication costs less than a new shared package would.
-function isLocatorModuleExport(element: SelectorElement): element is SelectorElement & { name: string } {
-  return (
-    element.name !== undefined && element.deprecatedAt === undefined && element.locatorCandidates.length > 0
-  );
-}
-
 export interface BuildGenerationSpokeInputOptions {
   readonly testCase: TestCase;
   readonly registry: SelectorRegistry;
   readonly elementIds: readonly Identifier[];
   readonly locatorModuleGeneratorVersion: string;
+  /**
+   * Every function the real locator module exports, as `parseLocatorModuleExports` read it. Only the
+   * ones answering an element of the slice are passed on, so a spec can import exactly those.
+   */
+  readonly locatorModuleExports: readonly LocatorModuleExport[];
   /** The case's proven `qa-execute` session (`findLatestProvenSession`), when one exists. */
   readonly provenSession?: ProvenSession;
 }
@@ -70,9 +64,10 @@ export interface BuildGenerationSpokeInputOptions {
 /** Assembles the exact input a `generate-test-spec` spoke task (P3-07) receives. */
 export function buildGenerationSpokeInput(options: BuildGenerationSpokeInputOptions): GenerationSpokeInput {
   const registrySlice = buildRegistrySlice(options.registry, options.elementIds);
-  const exports = registrySlice.elements
-    .filter(isLocatorModuleExport)
-    .map((element) => ({ elementId: element.elementId, name: element.name }))
+  const sliceElementIds = new Set(registrySlice.elements.map((element) => element.elementId));
+  const exports = options.locatorModuleExports
+    .filter((entry) => sliceElementIds.has(entry.elementId))
+    .map((entry) => ({ elementId: entry.elementId, name: entry.name }))
     .sort((a, b) => a.elementId.localeCompare(b.elementId));
 
   return GenerationSpokeInputSchema.parse({

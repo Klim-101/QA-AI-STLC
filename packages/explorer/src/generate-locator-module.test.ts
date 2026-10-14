@@ -210,6 +210,19 @@ describe('generateLocatorModule', () => {
       expect(missingLocators).toEqual([]);
     });
 
+    it('writes above each function the elements it answers, shared ones included', () => {
+      const elements = [
+        selectorElement({ elementId: 'row-3', name: 'copyButton3' }),
+        selectorElement({ elementId: 'row-1', name: 'copyButton' }),
+        selectorElement({ elementId: 'other', name: 'other', locatorCandidates: [testId('other')] }),
+      ];
+
+      const { source } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
+
+      expect(source).toContain('// elements: row-1 row-3\nexport function copyButton(page: Page): Locator');
+      expect(source).toContain('// elements: other\nexport function other(page: Page): Locator');
+    });
+
     it('keeps two different locators apart and suffixes the later one when their names collide', () => {
       const elements = [
         selectorElement({ elementId: 'a', name: 'save', locatorCandidates: [testId('save-a')] }),
