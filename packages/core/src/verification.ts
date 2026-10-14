@@ -4,6 +4,7 @@
 import { basename, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  SelectorRegistrySchema,
   TestCaseSchema,
   VerificationIdSchema,
   VerificationRecordSchema,
@@ -21,8 +22,10 @@ import { extractContractSha256 } from './api-contract.js';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
 import { QaError } from './errors.js';
+import { findMissingExpectationAssertions, hasDeclaredExpectations } from './expectation-assertions.js';
 import { hashText } from './hash.js';
 import { toCanonicalJson } from './json-file.js';
+import { LOCATOR_MODULE_PATH, parseLocatorModuleExports } from './locator-module-exports.js';
 import { ManifestStore } from './manifest-store.js';
 import { resolveBrowserEnvironment } from './operations/browser-open.js';
 import { findCasePath } from './operations/cases-render.js';
@@ -37,6 +40,8 @@ import { canonicalStepIds } from './step-ids.js';
 // module graph, the same way `runner-playwright` resolves `@playwright/test/cli` (AGENTS.md 5.6),
 // so it works whether `@qa-ai-stlc/core` is installed inside the monorepo or, once published,
 // inside an operator's project.
+const REGISTRY_PATH: RelativePath = 'selectors/registry.json';
+
 const tscPath = fileURLToPath(import.meta.resolve('typescript/bin/tsc'));
 
 // A generated spec is typechecked against a fixed, modern baseline rather than the operator's own
@@ -192,6 +197,12 @@ export type VerificationOutcome =
       readonly issues: readonly SpokeValidationIssue[];
     }
   | {
+      /** A declared expectation (ADR-0016) has no assertion in the spec; nothing was run. */
+      readonly status: 'expectations_missing';
+      readonly verificationId: VerificationId;
+      readonly issues: readonly SpokeValidationIssue[];
+    }
+  | {
       readonly status: 'execution_failed';
       readonly verificationId: VerificationId;
       readonly issues: readonly SpokeValidationIssue[];
@@ -205,6 +216,31 @@ export type VerificationOutcome =
       /** The identity the spec ran signed in as; absent for an anonymous run. */
       readonly identity?: string;
     };
+
+// The assertions the case's declared expectations call for, looked up in the spec (P6-86). The
+// registry and the locator module are read from the project, the same files the spoke input was
+// built from; a case with no expectation reads neither.
+async function findExpectationIssues(
+  context: EngineContext,
+  store: QaStore,
+  testCase: TestCase,
+  specContent: string,
+): Promise<readonly SpokeValidationIssue[]> {
+  if (!hasDeclaredExpectations(testCase)) {
+    return [];
+  }
+  if (testCase.testType === 'api') {
+    return findMissingExpectationAssertions(testCase, undefined, [], specContent);
+  }
+  const registry = (await store.pathExists(REGISTRY_PATH))
+    ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
+    : undefined;
+  const moduleSource = resolveRelativePath(context.projectRoot, LOCATOR_MODULE_PATH);
+  const moduleExports = (await context.fs.pathExists(moduleSource))
+    ? parseLocatorModuleExports(await context.fs.readFile(moduleSource))
+    : [];
+  return findMissingExpectationAssertions(testCase, registry, moduleExports, specContent);
+}
 
 function verificationRecordPath(verificationId: VerificationId): RelativePath {
   return `verifications/${verificationId}.json`;
@@ -320,6 +356,21 @@ export async function verifyGeneratedTestSpec(
         verifiedAt: context.clock.now().toISOString(),
       });
       return { status: 'typecheck_failed', verificationId, issues: typecheckIssues };
+    }
+
+    const expectationIssues = await findExpectationIssues(
+      context,
+      store,
+      registeredTestCase,
+      options.spec.content,
+    );
+    if (expectationIssues.length > 0) {
+      await writeVerificationRecord(store, manifest, {
+        ...recordBase,
+        status: 'expectations_missing',
+        verifiedAt: context.clock.now().toISOString(),
+      });
+      return { status: 'expectations_missing', verificationId, issues: expectationIssues };
     }
 
     const config = await loadConfig(context);

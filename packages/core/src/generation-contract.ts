@@ -5,12 +5,14 @@ import {
   GeneratedTestSpecSchema,
   GenerationSpokeInputSchema,
   type ApiContractSlice,
+  type ExpectationAssertion,
   type GeneratedTestSpec,
   type GenerationSpokeInput,
   type Identifier,
   type LocatorModuleExport,
   type ProvenSession,
   type RelativePath,
+  type UnresolvedExpectation,
   type SelectorRegistry,
   type TestCase,
 } from '@qa-ai-stlc/schemas';
@@ -47,7 +49,24 @@ export function buildRegistrySlice(
   };
 }
 
-export interface BuildGenerationSpokeInputOptions {
+/** The assertions the case's declared expectations call for (P6-86); both lists are left out when empty. */
+export interface DerivedExpectationsInput {
+  readonly expectationAssertions?: readonly ExpectationAssertion[];
+  readonly unresolvedExpectations?: readonly UnresolvedExpectation[];
+}
+
+function expectationFields(options: DerivedExpectationsInput): DerivedExpectationsInput {
+  return {
+    ...((options.expectationAssertions ?? []).length > 0
+      ? { expectationAssertions: options.expectationAssertions }
+      : {}),
+    ...((options.unresolvedExpectations ?? []).length > 0
+      ? { unresolvedExpectations: options.unresolvedExpectations }
+      : {}),
+  };
+}
+
+export interface BuildGenerationSpokeInputOptions extends DerivedExpectationsInput {
   readonly testCase: TestCase;
   readonly registry: SelectorRegistry;
   readonly elementIds: readonly Identifier[];
@@ -75,10 +94,11 @@ export function buildGenerationSpokeInput(options: BuildGenerationSpokeInputOpti
     registrySlice,
     locatorModule: { generatorVersion: options.locatorModuleGeneratorVersion, exports },
     ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
+    ...expectationFields(options),
   });
 }
 
-export interface BuildApiGenerationSpokeInputOptions {
+export interface BuildApiGenerationSpokeInputOptions extends DerivedExpectationsInput {
   readonly testCase: TestCase;
   readonly apiContract: ApiContractSlice;
   readonly provenSession?: ProvenSession;
@@ -96,6 +116,7 @@ export function buildApiGenerationSpokeInput(
     testCase: options.testCase,
     apiContract: options.apiContract,
     ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
+    ...expectationFields(options),
   });
 }
 

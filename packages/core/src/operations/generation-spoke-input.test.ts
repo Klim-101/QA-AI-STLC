@@ -96,6 +96,56 @@ describe('runBuildGenerationSpokeInput', () => {
     expect(input.provenSession).toBeUndefined();
   });
 
+  it('turns the expectations the case declares into assertions through the real module, and reports the rest', async () => {
+    const { context, fs } = createContext();
+    await fs.mkdir(join('project', '.qa', 'artifacts', 'cases', 'checkout'));
+    await fs.writeFile(
+      join('project', '.qa', 'artifacts', 'cases', 'checkout', 'checkout-guest.json'),
+      JSON.stringify({
+        ...TEST_CASE,
+        steps: [
+          {
+            description: 'Add an item to the cart',
+            expectations: [
+              { kind: 'visible', selector: '[data-testid="checkout-button"]' },
+              { kind: 'visible', selector: '#nowhere' },
+            ],
+          },
+        ],
+        resultExpectations: [{ kind: 'url', expected: '/confirmation' }],
+      }),
+    );
+    await seedRegistry(fs);
+    await seedLocatorModule(fs);
+
+    const input = await runBuildGenerationSpokeInput(context, {
+      testCaseId: TEST_CASE.id,
+      elementIds: [],
+    });
+
+    expect(input.expectationAssertions).toEqual([
+      { where: 'step-1', kind: 'visible', code: 'await expect(checkoutButton(page)).toBeVisible();' },
+      { where: 'result', kind: 'url', code: 'await expect(page).toHaveURL(new RegExp("/confirmation"));' },
+    ]);
+    expect(input.unresolvedExpectations).toEqual([
+      { where: 'step-1', kind: 'visible', selector: '#nowhere', reason: 'selector-not-in-registry' },
+    ]);
+  });
+
+  it('adds nothing for a case that declares no expectation', async () => {
+    const { context, fs } = createContext();
+    await seedCase(fs);
+    await seedRegistry(fs);
+    await seedLocatorModule(fs);
+
+    const input = await runBuildGenerationSpokeInput(context, {
+      testCaseId: TEST_CASE.id,
+      elementIds: ['el-1'],
+    });
+
+    expect(input).not.toHaveProperty('expectationAssertions');
+  });
+
   it('refuses a locator module that does not say which element each function answers', async () => {
     const { context, fs } = createContext();
     await seedCase(fs);
@@ -295,6 +345,28 @@ describe('runBuildGenerationSpokeInput for an api case (P6-13)', () => {
     });
 
     expect(input.provenSession).toEqual(provenSession);
+  });
+
+  it('turns the response expectations of an api case into assertions', async () => {
+    const { context, fs } = createContext();
+    await seedApiProject(fs, [{ method: 'GET', path: '/tasks/{id}' }]);
+    await fs.writeFile(
+      join('project', '.qa', 'artifacts', 'cases', 'tasks', 'api-case.json'),
+      JSON.stringify({
+        ...TEST_CASE,
+        id: 'api-case',
+        feature: 'tasks',
+        testType: 'api',
+        endpoints: [{ method: 'GET', path: '/tasks/{id}' }],
+        steps: [{ description: 'Ask', expectations: [{ kind: 'http-status', expected: 404 }] }],
+      }),
+    );
+
+    const input = await runBuildGenerationSpokeInput(context, { testCaseId: 'api-case', elementIds: [] });
+
+    expect(input.expectationAssertions).toEqual([
+      { where: 'step-1', kind: 'http-status', code: 'expect(response.status()).toBe(404);' },
+    ]);
   });
 
   it('rejects an api case that lists no endpoints', async () => {

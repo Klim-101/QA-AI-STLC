@@ -58,7 +58,7 @@ const InputSchema = z.object({
 });
 
 const OutputSchema = z.object({
-  status: z.enum(['typecheck_failed', 'execution_failed', 'verified']),
+  status: z.enum(['typecheck_failed', 'expectations_missing', 'execution_failed', 'verified']),
   verificationId: VerificationIdSchema.describe(
     'The engine\'s record of this verification. For "verified", pass it to qa.generation_register.',
   ),
@@ -66,7 +66,7 @@ const OutputSchema = z.object({
     .array(SpokeValidationIssueSchema)
     .optional()
     .describe(
-      'Present for "typecheck_failed"/"execution_failed" — what to fix and re-dispatch the generating spoke with.',
+      'Present for "typecheck_failed"/"expectations_missing"/"execution_failed" — what to fix and re-dispatch the generating spoke with.',
     ),
   result: RunResultSchema.optional().describe(
     'Present for "execution_failed"/"verified" — the execution this outcome is based on.',
@@ -91,9 +91,10 @@ const OutputSchema = z.object({
 export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = {
   name: 'qa.generation_verify',
   description:
-    'Typechecks a candidate generated spec and, only if that passes, executes it once through the ' +
+    'Typechecks a candidate generated spec, checks it asserts every expectation the case declares ' +
+    '(expectations_missing lists what to add), and, only if both pass, executes it once through the ' +
     'real runner against a scratch copy that never touches the real project tree. Returns ' +
-    '"typecheck_failed"/"execution_failed" with issues to fix, or "verified" with a spec and ' +
+    '"typecheck_failed"/"expectations_missing"/"execution_failed" with issues to fix, or "verified" with a spec and ' +
     'verificationId to pass, unmodified, to qa.generation_register. An api spec must declare the ' +
     'contract hash from the input (export const CONTRACT_SHA256) and is rejected once the live ' +
     'contract hashes differently. The test case must be registered ' +
@@ -120,7 +121,7 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
     });
 
     const { verificationId } = outcome;
-    if (outcome.status === 'typecheck_failed') {
+    if (outcome.status === 'typecheck_failed' || outcome.status === 'expectations_missing') {
       return { status: outcome.status, verificationId, issues: [...outcome.issues] };
     }
     if (outcome.status === 'execution_failed') {

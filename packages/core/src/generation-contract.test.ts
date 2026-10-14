@@ -291,6 +291,74 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
   });
 });
 
+describe('declared expectations in a spoke input (P6-86)', () => {
+  const assertions = [{ where: 'step-1', kind: 'visible', code: 'await expect(a(page)).toBeVisible();' }];
+  const unresolved = [
+    { where: 'result', kind: 'hidden', selector: '#x', reason: 'selector-not-in-registry' as const },
+  ];
+
+  it('carries both lists when they have entries, and changes sourceHash with them', () => {
+    const base = {
+      testCase,
+      registry,
+      elementIds: [],
+      locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: [],
+    };
+
+    const without = buildGenerationSpokeInput(base);
+    const withBoth = buildGenerationSpokeInput({
+      ...base,
+      expectationAssertions: assertions,
+      unresolvedExpectations: unresolved,
+    });
+
+    expect(withBoth.expectationAssertions).toEqual(assertions);
+    expect(withBoth.unresolvedExpectations).toEqual(unresolved);
+    expect(without).not.toHaveProperty('expectationAssertions');
+    expect(without).not.toHaveProperty('unresolvedExpectations');
+  });
+
+  it('leaves an empty list out, so a case without expectations keeps its hash', () => {
+    const input = buildGenerationSpokeInput({
+      testCase,
+      registry,
+      elementIds: [],
+      locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: [],
+      expectationAssertions: [],
+      unresolvedExpectations: [],
+    });
+
+    expect(input).not.toHaveProperty('expectationAssertions');
+    expect(input).not.toHaveProperty('unresolvedExpectations');
+  });
+
+  it('does the same for an api case', () => {
+    const apiContract = {
+      source: 'openapi.json',
+      sha256: 'c'.repeat(64),
+      operations: [{ method: 'GET' as const, path: '/a', definition: '{}', truncated: false }],
+    };
+    const apiCase: TestCase = { ...testCase, id: 'case-api', testType: 'api' };
+
+    const input = buildApiGenerationSpokeInput({
+      testCase: apiCase,
+      apiContract,
+      expectationAssertions: assertions,
+    });
+    const empty = buildApiGenerationSpokeInput({
+      testCase: apiCase,
+      apiContract,
+      unresolvedExpectations: [],
+    });
+
+    expect(input.expectationAssertions).toEqual(assertions);
+    expect(input).not.toHaveProperty('unresolvedExpectations');
+    expect(empty).not.toHaveProperty('unresolvedExpectations');
+  });
+});
+
 describe('buildApiGenerationSpokeInput', () => {
   const apiContract = {
     source: 'openapi.json',

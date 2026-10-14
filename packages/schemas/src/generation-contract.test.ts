@@ -234,6 +234,12 @@ describe('VerificationRecordSchema', () => {
     verifiedAt: '2026-09-28T12:00:00Z',
   };
 
+  it('accepts a record for a spec that lacked an expectation assertion, which never ran', () => {
+    expect(VerificationRecordSchema.safeParse({ ...record, status: 'expectations_missing' }).success).toBe(
+      true,
+    );
+  });
+
   it('accepts a record with no run result', () => {
     expect(VerificationRecordSchema.safeParse(record).success).toBe(true);
   });

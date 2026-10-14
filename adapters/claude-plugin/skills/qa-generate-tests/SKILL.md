@@ -44,6 +44,21 @@ detect or announce a stale spec — that stays the hub's/a future `qa-regression
    never guess a locator. Pass the proven session itself as `provenSession`, so it becomes part of
    `sourceHash` and a later `qa-execute` re-run is detected as drift.
 
+## Declared expectations
+
+When the case declares `expectations` (per step) or `resultExpectations`, the spoke input lists the
+assertion each one needs in `expectationAssertions`: the step (`where`, `step-<N>` or `result`) and
+the exact line (`code`). Put each line, unchanged, in the `test.step` of its step (a result
+expectation may go in any step), so the test re-checks what the case declares. A selector reaches
+the spec only as the locator-module function inside that line. `qa.generation_verify` looks for every
+line before it runs anything and answers `expectations_missing` with what to add.
+
+`unresolvedExpectations` lists the expectations the engine could not turn into a line: the selector
+names no registry element (`selector-not-in-registry`), or its element has no function in the module
+(`element-not-exported`). Never inline such a selector. Say so to the operator: the element has to
+reach the registry (`qa-execute` promotes an ad hoc find, `qa-explore` adds it) and the module be
+regenerated, then ask for the spoke input again.
+
 ## API cases
 
 An `api` case has no DOM, so its spoke input carries `apiContract` (the contract operations the
@@ -92,7 +107,7 @@ ISTQB/ISO 29119 grounding. Two points worth restating:
 3. Only a `'verified'` outcome is registered: call `qa.generation_register` with the exact `spec`
    and `verificationId` the `'verified'` outcome returned, unmodified. A `verificationId` registers
    one spec once; to register again, verify again.
-4. A `'typecheck_failed'` or `'execution_failed'` outcome is never registered. Report the `issues`
+4. A `'typecheck_failed'`, `'expectations_missing'` or `'execution_failed'` outcome is never registered. Report the `issues`
    plainly; the hub re-dispatches within the configured retry budget — this skill does not run its
    own retry loop.
 
