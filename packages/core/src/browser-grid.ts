@@ -48,16 +48,20 @@ async function readState(
   session: BrowserSession,
   root: string,
   options: FindGridRowOptions,
-  previousSignature?: string,
+  wait: { readonly previousSignature?: string; readonly forRows?: boolean } = {},
 ): Promise<GridState> {
-  const timeoutMs = Math.min(session.actionTimeoutMs, SETTLE_AFTER_MOVE_MS);
+  // The first look waits as long as an action may take for the rows to arrive; after a move the
+  // grid is already populated and only has to settle.
+  const timeoutMs =
+    wait.forRows === true ? session.actionTimeoutMs : Math.min(session.actionTimeoutMs, SETTLE_AFTER_MOVE_MS);
   const state = await session.page.locator(root).evaluate(
     readGridState,
     {
       targets: session.widgetTargets,
       column: options.column,
       value: options.value,
-      ...(previousSignature === undefined ? {} : { previousSignature }),
+      ...(wait.previousSignature === undefined ? {} : { previousSignature: wait.previousSignature }),
+      ...(wait.forRows === true ? { waitForRows: true } : {}),
       timeoutMs,
       pollIntervalMs: POLL_INTERVAL_MS,
     },
@@ -92,7 +96,7 @@ export async function findGridRow(
   const maxSteps = options.maxSteps ?? DEFAULT_GRID_MAX_STEPS;
   await waitForBusyToClear(session);
   const { root } = await resolveWidget(session, selector);
-  let state = await readState(session, root, options);
+  let state = await readState(session, root, options, { forRows: true });
   if (state.columnIndex === 0) {
     throw new QaError(
       'BROWSER_GRID_COLUMN_NOT_FOUND',
@@ -135,7 +139,7 @@ export async function findGridRow(
   if (mode === 'paged') {
     const movePage = async (selectorInGrid: string): Promise<void> => {
       await session.page.click(`${root} >> css=${selectorInGrid}`, { timeout: session.actionTimeoutMs });
-      state = await readState(session, root, options, state.signature);
+      state = await readState(session, root, options, { previousSignature: state.signature });
       await waitForBusyToClear(session);
       pageChanges += 1;
     };
@@ -163,7 +167,7 @@ export async function findGridRow(
           { targets: session.widgetTargets, top },
           { timeout: session.actionTimeoutMs },
         );
-      state = await readState(session, root, options, state.signature);
+      state = await readState(session, root, options, { previousSignature: state.signature });
       await waitForBusyToClear(session);
       scrolls += 1;
     };

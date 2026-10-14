@@ -179,6 +179,35 @@ describe.each([
     );
   }, 90_000);
 
+  // The grid's rows arrive after the page is shown. Reading it before they do found no overflow, took
+  // the grid for one that renders every row and reported the row missing after one position
+  // (P6-85, seen on a slow CI runner).
+  it('waits for a virtualized grid whose rows arrive late before it looks for a row', async () => {
+    const person = await personAt(99);
+    await withContext(
+      targets,
+      async (context, sessionId) => {
+        const { page: browserPage } = await context.sessions.get(sessionId);
+        await browserPage.route('**/api/kendo/people*', async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, 1_200));
+          await route.continue();
+        });
+        await browserPage.reload();
+
+        const result = await runBrowserGridFindRow(context, {
+          sessionId,
+          selector: `${wrapper}#virtual-grid`,
+          column: 'ID',
+          value: String(person.id),
+        });
+
+        expect(result.navigation.mode).toBe('virtual');
+        expect(result.cells[1]).toEqual({ column: 'Name', text: person.name });
+      },
+      page,
+    );
+  }, 90_000);
+
   it('reads a cell by column and returns a selector for it', async () => {
     const person = await personAt(24);
     await withContext(
