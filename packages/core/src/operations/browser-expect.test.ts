@@ -271,6 +271,55 @@ describe('runBrowserExpect', () => {
     expect(result.observed).toBeUndefined();
   });
 
+  describe('numeric-looking expected values (P6-92)', () => {
+    it.each(['59595990', 59595990] as const)('compares %j as the string the page shows', async (expected) => {
+      const { harness, sessionId } = await openSession({
+        readings: [{ ...READING, text: '59595990', value: '59595990' }],
+      });
+
+      for (const kind of ['text', 'value'] as const) {
+        const result = await runBrowserExpect(
+          harness.context,
+          expectOptions(sessionId, { kind, selector: '#status', expected }),
+        );
+
+        expect(result).toMatchObject({ passed: true, expected: '59595990' });
+      }
+    });
+
+    it('keeps the leading zeros of an identifier sent as a string', async () => {
+      const { harness, sessionId } = await openSession({
+        readings: [{ ...READING, text: '00A1B2', value: '0012' }],
+      });
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'value', selector: '#status', expected: '0012' }),
+      );
+
+      expect(result).toMatchObject({ passed: true, expected: '0012', observed: '0012' });
+    });
+
+    it('compares a boolean as its string form', async () => {
+      const { harness, sessionId } = await openSession({ readings: [{ ...READING, text: 'true' }] });
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'text', selector: '#status', expected: true }),
+      );
+
+      expect(result).toMatchObject({ passed: true, expected: 'true' });
+    });
+
+    it('accepts a number as the expected url', async () => {
+      const { harness, sessionId } = await openSession();
+
+      const result = await runBrowserExpect(harness.context, { sessionId, kind: 'url', expected: 4310 });
+
+      expect(result.expected).toBe('4310');
+    });
+  });
+
   it('caps long page text before it is returned or recorded', async () => {
     const { harness, sessionId } = await openSession({ readings: [{ ...READING, text: 'x'.repeat(500) }] });
 
@@ -299,8 +348,6 @@ describe('runBrowserExpect', () => {
     [{ kind: 'visible', expected: 'x' }, '"visible" takes no "expected"'],
     [{ kind: 'hidden', expected: true }, '"hidden" takes no "expected"'],
     [{ kind: 'text' }, '"text" needs "expected" as a string'],
-    [{ kind: 'value', expected: 4 }, '"value" needs "expected" as a string'],
-    [{ kind: 'url', expected: false }, '"url" needs "expected" as a string'],
     [{ kind: 'count' }, '"count" needs "expected" as a whole number'],
     [{ kind: 'count', expected: 1.5 }, '"count" needs "expected" as a whole number'],
     [{ kind: 'count', expected: -1 }, '"count" needs "expected" as a whole number'],
