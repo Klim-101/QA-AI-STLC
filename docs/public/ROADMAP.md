@@ -15,7 +15,7 @@ Live task status is on the [project board](https://github.com/users/Klim-101/pro
 | Phase 4 — Hub-and-spoke                              | in progress | 2 / 14   |
 | Phase 5 — Codex                                      | planned     | 0 / 6    |
 | Phase 6 — API, accessibility, defects, RCA, security | in progress | 80 / 93  |
-| Phase 7 — Release 1.0                                | planned     | 0 / 10   |
+| Phase 7 — General availability                       | planned     | 0 / 10   |
 
 _Last synchronized: 2026-10-14._
 <!-- roadmap:progress:end -->
@@ -93,7 +93,7 @@ The same framework inside Codex.
 - Root cause analysis for every accepted defect, with facts separated from hypotheses and its own review gate
 - On-demand security audit, outside the regular pipeline: non-destructive black-box checks, plus code-assisted checks when you point the framework at the application's source
 
-## Phase 7 — Release 1.0
+## Phase 7 — General availability
 
 - `qa upgrade` for schema migrations and regeneration that preserves manual edits
 - Documentation site with a five-minute quick start

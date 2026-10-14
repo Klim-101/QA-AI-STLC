@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-The project is pre-alpha and has no stable release. Security fixes are applied to `main` and to the latest published version once releases begin.
+The project is alpha: releases are published to npm, but the interfaces are not yet declared stable (GA). Security fixes are applied to `main` and to the latest published version.
 
 | Version        | Supported |
 | -------------- | --------- |
