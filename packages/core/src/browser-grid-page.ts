@@ -29,6 +29,12 @@ export interface GridStateArgs {
   readonly value: string;
   /** When given, waits until the rendered rows differ from this signature, or the timeout passes. */
   readonly previousSignature?: string;
+  /**
+   * When true, waits until at least one row is rendered, or the timeout passes. A grid that loads its
+   * rows after the page is shown has none yet, and its scroll container does not overflow until it
+   * has, so reading it earlier takes it for a grid that renders every row.
+   */
+  readonly waitForRows?: boolean;
   readonly timeoutMs: number;
   readonly pollIntervalMs: number;
 }
@@ -127,12 +133,14 @@ export async function readGridState(element: GridElement, rawArgs: unknown): Pro
   };
 
   let state = snapshot();
-  if (args.previousSignature !== undefined) {
-    const deadline = Date.now() + args.timeoutMs;
-    while (state.signature === args.previousSignature && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, args.pollIntervalMs));
-      state = snapshot();
-    }
+  const deadline = Date.now() + args.timeoutMs;
+  const isWaiting = (): boolean =>
+    args.previousSignature === undefined
+      ? args.waitForRows === true && state.rowCount === 0
+      : state.signature === args.previousSignature;
+  while (isWaiting() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, args.pollIntervalMs));
+    state = snapshot();
   }
   return state;
 }

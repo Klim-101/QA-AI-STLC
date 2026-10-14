@@ -382,7 +382,7 @@ describe('runBrowserGridFindRow', () => {
     expect(await harness.fs.listFiles(directory)).toEqual(before);
   });
 
-  it('passes the session widget targets and the action timeout to the page', async () => {
+  it('passes the session widget targets to the page', async () => {
     const { harness, sessionId, page } = await openSession([HIT], 5_000);
 
     await runBrowserGridFindRow(harness.context, { sessionId, selector: '.grid', column: 'ID', value: '25' });
@@ -391,8 +391,24 @@ describe('runBrowserGridFindRow', () => {
       targets: [{ wrapperSelector: '.grid', grid: { nextPageSelector: '.next' } }],
       column: 'ID',
       value: '25',
-      timeoutMs: 2_000,
     });
+  });
+
+  // P6-85: a grid that loads its rows after the page is shown has none on the first look, and no
+  // scroll overflow yet, so that look waits for rows, for as long as an action may take. A move
+  // afterwards only waits for the rows to change, for the shorter settle time.
+  it('waits for rows on the first look for as long as an action may take, and settles briefly after a move', async () => {
+    const { harness, sessionId, page } = await openSession(
+      [state({ hasPager: true, canGoNext: true, signature: 'page-1' }), HIT],
+      5_000,
+    );
+
+    await runBrowserGridFindRow(harness.context, { sessionId, selector: '.grid', column: 'ID', value: '25' });
+
+    expect(page.reads[0]).toMatchObject({ waitForRows: true, timeoutMs: 5_000 });
+    expect(page.reads[0]).not.toHaveProperty('previousSignature');
+    expect(page.reads[1]).toMatchObject({ previousSignature: 'page-1', timeoutMs: 2_000 });
+    expect(page.reads[1]).not.toHaveProperty('waitForRows');
   });
 });
 
