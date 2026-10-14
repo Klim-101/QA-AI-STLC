@@ -74,10 +74,12 @@ function toSpec(options: BrowserExpectOptions): ExpectationSpec {
     case 'text':
     case 'value':
     case 'url':
-      if (typeof expected !== 'string') {
+      // A client may send a numeric-looking value (a gateway id) as a number or a boolean; its string
+      // form is what the page shows, so that is what is compared.
+      if (expected === undefined) {
         throw invalid(`"${kind}" needs "expected" as a string`);
       }
-      return { kind, expected, exact };
+      return { kind, expected: String(expected), exact };
     case 'count':
       if (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 0) {
         throw invalid('"count" needs "expected" as a whole number, zero or more');

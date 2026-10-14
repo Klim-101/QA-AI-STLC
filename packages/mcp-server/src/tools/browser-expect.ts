@@ -21,7 +21,7 @@ const InputSchema = SessionIdInputSchema.extend({
   ),
   ...ELEMENT_TARGET_FIELDS,
   expected: ValueSchema.optional().describe(
-    'text, value and url: the string expected. count: a whole number. checked: true (default) or false. visible and hidden take none.',
+    'text, value and url: the text expected; a number or boolean is compared as its string form. count: a whole number. checked: true (default) or false. visible and hidden take none.',
   ),
   exact: z
     .boolean()
