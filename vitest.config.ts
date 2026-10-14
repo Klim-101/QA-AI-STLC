@@ -1,7 +1,15 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { availableParallelism } from 'node:os';
 import { defineConfig } from 'vitest/config';
+
+// Vitest's default is one worker per core less one. Many test files drive a real Chromium (several
+// processes each), so on a large machine that many workers starve one another: the demo-app tests
+// that take a minute alone ran past their timeouts, one or two failing in every full run on 16 cores
+// (P6-94). Capping at 6 made three full runs in a row pass, for about a third more time. A CI runner
+// has four cores, so its default of three workers is already under the cap.
+const MAX_WORKERS = 6;
 
 export default defineConfig({
   test: {
@@ -9,6 +17,7 @@ export default defineConfig({
     // project), so every workspace package's tests would run twice: once under the root
     // project and once under the "packages/*" project this config defines for it.
     include: [],
+    maxWorkers: Math.min(Math.max(availableParallelism() - 1, 1), MAX_WORKERS),
     projects: ['packages/*', 'examples/*', 'scripts'],
     // A package's tsc build output under dist/ still matches the default *.test.js glob;
     // exclude it so a built test never runs a second time alongside its src/*.test.ts source.

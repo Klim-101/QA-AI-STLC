@@ -14,6 +14,7 @@ paths:
 - A branch that only differs in a default value (`x ?? fallback()`, an `options.foo === undefined` guard) still needs its own test on a Tier 1 package — a happy-path test that always supplies the value never exercises the fallback. Check the actual coverage report rather than assuming a passing test suite means every branch ran; `packages/cli`'s per-subcommand "defaults the project root to the current working directory" tests are the existing pattern to copy for a new CLI subcommand.
 - Test behavior through public functions, not private internals.
 - Unit tests make no network calls and do not launch browsers. Browser tests run against `examples/demo-app` only.
+- Every demo-app test file starts the app on a port of its own (`const PORT = <n>`, never shared): test files run in parallel, and two that share a port fail at random. `scripts/lib/test-ports.test.mjs` fails when two files claim the same one; pick the next number nobody uses. `vitest.config.ts` caps the worker count because browser tests starve each other on a many-core machine; do not raise a timeout to cover a failure that comes from load.
 - Use temporary directories for filesystem tests and clean them up. Never touch the developer's home directory or real host configuration.
 - Every bug fix includes a regression test that fails without the fix.
 - Golden files for rendered reports and generated code; update them intentionally with `npm run test -- -u` and review the diff.
