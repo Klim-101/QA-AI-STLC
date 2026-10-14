@@ -21,7 +21,7 @@ import { a11yRunner } from '../src/a11y-runner.js';
 
 // A fixed port, not 0: the demo app logs the port it was told to bind to, not the one the OS
 // actually assigned. Distinct from the ports every other package's own demo-app test uses.
-const PORT = 4421;
+const PORT = 4427;
 const BASE_URL = `http://localhost:${String(PORT)}/`;
 const STARTUP_TIMEOUT_MS = 60_000;
 
