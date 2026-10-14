@@ -172,6 +172,74 @@ describe('runRegisterCaseResult', () => {
     expect(written.failure).toEqual({ message: 'The login page did not redirect to /dashboard' });
   });
 
+  describe('partial results (P6-91)', () => {
+    const register = (
+      context: EngineContext,
+      overrides: Partial<Parameters<typeof runRegisterCaseResult>[1]>,
+    ): ReturnType<typeof runRegisterCaseResult> =>
+      runRegisterCaseResult(context, {
+        testCaseId: CASE_ID,
+        testType: 'e2e',
+        runId: 'run-1',
+        status: 'partial',
+        startedAt: '2026-09-25T09:59:00.000Z',
+        evidenceIds: [],
+        ...overrides,
+      });
+
+    it('registers a partial result with the steps that were not done, once each', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+
+      const result = await register(context, { missingStepIds: ['expected-result', 'step-1', 'step-1'] });
+
+      const written = JSON.parse(
+        String(fs.getRawFile(join('project', '.qa', result.runResultPath))),
+      ) as RunResult;
+      expect(written).toMatchObject({
+        status: 'partial',
+        missingStepIds: ['expected-result', 'step-1'],
+      });
+    });
+
+    it.each([[undefined], [[]]] as const)(
+      'requires a partial result to name a step (%j)',
+      async (missing) => {
+        const { context, fs } = createContext();
+        await seedCase(fs);
+
+        await expect(
+          register(context, missing === undefined ? {} : { missingStepIds: missing }),
+        ).rejects.toMatchObject({ code: 'RUN_RESULT_MISSING_STEPS_REQUIRED' });
+      },
+    );
+
+    it('refuses an id the case does not have, and lists the ones it does', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+
+      const error = await register(context, { missingStepIds: ['step-1', 'step-9'] }).catch(
+        (caught: unknown) => caught,
+      );
+
+      expect(error).toMatchObject({ code: 'RUN_RESULT_MISSING_STEP_UNKNOWN' });
+      expect((error as QaError).message).toContain('step-9');
+      expect((error as QaError).remediation).toContain('step-1, expected-result');
+    });
+
+    it('refuses the field on any status but partial', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+
+      await expect(
+        register(context, {
+          status: 'uncertain',
+          missingStepIds: ['step-1'],
+        }),
+      ).rejects.toMatchObject({ code: 'RUN_RESULT_MISSING_STEPS_NOT_PARTIAL' });
+    });
+  });
+
   it('rejects a failed status with no failure record', async () => {
     const { context, fs } = createContext();
     await seedCase(fs);

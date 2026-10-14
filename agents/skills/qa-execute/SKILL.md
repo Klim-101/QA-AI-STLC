@@ -146,6 +146,13 @@ nothing uncertain). Otherwise the call fails with `RUN_RESULT_STEP_NOT_PROVEN` o
 `failed`. A run belongs to one case: execute each case in a session of its own. A screenshot proves
 nothing here, and an api case that expects an error status cannot be `passed` yet.
 
+Register `partial`, not `uncertain`, when you did some of the case's steps and could not do the
+rest (a blocked page, a missing precondition). It needs `missingStepIds`: the ids of the steps not
+done (`step-<N>`, `N` the step's 1-based position, or `expected-result`). The call fails with
+`RUN_RESULT_MISSING_STEPS_REQUIRED` without them, `RUN_RESULT_MISSING_STEP_UNKNOWN` for an id the
+case does not have and `RUN_RESULT_MISSING_STEPS_NOT_PARTIAL` when the field goes with another
+status. A `partial` result stays `partial` in reports; it is never counted as passed or failed.
+
 ## What this skill does not do
 
 - It does not write or edit case content — that is `qa-design-cases`. A case that turns out to be

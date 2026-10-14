@@ -18,6 +18,12 @@ const InputSchema = z.object({
   startedAt: z.string().describe('ISO timestamp for when execution of this case began.'),
   evidenceIds: z.array(z.string()).describe('Every evidence id this execution produced, tied together.'),
   failure: RunResultFailureSchema.optional().describe('Required when status is "failed".'),
+  missingStepIds: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Required, and only allowed, when status is 'partial': the case step ids that were not done ('step-<N>', N the step's 1-based position, or 'expected-result').",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -37,7 +43,8 @@ export const caseResultRegisterTool: ToolDefinition<typeof InputSchema, typeof O
   description:
     'Registers a run result tying together every evidence id an interactive case execution ' +
     'produced. You supply "status" after interpreting that evidence yourself — the engine never ' +
-    'computes a verdict. "failure" is required when status is "failed".',
+    'computes a verdict. "failure" is required when status is "failed". "missingStepIds" is ' +
+    'required, and only allowed, when status is "partial" (a case you could not finish).',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   handler: (input) =>
@@ -49,5 +56,6 @@ export const caseResultRegisterTool: ToolDefinition<typeof InputSchema, typeof O
       startedAt: input.startedAt,
       evidenceIds: input.evidenceIds,
       ...(input.failure !== undefined ? { failure: input.failure } : {}),
+      ...(input.missingStepIds !== undefined ? { missingStepIds: input.missingStepIds } : {}),
     }),
 };
