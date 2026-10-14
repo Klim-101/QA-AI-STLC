@@ -74,6 +74,9 @@ export const EnvironmentConfigSchema = z.object({
   actionTimeoutMs: z.number().int().positive().optional(),
   // Safe mode still blocks every other non-GET request (ADR-0014); empty or omitted lets none through.
   safeNonGetRequests: z.array(SafeNonGetRequestSchema).optional(),
+  // The identity `qa run` and spec verification sign in as when the run names none (P6-89). Omitted
+  // means runs are anonymous, which is what a project without a protected page wants.
+  identity: z.string().min(1).optional(),
 });
 export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 
@@ -387,6 +390,15 @@ export const ConfigSchema = z
     path: ['api'],
   })
   .superRefine((config, context) => {
+    for (const [environmentName, environment] of Object.entries(config.environments)) {
+      if (environment.identity !== undefined && !(environment.identity in config.identities)) {
+        context.addIssue({
+          code: 'custom',
+          message: `"${environment.identity}" is not a configured identity`,
+          path: ['environments', environmentName, 'identity'],
+        });
+      }
+    }
     for (const [environmentName, profileName] of Object.entries(config.apiAuth.defaults)) {
       if (!(environmentName in config.environments)) {
         context.addIssue({

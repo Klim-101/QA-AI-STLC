@@ -32,6 +32,12 @@ export interface RunnerInput {
    * arbitrary, possibly multi-case spec files, which has no single required set to check against.
    */
   readonly requiredStepIds?: readonly string[];
+  /**
+   * The configured identity (`config.yaml` `identities`) a browser-driving runner signs in as
+   * before the specs run, resolved by the caller (`resolveRunIdentity`). Never a credential: the
+   * runner authenticates through the identity mechanism itself. Absent for an anonymous run.
+   */
+  readonly identity?: string;
 }
 
 /**
@@ -62,5 +68,7 @@ export interface RunnerOutcome {
  */
 export interface Runner {
   readonly testType: TestType;
+  /** True when the runner opens browser pages and so signs in as `RunnerInput.identity`. */
+  readonly signsIn?: boolean;
   run(engine: EngineContext, input: RunnerInput): Promise<readonly RunnerOutcome[]>;
 }

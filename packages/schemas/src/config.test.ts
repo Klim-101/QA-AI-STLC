@@ -542,6 +542,27 @@ describe('apiAuth config (P6-30)', () => {
     expect(ConfigSchema.parse(config).apiAuth.defaults).toStrictEqual({ staging: 'staging' });
   });
 
+  it('accepts an environment identity that names a configured identity (P6-89)', () => {
+    const config = validConfig();
+    const withIdentity = {
+      ...config,
+      environments: { staging: { ...config.environments.staging, identity: 'admin' } },
+    };
+
+    expect(ConfigSchema.parse(withIdentity).environments.staging?.identity).toBe('admin');
+  });
+
+  it('rejects an environment identity that is not a configured identity (P6-89)', () => {
+    const config = validConfig();
+    const result = ConfigSchema.safeParse({
+      ...config,
+      environments: { staging: { ...config.environments.staging, identity: 'ghost' } },
+    });
+
+    expect(result.error?.issues[0]?.message).toContain('not a configured identity');
+    expect(result.error?.issues[0]?.path).toStrictEqual(['environments', 'staging', 'identity']);
+  });
+
   it('rejects a default that names an unknown profile or an unknown environment', () => {
     const unknownProfile = ConfigSchema.safeParse({
       ...validConfig(),

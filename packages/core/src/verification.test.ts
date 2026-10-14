@@ -128,9 +128,13 @@ function fakeResult(overrides: Partial<RunResult> & Pick<RunResult, 'status'>): 
   };
 }
 
-function createFakeRunner(handler: (input: RunnerInput) => readonly RunnerOutcome[]): Runner {
+function createFakeRunner(
+  handler: (input: RunnerInput) => readonly RunnerOutcome[],
+  signsIn = false,
+): Runner {
   return {
     testType: 'e2e',
+    ...(signsIn ? { signsIn } : {}),
     run: (_engine, input) => Promise.resolve(handler(input)),
   };
 }
@@ -276,6 +280,98 @@ describe('verifyGeneratedTestSpec', () => {
     await verifyGeneratedTestSpec(context, { spec: SPEC, testCase: TEST_CASE, runner, idGenerator });
 
     expect(receivedInput?.environment).toBe('staging');
+  });
+
+  describe('identity (P6-89)', () => {
+    const identityConfig = CONFIG_YAML.replace(
+      'identities: {}',
+      'identities:\n  tester: { auth: storage-state, secret: QA_TESTER_PASSWORD, loginUrl: "https://staging.example.test/login", username: "tester@example.test" }',
+    ).replace(
+      'allowlist: ["staging.example.test"] }',
+      'allowlist: ["staging.example.test"], identity: tester }',
+    );
+
+    function createIdentityContext(): { readonly context: EngineContext; readonly fs: FakeFileSystem } {
+      return createContext({
+        fs: createFakeFileSystem({
+          [join('project', '.qa', 'config.yaml')]: identityConfig,
+          ...registeredCaseFiles(),
+        }),
+      });
+    }
+
+    it('runs the spec as the environment identity and reports it on a verified outcome', async () => {
+      const { context } = createIdentityContext();
+      let receivedInput: RunnerInput | undefined;
+      const runner = createFakeRunner((input) => {
+        receivedInput = input;
+        return [{ result: fakeResult({ status: 'passed' }), evidence: [] }];
+      }, true);
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+      });
+
+      expect(receivedInput?.identity).toBe('tester');
+      expect(outcome).toMatchObject({ status: 'verified', identity: 'tester' });
+    });
+
+    it('reports the identity on a failed execution too', async () => {
+      const { context } = createIdentityContext();
+      const runner = createFakeRunner(
+        () => [{ result: fakeResult({ status: 'failed', failure: { message: 'boom' } }), evidence: [] }],
+        true,
+      );
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+      });
+
+      expect(outcome).toMatchObject({ status: 'execution_failed', identity: 'tester' });
+    });
+
+    it('rejects an identity the configuration does not define before running anything', async () => {
+      const { context } = createIdentityContext();
+      let receivedInput: RunnerInput | undefined;
+      const runner = createFakeRunner((input) => {
+        receivedInput = input;
+        return [{ result: fakeResult({ status: 'passed' }), evidence: [] }];
+      }, true);
+
+      await expect(
+        verifyGeneratedTestSpec(context, {
+          spec: SPEC,
+          testCase: TEST_CASE,
+          runner,
+          idGenerator,
+          identity: 'ghost',
+        }),
+      ).rejects.toMatchObject({ code: 'RUN_IDENTITY_UNKNOWN' });
+      expect(receivedInput).toBeUndefined();
+    });
+
+    it('reports no identity when the environment names none', async () => {
+      const { context } = createContext();
+      const runner = createFakeRunner(
+        () => [{ result: fakeResult({ status: 'passed' }), evidence: [] }],
+        true,
+      );
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner,
+        idGenerator,
+      });
+
+      expect(outcome).not.toHaveProperty('identity');
+    });
   });
 
   describe('api auth helper (P6-35)', () => {

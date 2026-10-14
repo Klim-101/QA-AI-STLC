@@ -60,6 +60,16 @@ literal from `.qa/config.yaml`; the engine writes `tests/qa/api-auth.ts` when it
 A spec that writes an `Authorization`/`Cookie` header or a profile's header, query parameter or a
 `Bearer` value itself is rejected (`HTTP_CREDENTIAL_INPUT_REJECTED`).
 
+## Pages behind sign-in
+
+A spec for a page that needs sign-in carries no credential and no login steps: the runner starts the
+browser already signed in as a configured identity, in `qa run` and in `qa.generation_verify` alike.
+The identity is the one the call names (`identity` on `qa.generation_verify` and `qa.run`,
+`--identity` on `qa run`), else the environment's own `identity` in `.qa/config.yaml`; with neither,
+the run is anonymous. The result says which identity was used. If the sign-in fails the call returns
+a coded error (`RUN_SIGN_IN_FAILED`, `IDENTITY_SECRET_MISSING`, `RUN_IDENTITY_UNKNOWN`) with a
+remediation: report it to the operator instead of editing the spec, since the spec is not the cause.
+
 ## Writing the spec
 
 Follow [`references/generation-standards.md`](references/generation-standards.md) for the

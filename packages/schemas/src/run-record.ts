@@ -17,6 +17,9 @@ export const RunRecordSchema = z
     testType: TestTypeSchema,
     specFiles: z.array(RelativePathSchema).min(1),
     baseUrl: z.string().min(1),
+    // The configured identity the run signed in as (P6-89); absent for an anonymous run. A name
+    // only: the session it produced is never written down.
+    identity: z.string().min(1).optional(),
     startedAt: IsoDateTimeSchema,
     finishedAt: IsoDateTimeSchema,
     resultIds: z.array(IdentifierSchema),

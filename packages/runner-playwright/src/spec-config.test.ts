@@ -70,6 +70,24 @@ describe('generateSpecConfigSource', () => {
     expect(source).toContain(`"trace": "${expected}"`);
   });
 
+  it('starts every context from the storage-state file when given one (P6-89)', () => {
+    const base = {
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+    };
+    const signedIn = generateSpecConfigSource({
+      ...base,
+      storageStatePath: join('tmp', 'storage-state.json'),
+    });
+    const anonymous = generateSpecConfigSource(base);
+
+    expect(signedIn.source).toContain('"storageState"');
+    expect(signedIn.source).toContain('storage-state.json');
+    expect(anonymous.source).not.toContain('storageState');
+  });
+
   it('runs only the JSON reporter unless a step-work reporter is asked for', () => {
     const { source } = generateSpecConfigSource({
       baseUrl: 'http://localhost:4310/',

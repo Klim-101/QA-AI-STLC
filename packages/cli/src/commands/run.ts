@@ -14,6 +14,7 @@ export interface RunOptions {
   readonly specFiles: readonly string[];
   readonly testType?: TestType;
   readonly environment?: string;
+  readonly identity?: string;
 }
 
 // One runner per test type (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`, P6-04;
@@ -38,5 +39,6 @@ export async function runRun(context: CommandContext, options: RunOptions): Prom
     runner,
     specFiles: options.specFiles,
     ...(options.environment !== undefined ? { environment: options.environment } : {}),
+    ...(options.identity !== undefined ? { identity: options.identity } : {}),
   });
 }

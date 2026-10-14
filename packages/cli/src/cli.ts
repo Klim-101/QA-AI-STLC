@@ -87,7 +87,7 @@ Commands:
   cases add     Validate and register a test case: "cases add --path <path>"
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
-  run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>]"
+  run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]"
   link          Register a hand-written spec in traceability without regeneration: "link <spec> <requirement-id> --feature <name> [--test-type e2e]"
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
@@ -713,6 +713,7 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
       spec: { type: 'string', multiple: true },
       'test-type': { type: 'string' },
       environment: { type: 'string' },
+      identity: { type: 'string' },
     },
     allowPositionals: false,
     strict: true,
@@ -734,6 +735,7 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
     specFiles,
     ...(testType !== undefined ? { testType } : {}),
     ...(typeof values.environment === 'string' ? { environment: values.environment } : {}),
+    ...(typeof values.identity === 'string' ? { identity: values.identity } : {}),
   });
   printResult(context.io, json, 'run', summary, formatRunSummary(summary));
   const hasFailure =
@@ -1174,6 +1176,7 @@ function formatRunSummary(summary: RunSummary): readonly string[] {
     .join(', ');
   return [
     `Run ${summary.runId}: ${String(total)} result(s) (${countsLine}).`,
+    ...(summary.identity === undefined ? [] : [`Signed in as identity "${summary.identity}".`]),
     `Wrote ${summary.runRecordPath}.`,
   ];
 }

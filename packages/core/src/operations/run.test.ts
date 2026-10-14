@@ -54,10 +54,14 @@ interface FakeRunner {
   readonly state: { receivedInput: RunnerInput | undefined };
 }
 
-function createFakeRunner(handler: (input: RunnerInput) => readonly RunnerOutcome[]): FakeRunner {
+function createFakeRunner(
+  handler: (input: RunnerInput) => readonly RunnerOutcome[],
+  signsIn = false,
+): FakeRunner {
   const state: { receivedInput: RunnerInput | undefined } = { receivedInput: undefined };
   const runner: Runner = {
     testType: 'e2e',
+    ...(signsIn ? { signsIn } : {}),
     run: (_engine, input) => {
       state.receivedInput = input;
       return Promise.resolve(handler(input));
@@ -65,6 +69,92 @@ function createFakeRunner(handler: (input: RunnerInput) => readonly RunnerOutcom
   };
   return { runner, state };
 }
+
+const IDENTITY_CONFIG_YAML = CONFIG_YAML.replace(
+  'identities: {}',
+  [
+    'identities:',
+    '  tester: { auth: storage-state, secret: QA_TESTER_PASSWORD, loginUrl: "https://staging.example.test/login", username: "tester@example.test" }',
+    '  admin: { auth: storage-state, secret: QA_ADMIN_PASSWORD, loginUrl: "https://staging.example.test/login", username: "admin@example.test" }',
+  ].join('\n'),
+).replace('allowlist: ["staging.example.test"] }', 'allowlist: ["staging.example.test"], identity: tester }');
+
+describe('runTestRun identity (P6-89)', () => {
+  function createIdentityContext(): { readonly context: EngineContext; readonly fs: FakeFileSystem } {
+    const fs = createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: IDENTITY_CONFIG_YAML });
+    return { context: createFakeEngineContext({ fs, clock: { now: () => NOW } }), fs };
+  }
+
+  const outcomes = (): readonly RunnerOutcome[] => [
+    fakeOutcome(fakeResult({ id: 'run-result-id-2', status: 'passed' })),
+  ];
+
+  it('signs in as the environment identity by default and records it in the run record', async () => {
+    const { context, fs } = createIdentityContext();
+    const { runner, state } = createFakeRunner(outcomes, true);
+
+    const summary = await runTestRun(context, {
+      runner,
+      environment: 'staging',
+      specFiles: ['tests/login.playwright-spec.ts'],
+      idGenerator: createSequentialIdGenerator('id'),
+    });
+
+    expect(state.receivedInput?.identity).toBe('tester');
+    expect(summary.identity).toBe('tester');
+    const record = JSON.parse(String(fs.getRawFile(join('project', '.qa', summary.runRecordPath)))) as {
+      identity?: string;
+    };
+    expect(record.identity).toBe('tester');
+  });
+
+  it('signs in as the identity the run names instead of the default', async () => {
+    const { context } = createIdentityContext();
+    const { runner, state } = createFakeRunner(outcomes, true);
+
+    const summary = await runTestRun(context, {
+      runner,
+      environment: 'staging',
+      identity: 'admin',
+      specFiles: ['tests/login.playwright-spec.ts'],
+      idGenerator: createSequentialIdGenerator('id'),
+    });
+
+    expect(state.receivedInput?.identity).toBe('admin');
+    expect(summary.identity).toBe('admin');
+  });
+
+  it('records no identity for a runner that does not sign in', async () => {
+    const { context, fs } = createIdentityContext();
+    const { runner, state } = createFakeRunner(outcomes);
+
+    const summary = await runTestRun(context, {
+      runner,
+      environment: 'staging',
+      specFiles: ['tests/login.playwright-spec.ts'],
+      idGenerator: createSequentialIdGenerator('id'),
+    });
+
+    expect(state.receivedInput).not.toHaveProperty('identity');
+    expect(summary).not.toHaveProperty('identity');
+    expect(String(fs.getRawFile(join('project', '.qa', summary.runRecordPath)))).not.toContain('identity');
+  });
+
+  it('rejects an unknown identity before the runner starts', async () => {
+    const { context } = createIdentityContext();
+    const { runner, state } = createFakeRunner(outcomes, true);
+
+    await expect(
+      runTestRun(context, {
+        runner,
+        environment: 'staging',
+        identity: 'ghost',
+        specFiles: ['tests/login.playwright-spec.ts'],
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_IDENTITY_UNKNOWN' });
+    expect(state.receivedInput).toBeUndefined();
+  });
+});
 
 describe('runTestRun', () => {
   it('runs a spec set and persists a run record with every result', async () => {

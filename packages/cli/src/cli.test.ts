@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { runCli, type RunCliDependencies } from './cli.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
+import { createFakeBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-browser-launcher';
 import { createFakeExploreBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-explore-browser-launcher';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
@@ -2089,6 +2090,84 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_SUCCESS);
     const parsed = JSON.parse(deps.stdout[0] ?? '') as { data: { counts: Record<string, number> } };
     expect(parsed.data.counts).toMatchObject({ passed: 1, failed: 0 });
+  });
+
+  // P6-89: the sign-in reaches Playwright as a storage-state file that exists only for the run.
+  it('runs "run --identity" signed in, names the identity and leaves no session behind', async () => {
+    const fs = createFakeFileSystem({
+      [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT.replace(
+        'identities: {}',
+        'identities:\n  tester: { auth: storage-state, secret: QA_TESTER_PASSWORD, loginUrl: "https://staging.example.test/login", username: "tester@example.test" }',
+      ),
+    });
+    const sessionCookie = {
+      name: 'session',
+      value: 'live-session-value',
+      domain: 'staging.example.test',
+      path: '/',
+      expires: -1,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax' as const,
+    };
+    const writeReport = fakeProcessRunnerWritingReport(fs, {
+      suites: [
+        {
+          specs: [
+            {
+              title: 'login',
+              tests: [
+                {
+                  annotations: [{ type: 'testCaseId', description: 'login-case' }],
+                  results: [
+                    { status: 'passed', startTime: '2026-09-25T10:00:00.000Z', duration: 1000, errors: [] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    let configSource = '';
+    let storageStateDuringRun = '';
+    const deps = dependencies({
+      fs,
+      env: { QA_TESTER_PASSWORD: 'hunter2' },
+      browserLauncher: createFakeBrowserLauncher({ storageState: { cookies: [sessionCookie], origins: [] } }),
+      processRunner: {
+        run: async (command: string, args: readonly string[]) => {
+          const configPath = (args.find((arg) => arg.startsWith('--config=')) ?? '').slice(
+            '--config='.length,
+          );
+          configSource = await fs.readFile(configPath);
+          const storageStatePath = (
+            JSON.parse(configSource.slice('export default '.length).replace(/;\s*$/, '')) as {
+              use: { storageState: string };
+            }
+          ).use.storageState;
+          storageStateDuringRun = await fs.readFile(storageStatePath);
+          return writeReport.run(command, args);
+        },
+      },
+    });
+
+    const exitCode = await runCli(
+      ['run', '--spec', 'tests/login.playwright-spec.ts', '--identity', 'tester'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('Signed in as identity "tester".');
+    expect(storageStateDuringRun).toContain('live-session-value');
+    expect(configSource).not.toContain('live-session-value');
+    expect(configSource).not.toContain('hunter2');
+    expect(configSource).toContain('"trace": "off"');
+    const leftovers = (await fs.listFiles('/')).filter((file) => file.endsWith('storage-state.json'));
+    expect(leftovers).toEqual([]);
+    const persisted = await Promise.all((await fs.listFiles(PROJECT_ROOT)).map((file) => fs.readFile(file)));
+    expect(persisted.join('\n')).toContain('"identity": "tester"');
+    expect(persisted.join('\n')).not.toContain('live-session-value');
   });
 
   // P3-19: a spec path matching zero tests must fail loud, not report a clean zero-count success —

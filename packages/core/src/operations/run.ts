@@ -19,6 +19,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
+import { resolveRunIdentity } from '../run-identity.js';
 import { resolveBrowserEnvironment } from './browser-open.js';
 import type { Runner, RunnerOutcome } from '../runner.js';
 
@@ -29,12 +30,16 @@ export interface RunOptions {
   readonly specFiles: readonly string[];
   /** Environment name from config.yaml. Required only when the project defines more than one. */
   readonly environment?: string;
+  /** Identity name from config.yaml to sign in as; defaults to the environment's own `identity`. */
+  readonly identity?: string;
   readonly idGenerator?: IdGenerator;
 }
 
 export interface RunSummary {
   readonly runId: Identifier;
   readonly runRecordPath: RelativePath;
+  /** The identity the run signed in as; absent for an anonymous run. */
+  readonly identity?: string;
   readonly resultPaths: readonly RelativePath[];
   readonly counts: Readonly<Record<RunResultStatus, number>>;
 }
@@ -108,6 +113,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
   const config = await loadConfig(context);
   const environment = resolveBrowserEnvironment(config, options.environment);
 
+  const identity = resolveRunIdentity(config, environment.config, options.runner, options.identity);
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const runId = `run-${idGenerator.next()}`;
   const startedAt = context.clock.now().toISOString();
@@ -119,6 +125,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
     specFiles: absoluteSpecFiles,
     idGenerator,
     testIdAttribute: config.selectors.testIdAttribute,
+    ...(identity !== undefined ? { identity } : {}),
   });
 
   // A spec path that does not exist or matches nothing still makes Playwright write a JSON report
@@ -154,6 +161,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
     testType: options.runner.testType,
     specFiles,
     baseUrl: environment.config.baseUrl,
+    ...(identity !== undefined ? { identity } : {}),
     startedAt,
     finishedAt,
     resultIds: results.map((result) => result.id),
@@ -164,5 +172,5 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
   await store.writeText(runRecordPath, serializedRecord);
   await manifest.register(runRecordPath, serializedRecord);
 
-  return { runId, runRecordPath, resultPaths, counts };
+  return { runId, runRecordPath, resultPaths, counts, ...(identity !== undefined ? { identity } : {}) };
 }

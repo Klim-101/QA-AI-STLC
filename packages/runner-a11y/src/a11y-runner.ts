@@ -13,6 +13,7 @@ import { runPlaywrightSpecs } from '@qa-ai-stlc/runner-playwright';
  */
 export const a11yRunner: Runner = {
   testType: 'a11y',
+  signsIn: true,
   async run(engine, input) {
     const preparation = await prepareA11yRun(engine);
     const outcomes = await runPlaywrightSpecs(engine, input, 'a11y', {
