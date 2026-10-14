@@ -158,4 +158,42 @@ describe('generated widget helpers (demo app)', () => {
       await rm(directory, { recursive: true, force: true });
     }
   }, 120_000);
+  it('finds a grid row by its text and a cell by its column name through the generated module', async () => {
+    const directory = await mkdtemp(join(fileURLToPath(new URL('.', import.meta.url)), '.tmp-helpers-'));
+    const browser = await chromium.launch();
+    try {
+      const module = await loadLocatorModule(
+        directory,
+        '/kendo-angular.html',
+        KENDO_ANGULAR_PROFILE,
+        'kendo-angular',
+      );
+      const page = await browser.newPage();
+      await page.goto(`${BASE_URL}/kendo-angular.html`);
+      const gridName = module.names.grid;
+      expect(gridName).toBeDefined();
+      const helpers = module.helpers as unknown as Record<
+        string,
+        (page: unknown, ...args: string[]) => unknown
+      >;
+      const rowOf = helpers[`${gridName ?? ''}Row`];
+      const cellOf = helpers[`${gridName ?? ''}Cell`];
+      expect(rowOf).toBeDefined();
+      expect(cellOf).toBeDefined();
+
+      await page.locator('#paged-grid tbody tr').first().waitFor();
+      const rows = (await page.locator('#paged-grid tbody tr').allInnerTexts()).map((text) => text.split('	'));
+      const [firstId, firstName, firstDepartment] = rows[0] ?? [];
+      expect(firstName).toBeDefined();
+
+      const row = rowOf?.(page, firstName ?? '') as { count(): Promise<number> };
+      expect(await row.count()).toBeGreaterThan(0);
+      const cell = (await cellOf?.(page, firstName ?? '', 'Department')) as { innerText(): Promise<string> };
+      expect(await cell.innerText()).toBe(firstDepartment);
+      expect(firstId).toBeDefined();
+    } finally {
+      await browser.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 120_000);
 });

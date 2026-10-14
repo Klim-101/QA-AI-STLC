@@ -14,6 +14,7 @@ import {
   type WidgetAction,
   type WidgetRecognizer,
 } from './component-library-profile.js';
+import { toCamelCaseIdentifier } from './naming.js';
 import { WIDGET_RUNTIME_SOURCE } from './widget-runtime-source.js';
 
 export interface GenerateLocatorModuleOptions {
@@ -23,9 +24,18 @@ export interface GenerateLocatorModuleOptions {
   readonly profiles?: ComponentLibraryProfiles;
 }
 
+export type SkippedLocatorReason = 'no-locator-candidate' | 'no-name';
+
 export interface MissingLocatorElement {
   readonly elementId: string;
   readonly kind: string;
+  readonly reason: SkippedLocatorReason;
+}
+
+/** An element that has no function of its own because an element with the identical locator does. */
+export interface SharedLocatorElement {
+  readonly elementId: string;
+  readonly exportName: string;
 }
 
 export interface GenerateLocatorModuleResult {
@@ -33,6 +43,11 @@ export interface GenerateLocatorModuleResult {
   readonly source: string;
   /** Elements with no export: no locator candidate, or no export name assigned yet. */
   readonly missingLocators: readonly MissingLocatorElement[];
+  /**
+   * Elements whose locator is identical to another element's, answered by that element's function.
+   * Every active registry element is exactly one of: the owner of an export, shared, or missing.
+   */
+  readonly sharedLocators: readonly SharedLocatorElement[];
 }
 
 function roleCall(candidate: LocatorCandidate): string {
@@ -67,6 +82,10 @@ function locatorCall(candidate: LocatorCandidate): string {
       return `page.getByText(${JSON.stringify(candidate.value)})`;
     case 'css':
       return `page.locator(${JSON.stringify(candidate.value)})`;
+    // An `execute` selector is what the browser tool passed to `page.locator()`, so it is valid there
+    // as it stands (`role=columnheader[name="Last GW ID"]`, `text=Save`, a CSS selector).
+    case 'execute':
+      return `page.locator(${JSON.stringify(candidate.value)})`;
     default:
       throw new QaError(
         'explorer.locator_module.unknown_strategy',
@@ -75,21 +94,29 @@ function locatorCall(candidate: LocatorCandidate): string {
   }
 }
 
-function isGeneratable(element: SelectorElement): element is SelectorElement & { name: string } {
-  return element.name !== undefined && element.deprecatedAt === undefined;
+// A session-added element may have been registered without a name; one is derived from its selector
+// (`role=columnheader[name="Last GW ID"]` becomes `columnheaderLastGwId`) so it still gets a function.
+function nameFromExecuteSelector(selector: string, kind: string): string {
+  const role = /^role=([A-Za-z]+)(?:\[name="(.*)"\])?/u.exec(selector);
+  if (role !== null) {
+    // The unmatched name group is `undefined` at run time, which `join` renders as nothing.
+    return toCamelCaseIdentifier(role.slice(1).join(' '), kind);
+  }
+  return toCamelCaseIdentifier(selector.replace(/^[a-z-]+=/u, ''), kind);
+}
+
+function resolveName(element: SelectorElement, primary: LocatorCandidate | undefined): string | undefined {
+  if (element.name !== undefined) {
+    return element.name;
+  }
+  return primary?.strategy === 'execute' ? nameFromExecuteSelector(primary.value, element.kind) : undefined;
 }
 
 interface GeneratableEntry {
-  readonly element: SelectorElement & { name: string };
+  readonly element: SelectorElement;
+  readonly name: string;
   readonly primary: LocatorCandidate;
-}
-
-// Pairs each generatable element with its primary candidate in one pass, narrowing out elements
-// with an empty `locatorCandidates` by the presence of `primary` rather than by re-checking
-// `.length`, so the later render step never needs to handle an "impossible" missing primary.
-function toGeneratableEntry(element: SelectorElement & { name: string }): GeneratableEntry | undefined {
-  const primary = element.locatorCandidates[0];
-  return primary === undefined ? undefined : { element, primary };
+  readonly call: string;
 }
 
 function findWidgetRecognizer(
@@ -148,13 +175,10 @@ const WIDGET_HELPER_RENDERERS: Record<WidgetAction, (context: WidgetHelperContex
 // `statusSelectOption(page, 'Open')` instead of replaying the click sequence that opens the list.
 // The helpers share the runtime in `widget-runtime-source.ts`, which the module carries itself:
 // a generated spec must not depend on this framework at run time.
-function renderWidgetHelpers(
-  element: SelectorElement & { name: string },
-  widget: WidgetRecognizer,
-): WidgetHelper[] {
+function renderWidgetHelpers(name: string, widget: WidgetRecognizer): WidgetHelper[] {
   const context: WidgetHelperContext = {
-    name: element.name,
-    root: `widgetRoot(${element.name}(page), ${JSON.stringify(widget.wrapperSelector)})`,
+    name,
+    root: `widgetRoot(${name}(page), ${JSON.stringify(widget.wrapperSelector)})`,
     toggleArgument:
       widget.popupToggleSelector === undefined ? '' : `, ${JSON.stringify(widget.popupToggleSelector)}`,
     dateEntryArgument: widget.dateEntry === 'digits' ? ', "digits"' : '',
@@ -162,16 +186,88 @@ function renderWidgetHelpers(
   return (widget.actions ?? []).flatMap((action) => WIDGET_HELPER_RENDERERS[action](context));
 }
 
-function byName(a: GeneratableEntry, b: GeneratableEntry): number {
-  return a.element.name.localeCompare(b.element.name);
+// A row is found by the text it shows and a cell by the column header's name, because a grid's rows
+// are repeated elements that share one locator: indexed copies would silently follow the data order.
+// The header carries `aria-colindex` in the grids the shipped profiles cover; a grid without it fails
+// loudly instead of reading the wrong column.
+function renderGridHelpers(name: string): WidgetHelper[] {
+  return [
+    {
+      exportName: `${name}Row`,
+      source: [
+        `export function ${name}Row(page: Page, rowText: string): Locator {`,
+        `  return ${name}(page).getByRole("row").filter({ hasText: rowText });`,
+        '}',
+      ].join('\n'),
+    },
+    {
+      exportName: `${name}Cell`,
+      source: [
+        `export async function ${name}Cell(page: Page, rowText: string, columnName: string): Promise<Locator> {`,
+        `  const header = ${name}(page).getByRole("columnheader", { name: columnName, exact: true });`,
+        '  const columnIndex = await header.getAttribute("aria-colindex");',
+        '  if (columnIndex === null) {',
+        '    throw new Error(`Column "${columnName}" has no aria-colindex, so its cells cannot be located.`);',
+        '  }',
+        `  return ${name}Row(page, rowText).locator(\`[aria-colindex="\${columnIndex}"]\`);`,
+        '}',
+      ].join('\n'),
+    },
+  ];
+}
+
+function byName(a: { readonly name: string }, b: { readonly name: string }): number {
+  return a.name.localeCompare(b.name);
+}
+
+// The unsuffixed name is the one a crawl assigned first, so it is the stable one to keep.
+function byPreferredName(a: GeneratableEntry, b: GeneratableEntry): number {
+  return (
+    a.name.length - b.name.length ||
+    a.name.localeCompare(b.name) ||
+    a.element.elementId.localeCompare(b.element.elementId)
+  );
+}
+
+interface LocatorGroup {
+  readonly owner: GeneratableEntry;
+  readonly members: readonly GeneratableEntry[];
+  readonly exportName: string;
+}
+
+// Elements that share one locator call (the rows of a repeated list, a control rendered twice) are
+// one function: the registry holds an element per occurrence, but a spec can only address them by
+// what the locator matches. Two different locators that ended up with one name stay separate and
+// the later one is suffixed, so no export is ever overwritten.
+function groupByLocator(entries: readonly GeneratableEntry[]): LocatorGroup[] {
+  const membersByCall = new Map<string, GeneratableEntry[]>();
+  for (const entry of entries) {
+    membersByCall.set(entry.call, [...(membersByCall.get(entry.call) ?? []), entry]);
+  }
+  const owned = [...membersByCall.values()].map((members) => ({
+    owner: members.reduce((best, member) => (byPreferredName(member, best) < 0 ? member : best)),
+    members,
+  }));
+  const usedNames = new Set<string>();
+  return owned
+    .sort((a, b) => byName(a.owner, b.owner) || a.owner.call.localeCompare(b.owner.call))
+    .map(({ owner, members }) => {
+      let exportName = owner.name;
+      for (let suffix = 2; usedNames.has(exportName); suffix += 1) {
+        exportName = `${owner.name}${String(suffix)}`;
+      }
+      usedNames.add(exportName);
+      return { owner, members, exportName };
+    });
 }
 
 /**
  * Renders the selector registry into a typed, deterministic `tests/qa/locators.ts` module (ADR-006):
- * one exported function per element, named after its registry `name`, returning a Playwright
- * `Locator` built from the element's primary (highest-preference) candidate. An element with no
- * candidate, or predating the `name` field, gets no export and is reported in `missingLocators`
- * instead of failing generation.
+ * one exported function per distinct locator, named after its registry `name`, returning a Playwright
+ * `Locator` built from the element's primary (highest-preference) candidate. Elements with an
+ * identical locator share one function (`sharedLocators`); an element with no candidate or no name
+ * gets no export and is reported in `missingLocators` with the reason instead of failing generation.
+ * A data grid also gets `<name>Row` and `<name>Cell` helpers that take the row text and column name.
  */
 export function generateLocatorModule(
   registry: SelectorRegistry,
@@ -179,29 +275,52 @@ export function generateLocatorModule(
 ): GenerateLocatorModuleResult {
   const active = registry.elements.filter((element) => element.deprecatedAt === undefined);
 
-  const missingLocators: MissingLocatorElement[] = active
-    .filter((element) => !isGeneratable(element) || element.locatorCandidates.length === 0)
-    .map((element) => ({ elementId: element.elementId, kind: element.kind }))
+  const missingLocators: MissingLocatorElement[] = [];
+  const entries: GeneratableEntry[] = [];
+  for (const element of active) {
+    const primary = element.locatorCandidates[0];
+    const name = resolveName(element, primary);
+    if (primary === undefined) {
+      missingLocators.push({
+        elementId: element.elementId,
+        kind: element.kind,
+        reason: 'no-locator-candidate',
+      });
+    } else if (name === undefined) {
+      missingLocators.push({ elementId: element.elementId, kind: element.kind, reason: 'no-name' });
+    } else {
+      entries.push({ element, name, primary, call: locatorCall(primary) });
+    }
+  }
+  missingLocators.sort((a, b) => a.elementId.localeCompare(b.elementId));
+
+  const groups = groupByLocator(entries);
+  const sharedLocators: SharedLocatorElement[] = groups
+    .flatMap(({ owner, members, exportName }) =>
+      members
+        .filter((member) => member !== owner)
+        .map((member) => ({ elementId: member.element.elementId, exportName })),
+    )
     .sort((a, b) => a.elementId.localeCompare(b.elementId));
 
-  const generatable = active
-    .filter((element): element is SelectorElement & { name: string } => isGeneratable(element))
-    .map(toGeneratableEntry)
-    .filter((entry): entry is GeneratableEntry => entry !== undefined)
-    .sort(byName);
-
-  const functions = generatable.map(
-    ({ element, primary }) =>
-      `export function ${element.name}(page: Page): Locator {\n  return ${locatorCall(primary)};\n}`,
+  const functions = groups.map(
+    ({ owner, exportName }) =>
+      `export function ${exportName}(page: Page): Locator {\n  return ${owner.call};\n}`,
   );
 
   const profiles = options.profiles ?? BUILT_IN_PROFILES;
-  const exportedNames = new Set(generatable.map(({ element }) => element.name));
+  const exportedNames = new Set(groups.map(({ exportName }) => exportName));
   // A helper never replaces the locator function of another element that happens to share its name.
-  const widgetHelpers = generatable
-    .flatMap(({ element }) => {
-      const widget = findWidgetRecognizer(element, profiles);
-      return widget === undefined ? [] : renderWidgetHelpers(element, widget);
+  const widgetHelpers = groups
+    .flatMap(({ owner, exportName }) => {
+      const widget = findWidgetRecognizer(owner.element, profiles);
+      if (widget === undefined) {
+        return [];
+      }
+      return [
+        ...renderWidgetHelpers(exportName, widget),
+        ...(widget.grid === undefined ? [] : renderGridHelpers(exportName)),
+      ];
     })
     .filter((helper) => !exportedNames.has(helper.exportName));
 
@@ -217,9 +336,12 @@ export function generateLocatorModule(
     `export const GENERATOR_VERSION = ${JSON.stringify(options.generatorVersion)};`,
   ].join('\n');
 
+  const isRuntimeNeeded = widgetHelpers.some((entry) => entry.source.includes('widgetRoot('));
   const widgetSection =
-    widgetHelpers.length === 0 ? [] : [...widgetHelpers.map((entry) => entry.source), WIDGET_RUNTIME_SOURCE];
+    widgetHelpers.length === 0
+      ? []
+      : [...widgetHelpers.map((entry) => entry.source), ...(isRuntimeNeeded ? [WIDGET_RUNTIME_SOURCE] : [])];
   const source = `${[header, ...functions, ...widgetSection].join('\n\n')}\n`;
 
-  return { source, missingLocators };
+  return { source, missingLocators, sharedLocators };
 }

@@ -50,16 +50,20 @@ export interface BuildSelectorRegistryResult {
   readonly blockedRequestCount: number;
 }
 
+// A bare number or a lone letter plus digits ("V11102") makes a function name nobody can tell from
+// its neighbours, so the next signal is tried instead. Text with no digits is left to the naming
+// step, which already falls back to the element kind.
+function isMeaningfulName(text: string | undefined): text is string {
+  return text !== undefined && !(/\d/u.test(text) && (text.match(/\p{L}/gu) ?? []).length < 2);
+}
+
 // The element's best available human-meaningful name, in the same signal-quality order
 // synthesizeLocatorCandidates already uses: chosen for how well it reads as an identifier, not
 // for how stable it is across crawls. Exported for pick mode (P1-14), which uses it as the
 // default text a human can rename before it becomes a locator module export.
 export function elementNameForId(element: InteractiveElement): string {
   return (
-    element.accessibleName ??
-    element.label ??
-    element.testId ??
-    element.placeholder ??
+    [element.accessibleName, element.label, element.testId, element.placeholder].find(isMeaningfulName) ??
     `${element.tagName}:${String(element.nthOfType)}`
   );
 }
@@ -246,8 +250,47 @@ export function mergeSelectorRegistry(
   return {
     schemaVersion: SCHEMA_VERSION,
     generatedAt,
-    elements: [...fresh.elements, ...deprecated],
+    elements: [...keepPreviousNames(previous, fresh.elements), ...deprecated],
   };
+}
+
+// A spec already imports an element by its generated function name, so an element that is still
+// found keeps the name it had. Names are settled in two passes: elements with a previous name take
+// it first (the first holder wins), then every other element keeps its fresh name, numbered past
+// any name already taken so two elements never end up with the same one.
+function keepPreviousNames(
+  previous: SelectorRegistry,
+  freshElements: readonly SelectorElement[],
+): SelectorElement[] {
+  const previousNames = new Map(
+    previous.elements.flatMap((element) =>
+      element.name === undefined ? [] : [[element.elementId, element.name] as const],
+    ),
+  );
+  const takenNames = new Set<string>();
+  const pinnedNames = new Map<string, string>();
+  for (const element of freshElements) {
+    const previousName = previousNames.get(element.elementId);
+    if (previousName !== undefined && !takenNames.has(previousName)) {
+      takenNames.add(previousName);
+      pinnedNames.set(element.elementId, previousName);
+    }
+  }
+  return freshElements.map((element) => {
+    const pinnedName = pinnedNames.get(element.elementId);
+    if (pinnedName !== undefined) {
+      return { ...element, name: pinnedName };
+    }
+    if (element.name === undefined) {
+      return element;
+    }
+    let name = element.name;
+    for (let suffix = 2; takenNames.has(name); suffix += 1) {
+      name = `${element.name}${String(suffix)}`;
+    }
+    takenNames.add(name);
+    return name === element.name ? element : { ...element, name };
+  });
 }
 
 export interface DegradedSelectorElement {
