@@ -11,6 +11,7 @@
     { "path": "../runner-a11y" },
     { "path": "../runner-api" },
     { "path": "../runner-playwright" },
+    { "path": "../runner-security" },
     { "path": "../test-utils" }
   ]
 }

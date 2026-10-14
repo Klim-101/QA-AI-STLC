@@ -212,5 +212,8 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 - `qa-start`, `qa-explore` and `qa-design-cases` (P2-09) are the real, shipped skills today.
 - `qa-rca` (P6-15) is the root cause analysis skill; `agents/hub/spokes/qa-rca.md` is its spoke
   contract. The input it works from is the engine's `qa.rca_input`.
+- `qa-security` (P6-18) is the on-demand security audit skill. It is not part of the pipeline: no
+  gate leads to it and no other skill calls it. The engine refuses an audit until the operator has
+  approved the exact authorization (`qa.security_authorize`, `qa.security_approve`, `qa.security_audit`).
 - The triggering eval suite (P2-10) is generated from those three skills' `triggers`/`nonTriggers`
   under `adapters/claude-plugin/evals/`; see [Triggering eval harness](#triggering-eval-harness).

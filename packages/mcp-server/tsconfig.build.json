@@ -10,6 +10,7 @@
     { "path": "../explorer/tsconfig.build.json" },
     { "path": "../runner-a11y/tsconfig.build.json" },
     { "path": "../runner-api/tsconfig.build.json" },
-    { "path": "../runner-playwright/tsconfig.build.json" }
+    { "path": "../runner-playwright/tsconfig.build.json" },
+    { "path": "../runner-security/tsconfig.build.json" }
   ]
 }

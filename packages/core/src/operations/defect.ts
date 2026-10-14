@@ -3,6 +3,7 @@
 
 import {
   DefectDraftSchema,
+  type DefectDraft,
   SCHEMA_VERSION,
   ScopeSchema,
   type Approval,
@@ -69,7 +70,17 @@ export async function runDefectAdd(
       remediation: 'Check --path points at a real, readable file relative to the project root.',
     });
   }
-  const draft = await readJsonFile(context.fs, absolutePath, DefectDraftSchema);
+  return registerDefectDraft(context, await readJsonFile(context.fs, absolutePath, DefectDraftSchema));
+}
+
+/**
+ * The registration rules of `runDefectAdd` for a draft that is already parsed, so a draft an engine
+ * tool produced (a security audit finding) goes through exactly the checks a hand-written one does.
+ */
+export async function registerDefectDraft(
+  context: EngineContext,
+  draft: DefectDraft,
+): Promise<DefectAddResult> {
   if (draft.status !== 'draft') {
     throw new QaError(
       'DEFECT_ADD_STATUS_INVALID',

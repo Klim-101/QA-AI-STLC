@@ -52,6 +52,9 @@ import { linkTool } from './link.js';
 import { pingTool } from './ping.js';
 import { createRegistryExecuteRegisterTool } from './registry-execute-register.js';
 import { reportTool } from './report.js';
+import { securityApproveTool } from './security-approve.js';
+import { securityAuditTool } from './security-audit.js';
+import { securityAuthorizeTool } from './security-authorize.js';
 import { runTool } from './run.js';
 import { scopeTool } from './scope.js';
 import { testDataAddTool } from './test-data-add.js';
@@ -92,6 +95,9 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   runTool,
   linkTool,
   reportTool,
+  securityAuthorizeTool,
+  securityApproveTool,
+  securityAuditTool,
 ];
 
 /** The `qa.browser_*`/`qa.registry_execute_register` tools, and `qa.http_execute`, which can read a token from one of their sessions, sharing one session store (ADR-005, P2-06). */
