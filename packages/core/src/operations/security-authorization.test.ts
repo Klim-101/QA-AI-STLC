@@ -179,6 +179,18 @@ describe('runSecurityAuthorizationApprove', () => {
     });
   });
 
+  it('refuses when security testing is not in scope, whatever is registered', async () => {
+    const context = await registered();
+    await context.fs.writeFile(
+      join('project', '.qa', 'config.yaml'),
+      configYaml({ security: 'out-of-scope' }),
+    );
+
+    await expect(runSecurityAuthorizationApprove(context, { approvedBy: 'operator' })).rejects.toMatchObject({
+      code: 'SECURITY_OUT_OF_SCOPE',
+    });
+  });
+
   it('refuses when nothing is registered', async () => {
     await expect(
       runSecurityAuthorizationApprove(contextWith(), { approvedBy: 'operator' }),

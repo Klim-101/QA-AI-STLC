@@ -38,8 +38,8 @@ claude plugin marketplace add Klim-101/QA-AI-STLC
 claude plugin install qa-ai-stlc@qa-ai-stlc
 ```
 
-The plugin brings seven skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`,
-`qa-generate-tests`, `qa-report`, `qa-rca`), a hook that blocks hand edits under `.qa/`, and a local
+The plugin brings eight skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`,
+`qa-generate-tests`, `qa-report`, `qa-rca`, `qa-security`), a hook that blocks hand edits under `.qa/`, and a local
 MCP server that it launches through `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. The first
 launch downloads that package, so it needs network access to npm.
 
@@ -63,6 +63,7 @@ From there, ask for what you want in plain words and the matching skill takes ov
 | "generate the test for the login case"            | `qa-generate-tests` |
 | "what's the status of the last run"               | `qa-report`         |
 | "do a root cause analysis for defect login-error" | `qa-rca`            |
+| "run a security audit on staging"                 | `qa-security`       |
 
 Phase order and approvals are enforced by the engine, not by the skills, so the agent cannot skip a
 gate. Do not ask the agent to edit files under `.qa/`; the plugin's hook blocks it on purpose. You
@@ -244,6 +245,24 @@ after `init`, run `npx qa config set testing.api in-scope --api-source <path-or-
 
 Designing cases with a model, proving them live and generating specs are agent work (Option A or
 C). The CLI covers the deterministic parts. For a complete CI recipe, see [CI usage](ci-usage.md).
+
+### Security audit, on demand
+
+A security audit is never part of the pipeline. It needs `testing.security` set to `in-scope` (`npx qa
+config set testing.security in-scope`) and an authorization you approve first: a JSON file naming the
+environment, the checks, the identities, what is prohibited and the request budget (the
+`qa-security` skill drafts one for you).
+
+```sh
+npx qa security authorize --path security/authorization.json   # validated against the configuration
+npx qa security approve --approved-by <your name>              # your consent, bound to this exact content
+npx qa security audit                                          # non-destructive checks, findings as defect drafts
+```
+
+Each command fails with a coded error while security testing is not in scope, and the audit refuses to
+start without an approval of the current authorization. Editing the authorization or the environment
+afterwards withdraws it. The audit exits non-zero when it found something or stopped early (`partial`
+is not a clean result); the findings are defect drafts you accept with `npx qa defect accept`.
 
 ### Configuration layers
 

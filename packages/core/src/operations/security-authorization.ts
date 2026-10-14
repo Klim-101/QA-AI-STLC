@@ -160,6 +160,7 @@ export async function runSecurityAuthorizationApprove(
       },
     );
   }
+  assertSecurityInScope(await loadConfig(context));
   const { ledger, authorizations } = openStores(context);
   if ((await authorizations.read()) === undefined) {
     throw new QaError('SECURITY_AUTHORIZATION_NOT_FOUND', 'No security authorization is registered', {

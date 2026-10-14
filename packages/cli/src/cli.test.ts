@@ -1864,6 +1864,217 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('No registered defect draft with id "login-error"');
   });
 
+  describe('security (P6-18)', () => {
+    const SECURITY_CONFIG = (security: string): string =>
+      [
+        'schemaVersion: 1',
+        `testing: { e2e: undecided, api: undecided, a11y: undecided, security: ${security} }`,
+        'environments:',
+        '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+        'identities: {}',
+        'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+        'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+        'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+        '',
+      ].join('\n');
+    const AUTHORIZATION = JSON.stringify({
+      schemaVersion: 1,
+      environment: {
+        name: 'staging',
+        baseUrl: 'https://staging.example.test/',
+        allowlist: ['staging.example.test'],
+      },
+      checks: ['headers'],
+      identities: [],
+      prohibitedActions: ['brute force'],
+      allowedMutations: [],
+      restrictedRoutes: [],
+      rateLimit: { requestsPerSecond: 50, maxRequests: 100 },
+      createdAt: '2026-10-10T10:00:00Z',
+    });
+    const withSecurity = (security = 'in-scope') =>
+      dependencies({
+        fs: createFakeFileSystem({
+          [CONFIG_PATH]: SECURITY_CONFIG(security),
+          [join(PROJECT_ROOT, 'authorization.json')]: AUTHORIZATION,
+        }),
+        httpClient: {
+          get: () => Promise.reject(new Error('get() is not used')),
+          request: () =>
+            Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: '' }),
+        },
+      });
+
+    it('registers an authorization, then records the operator approval, and says it is not consent yet', async () => {
+      const deps = withSecurity();
+
+      const registered = await runCli(['security', 'authorize', '--path', 'authorization.json'], deps);
+      const approved = await runCli(['security', 'approve', '--approved-by', 'operator'], deps);
+      const again = await runCli(['security', 'approve', '--approved-by', 'operator'], deps);
+
+      expect([registered, approved, again]).toEqual([EXIT_SUCCESS, EXIT_SUCCESS, EXIT_SUCCESS]);
+      expect(deps.stdout.join('\n')).toContain(
+        'Registered the security audit authorization for "staging" (headers).',
+      );
+      expect(deps.stdout.join('\n')).toContain('It is not consent yet');
+      expect(deps.stdout).toContain('Approved the security audit authorization.');
+      expect(deps.stdout).toContain('The security audit authorization was already approved.');
+    });
+
+    it('audits an authorized project, lists the drafts and exits non-zero while there is a finding', async () => {
+      const deps = withSecurity();
+      await runCli(['security', 'authorize', '--path', 'authorization.json'], deps);
+      await runCli(['security', 'approve', '--approved-by', 'operator'], deps);
+      deps.stdout.length = 0;
+
+      const exitCode = await runCli(['security', 'audit'], deps);
+
+      const output = deps.stdout.join('\n');
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(output).toMatch(/Security audit audit-[\w-]+ of "staging": completed, \d+ finding\(s\)/u);
+      expect(output).toContain('  headers: failed  ');
+      expect(output).toContain('Defect drafts to review: security-');
+      expect(output).toContain('Evidence: ');
+    });
+
+    const authorizedWith = async (
+      overrides: Record<string, unknown>,
+      headers: Record<string, string> = {},
+    ) => {
+      const deps = dependencies({
+        fs: createFakeFileSystem({
+          [CONFIG_PATH]: SECURITY_CONFIG('in-scope'),
+          [join(PROJECT_ROOT, 'authorization.json')]: JSON.stringify({
+            ...(JSON.parse(AUTHORIZATION) as Record<string, unknown>),
+            ...overrides,
+          }),
+        }),
+        httpClient: {
+          get: () => Promise.reject(new Error('get() is not used')),
+          request: () => Promise.resolve({ ok: true, status: 200, headers, setCookies: [], bodyText: '' }),
+        },
+      });
+      await runCli(['security', 'authorize', '--path', 'authorization.json'], deps);
+      await runCli(['security', 'approve', '--approved-by', 'operator'], deps);
+      deps.stdout.length = 0;
+      return deps;
+    };
+
+    it('exits zero for a completed audit with nothing found, and says which check did not run', async () => {
+      const deps = await authorizedWith({ checks: ['dependencies'] });
+
+      const exitCode = await runCli(['security', 'audit'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout.join('\n')).toContain('completed, 0 finding(s)');
+      expect(deps.stdout.join('\n')).toContain('dependencies: skipped  Not run:');
+      expect(deps.stdout.join('\n')).not.toContain('Defect drafts to review');
+    });
+
+    it('lists a check that passed with what it read, and exits zero', async () => {
+      const deps = await authorizedWith(
+        { checks: ['headers'] },
+        {
+          'content-security-policy': "frame-ancestors 'self'",
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': 'no-referrer',
+          'strict-transport-security': 'max-age=31536000',
+        },
+      );
+
+      const exitCode = await runCli(['security', 'audit'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout.join('\n')).toContain('  headers: passed  Read the headers');
+    });
+
+    it('says an audit that ran out of its request budget stopped early and is not clean', async () => {
+      const deps = await authorizedWith({
+        checks: ['headers', 'cookies', 'errors'],
+        rateLimit: { requestsPerSecond: 50, maxRequests: 1 },
+      });
+
+      const exitCode = await runCli(['security', 'audit'], deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stdout.join('\n')).toContain('partial');
+      expect(deps.stdout.join('\n')).toContain('Stopped early: ');
+    });
+
+    it('prints the audit as JSON with --json', async () => {
+      const deps = withSecurity();
+      await runCli(['security', 'authorize', '--path', 'authorization.json'], deps);
+      await runCli(['security', 'approve', '--approved-by', 'operator'], deps);
+      deps.stdout.length = 0;
+
+      await runCli(['security', 'audit', '--json'], deps);
+
+      expect(JSON.parse(deps.stdout[0] ?? '')).toMatchObject({
+        command: 'security-audit',
+        data: { environment: 'staging', status: 'completed' },
+      });
+    });
+
+    it('refuses every subcommand with a coded error when security testing is not in scope', async () => {
+      for (const args of [
+        ['security', 'authorize', '--path', 'authorization.json'],
+        ['security', 'approve', '--approved-by', 'operator'],
+        ['security', 'audit'],
+      ]) {
+        const deps = withSecurity('out-of-scope');
+
+        const exitCode = await runCli(args, deps);
+
+        expect(exitCode).toBe(EXIT_FAILURE);
+        expect(deps.stderr.join('\n')).toContain('Security testing is "out-of-scope"');
+      }
+    });
+
+    it('refuses an audit that was never authorized, and sends no request', async () => {
+      const deps = withSecurity();
+
+      const exitCode = await runCli(['security', 'audit'], deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('error:');
+    });
+
+    it('asks for what a subcommand needs, and rejects an unknown one', async () => {
+      const deps = withSecurity();
+
+      const noPath = await runCli(['security', 'authorize'], deps);
+      const noApprover = await runCli(['security', 'approve'], deps);
+      const unknown = await runCli(['security', 'bogus'], deps);
+      const bare = await runCli(['security'], deps);
+
+      expect([noPath, noApprover, unknown, bare]).toEqual([
+        EXIT_FAILURE,
+        EXIT_FAILURE,
+        EXIT_USAGE,
+        EXIT_USAGE,
+      ]);
+      expect(deps.stderr.join('\n')).toContain('Usage: qa security authorize --path <path>');
+      expect(deps.stderr.join('\n')).toContain('Usage: qa security approve --approved-by <name>');
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io, stderr } = captureIO();
+      const dependenciesWithoutRoot = { io, fs: createFakeFileSystem(), env: {} };
+
+      const results = [
+        await runCli(['security', 'authorize', '--path', 'authorization.json'], dependenciesWithoutRoot),
+        await runCli(
+          ['security', 'approve', '--approved-by', 'operator', '--note', 'ok'],
+          dependenciesWithoutRoot,
+        ),
+        await runCli(['security', 'audit'], dependenciesWithoutRoot),
+      ];
+
+      expect(results).toEqual([EXIT_FAILURE, EXIT_FAILURE, EXIT_FAILURE]);
+      expect(stderr.join('\n')).toContain('config.yaml');
+    });
+  });
+
   const RCA_JSON = JSON.stringify({
     defectId: 'login-error',
     facts: ['The login request returns 401'],

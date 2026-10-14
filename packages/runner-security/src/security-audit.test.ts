@@ -16,6 +16,7 @@ import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
 import { describe, expect, it } from 'vitest';
 import { secretsCheck } from './checks/secrets-check.js';
+import { runSecurityAuditCommand } from './security-audit-command.js';
 import { runSecurityAudit } from './security-audit.js';
 import type { SecurityCheck, SecurityCheckInput, SecurityCheckOutcome } from './security-check.js';
 import type { SourceCheckout } from './source-checkout.js';
@@ -698,5 +699,43 @@ describe('runSecurityAudit code-assisted checks', () => {
 
     expect(result.findings[0]?.codeReferences).toEqual([{ path: 'app/index.ts', line: 3 }]);
     expect(drafts[0]?.securityCodeReferences).toEqual([{ path: 'app/index.ts', line: 3 }]);
+  });
+});
+
+describe('runSecurityAuditCommand', () => {
+  it('runs the default checks and registers every finding as a draft that is not accepted', async () => {
+    const { context } = await harness();
+
+    const summary = await runSecurityAuditCommand(context, { idGenerator: sequentialIds() });
+
+    expect(summary).toMatchObject({ auditId: 'audit-1', environment: 'staging' });
+    expect(summary.checks.map((entry) => entry.checkClass)).toEqual(['headers', 'cookies', 'errors']);
+    expect(summary.findingCount).toBeGreaterThan(0);
+    expect(summary.draftIds).toHaveLength(summary.findingCount);
+    expect(summary.requestCount).toBeGreaterThan(0);
+    const draftFile = await context.fs.readFile(
+      join(PROJECT_ROOT, '.qa', 'artifacts', 'defects', `${summary.draftIds[0] ?? ''}.json`),
+    );
+    expect(JSON.parse(draftFile)).toMatchObject({ status: 'draft', category: 'security' });
+    expect(await context.fs.pathExists(join(PROJECT_ROOT, '.qa', summary.evidencePath))).toBe(true);
+  });
+
+  it('says why an audit that stopped early is partial, and keeps a check note', async () => {
+    const { context } = await harness({
+      authorizationValue: authorization({ rateLimit: { requestsPerSecond: 50, maxRequests: 1 } }),
+    });
+
+    const summary = await runSecurityAuditCommand(context, { idGenerator: sequentialIds() });
+
+    expect(summary.status).toBe('partial');
+    expect(summary.stoppedReason).toContain('budget');
+    expect(summary.checks.some((entry) => entry.note.length > 0)).toBe(true);
+  });
+
+  it('does not start without an approved authorization', async () => {
+    const { context, requestedUrls } = await harness({ isApproved: false });
+
+    await expect(runSecurityAuditCommand(context)).rejects.toMatchObject({ code: 'SECURITY_NOT_AUTHORIZED' });
+    expect(requestedUrls).toEqual([]);
   });
 });

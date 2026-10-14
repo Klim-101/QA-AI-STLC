@@ -67,6 +67,14 @@ import { runApiDiff, type ApiDiffSummary } from './commands/api-diff.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
 import { runRun, type RunSummary } from './commands/run.js';
+import {
+  runSecurityAuditCommand,
+  runSecurityAuthorizationAdd,
+  runSecurityAuthorizationApprove,
+  type SecurityAuditSummary,
+  type SecurityAuthorizationAddResult,
+  type SecurityAuthorizationApproveResult,
+} from './commands/security.js';
 import { EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE } from './exit-codes.js';
 import { readPackageVersion } from './package-version.js';
 
@@ -96,6 +104,7 @@ Commands:
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
   rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
   rca approve   Approve a registered RCA: "rca approve <defect-id> --approved-by <name> [--note <text>]"
+  security      On demand, never part of the pipeline: "security authorize --path <path>", "security approve --approved-by <name>" and "security audit" (security testing must be in scope)
   approve       Approve a pipeline gate: "approve <gate> --artifact <path> --approved-by <name>"
   status        Show the pipeline gates and what to do next, including exploring, executing and generating after the last gate
   validate      Recompute every gate's status and every case's requirement links: "validate [--run]" also sweeps every run result for a fabricated evidence link or a failed result missing evidence; nonzero exit on any of these
@@ -158,6 +167,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchDefect(rest, dependencies);
       case 'rca':
         return await dispatchRca(rest, dependencies);
+      case 'security':
+        return await dispatchSecurity(rest, dependencies);
       case 'approve':
         return await dispatchApprove(rest, dependencies);
       case 'status':
@@ -871,9 +882,7 @@ async function dispatchDefect(rest: readonly string[], dependencies: RunCliDepen
   if (subcommand === 'accept') {
     return await dispatchDefectAccept(subRest, dependencies);
   }
-  dependencies.io.stderr(`Unknown "qa defect" subcommand "${subcommand ?? ''}".
-
-${USAGE}`);
+  dependencies.io.stderr(`Unknown "qa defect" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
   return EXIT_USAGE;
 }
 
@@ -983,6 +992,82 @@ async function dispatchRcaApprove(
   });
   printResult(context.io, json, 'rca-approve', result, formatRcaApproveResult(result));
   return EXIT_SUCCESS;
+}
+
+async function dispatchSecurity(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand === 'authorize') {
+    return await dispatchSecurityAuthorize(subRest, dependencies);
+  }
+  if (subcommand === 'approve') {
+    return await dispatchSecurityApprove(subRest, dependencies);
+  }
+  if (subcommand === 'audit') {
+    return await dispatchSecurityAudit(subRest, dependencies);
+  }
+  dependencies.io.stderr(`Unknown "qa security" subcommand "${subcommand ?? ''}".\n\n${USAGE}`);
+  return EXIT_USAGE;
+}
+
+async function dispatchSecurityAuthorize(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runSecurityAuthorizationAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'security-authorize', result, formatSecurityAuthorizeResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchSecurityApprove(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    'approved-by': { type: 'string' },
+    note: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runSecurityAuthorizationApprove(context, {
+    ...(typeof values['approved-by'] === 'string' ? { approvedBy: values['approved-by'] } : {}),
+    ...(typeof values.note === 'string' ? { note: values.note } : {}),
+  });
+  printResult(context.io, json, 'security-approve', result, formatSecurityApproveResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchSecurityAudit(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const values = parseCommandArgs(rest, { json: { type: 'boolean', default: false } });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const summary = await runSecurityAuditCommand(context);
+  printResult(context.io, json, 'security-audit', summary, formatSecurityAuditSummary(summary));
+  // A partial audit is not a clean bill, and an audit with findings has something to review.
+  return summary.status === 'completed' && summary.findingCount === 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 async function dispatchApprove(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
@@ -1268,6 +1353,33 @@ function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[]
 
 function formatRcaAddResult(result: RcaAddResult): readonly string[] {
   return [`Registered ${result.rcaPath} as a draft.`];
+}
+
+function formatSecurityAuthorizeResult(result: SecurityAuthorizationAddResult): readonly string[] {
+  return [
+    `Registered the security audit authorization for "${result.environment}" (${result.checks.join(', ')}).`,
+    'It is not consent yet: the operator approves it with "qa security approve --approved-by <name>".',
+  ];
+}
+
+function formatSecurityApproveResult(result: SecurityAuthorizationApproveResult): readonly string[] {
+  return [
+    result.wasAlreadyApproved
+      ? 'The security audit authorization was already approved.'
+      : 'Approved the security audit authorization.',
+  ];
+}
+
+function formatSecurityAuditSummary(summary: SecurityAuditSummary): readonly string[] {
+  return [
+    `Security audit ${summary.auditId} of "${summary.environment}": ${summary.status}, ${String(summary.findingCount)} finding(s), ${String(summary.requestCount)} request(s).`,
+    ...summary.checks.map((entry) => `  ${entry.checkClass}: ${entry.status}  ${entry.note}`.trimEnd()),
+    ...(summary.stoppedReason === undefined ? [] : [`Stopped early: ${summary.stoppedReason}.`]),
+    ...(summary.draftIds.length === 0
+      ? []
+      : [`Defect drafts to review: ${summary.draftIds.join(', ')} (accept with "qa defect accept").`]),
+    `Evidence: ${summary.evidencePath}`,
+  ];
 }
 
 function formatRcaApproveResult(result: RcaApproveResult): readonly string[] {
