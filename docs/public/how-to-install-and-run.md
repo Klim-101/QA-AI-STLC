@@ -224,11 +224,20 @@ npx qa cases add --path cases/login.json             # a case linked to a real r
 npx qa approve scope --artifact artifacts/scope.json --approved-by <your name>
 npx qa validate                                      # recomputes every gate from the ledger
 npx qa cases render <case-id>                        # a readable Markdown copy of one case
-npx qa run --spec tests/login.playwright-spec.ts --test-type e2e --environment staging
+npx qa run --spec tests/login.playwright-spec.ts --test-type e2e --environment staging [--identity <name>]
 npx qa report                                        # run summary and traceability matrix
 npx qa validate --run                                # also re-checks every result's evidence
 npx qa status                                        # names what to do next
 ```
+
+Specs for pages behind sign-in need no credential. Name the identity an environment signs in as
+(`environments.<name>.identity` in `.qa/config.yaml`, which must be one of your `identities`);
+`qa run` and spec verification then start the browser already signed in as it, and `--identity <name>`
+(or `identity` on the MCP tools) picks another one for a single run. The run record and the run
+summary name the identity used; the session itself is kept only for the run and never written to a
+report, log or artifact. If the sign-in fails, the run stops with `RUN_SIGN_IN_FAILED` and a
+remediation instead of running your specs against the login page. A `cdp-attach` identity cannot be
+used for a run; give the environment a `storage-state` identity.
 
 Registering any case reopens the `cases` gate, and you approve it again. To turn API testing on
 after `init`, run `npx qa config set testing.api in-scope --api-source <path-or-url>`.

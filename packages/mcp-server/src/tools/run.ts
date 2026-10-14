@@ -25,6 +25,12 @@ const InputSchema = z.object({
     .string()
     .optional()
     .describe('Environment name from config.yaml. Required when there is more than one.'),
+  identity: z
+    .string()
+    .optional()
+    .describe(
+      "Identity name from config.yaml to sign in as for e2e and a11y specs. Defaults to the environment's own identity; anonymous when it has none.",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -54,6 +60,7 @@ export const runTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = 
       runner,
       specFiles: input.specFiles,
       ...(input.environment !== undefined ? { environment: input.environment } : {}),
+      ...(input.identity !== undefined ? { identity: input.identity } : {}),
     });
     return {
       runId: summary.runId,

@@ -1212,6 +1212,29 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('qa.run rejects an identity the configuration does not define, before running anything (P6-89)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.qa', 'config.yaml'),
+        CONFIG_YAML.replace(
+          'environments: {}',
+          'environments:\n  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+        ),
+        'utf-8',
+      );
+
+      const rejected = await runTool
+        .handler({ specFiles: ['tests/login.playwright-spec.ts'], identity: 'ghost' })
+        .catch((caught: unknown) => caught);
+
+      process.chdir(originalCwd);
+
+      expect(rejected).toMatchObject({ code: 'RUN_IDENTITY_UNKNOWN' });
+    });
+  });
+
   it('qa.defect_add registers a draft and qa.defect_accept accepts it, once, with an approval', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);

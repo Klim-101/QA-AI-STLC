@@ -6,6 +6,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   QaError,
+  signInForRun,
   type EngineContext,
   type Runner,
   type RunnerInput,
@@ -58,6 +59,10 @@ async function readStepWork(engine: EngineContext, stepWorkPath: string): Promis
  * Executes `input.specFiles` through Playwright Test and attributes every result to `testType`.
  * `runner-api` runs its `APIRequestContext` specs through the same mechanics, so the spawn, report
  * parsing and evidence mapping live in one place.
+ *
+ * When `input.identity` is set the specs start signed in as that identity (P6-89): the storage state
+ * lives in the run directory only for the duration of the run, never in a spec, a report or evidence,
+ * and the trace is off because a trace is a zip of every request with its cookies.
  */
 export async function runPlaywrightSpecs(
   engine: EngineContext,
@@ -75,6 +80,8 @@ export async function runPlaywrightSpecs(
   const isStepWorkChecked = input.requiredStepIds !== undefined;
 
   await engine.fs.mkdir(runDir);
+  const storageStatePath = join(runDir, 'storage-state.json');
+  const isSignedIn = input.identity !== undefined;
   const { source, testDir } = generateSpecConfigSource({
     baseUrl: input.baseUrl,
     specFiles: input.specFiles,
@@ -84,16 +91,27 @@ export async function runPlaywrightSpecs(
       ? { stepWork: { reporterPath: stepWorkReporterPath, outputFile: stepWorkPath } }
       : {}),
     ...(input.testIdAttribute !== undefined ? { testIdAttribute: input.testIdAttribute } : {}),
-    ...(options.isTraceEnabled !== undefined ? { isTraceEnabled: options.isTraceEnabled } : {}),
+    ...(isSignedIn ? { storageStatePath, isTraceEnabled: false } : {}),
+    ...(!isSignedIn && options.isTraceEnabled !== undefined
+      ? { isTraceEnabled: options.isTraceEnabled }
+      : {}),
   });
   await engine.fs.writeFile(configPath, source);
 
   const cliPath = resolvePlaywrightCliPath(testDir, bundledCliPath);
-  await engine.processRunner.run(
-    process.execPath,
-    [cliPath, 'test', `--config=${configPath}`],
-    options.env !== undefined ? { env: options.env } : undefined,
-  );
+  try {
+    if (input.identity !== undefined) {
+      const storageState = await signInForRun(engine, input.identity, input.environment);
+      await engine.fs.writeFile(storageStatePath, JSON.stringify(storageState));
+    }
+    await engine.processRunner.run(
+      process.execPath,
+      [cliPath, 'test', `--config=${configPath}`],
+      options.env !== undefined ? { env: options.env } : undefined,
+    );
+  } finally {
+    await engine.fs.deleteFile(storageStatePath);
+  }
 
   const reportExists = await engine.fs.pathExists(reportPath);
   if (!reportExists) {
@@ -141,5 +159,6 @@ export async function runPlaywrightSpecs(
  */
 export const playwrightRunner: Runner = {
   testType: 'e2e',
+  signsIn: true,
   run: (engine, input) => runPlaywrightSpecs(engine, input, 'e2e'),
 };

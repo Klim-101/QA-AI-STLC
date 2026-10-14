@@ -49,6 +49,12 @@ const InputSchema = z.object({
     .string()
     .optional()
     .describe('Environment name from config.yaml. Required when there is more than one.'),
+  identity: z
+    .string()
+    .optional()
+    .describe(
+      "Identity name from config.yaml to sign in as for a spec of a page behind sign-in. Defaults to the environment's own identity; anonymous when it has none.",
+    ),
 });
 
 const OutputSchema = z.object({
@@ -65,6 +71,10 @@ const OutputSchema = z.object({
   result: RunResultSchema.optional().describe(
     'Present for "execution_failed"/"verified" — the execution this outcome is based on.',
   ),
+  identity: z
+    .string()
+    .optional()
+    .describe('The identity the spec was executed signed in as; absent for an anonymous run.'),
   spec: GeneratedTestSpecSchema.optional().describe(
     'Present only for "verified" — pass this exact object, unmodified, to qa.generation_register.',
   ),
@@ -106,6 +116,7 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
       runner,
       ...(input.input.apiContract !== undefined ? { contractSha256: input.input.apiContract.sha256 } : {}),
       ...(input.environment !== undefined ? { environment: input.environment } : {}),
+      ...(input.identity !== undefined ? { identity: input.identity } : {}),
     });
 
     const { verificationId } = outcome;
@@ -113,8 +124,20 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
       return { status: outcome.status, verificationId, issues: [...outcome.issues] };
     }
     if (outcome.status === 'execution_failed') {
-      return { status: outcome.status, verificationId, issues: [...outcome.issues], result: outcome.result };
+      return {
+        status: outcome.status,
+        verificationId,
+        issues: [...outcome.issues],
+        result: outcome.result,
+        ...(outcome.identity !== undefined ? { identity: outcome.identity } : {}),
+      };
     }
-    return { status: outcome.status, verificationId, spec, result: outcome.result };
+    return {
+      status: outcome.status,
+      verificationId,
+      spec,
+      result: outcome.result,
+      ...(outcome.identity !== undefined ? { identity: outcome.identity } : {}),
+    };
   },
 };

@@ -23,6 +23,11 @@ describe('RunRecordSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts the identity the run signed in as, and rejects an empty one (P6-89)', () => {
+    expect(RunRecordSchema.safeParse({ ...validRunRecord(), identity: 'tester' }).success).toBe(true);
+    expect(RunRecordSchema.safeParse({ ...validRunRecord(), identity: '' }).success).toBe(false);
+  });
+
   it('rejects an empty specFiles array', () => {
     const result = RunRecordSchema.safeParse({ ...validRunRecord(), specFiles: [] });
     expect(result.success).toBe(false);

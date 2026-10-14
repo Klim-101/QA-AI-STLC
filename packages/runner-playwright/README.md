@@ -29,5 +29,11 @@ is always empty coming out of it) — the caller (`qa run` / MCP `qa.run`, via `
 registers the returned evidence through `EvidenceStore` and fills in `evidenceIds` (P3-03,
 ADR-004).
 
+When `RunnerInput.identity` is set, the runner signs in as that configured identity before the
+specs start and hands Playwright the resulting session as `storageState`. The session file lives in
+the run's temporary directory only until the run ends, traces are turned off for the run (a trace
+records every request's cookies), and a login that produced no session fails with
+`RUN_SIGN_IN_FAILED` instead of running the specs against the login page (P6-89).
+
 Part of [QA-AI-STLC](https://github.com/Klim-101/QA-AI-STLC). See the repository root for
 license, contributing and security information.

@@ -29,6 +29,7 @@ import { findCasePath } from './operations/cases-render.js';
 import { resolveRelativePath } from './paths.js';
 import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
 import { QaStore } from './qa-store.js';
+import { resolveRunIdentity } from './run-identity.js';
 import type { Runner } from './runner.js';
 import { canonicalStepIds } from './step-ids.js';
 
@@ -173,6 +174,8 @@ export interface VerifyGeneratedTestSpecOptions {
   /** The `Runner` implementation for the spec's test type (e.g. `playwrightRunner` for `e2e`). */
   readonly runner: Runner;
   readonly environment?: string;
+  /** Identity name from config.yaml to sign in as; defaults to the environment's own `identity` (P6-89). */
+  readonly identity?: string;
   readonly idGenerator?: IdGenerator;
   /**
    * The contract hash an `api` spec was generated against (`GenerationSpokeInput.apiContract`).
@@ -193,8 +196,15 @@ export type VerificationOutcome =
       readonly verificationId: VerificationId;
       readonly issues: readonly SpokeValidationIssue[];
       readonly result: RunResult;
+      readonly identity?: string;
     }
-  | { readonly status: 'verified'; readonly verificationId: VerificationId; readonly result: RunResult };
+  | {
+      readonly status: 'verified';
+      readonly verificationId: VerificationId;
+      readonly result: RunResult;
+      /** The identity the spec ran signed in as; absent for an anonymous run. */
+      readonly identity?: string;
+    };
 
 function verificationRecordPath(verificationId: VerificationId): RelativePath {
   return `verifications/${verificationId}.json`;
@@ -314,6 +324,7 @@ export async function verifyGeneratedTestSpec(
 
     const config = await loadConfig(context);
     const environment = resolveBrowserEnvironment(config, options.environment);
+    const identity = resolveRunIdentity(config, environment.config, options.runner, options.identity);
     const runId = `verify-${idGenerator.next()}`;
 
     const outcomes = await options.runner.run(context, {
@@ -324,6 +335,7 @@ export async function verifyGeneratedTestSpec(
       idGenerator,
       requiredStepIds: canonicalStepIds(registeredTestCase),
       testIdAttribute: config.selectors.testIdAttribute,
+      ...(identity !== undefined ? { identity } : {}),
     });
     const [outcome, ...extra] = outcomes;
     if (outcome === undefined || extra.length > 0) {
@@ -354,9 +366,20 @@ export async function verifyGeneratedTestSpec(
       verifiedAt: context.clock.now().toISOString(),
     });
     if (status === 'execution_failed') {
-      return { status, verificationId, issues, result: outcome.result };
+      return {
+        status,
+        verificationId,
+        issues,
+        result: outcome.result,
+        ...(identity !== undefined ? { identity } : {}),
+      };
     }
-    return { status, verificationId, result: outcome.result };
+    return {
+      status,
+      verificationId,
+      result: outcome.result,
+      ...(identity !== undefined ? { identity } : {}),
+    };
   } finally {
     await context.fs.deleteFile(scratchAbsolutePath);
   }

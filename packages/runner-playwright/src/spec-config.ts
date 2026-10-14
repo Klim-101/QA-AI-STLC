@@ -49,6 +49,8 @@ export interface SpecConfigOptions {
    * inside a compressed archive.
    */
   readonly isTraceEnabled?: boolean;
+  /** A Playwright storage-state file every browser context starts from, so the specs run signed in. */
+  readonly storageStatePath?: string;
   /**
    * The step-work reporter (`step-work-reporter.ts`) to run next to the JSON one, and the file it
    * writes. Only a verification run asks for it: it has a single required step set to check.
@@ -86,6 +88,7 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
     use: {
       baseURL: options.baseUrl,
       testIdAttribute: options.testIdAttribute ?? DEFAULT_TEST_ID_ATTRIBUTE,
+      ...(options.storageStatePath === undefined ? {} : { storageState: options.storageStatePath }),
       screenshot: 'only-on-failure',
       trace: options.isTraceEnabled === false ? 'off' : 'retain-on-failure',
     },
