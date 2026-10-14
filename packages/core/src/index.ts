@@ -54,6 +54,7 @@ export * from './testing-scope.js';
 export * from './engine-context.js';
 export * from './run-identity.js';
 export * from './run-sign-in.js';
+export * from './locator-module-exports.js';
 export * from './runner.js';
 export * from './step-ids.js';
 export * from './operations/doctor.js';

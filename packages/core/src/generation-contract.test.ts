@@ -86,16 +86,27 @@ describe('buildRegistrySlice', () => {
   });
 });
 
+// What the real locator module exports: el-1 and el-2 share one locator, so one function answers both.
+const MODULE_EXPORTS = [
+  { elementId: 'el-1', name: 'checkoutButton' },
+  { elementId: 'el-2', name: 'checkoutButton' },
+  { elementId: 'el-4', name: 'appHeader' },
+];
+
 describe('buildGenerationSpokeInput', () => {
-  it('includes only elements the locator module actually exports a function for', () => {
+  it('lists the functions the module exports for the slice, including one an identical element shares', () => {
     const input = buildGenerationSpokeInput({
       testCase,
       registry,
       elementIds: ['el-1', 'el-2', 'el-3'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
 
-    expect(input.locatorModule?.exports).toEqual([{ elementId: 'el-1', name: 'checkoutButton' }]);
+    expect(input.locatorModule?.exports).toEqual([
+      { elementId: 'el-1', name: 'checkoutButton' },
+      { elementId: 'el-2', name: 'checkoutButton' },
+    ]);
     expect(input.registrySlice?.elements).toHaveLength(3);
   });
 
@@ -105,6 +116,7 @@ describe('buildGenerationSpokeInput', () => {
       registry,
       elementIds: ['el-1', 'el-4'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
 
     expect(input.locatorModule?.exports).toEqual([
@@ -119,6 +131,7 @@ describe('buildGenerationSpokeInput', () => {
       registry,
       elementIds: [],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
 
     expect(input.locatorModule?.exports).toEqual([]);
@@ -130,6 +143,7 @@ describe('buildGenerationSpokeInput', () => {
       registry,
       elementIds: [],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
 
     expect(input.provenSession).toBeUndefined();
@@ -153,6 +167,7 @@ describe('buildGenerationSpokeInput', () => {
       registry,
       elementIds: [],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
       provenSession,
     });
 
@@ -167,6 +182,7 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
 
     const first = stampGeneratedTestSpec({
@@ -194,6 +210,7 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
     const spec = stampGeneratedTestSpec({
       input,
@@ -212,6 +229,7 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
     const spec = stampGeneratedTestSpec({
       input,
@@ -226,6 +244,7 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
 
     expect(isGeneratedTestSpecStale(spec, changedInput)).toBe(true);
@@ -237,6 +256,7 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
     });
     const spec = stampGeneratedTestSpec({
       input,
@@ -251,6 +271,7 @@ describe('stampGeneratedTestSpec and isGeneratedTestSpecStale', () => {
       registry,
       elementIds: ['el-1'],
       locatorModuleGeneratorVersion: '0.7.0',
+      locatorModuleExports: MODULE_EXPORTS,
       provenSession: ProvenSessionSchema.parse({
         testCaseId: 'case-1',
         runResultId: 'run-result-2',
