@@ -137,6 +137,13 @@ not only the obvious one: credential-header rejection in `qa.http_execute` and i
 the allowlist check on the request URL and on the token URL; redaction of URL, response headers and
 body; the process-memory-only guarantee; and the environment check on a session that supplies a browser-derived token.
 
+Amendment (P6-93): the operator should not hand-edit `config.yaml`, so an agent creates profiles with
+`qa.config_add_api_auth` and finds a browser token's source with `qa.browser_discover_api_auth`.
+Both hold names only. A session now also keeps, in memory, the latest value of `Authorization` and of
+any request header carrying a `Bearer` value sent to an allowlisted host, because discovery has to
+compare them with what the page stored before any profile names a header. The values are never
+returned, logged or registered as evidence.
+
 Rejected alternatives:
 
 - **Keep raw `headers` and tell the agent to read secrets from the environment**: a prose rule, not a

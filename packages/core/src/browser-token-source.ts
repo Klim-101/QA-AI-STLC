@@ -129,7 +129,7 @@ function toToken(raw: string, jsonPath: string | undefined, what: string): Brows
 }
 
 // A cookie set for a parent domain is sent to an allowlisted subdomain, so it counts.
-function isCookieDomainAllowed(domain: string, allowlist: readonly string[]): boolean {
+export function isCookieDomainAllowed(domain: string, allowlist: readonly string[]): boolean {
   const bare = domain.replace(/^\./u, '');
   return allowlist.some((host) => host === bare || host.endsWith(`.${bare}`));
 }

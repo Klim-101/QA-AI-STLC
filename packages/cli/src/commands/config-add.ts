@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export {
+  runConfigAddApiAuthProfile,
   runConfigAddEnvironment,
   runConfigAddIdentity,
+  type ConfigAddApiAuthProfileOptions,
+  type ConfigAddApiAuthProfileResult,
   type ConfigAddEnvironmentOptions,
   type ConfigAddEnvironmentResult,
   type ConfigAddIdentityOptions,

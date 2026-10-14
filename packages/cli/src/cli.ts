@@ -56,8 +56,10 @@ import { createCommandContext, type CreateCommandContextOptions } from './comman
 import { formatConfigRelaxation, printConfigRelaxations } from './config-relaxations.js';
 import {
   runConfigAddEnvironment,
+  runConfigAddApiAuthProfile,
   runConfigAddIdentity,
   type ConfigAddEnvironmentResult,
+  type ConfigAddApiAuthProfileResult,
   type ConfigAddIdentityResult,
 } from './commands/config-add.js';
 import { runConfigSet, type ConfigSetResult } from './commands/config-set.js';
@@ -81,7 +83,7 @@ Commands:
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   api-diff      Compare the OpenAPI contract with the endpoints the last explore observed: "api-diff [--environment <name>]"
   config set    Change one setting after init: "config set testing.<type> <decision>" or "config set ui.componentLibrary <library>"
-  config add    Add an environment or identity: "config add environment <name> ..." or "config add identity <name> ..."
+  config add    Add an environment, identity or API auth profile: "config add environment <name> ...", "config add identity <name> ..." or "config add api-auth <name> --profile <json>"
   config show   Print the effective configuration and its relaxations: "config show [--explain]" also names the source layer of every value
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
   cases add     Validate and register a test case: "cases add --path <path>"
@@ -379,6 +381,9 @@ async function dispatchConfigAdd(rest: readonly string[], dependencies: RunCliDe
   if (target === 'identity') {
     return await dispatchConfigAddIdentity(targetRest, dependencies);
   }
+  if (target === 'api-auth') {
+    return await dispatchConfigAddApiAuth(targetRest, dependencies);
+  }
   dependencies.io.stderr(`Unknown "qa config add" target "${target ?? ''}".\n\n${USAGE}`);
   return EXIT_USAGE;
 }
@@ -496,6 +501,56 @@ async function dispatchConfigAddIdentity(
     force: values.force,
   });
   printResult(context.io, json, 'config-add-identity', result, formatConfigAddIdentityResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchConfigAddApiAuth(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: rest,
+    options: {
+      json: { type: 'boolean', default: false },
+      profile: { type: 'string' },
+      'default-for': { type: 'string' },
+      force: { type: 'boolean', default: false },
+    },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [name] = positionals;
+  if (name === undefined || typeof values.profile !== 'string') {
+    throw new QaError(
+      'CONFIG_ADD_USAGE',
+      'Usage: qa config add api-auth <name> --profile <json> [--default-for <environment>] [--force]',
+      {
+        remediation: `Example: qa config add api-auth staging-api --profile '{"type":"bearer","tokenVariable":"QA_API_TOKEN"}' --default-for staging`,
+      },
+    );
+  }
+  let profile: unknown;
+  try {
+    profile = JSON.parse(values.profile);
+  } catch (error) {
+    throw new QaError('CONFIG_ADD_USAGE', '--profile is not valid JSON', {
+      remediation: 'Pass the profile as one JSON object, quoted for your shell.',
+      cause: error,
+    });
+  }
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runConfigAddApiAuthProfile(context, {
+    name,
+    profile,
+    ...(typeof values['default-for'] === 'string' ? { defaultForEnvironment: values['default-for'] } : {}),
+    force: values.force,
+  });
+  printResult(context.io, json, 'config-add-api-auth', result, formatConfigAddApiAuthResult(result));
   return EXIT_SUCCESS;
 }
 
@@ -1034,6 +1089,14 @@ function formatConfigSetResult(result: ConfigSetResult): readonly string[] {
 function formatConfigAddEnvironmentResult(result: ConfigAddEnvironmentResult): readonly string[] {
   return [
     `Added environment "${result.name}": ${result.environment.baseUrl} (allowlist: ${result.environment.allowlist.join(', ')})`,
+  ];
+}
+
+function formatConfigAddApiAuthResult(result: ConfigAddApiAuthProfileResult): readonly string[] {
+  return [
+    `Added API auth profile "${result.name}": type=${result.profile.type}${
+      result.defaultForEnvironment === undefined ? '' : `, default for "${result.defaultForEnvironment}"`
+    }`,
   ];
 }
 

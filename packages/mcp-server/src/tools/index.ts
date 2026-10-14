@@ -20,6 +20,7 @@ import { createBrowserPressTool } from './browser-press.js';
 import { createBrowserGridFindRowTool, createBrowserGridReadCellTool } from './browser-grid.js';
 import { createBrowserNavigateTool } from './browser-navigate.js';
 import { createBrowserAttachTool } from './browser-attach.js';
+import { createBrowserDiscoverApiAuthTool } from './browser-discover-api-auth.js';
 import { createBrowserOpenTool } from './browser-open.js';
 import { createBrowserClosePopupTool, createBrowserOpenPopupTool } from './browser-popup.js';
 import { createBrowserSelectOptionTool } from './browser-select-option.js';
@@ -33,6 +34,7 @@ import { defectAddTool } from './defect-add.js';
 import { rcaAddTool } from './rca-add.js';
 import { rcaApproveTool } from './rca-approve.js';
 import { rcaInputTool } from './rca-input.js';
+import { configAddApiAuthTool } from './config-add-api-auth.js';
 import { configAddTool } from './config-add.js';
 import { configSetTool } from './config-set.js';
 import { configShowTool } from './config-show.js';
@@ -65,6 +67,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   configShowTool,
   configSetTool,
   configAddTool,
+  configAddApiAuthTool,
   exploreTool,
   apiDiffTool,
   scopeTool,
@@ -96,6 +99,7 @@ export function createBrowserTools(dependencies: BrowserToolDependencies): reado
   return [
     createBrowserOpenTool(dependencies),
     createBrowserAttachTool(dependencies),
+    createBrowserDiscoverApiAuthTool(dependencies),
     createBrowserNavigateTool(dependencies),
     createBrowserClickTool(dependencies),
     createBrowserFillTool(dependencies),
