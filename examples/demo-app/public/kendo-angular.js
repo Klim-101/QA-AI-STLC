@@ -409,9 +409,9 @@ function personRow(person, index) {
   return element(
     'tr',
     { role: 'row', 'data-row-index': String(index) },
-    element('td', { role: 'gridcell' }, String(person.id)),
-    element('td', { role: 'gridcell' }, person.name),
-    element('td', { role: 'gridcell' }, person.department),
+    element('td', { role: 'gridcell', 'aria-colindex': '1' }, String(person.id)),
+    element('td', { role: 'gridcell', 'aria-colindex': '2' }, person.name),
+    element('td', { role: 'gridcell', 'aria-colindex': '3' }, person.department),
   );
 }
 
@@ -419,7 +419,9 @@ function gridShell(host) {
   const head = element(
     'tr',
     { role: 'row' },
-    ...['ID', 'Name', 'Department'].map((title) => element('th', { role: 'columnheader' }, title)),
+    ...['ID', 'Name', 'Department'].map((title, index) =>
+      element('th', { role: 'columnheader', 'aria-colindex': String(index + 1) }, title),
+    ),
   );
   const body = element('tbody', { role: 'rowgroup' });
   const table = element(

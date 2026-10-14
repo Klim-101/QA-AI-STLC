@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { SCHEMA_VERSION } from '@qa-ai-stlc/schemas';
-import type { SelectorElement, SelectorRegistry } from '@qa-ai-stlc/schemas';
+import type { LocatorCandidate, SelectorElement, SelectorRegistry } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import type { ComponentLibraryProfiles } from './component-library-profile.js';
 import { generateLocatorModule } from './generate-locator-module.js';
@@ -20,6 +20,10 @@ function selectorElement(overrides: Partial<SelectorElement> = {}): SelectorElem
     source: 'crawl',
     ...overrides,
   };
+}
+
+function testId(value: string): LocatorCandidate {
+  return { strategy: 'testId', value, fragile: false };
 }
 
 function registry(elements: readonly SelectorElement[]): SelectorRegistry {
@@ -79,8 +83,8 @@ describe('generateLocatorModule', () => {
 
   it('orders exported functions by name regardless of registry order', () => {
     const elements = [
-      selectorElement({ elementId: 'b', name: 'zebra' }),
-      selectorElement({ elementId: 'a', name: 'apple' }),
+      selectorElement({ elementId: 'b', name: 'zebra', locatorCandidates: [testId('zebra')] }),
+      selectorElement({ elementId: 'a', name: 'apple', locatorCandidates: [testId('apple')] }),
     ];
 
     const { source } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
@@ -105,7 +109,9 @@ describe('generateLocatorModule', () => {
     });
 
     expect(source).not.toContain('function submit');
-    expect(missingLocators).toEqual([{ elementId: 'element-1', kind: 'button' }]);
+    expect(missingLocators).toEqual([
+      { elementId: 'element-1', kind: 'button', reason: 'no-locator-candidate' },
+    ]);
   });
 
   it('reports an element with no assigned name as missing', () => {
@@ -113,7 +119,7 @@ describe('generateLocatorModule', () => {
 
     const { missingLocators } = generateLocatorModule(registry([element]), { generatorVersion: '0.3.0' });
 
-    expect(missingLocators).toEqual([{ elementId: 'element-1', kind: 'button' }]);
+    expect(missingLocators).toEqual([{ elementId: 'element-1', kind: 'button', reason: 'no-name' }]);
   });
 
   it('sorts multiple missing elements by elementId', () => {
@@ -125,8 +131,8 @@ describe('generateLocatorModule', () => {
     const { missingLocators } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
 
     expect(missingLocators).toEqual([
-      { elementId: 'a', kind: 'button' },
-      { elementId: 'z', kind: 'button' },
+      { elementId: 'a', kind: 'button', reason: 'no-name' },
+      { elementId: 'z', kind: 'button', reason: 'no-name' },
     ]);
   });
 
@@ -181,6 +187,125 @@ describe('generateLocatorModule', () => {
 
     expect(source).not.toContain('function submit');
     expect(missingLocators).toEqual([]);
+  });
+
+  describe('identical and session-added locators (P6-90)', () => {
+    it('writes one function for elements that share a locator and keeps the unsuffixed name', () => {
+      const elements = [
+        selectorElement({ elementId: 'row-3', name: 'copyButton3' }),
+        selectorElement({ elementId: 'row-1', name: 'copyButton' }),
+        selectorElement({ elementId: 'row-2', name: 'copyButton2' }),
+      ];
+
+      const { source, sharedLocators, missingLocators } = generateLocatorModule(registry(elements), {
+        generatorVersion: '0.3.0',
+      });
+
+      expect(source.match(/export function /g)).toHaveLength(1);
+      expect(source).toContain('export function copyButton(page: Page): Locator');
+      expect(sharedLocators).toEqual([
+        { elementId: 'row-2', exportName: 'copyButton' },
+        { elementId: 'row-3', exportName: 'copyButton' },
+      ]);
+      expect(missingLocators).toEqual([]);
+    });
+
+    it('keeps two different locators apart and suffixes the later one when their names collide', () => {
+      const elements = [
+        selectorElement({ elementId: 'a', name: 'save', locatorCandidates: [testId('save-a')] }),
+        selectorElement({ elementId: 'b', name: 'save', locatorCandidates: [testId('save-b')] }),
+      ];
+
+      const { source } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
+
+      expect(source).toContain(
+        'export function save(page: Page): Locator {\n  return page.getByTestId("save-a");',
+      );
+      expect(source).toContain(
+        'export function save2(page: Page): Locator {\n  return page.getByTestId("save-b");',
+      );
+    });
+
+    it('accounts for every active element as an owner, a shared locator or a skip', () => {
+      const elements = [
+        selectorElement({ elementId: 'a', name: 'one' }),
+        selectorElement({ elementId: 'b', name: 'two' }),
+        selectorElement({ elementId: 'c', name: 'three', locatorCandidates: [testId('c')] }),
+        selectorElement({ elementId: 'd', name: undefined, locatorCandidates: [testId('d')] }),
+        selectorElement({ elementId: 'e', name: 'five', locatorCandidates: [] }),
+        selectorElement({ elementId: 'f', name: 'six', deprecatedAt: '2026-09-19T00:00:00Z' }),
+      ];
+
+      const { source, sharedLocators, missingLocators } = generateLocatorModule(registry(elements), {
+        generatorVersion: '0.3.0',
+      });
+
+      const functionCount = source.match(/^export function /gm)?.length ?? 0;
+      expect(functionCount + sharedLocators.length + missingLocators.length).toBe(5);
+    });
+
+    it('turns a session-added selector into a page.locator call', () => {
+      const element = selectorElement({
+        name: 'lastGwHeader',
+        source: 'execute',
+        locatorCandidates: [
+          { strategy: 'execute', value: 'role=columnheader[name="Last GW ID"]', fragile: true },
+        ],
+      });
+
+      const { source, missingLocators } = generateLocatorModule(registry([element]), {
+        generatorVersion: '0.3.0',
+      });
+
+      expect(source).toContain('return page.locator("role=columnheader[name=\\"Last GW ID\\"]");');
+      expect(missingLocators).toEqual([]);
+    });
+
+    it.each([
+      ['role=columnheader[name="Last GW ID"]', 'columnheaderLastGwId'],
+      ['role=button', 'button'],
+      ['text=Save changes', 'saveChanges'],
+      ['#orders .row', 'ordersRow'],
+    ])('names an unnamed session-added element after its selector (%s)', (selector, expectedName) => {
+      const element = selectorElement({
+        name: undefined,
+        kind: 'button',
+        source: 'execute',
+        locatorCandidates: [{ strategy: 'execute', value: selector, fragile: true }],
+      });
+
+      const { source, missingLocators } = generateLocatorModule(registry([element]), {
+        generatorVersion: '0.3.0',
+      });
+
+      expect(source).toContain(`export function ${expectedName}(page: Page): Locator`);
+      expect(missingLocators).toEqual([]);
+    });
+  });
+
+  describe('grid rows and cells (P6-90)', () => {
+    const grid = (overrides: Partial<SelectorElement> = {}): SelectorElement =>
+      selectorElement({ name: 'nodes', kind: 'grid', library: 'kendo-angular', ...overrides });
+
+    it('renders a row helper by row text and a cell helper by column name', () => {
+      const { source } = generateLocatorModule(registry([grid()]), { generatorVersion: '0.3.0' });
+
+      expect(source).toContain('export function nodesRow(page: Page, rowText: string): Locator {');
+      expect(source).toContain('nodes(page).getByRole("row").filter({ hasText: rowText })');
+      expect(source).toContain(
+        'export async function nodesCell(page: Page, rowText: string, columnName: string): Promise<Locator> {',
+      );
+      expect(source).toContain('getAttribute("aria-colindex")');
+      expect(source).not.toContain('widgetRoot');
+    });
+
+    it('renders no grid helper for a kind without grid controls', () => {
+      const { source } = generateLocatorModule(registry([grid({ kind: 'tabstrip' })]), {
+        generatorVersion: '0.3.0',
+      });
+
+      expect(source).not.toContain('nodesRow');
+    });
   });
 
   describe('widget helpers (P6-43)', () => {
@@ -238,7 +363,14 @@ describe('generateLocatorModule', () => {
     });
 
     it('does not let a helper replace the locator function of an element with the same name', () => {
-      const elements = [widget(), selectorElement({ elementId: 'element-2', name: 'statusOpenPopup' })];
+      const elements = [
+        widget(),
+        selectorElement({
+          elementId: 'element-2',
+          name: 'statusOpenPopup',
+          locatorCandidates: [testId('other')],
+        }),
+      ];
 
       const { source } = generateLocatorModule(registry(elements), { generatorVersion: '0.3.0' });
 

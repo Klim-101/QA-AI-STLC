@@ -15,6 +15,7 @@ import {
   computeElementId,
   createElementIdAssigner,
   diffSelectorRegistry,
+  elementNameForId,
   mergeSelectorRegistry,
 } from './build-selector-registry.js';
 import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
@@ -551,6 +552,72 @@ describe('mergeSelectorRegistry', () => {
     const merged = mergeSelectorRegistry(previous, fresh, '2026-09-18T00:00:00Z');
 
     expect(merged.elements).toEqual([{ ...BASE_ELEMENT, deprecatedAt: '2026-09-16T00:00:00Z' }]);
+  });
+
+  describe('names (P6-90)', () => {
+    const named = (elementId: string, name: string | undefined): SelectorElement => ({
+      ...BASE_ELEMENT,
+      elementId,
+      ...(name === undefined ? {} : { name }),
+    });
+    const merge = (previous: readonly SelectorElement[], fresh: readonly SelectorElement[]) =>
+      mergeSelectorRegistry(registry(previous), registry(fresh), '2026-09-17T00:00:00Z').elements.map(
+        (merged) => merged.name,
+      );
+
+    it('keeps the name an element had when a later crawl numbers it differently', () => {
+      expect(
+        merge([named('a', 'save'), named('b', 'save2')], [named('b', 'save'), named('a', 'save2')]),
+      ).toEqual(['save2', 'save']);
+    });
+
+    it('leaves a new element, an unchanged name and an unnamed element alone', () => {
+      expect(
+        merge(
+          [named('a', 'save'), named('c', undefined)],
+          [named('a', 'save'), named('b', 'cancel'), named('c', 'close')],
+        ),
+      ).toEqual(['save', 'cancel', 'close']);
+    });
+
+    it('numbers a new element past a name an existing one keeps', () => {
+      expect(merge([named('a', 'save')], [named('a', 'saveAll'), named('b', 'save')])).toEqual([
+        'save',
+        'save2',
+      ]);
+    });
+
+    it('does not give one earlier name to two elements', () => {
+      expect(merge([named('a', 'save'), named('b', 'save')], [named('a', 'x'), named('b', 'y')])).toEqual([
+        'save',
+        'y',
+      ]);
+    });
+
+    it('leaves a new element without a name unnamed', () => {
+      expect(merge([], [named('a', undefined)])).toEqual([undefined]);
+    });
+
+    it('keeps an element without a name unnamed', () => {
+      expect(merge([named('a', 'save')], [named('a', undefined)])).toEqual(['save']);
+    });
+  });
+});
+
+describe('elementNameForId', () => {
+  it('skips a number or a letter plus digits for the next meaningful signal', () => {
+    expect(elementNameForId(element({ accessibleName: 'V11102', testId: 'copy-pictogram' }))).toBe(
+      'copy-pictogram',
+    );
+    expect(elementNameForId(element({ accessibleName: '59595990', label: 'Node' }))).toBe('Node');
+  });
+
+  it('keeps a name with a word in it, even with digits', () => {
+    expect(elementNameForId(element({ accessibleName: 'Page 2' }))).toBe('Page 2');
+  });
+
+  it('falls back to the tag and position when no signal is meaningful', () => {
+    expect(elementNameForId(element({ accessibleName: '11102', nthOfType: 3 }))).toBe('button:3');
   });
 });
 

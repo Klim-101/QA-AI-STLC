@@ -43,6 +43,13 @@ a mechanism the engine gates on.
   into the spec, even when one would work. A locator the registry does not have is a signal to run
   `qa-execute` again (which promotes ad hoc finds into the registry with `source: 'execute'`) or
   `qa-explore`, not something to hardcode around.
+- **One function per distinct locator.** Elements that share a locator (the rows of a repeated
+  list) have one function, named after the first; the others are listed as shared in the generator
+  result, so never look for a numbered copy. A data grid has `<name>Row(page, rowText)` for a row by
+  the text it shows and `await <name>Cell(page, rowText, columnName)` for a cell by its column
+  header's name: use them instead of indexing rows. An element added during execution is a
+  `page.locator(...)` function like any other. An element the module cannot express is reported with
+  a reason (`no-locator-candidate`, `no-name`), never dropped silently.
 - **No arbitrary waits.** A generated step waits on the same Playwright auto-waiting and explicit
   assertions (`expect(...).toBeVisible()` and similar) the runner already provides — never a fixed
   `page.waitForTimeout()` to paper over timing uncertainty.

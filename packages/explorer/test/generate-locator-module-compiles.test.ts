@@ -142,10 +142,20 @@ describe('generateLocatorModule (compiles under strict TypeScript)', () => {
         element('status', 'dropdownlist'),
         element('assignee', 'combobox'),
         element('due', 'datepicker'),
+        { ...element('nodes', 'grid'), library: 'kendo-angular' },
+        {
+          ...element('lastGwHeader', 'columnheader'),
+          source: 'execute',
+          locatorCandidates: [
+            { strategy: 'execute', value: 'role=columnheader[name="Last GW ID"]', fragile: true },
+          ],
+        },
       ]),
       { generatorVersion: '0.3.0' },
     );
     expect(source).toContain('statusSelectOption');
+    expect(source).toContain('nodesCell');
+    expect(source).toContain('role=columnheader');
 
     const testDirectory = fileURLToPath(new URL('.', import.meta.url));
     const tempDirectory = await mkdtemp(join(testDirectory, '.tmp-locators-'));
