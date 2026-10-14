@@ -562,7 +562,7 @@
             "type": "string"
           },
           "expected": {
-            "description": "text, value and url: the text expected; a number or boolean is compared as its string form. count: a whole number. checked: true (default) or false. visible and hidden take none.",
+            "description": "text, value and url: the string expected. count: a whole number. checked: true (default) or false. visible and hidden take none.",
             "type": [
               "string",
               "number",
