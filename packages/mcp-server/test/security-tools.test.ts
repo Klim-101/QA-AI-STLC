@@ -66,7 +66,11 @@ describe('security tools (real filesystem, local server)', () => {
 
   afterEach(async () => {
     process.chdir(originalCwd);
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) =>
+      server.close(() => {
+        resolve();
+      }),
+    );
   });
 
   async function withProject(security: string, run: (projectRoot: string) => Promise<void>): Promise<void> {

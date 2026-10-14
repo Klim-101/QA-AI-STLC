@@ -729,7 +729,7 @@ describe('runSecurityAuditCommand', () => {
 
     expect(summary.status).toBe('partial');
     expect(summary.stoppedReason).toContain('budget');
-    expect(summary.checks.some((entry) => entry.note !== undefined)).toBe(true);
+    expect(summary.checks.some((entry) => entry.note.length > 0)).toBe(true);
   });
 
   it('does not start without an approved authorization', async () => {
