@@ -17,19 +17,14 @@ import { QaError } from '../errors.js';
 import { ensureApiAuthModule } from '../api-auth-module.js';
 import { loadApiContract, selectContractOperations } from '../api-contract.js';
 import { loadConfig } from '../config-loader.js';
+import { deriveExpectationAssertions } from '../expectation-assertions.js';
 import { buildApiGenerationSpokeInput, buildGenerationSpokeInput } from '../generation-contract.js';
-import { parseLocatorModuleExports } from '../locator-module-exports.js';
+import { LOCATOR_MODULE_PATH, parseLocatorModuleExports } from '../locator-module-exports.js';
 import { resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { findCasePath } from './cases-render.js';
 
 const REGISTRY_PATH: RelativePath = 'selectors/registry.json';
-// The one manifest entry that lives in the real project tree, not under `.qa/` (ADR-006), so it
-// cannot be read through `QaStore`. `packages/core` cannot import `@qa-ai-stlc/explorer` to reuse
-// its own copy of this path (AGENTS.md section 3, dependencies point downward only) — `validate.ts`
-// keeps the same duplicated constant for the same reason.
-const LOCATOR_MODULE_PATH = 'tests/qa/locators.ts';
-
 // Avoids a capturing regex on purpose, the same reasoning `verification.ts`'s `tsc` diagnostic
 // parser and `proven-session.ts`'s step-id parser document: `noUncheckedIndexedAccess` types every
 // capture group `string | undefined` regardless of the pattern, forcing an unreachable fallback for
@@ -66,9 +61,12 @@ async function buildApiSpokeInput(
   // before the spoke runs.
   await ensureApiAuthModule(context, config.apiAuth);
   const contract = await loadApiContract(context, config, options.environment);
+  const expectations = deriveExpectationAssertions(testCase, undefined, []);
   return buildApiGenerationSpokeInput({
     testCase,
     apiContract: selectContractOperations(contract, testCase.endpoints),
+    expectationAssertions: expectations.assertions,
+    unresolvedExpectations: expectations.unresolved,
     ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
   });
 }
@@ -124,12 +122,18 @@ export async function runBuildGenerationSpokeInput(
     );
   }
 
+  const locatorModuleExports = parseLocatorModuleExports(locatorModuleSource);
+  // Resolved against the whole registry and module, not the slice: an expectation may name an
+  // element the caller did not list among the ones its steps use.
+  const expectations = deriveExpectationAssertions(testCase, registry, locatorModuleExports);
   return buildGenerationSpokeInput({
     testCase,
     registry,
     elementIds: options.elementIds,
     locatorModuleGeneratorVersion,
-    locatorModuleExports: parseLocatorModuleExports(locatorModuleSource),
+    locatorModuleExports,
+    expectationAssertions: expectations.assertions,
+    unresolvedExpectations: expectations.unresolved,
     ...(options.provenSession !== undefined ? { provenSession: options.provenSession } : {}),
   });
 }

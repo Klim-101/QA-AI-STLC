@@ -229,6 +229,94 @@ describe('generation verification loop (demo app, no LLM)', () => {
   );
 });
 
+// P6-86 against the real app: a case that declares an expectation gets the assertion for it in its
+// spoke input, and a spec that leaves it out is refused before anything is run.
+describe('declared expectations (demo app, no LLM)', () => {
+  it(
+    'asks for the assertion, refuses a spec without it and verifies one that makes it',
+    async () => {
+      await writeFile(
+        join(PROJECT_ROOT, 'login-expectation.json'),
+        JSON.stringify({
+          id: 'login-expectation',
+          feature: 'login',
+          requirementIds: ['login'],
+          testType: 'e2e',
+          title: 'The login form offers a log in button',
+          steps: [
+            {
+              description: 'Open the login page',
+              expectations: [{ kind: 'visible', selector: 'role=button[name="Log in"]' }],
+            },
+          ],
+          expectedResult: 'The login page is shown',
+          status: 'approved',
+          createdAt: '2026-10-14T09:00:00Z',
+        }),
+        'utf-8',
+      );
+      await casesAddTool.handler({ path: 'login-expectation.json' });
+      const spokeInput = await generationSpokeInputTool.handler({
+        testCaseId: 'login-expectation',
+        elementIds: [],
+      });
+
+      const assertion = spokeInput.expectationAssertions?.[0];
+      expect(assertion).toMatchObject({ where: 'step-1', kind: 'visible' });
+      expect(spokeInput.unresolvedExpectations).toBeUndefined();
+      const locatorName = /expect\((\w+)\(page\)\)/u.exec(assertion?.code ?? '')?.[1];
+      expect(locatorName).toBeDefined();
+
+      const specWith = (assertionLine: string): string =>
+        [
+          "import { expect, test } from '@playwright/test';",
+          `import { ${locatorName ?? ''} } from '../locators.js';`,
+          '',
+          'test(',
+          "  'the login form offers a log in button',",
+          '  {',
+          '    annotation: [',
+          "      { type: 'testCaseId', description: 'login-expectation' },",
+          "      { type: 'stepIds', description: 'step-1,expected-result' },",
+          '    ],',
+          '  },',
+          '  async ({ page }) => {',
+          "    await test.step('[step-1] Open the login page', async () => {",
+          "      await page.goto('/login');",
+          `      ${assertionLine}`,
+          '    });',
+          "    await test.step('[expected-result] The login page is shown', async () => {",
+          '      await expect(page).toHaveURL(/\\/login/);',
+          '    });',
+          '  },',
+          ');',
+          '',
+        ].join('\n');
+      const verify = (content: string, filePath: string) =>
+        generationVerifyTool.handler({
+          input: spokeInput,
+          content,
+          filePath,
+          generatorVersion: spokeInput.locatorModule?.generatorVersion ?? 'unknown',
+        });
+
+      const refused = await verify(
+        specWith("await expect(page.getByRole('button')).toBeVisible();"),
+        'tests/qa/generated/login-expectation-missing.spec.ts',
+      );
+      const accepted = await verify(
+        specWith(assertion?.code ?? ''),
+        'tests/qa/generated/login-expectation.spec.ts',
+      );
+
+      expect(refused.status).toBe('expectations_missing');
+      expect(refused.issues?.[0]?.message).toContain(assertion?.code ?? 'missing');
+      expect(accepted.status).toBe('verified');
+    },
+    STARTUP_TIMEOUT_MS,
+  );
+});
+
 // P6-13's exit criterion against the real app: a generated API spec for a demo-app endpoint passes
 // the verification loop, and is rejected once the contract it was generated against changes.
 describe('api spec generation (demo app, no LLM)', () => {

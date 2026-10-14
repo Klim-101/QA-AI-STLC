@@ -42,6 +42,28 @@ export const ApiContractSliceSchema = z.object({
 });
 export type ApiContractSlice = z.infer<typeof ApiContractSliceSchema>;
 
+// One declared case expectation (ADR-0016) rendered as the assertion a generated spec has to make
+// (P6-86). `where` is the step id (`step-<N>`) whose `test.step` carries it, or `result` for a
+// result expectation, which may sit in any step. `code` is the line to copy into the spec; the
+// engine looks for it again when it verifies the spec.
+export const ExpectationAssertionSchema = z.object({
+  where: z.string().min(1),
+  kind: z.string().min(1),
+  code: z.string().min(1),
+});
+export type ExpectationAssertion = z.infer<typeof ExpectationAssertionSchema>;
+
+// A declared expectation the engine could not turn into an assertion: its selector names no element
+// of the registry, or the element has no function in the locator module. The spec must not inline
+// the selector (AGENTS.md 12.6); the gap is reported so the registry can be completed.
+export const UnresolvedExpectationSchema = z.object({
+  where: z.string().min(1),
+  kind: z.string().min(1),
+  selector: z.string().min(1),
+  reason: z.enum(['selector-not-in-registry', 'element-not-exported']),
+});
+export type UnresolvedExpectation = z.infer<typeof UnresolvedExpectationSchema>;
+
 // What a `qa-generate-tests` spoke task (P3-07) receives: the case to codify, the slice of the
 // selector registry its steps are expected to need, and the generated locator module's own current
 // API surface, so the spoke never has to inline a selector or guess an export name (ADR-006).
@@ -68,6 +90,10 @@ export const GenerationSpokeInputSchema = z
     // `sourceHash`: re-running `qa-execute` for the case changes this field and therefore the hash,
     // so `isGeneratedTestSpecStale` catches that drift with no separate detection mechanism.
     provenSession: ProvenSessionSchema.optional(),
+    // Present only when the case declares expectations (ADR-0016), so a case without any keeps the
+    // `sourceHash` it had before they existed.
+    expectationAssertions: z.array(ExpectationAssertionSchema).optional(),
+    unresolvedExpectations: z.array(UnresolvedExpectationSchema).optional(),
   })
   .superRefine((input, context) => {
     if (input.testCase.testType === 'api') {
@@ -125,7 +151,12 @@ export type GeneratedTestSpec = z.infer<typeof GeneratedTestSpecSchema>;
 export const VerificationIdSchema = z.string().regex(/^verification-[A-Za-z0-9-]+$/);
 export type VerificationId = z.infer<typeof VerificationIdSchema>;
 
-export const VerificationStatusSchema = z.enum(['typecheck_failed', 'execution_failed', 'verified']);
+export const VerificationStatusSchema = z.enum([
+  'typecheck_failed',
+  'expectations_missing',
+  'execution_failed',
+  'verified',
+]);
 export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
 
 // The engine's own record of one `verifyGeneratedTestSpec` run (P4-13), written and registered in
@@ -140,7 +171,7 @@ export const VerificationRecordSchema = z.object({
   filePath: RelativePathSchema,
   contentSha256: Sha256HexSchema,
   status: VerificationStatusSchema,
-  // Absent only for `typecheck_failed`, where the spec never ran.
+  // Absent for `typecheck_failed` and `expectations_missing`, where the spec never ran.
   result: RunResultSchema.optional(),
   verifiedAt: IsoDateTimeSchema,
   consumedAt: IsoDateTimeSchema.optional(),

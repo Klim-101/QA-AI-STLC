@@ -4,6 +4,9 @@
 import type { LocatorModuleExport } from '@qa-ai-stlc/schemas';
 import { QaError } from './errors.js';
 
+/** Where the generated locator module lives in the project tree, outside `.qa/` (ADR-006). */
+export const LOCATOR_MODULE_PATH = 'tests/qa/locators.ts';
+
 const ELEMENTS_PREFIX = '// elements: ';
 const FUNCTION_PREFIX = 'export function ';
 const FUNCTION_SIGNATURE_SUFFIX = '(page: Page): Locator {';

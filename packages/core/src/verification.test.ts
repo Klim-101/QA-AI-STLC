@@ -282,6 +282,194 @@ describe('verifyGeneratedTestSpec', () => {
     expect(receivedInput?.environment).toBe('staging');
   });
 
+  describe('declared expectations (P6-86)', () => {
+    const REGISTRY_JSON = JSON.stringify({
+      schemaVersion: SCHEMA_VERSION,
+      generatedAt: '2026-10-01T00:00:00Z',
+      elements: [
+        {
+          elementId: 'el-status',
+          name: 'status',
+          kind: 'text',
+          locatorCandidates: [{ strategy: 'css', value: '#status', fragile: false }],
+          stabilityScore: 1,
+          lastVerifiedAt: '2026-10-01T00:00:00Z',
+          pii: false,
+          dynamicText: false,
+          source: 'crawl',
+        },
+      ],
+    });
+    const MODULE_SOURCE = [
+      'export const GENERATOR_VERSION = "0.1.0";',
+      '',
+      '// elements: el-status',
+      'export function status(page: Page): Locator {',
+      '  return page.locator("#status");',
+      '}',
+      '',
+    ].join('\n');
+    const WITH_EXPECTATION: TestCase = {
+      ...TEST_CASE,
+      steps: [
+        { description: 'Add an item to the cart' },
+        {
+          description: 'Complete checkout as a guest',
+          expectations: [{ kind: 'text', selector: '#status', expected: 'Ordered' }],
+        },
+      ],
+    };
+    const SPEC_WITH_ASSERTION: GeneratedTestSpec = {
+      ...SPEC,
+      content: [
+        "await test.step('[step-1] Add', async () => {});",
+        "await test.step('[step-2] Complete', async () => {",
+        '  await expect(status(page)).toContainText("Ordered");',
+        '});',
+      ].join('\n'),
+    };
+
+    function createExpectationContext(testCase: TestCase): ReturnType<typeof createContext> {
+      return createContext({
+        fs: createFakeFileSystem({
+          [join('project', '.qa', 'config.yaml')]: CONFIG_YAML,
+          [join('project', '.qa', 'selectors', 'registry.json')]: REGISTRY_JSON,
+          [join('project', 'tests', 'qa', 'locators.ts')]: MODULE_SOURCE,
+          ...registeredCaseFiles(testCase),
+        }),
+      });
+    }
+
+    const passingRunner = (): Runner =>
+      createFakeRunner(() => [{ result: fakeResult({ status: 'passed' }), evidence: [] }]);
+
+    it('refuses a spec that leaves a declared expectation unasserted, runs nothing and records it', async () => {
+      const { context, fs } = createExpectationContext(WITH_EXPECTATION);
+      let runnerCalled = false;
+      const runner = createFakeRunner(() => {
+        runnerCalled = true;
+        return [];
+      });
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: WITH_EXPECTATION,
+        runner,
+        idGenerator,
+      });
+
+      expect(outcome).toMatchObject({
+        status: 'expectations_missing',
+        issues: [
+          {
+            path: ['step-2'],
+            message: expect.stringContaining(
+              'await expect(status(page)).toContainText("Ordered");',
+            ) as string,
+          },
+        ],
+      });
+      expect(runnerCalled).toBe(false);
+      if (outcome.status !== 'expectations_missing') {
+        throw new Error('expected expectations_missing');
+      }
+      await expect(readRecord(fs, outcome.verificationId)).resolves.toMatchObject({
+        status: 'expectations_missing',
+      });
+    });
+
+    it('runs a spec that asserts the declared expectation', async () => {
+      const { context } = createExpectationContext(WITH_EXPECTATION);
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC_WITH_ASSERTION,
+        testCase: WITH_EXPECTATION,
+        runner: passingRunner(),
+        idGenerator,
+      });
+
+      expect(outcome.status).toBe('verified');
+    });
+
+    it('does not ask for an assertion whose selector the registry cannot resolve', async () => {
+      const unresolved: TestCase = {
+        ...WITH_EXPECTATION,
+        steps: [
+          { description: 'Add an item to the cart' },
+          { description: 'Complete', expectations: [{ kind: 'visible', selector: '#nowhere' }] },
+        ],
+      };
+      const { context } = createExpectationContext(unresolved);
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: unresolved,
+        runner: passingRunner(),
+        idGenerator,
+      });
+
+      expect(outcome.status).toBe('verified');
+    });
+
+    it('treats a project without a registry or locator module as having no resolvable expectation', async () => {
+      const { context } = createContext({
+        fs: createFakeFileSystem({
+          [join('project', '.qa', 'config.yaml')]: CONFIG_YAML,
+          ...registeredCaseFiles(WITH_EXPECTATION),
+        }),
+      });
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: WITH_EXPECTATION,
+        runner: passingRunner(),
+        idGenerator,
+      });
+
+      expect(outcome.status).toBe('verified');
+    });
+
+    it('checks an api case against the response assertions without reading a registry', async () => {
+      const apiCase: TestCase = {
+        ...TEST_CASE,
+        testType: 'api',
+        endpoints: [{ method: 'GET', path: '/orders/1' }],
+        steps: [{ description: 'Ask', expectations: [{ kind: 'http-status', expected: 404 }] }],
+      };
+      const { context } = createContext({
+        fs: createFakeFileSystem({
+          [join('project', '.qa', 'config.yaml')]: CONFIG_YAML,
+          ...registeredCaseFiles(apiCase),
+        }),
+      });
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: apiCase,
+        runner: passingRunner(),
+        idGenerator,
+      });
+
+      expect(outcome).toMatchObject({
+        status: 'expectations_missing',
+        issues: [{ path: ['step-1'] }],
+      });
+    });
+
+    it('reads nothing for a case that declares no expectation', async () => {
+      const { context } = createContext();
+
+      const outcome = await verifyGeneratedTestSpec(context, {
+        spec: SPEC,
+        testCase: TEST_CASE,
+        runner: passingRunner(),
+        idGenerator,
+      });
+
+      expect(outcome.status).toBe('verified');
+    });
+  });
+
   describe('identity (P6-89)', () => {
     const identityConfig = CONFIG_YAML.replace(
       'identities: {}',

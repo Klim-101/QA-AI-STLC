@@ -78,3 +78,19 @@ at the `cases` gate stays the place a person judges that, and the readable copy 
 declared checks for exactly that purpose.
 
 A body fragment is searched in the capped preview only, so a fragment beyond the cap is `unmet`.
+
+## Amendment: generated specs assert what the case declares (P6-86)
+
+`qa.generation_spoke_input` renders each declared expectation as the assertion line a spec needs, and
+`qa.generation_verify` looks for that line before it runs the spec, answering `expectations_missing`
+for what is absent. The lines are derived again from the registered case, the registry and the
+locator module on disk, so the list the verification uses is not the one the caller handed in. A
+step's line has to sit in that step's `test.step`; a result expectation may sit in any. Comments and
+whitespace do not count. Selectors reach the spec only as locator-module functions: an expectation
+whose selector matches no registry element (by CSS or `execute` value, `data-testid` attribute or
+`role=` form), or whose element has no function, is listed as unresolved and not asserted.
+
+This checks that the assertion is written, not that it is reached: the run that follows proves it
+passes, and the per-step work check proves each step did something, but a line inside code that never
+runs would satisfy the text check. The case review stays the place a person judges whether the
+declared checks are the right ones.
