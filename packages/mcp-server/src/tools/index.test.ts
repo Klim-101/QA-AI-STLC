@@ -19,6 +19,7 @@ describe('createBuiltinTools', () => {
     expect(names.filter((name) => name.startsWith('qa.browser_'))).toEqual([
       'qa.browser_open',
       'qa.browser_attach',
+      'qa.browser_discover_api_auth',
       'qa.browser_navigate',
       'qa.browser_click',
       'qa.browser_fill',
@@ -43,6 +44,7 @@ describe('createBuiltinTools', () => {
     ]);
     expect(names).toContain('qa.registry_execute_register');
     expect(names).toContain('qa.config_show');
+    expect(names).toContain('qa.config_add_api_auth');
     expect(names).toContain('qa.status');
   });
 

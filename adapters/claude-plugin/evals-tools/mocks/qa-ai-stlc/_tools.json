@@ -71,6 +71,24 @@
       }
     },
     {
+      "name": "qa.browser_discover_api_auth",
+      "description": "After signing in (qa.browser_open with an identity, or qa.browser_attach) and opening a page that calls the application API, reports which request header carries the bearer token and which cookie, localStorage or sessionStorage key holds the same token, as names only: a token value is never returned. Returns a proposedProfile to pass to qa.config_add_api_auth. Requests are observed only while the session is open. Fails with API_AUTH_DISCOVERY_NO_TOKEN when no request carried a bearer token yet.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "The session id returned by qa.browser_open."
+          }
+        },
+        "required": [
+          "sessionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "qa.browser_navigate",
       "description": "Navigates an open browser session to a URL and records the navigation as evidence. Fails with BROWSER_URL_NOT_ALLOWED when the host is not on the session allowlist, and with BROWSER_SESSION_NOT_FOUND or BROWSER_SESSION_EXPIRED when the session is gone. Returns where the page actually landed, which a redirect can change.",
       "inputSchema": {

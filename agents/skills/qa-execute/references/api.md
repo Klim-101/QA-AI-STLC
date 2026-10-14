@@ -23,6 +23,24 @@ follow a redirect or a response-supplied URL to a different host without confirm
 the case intends — `qa.http_execute` rejects it with `BROWSER_URL_NOT_ALLOWED` if it is not on the
 allowlist, but a same-allowlist redirect to an unintended endpoint would still succeed.
 
+## Authenticating the request
+
+Pass `auth: '<profile>'` to `qa.http_execute` for a request that needs credentials; with no `auth`
+the environment's default profile is used. Never ask the operator to edit `.qa/config.yaml`, and never
+write a token into a header yourself. When there is no profile yet:
+
+1. Sign in with a browser session (`qa.browser_open` with the case's identity, or `qa.browser_attach`
+   for SSO and MFA) and open a page that calls the application's API.
+2. Call `qa.browser_discover_api_auth` with that session. It reports the request header that carries
+   the token and the cookie, localStorage or sessionStorage key that stores it, as names only, plus a
+   `proposedProfile`. `API_AUTH_DISCOVERY_NO_TOKEN` means no authenticated API call was seen yet:
+   navigate to a page that makes one and ask again.
+3. Pass the proposed profile to `qa.config_add_api_auth` with a name and, for the environment you are
+   testing, `defaultForEnvironment`. A service account instead gets a `bearer`, `basic`, `api-key` or
+   `oauth2-client-credentials` profile; each secret is the NAME of a `QA_` variable the operator sets
+   themselves, never its value.
+4. Call `qa.http_execute` with `browserSessionId` of that session so the token is read from it.
+
 ## Reusable values
 
 Prefer a value already registered as a `TestDataSchema` set (`testDataRefs` on the case) over

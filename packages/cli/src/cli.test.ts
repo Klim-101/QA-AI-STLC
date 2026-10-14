@@ -1002,6 +1002,108 @@ describe('runCli', () => {
     expect(deps.stderr.join('\n')).toContain('error:');
   });
 
+  describe('config add api-auth (P6-93)', () => {
+    const PROFILE = '{"type":"bearer","tokenVariable":"QA_API_TOKEN"}';
+    const initialised = async () => {
+      const deps = dependencies();
+      await runCli(['init', '--defer-scope'], deps);
+      await runCli(
+        [
+          'config',
+          'add',
+          'environment',
+          'staging',
+          '--base-url',
+          'https://staging.example.com',
+          '--allowlist',
+          'staging.example.com',
+        ],
+        deps,
+      );
+      deps.stdout.length = 0;
+      return deps;
+    };
+
+    it('adds a profile and its environment default, and says so', async () => {
+      const deps = await initialised();
+
+      const exitCode = await runCli(
+        ['config', 'add', 'api-auth', 'staging-api', '--profile', PROFILE, '--default-for', 'staging'],
+        deps,
+      );
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toContain(
+        'Added API auth profile "staging-api": type=bearer, default for "staging"',
+      );
+    });
+
+    it('adds a profile without a default and prints machine-readable JSON with --json', async () => {
+      const deps = await initialised();
+
+      const exitCode = await runCli(
+        ['config', 'add', 'api-auth', 'service', '--profile', PROFILE, '--json'],
+        deps,
+      );
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(JSON.parse(deps.stdout[0] ?? '')).toMatchObject({
+        command: 'config-add-api-auth',
+        data: { name: 'service', profile: { type: 'bearer', tokenVariable: 'QA_API_TOKEN' } },
+      });
+    });
+
+    it('overwrites an existing profile with --force', async () => {
+      const deps = await initialised();
+      await runCli(['config', 'add', 'api-auth', 'service', '--profile', PROFILE], deps);
+
+      const refused = await runCli(['config', 'add', 'api-auth', 'service', '--profile', PROFILE], deps);
+      const forced = await runCli(
+        ['config', 'add', 'api-auth', 'service', '--profile', PROFILE, '--force'],
+        deps,
+      );
+
+      expect(refused).toBe(EXIT_FAILURE);
+      expect(forced).toBe(EXIT_SUCCESS);
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io, stdout } = captureIO();
+      const exitCode = await runCli(['config', 'add', 'api-auth', 'service', '--profile', PROFILE], {
+        io,
+        fs: createFakeFileSystem({ [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML }),
+        env: {},
+      });
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(stdout.join('\n')).toContain('Added API auth profile "service"');
+    });
+
+    it('reports a coded error for missing flags, invalid JSON and a literal secret', async () => {
+      const deps = await initialised();
+
+      const missing = await runCli(['config', 'add', 'api-auth', 'service'], deps);
+      const notJson = await runCli(['config', 'add', 'api-auth', 'service', '--profile', '{nope'], deps);
+      const literal = await runCli(
+        [
+          'config',
+          'add',
+          'api-auth',
+          'service',
+          '--profile',
+          '{"type":"bearer","tokenVariable":"abc.def.ghi"}',
+        ],
+        deps,
+      );
+
+      expect([missing, notJson, literal]).toEqual([EXIT_FAILURE, EXIT_FAILURE, EXIT_FAILURE]);
+      const errors = deps.stderr.join('\n');
+      expect(errors).toContain('Usage: qa config add api-auth');
+      expect(errors).toContain('--profile is not valid JSON');
+      expect(errors).toContain('The apiAuth profile is not valid');
+    });
+  });
+
   it('reports a usage error for an unknown "config add" target', async () => {
     const deps = dependencies();
 

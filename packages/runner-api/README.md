@@ -9,6 +9,9 @@ contract lacks rejects the whole run (`API_CASE_NOT_IN_CONTRACT`) before a reque
 contract text is stored as `artifacts/api-contract.txt` and registered in the manifest, so the
 SHA-256 a run relied on is on record.
 
+A profile is created through the agent (`qa.config_add_api_auth`, `qa config add api-auth`) and, for a
+browser token, proposed by `qa.browser_discover_api_auth`; nobody edits YAML by hand (P6-93).
+
 A spec authenticates only through an `apiAuth` profile from `config.yaml` (ADR-0012): it imports the
 generated `tests/qa/api-auth.ts` and calls `request.get(url, apiAuth('<profile>'))`. The runner resolves
 the profiles a spec names, passes them to the Playwright process through its environment only, and

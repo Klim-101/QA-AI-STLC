@@ -7,6 +7,7 @@ import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import type { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeEngineContext } from '../src/engine-context.js';
+import { configAddApiAuthTool } from '../src/tools/config-add-api-auth.js';
 import { configAddTool } from '../src/tools/config-add.js';
 import { configShowTool } from '../src/tools/config-show.js';
 import { configSetTool } from '../src/tools/config-set.js';
@@ -189,6 +190,39 @@ describe('init and config tools (real filesystem, temp project directory)', () =
 
       expect(added).toStrictEqual({ kind: 'environment', name: 'staging' });
       expect(config).toContain('cdn.example.com');
+    });
+  });
+
+  it('qa.config_add_api_auth adds a profile and a default, and accepts no token value (P6-93)', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+      await configAddTool.handler({
+        kind: 'environment',
+        name: 'staging',
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+      });
+      const profile = { type: 'bearer', tokenVariable: 'QA_API_TOKEN' } as const;
+
+      const added = await configAddApiAuthTool.handler({
+        name: 'staging-api',
+        profile,
+        defaultForEnvironment: 'staging',
+      });
+      await expect(configAddApiAuthTool.handler({ name: 'staging-api', profile })).rejects.toMatchObject({
+        code: 'CONFIG_ADD_NAME_EXISTS',
+      });
+      await configAddApiAuthTool.handler({ name: 'staging-api', profile, force: true });
+      const config = await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8');
+
+      expect(added).toStrictEqual({ name: 'staging-api', profile, defaultForEnvironment: 'staging' });
+      expect(config).toContain('QA_API_TOKEN');
+      expect(
+        configAddApiAuthTool.inputSchema.safeParse({
+          name: 'x',
+          profile: { type: 'bearer', tokenVariable: 'a-literal-token-value' },
+        }).success,
+      ).toBe(false);
     });
   });
 

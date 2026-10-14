@@ -31,6 +31,7 @@ import { createBrowserTabsTool } from '../src/tools/browser-tabs.js';
 import { createBrowserUploadTool } from '../src/tools/browser-upload.js';
 import { createBrowserWaitForTool } from '../src/tools/browser-wait-for.js';
 import { createBrowserAttachTool } from '../src/tools/browser-attach.js';
+import { createBrowserDiscoverApiAuthTool } from '../src/tools/browser-discover-api-auth.js';
 import { createBrowserOpenTool } from '../src/tools/browser-open.js';
 import { createBrowserPressTool } from '../src/tools/browser-press.js';
 import { createBrowserSnapshotTool } from '../src/tools/browser-snapshot.js';
@@ -705,6 +706,32 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       await createBrowserCloseTool(dependencies).handler({ sessionId: attached.sessionId });
       expect(fake.closedBrowsers).toBe(before + 1);
       process.chdir(originalCwd);
+    });
+  });
+
+  it('qa.browser_discover_api_auth asks to sign in first, then proposes a profile from the observed token (P6-93)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+      const dependencies = createDependencies(createFakeBrowser());
+      const opened = await createBrowserOpenTool(dependencies).handler({});
+      const discover = createBrowserDiscoverApiAuthTool(dependencies);
+
+      const early = await discover
+        .handler({ sessionId: opened.sessionId })
+        .catch((caught: unknown) => caught);
+      const session = await dependencies.sessions.get(opened.sessionId);
+      (session.observedRequestHeaders as Map<string, string>).set('authorization', 'Bearer live-token');
+      const found = await discover.handler({ sessionId: opened.sessionId });
+      process.chdir(originalCwd);
+
+      expect(early).toMatchObject({ code: 'API_AUTH_DISCOVERY_NO_TOKEN' });
+      expect(found.proposedProfile).toStrictEqual({
+        type: 'from-browser',
+        source: { kind: 'request-header', header: 'authorization' },
+      });
+      expect(JSON.stringify(found)).not.toContain('live-token');
     });
   });
 

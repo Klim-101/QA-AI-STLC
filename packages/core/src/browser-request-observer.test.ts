@@ -52,17 +52,32 @@ describe('observeRequestHeaders', () => {
     expect(observed.size).toBe(0);
   });
 
-  it('does nothing when no header is wanted or the request cannot report its headers', async () => {
+  it('does nothing when the request cannot report its headers', async () => {
+    const observed = new Map<string, string>();
+
+    await observeRequestHeaders(request('https://staging.example.test/', undefined), NAMES, SCOPE, observed);
+
+    expect(observed.size).toBe(0);
+  });
+
+  it('keeps Authorization and any bearer-valued header even when no profile names them (P6-93)', async () => {
     const observed = new Map<string, string>();
 
     await observeRequestHeaders(
-      request('https://staging.example.test/', { Authorization: 'x' }),
+      request('https://staging.example.test/api', {
+        Authorization: 'Basic dXNlcjpwYXNz',
+        'X-Session': 'Bearer abc123',
+        Accept: 'application/json',
+        'X-Trace': 'Bearer',
+      }),
       new Set(),
       SCOPE,
       observed,
     );
-    await observeRequestHeaders(request('https://staging.example.test/', undefined), NAMES, SCOPE, observed);
 
-    expect(observed.size).toBe(0);
+    expect([...observed]).toEqual([
+      ['authorization', 'Basic dXNlcjpwYXNz'],
+      ['x-session', 'Bearer abc123'],
+    ]);
   });
 });

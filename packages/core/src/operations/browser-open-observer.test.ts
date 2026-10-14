@@ -33,29 +33,45 @@ function routeFor(url: string, headers: Record<string, string>) {
 }
 
 describe('runBrowserOpen observing request headers for a from-browser profile', () => {
-  it('remembers the configured header of allowlisted requests on the session, and nothing else', async () => {
+  it('remembers the configured header and Authorization of allowlisted requests on the session, and nothing else', async () => {
     const harness = createBrowserTestHarness({ configYaml: CONFIG_WITH_HEADER_PROFILE });
     const { sessionId } = await runBrowserOpen(harness.context);
     const handler = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute')
       ?.args[1] as Handler;
 
     await handler(
-      routeFor('https://staging.example.test/api', { 'X-Auth-Token': 'seen-token', Authorization: 'other' }),
+      routeFor('https://staging.example.test/api', {
+        'X-Auth-Token': 'seen-token',
+        Authorization: 'other',
+        Accept: 'application/json',
+      }),
     );
     await handler(routeFor('https://evil.test/api', { 'X-Auth-Token': 'evil-token' }));
 
     const session = await harness.sessions.get(sessionId);
-    expect([...session.observedRequestHeaders]).toEqual([['x-auth-token', 'seen-token']]);
+    expect([...session.observedRequestHeaders]).toEqual([
+      ['x-auth-token', 'seen-token'],
+      ['authorization', 'other'],
+    ]);
   });
 
-  it('records nothing when no profile replays a request header', async () => {
+  it('keeps Authorization and a bearer-valued header without a profile, for discovery, and no other header', async () => {
     const harness = createBrowserTestHarness();
     const { sessionId } = await runBrowserOpen(harness.context);
     const handler = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute')
       ?.args[1] as Handler;
 
-    await handler(routeFor('https://staging.example.test/api', { Authorization: 'Bearer x' }));
+    await handler(
+      routeFor('https://staging.example.test/api', {
+        Authorization: 'Bearer x',
+        'X-Session': 'Bearer y',
+        'X-Request-Id': 'abc',
+      }),
+    );
 
-    expect((await harness.sessions.get(sessionId)).observedRequestHeaders.size).toBe(0);
+    expect([...(await harness.sessions.get(sessionId)).observedRequestHeaders]).toEqual([
+      ['authorization', 'Bearer x'],
+      ['x-session', 'Bearer y'],
+    ]);
   });
 });
