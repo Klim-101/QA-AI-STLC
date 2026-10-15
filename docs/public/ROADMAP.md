@@ -89,6 +89,7 @@ The same framework inside Codex.
 - API-surface discovery from real traffic, OpenAPI diff and draft synthesis
 - API tests generated from your OpenAPI contract as Playwright request specs, verified by execution like the UI tests
 - Accessibility runner (axe-core)
+- Kendo UI for jQuery and Angular support, validated over four runs on a real Kendo for Angular application, with every bug those runs found fixed
 - Tracker-neutral defect drafts with an acceptance gate, ready for you to file with your own tools
 - Root cause analysis for every accepted defect, with facts separated from hypotheses and its own review gate
 - On-demand security audit, outside the regular pipeline: non-destructive black-box checks, plus code-assisted checks when you point the framework at the application's source
