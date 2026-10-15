@@ -3,7 +3,7 @@
 
 import type { Config } from '@qa-ai-stlc/schemas';
 import {
-  SUPPORTED_BROWSERS,
+  REQUIRED_BROWSERS,
   checkApiContractReadable,
   checkBaseUrlReachable,
   checkBrowserInstalled,
@@ -40,7 +40,7 @@ export interface DoctorReport {
 export async function runDoctor(context: EngineContext, options: DoctorOptions = {}): Promise<DoctorReport> {
   let checks: DoctorCheckResult[] = [checkNodeVersion()];
 
-  for (const browser of SUPPORTED_BROWSERS) {
+  for (const browser of REQUIRED_BROWSERS) {
     checks.push(await checkBrowserInstalled(context.fs, browser));
   }
 
@@ -62,7 +62,7 @@ async function fixMissingBrowsers(
   context: EngineContext,
   checks: readonly DoctorCheckResult[],
 ): Promise<DoctorCheckResult[]> {
-  const missing = SUPPORTED_BROWSERS.filter((browser) =>
+  const missing = REQUIRED_BROWSERS.filter((browser) =>
     checks.some((check) => check.name === `browser:${browser}` && check.status === 'fail'),
   );
   if (missing.length === 0) {

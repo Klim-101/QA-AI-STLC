@@ -34,7 +34,10 @@ than continuing past it.
    state the resolved path back to the operator explicitly — never assume it silently. The MCP
    tools resolve the root the same way, so they act on this directory. If none is found, say so and
    run [First-time setup](#first-time-setup) below instead of stopping.
-2. **Check the environment.** Call `qa.doctor`. If `ok` is `false`, show every `fail` check with its
+2. **Check the environment.** Call `qa.doctor`. If no `qa.*` tool is available, the engine's MCP server has not
+   connected: on a first start `npx` is still downloading it and the host gave up after about 30 seconds. Tell the
+   operator to run `npx -y @qa-ai-stlc/mcp-server@<version> --version` once in a terminal and restart the host,
+   and stop. If `ok` is `false`, show every `fail` check with its
    `remediation` and stop — do not proceed to a phase against an environment the engine itself
    reports as broken.
 3. **Check the testing scope.** Read `.qa/config.yaml`'s `testing` block. For any type still

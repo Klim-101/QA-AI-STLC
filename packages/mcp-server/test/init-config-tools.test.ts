@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeEngineContext } from '../src/engine-context.js';
 import { configAddApiAuthTool } from '../src/tools/config-add-api-auth.js';
 import { configAddTool } from '../src/tools/config-add.js';
-import { configShowTool } from '../src/tools/config-show.js';
+import { configShowTool, parseConfigValue } from '../src/tools/config-show.js';
 import { configSetTool } from '../src/tools/config-set.js';
 import { initTool } from '../src/tools/init.js';
 
@@ -403,5 +403,42 @@ describe('init and config tools (real filesystem, temp project directory)', () =
         'committed',
       );
     });
+  });
+  it('qa.config_show reports the safe non-GET requests an environment lists (P6-99)', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+      await configAddTool.handler({
+        kind: 'environment',
+        name: 'staging',
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+      });
+      const path = join(projectRoot, '.qa', 'config.yaml');
+      const config = await readFile(path, 'utf-8');
+      await writeFile(
+        path,
+        config.replace(
+          'allowlist: [ staging.example.com ]',
+          'allowlist: [ staging.example.com ], safeNonGetRequests: [ { method: POST, path: /auth/refresh-token, reason: Opens the session cookie. } ]',
+        ),
+        'utf-8',
+      );
+
+      const result = await configShowTool.handler({});
+
+      expect(
+        result.values.find((value) => value.path.join('.') === 'environments.staging.safeNonGetRequests')
+          ?.value,
+      ).toStrictEqual([{ method: 'POST', path: '/auth/refresh-token', reason: 'Opens the session cookie.' }]);
+    });
+  });
+  it('qa.config_show names the field and a remediation when a value has a shape it cannot report (P6-99)', () => {
+    expect(() => parseConfigValue(['environments', 'staging', 'odd'], [[1]])).toThrow(
+      expect.objectContaining({
+        code: 'CONFIG_SHOW_VALUE_UNSUPPORTED',
+        message: expect.stringContaining('environments.staging.odd') as unknown,
+        remediation: expect.stringContaining('.qa/config.yaml') as unknown,
+      }),
+    );
   });
 });

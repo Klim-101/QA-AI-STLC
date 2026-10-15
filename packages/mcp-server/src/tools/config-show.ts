@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { runConfigShow } from '@qa-ai-stlc/core';
+import { QaError, runConfigShow } from '@qa-ai-stlc/core';
 import { ConfigSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { ConfigRelaxationSchema } from '../config-relaxation-schema.js';
@@ -10,21 +10,15 @@ import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = z.object({});
 
-const ViewportSizeValueSchema = z.object({ width: z.number(), height: z.number() });
+const ScalarValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 
-const A11yExceptionValueSchema = z.object({
-  ruleId: z.string(),
-  reason: z.string(),
-  expires: z.string().optional(),
-});
-
+// A list of small records covers every list of objects in the configuration: viewport sizes,
+// accessibility exceptions and an environment's safe non-GET requests. Naming each one made a new
+// list-valued field fail `qa.config_show` until its shape was added here.
 const ConfigValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
+  ScalarValueSchema,
   z.array(z.string()),
-  z.array(ViewportSizeValueSchema),
-  z.array(A11yExceptionValueSchema),
+  z.array(z.record(z.string(), ScalarValueSchema)),
 ]);
 
 const ConfigShowValueSchema = z.object({
@@ -43,6 +37,22 @@ const OutputSchema = z.object({
   values: z.array(ConfigShowValueSchema),
   relaxations: z.array(ConfigRelaxationSchema),
 });
+
+export function parseConfigValue(path: readonly string[], value: unknown): z.infer<typeof ConfigValueSchema> {
+  const result = ConfigValueSchema.safeParse(value);
+  if (result.success) {
+    return result.data;
+  }
+  const dottedPath = path.join('.');
+  throw new QaError(
+    'CONFIG_SHOW_VALUE_UNSUPPORTED',
+    `The value of "${dottedPath}" in the configuration has a shape qa.config_show cannot report.`,
+    {
+      remediation: `Read .qa/config.yaml for "${dottedPath}" directly, and report the field as a bug in qa.config_show.`,
+      cause: result.error,
+    },
+  );
+}
 
 /**
  * `qa.config_show` (P6-22, ADR-011): the same `runConfigShow` core call `qa config show` uses —
@@ -67,7 +77,7 @@ export const configShowTool: ToolDefinition<typeof InputSchema, typeof OutputSch
       ...(result.localLayerPath !== undefined ? { localLayerPath: result.localLayerPath } : {}),
       values: result.values.map((value) => ({
         path: [...value.path],
-        value: ConfigValueSchema.parse(value.value),
+        value: parseConfigValue(value.path, value.value),
         layer: value.layer,
       })),
       relaxations: result.relaxations.map((relaxation) => ({ ...relaxation })),

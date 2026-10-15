@@ -3,7 +3,7 @@
 
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveBrowserExecutablePath, SUPPORTED_BROWSERS } from '../browser-doctor.js';
+import { REQUIRED_BROWSERS, resolveBrowserExecutablePath } from '../browser-doctor.js';
 import type { EngineContext } from '../engine-context.js';
 import type { FileSystem } from '../ports/file-system.js';
 import { noopLogger } from '../ports/logger.js';
@@ -62,6 +62,18 @@ describe('runDoctor', () => {
 
     const chromiumCheck = report.checks.find((check) => check.name === 'browser:chromium');
     expect(chromiumCheck?.status).toBe('pass');
+  });
+
+  it('checks only the browsers the engine launches, so a missing Firefox or WebKit does not fail the doctor (P6-99)', async () => {
+    const context = fakeContext({
+      fs: createFakeFileSystem({ [resolveBrowserExecutablePath('chromium')]: '' }),
+    });
+
+    const report = await runDoctor(context);
+
+    expect(report.checks.filter((check) => check.name.startsWith('browser:'))).toStrictEqual([
+      { name: 'browser:chromium', status: 'pass', message: 'chromium is installed' },
+    ]);
   });
 
   it('installs missing browsers and rechecks them when fix is set', async () => {
@@ -136,7 +148,7 @@ describe('runDoctor', () => {
 
   it('does nothing when fix is set and every browser is already installed', async () => {
     const installedFiles = Object.fromEntries(
-      SUPPORTED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),
+      REQUIRED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),
     );
     const context = fakeContext({ fs: createFakeFileSystem(installedFiles) });
 
