@@ -1,5 +1,15 @@
 # @qa-ai-stlc/schemas
 
+## 1.10.0
+
+### Minor Changes
+
+- c0e163c: Explore can now register what a page keeps out of sight or does not mark as interactive. `qa explore --expand-collapsed` (MCP `expandCollapsed`) opens each page's collapsed panels (`aria-expanded="false"` controls that are not links, submit buttons or pop-up triggers, plus a component library profile's own selectors) in a throwaway context under safe mode, and registers the filter inputs that appear; the report gives `expandedPanelCount`. Scoring and `--verify` reopen the panels after each reload, so those controls resolve. Elements that carry the configured test id and look operable (a sortable header, a status chip) are registered with the new kind `element`, and the Kendo UI for Angular profile registers a grid header cell under its title. `--probe-navigation` also clicks `role="button"` elements; a bare `div`, an anchor without `href` and a button inside a form are still skipped.
+
+### Patch Changes
+
+- d2ede91: `qa.defect_add` and `qa.rca_add` take the defect draft (`draft`) and the root cause analysis (`rca`) inline, validated by their schemas, so an agent writes no scratch file in the operator's project; `path` still works, and exactly one of the two is given. A content that does not match fails with `DEFECT_INVALID` or `RCA_INVALID` whose remediation lists every invalid field by its path with the values it allows, and a file that does not match (`JSON_FILE_INVALID`) now carries the same list instead of a bare message. The fields of both schemas have descriptions in the tool's input schema. The `qa-rca` skill registers inline.
+
 ## 1.9.0
 
 ### Minor Changes
