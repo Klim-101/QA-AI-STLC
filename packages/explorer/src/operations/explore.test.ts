@@ -3,7 +3,13 @@
 
 import { join } from 'node:path';
 import { QaError, hashText, type EngineContext } from '@qa-ai-stlc/core';
-import { ConfigSchema, SCHEMA_VERSION, type ApiSurface, type SelectorRegistry } from '@qa-ai-stlc/schemas';
+import {
+  ConfigSchema,
+  SCHEMA_VERSION,
+  type ApiSurface,
+  type SelectorElement,
+  type SelectorRegistry,
+} from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createFakeExploreBrowserLauncher,
@@ -266,6 +272,38 @@ describe('runExplore', () => {
       await context.fs.readFile(join(QA_DIR, 'selectors', 'registry.json')),
     ) as SelectorRegistry;
     expect(registry.elements.some((element) => element.deprecatedAt !== undefined)).toBe(true);
+  });
+
+  it('keeps an element added from a session across a crawl that does not find it, and exports it', async () => {
+    const context = fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
+    await runExplore(context);
+    const registryPath = join(QA_DIR, 'selectors', 'registry.json');
+    const stored = JSON.parse(await context.fs.readFile(registryPath)) as SelectorRegistry;
+    const sessionAdded: SelectorElement = {
+      elementId: 'session-added',
+      kind: 'button',
+      name: 'searchDetails',
+      locatorCandidates: [{ strategy: 'execute', value: 'text=Search Details', fragile: true }],
+      stabilityScore: 1,
+      lastVerifiedAt: '2026-09-20T12:00:00Z',
+      pii: false,
+      dynamicText: false,
+      source: 'execute',
+      pageUrl: START_URL,
+    };
+    await context.fs.writeFile(
+      registryPath,
+      JSON.stringify({ ...stored, elements: [...stored.elements, sessionAdded] }),
+    );
+
+    const second = await runExplore(context);
+
+    const merged = JSON.parse(await context.fs.readFile(registryPath)) as SelectorRegistry;
+    expect(merged.elements.find((element) => element.elementId === 'session-added')).toEqual(sessionAdded);
+    expect(second.removed).toBe(0);
+    expect(await context.fs.readFile(join(PROJECT_ROOT, 'tests', 'qa', 'locators.ts'))).toContain(
+      'searchDetails',
+    );
   });
 
   it('throws EXPLORE_ENVIRONMENT_UNKNOWN for an --environment not in config.yaml', async () => {

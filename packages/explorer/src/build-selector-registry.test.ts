@@ -554,6 +554,33 @@ describe('mergeSelectorRegistry', () => {
     expect(merged.elements).toEqual([{ ...BASE_ELEMENT, deprecatedAt: '2026-09-16T00:00:00Z' }]);
   });
 
+  it('keeps an element added from a session when the fresh crawl does not find it', () => {
+    const sessionAdded: SelectorElement = {
+      ...BASE_ELEMENT,
+      elementId: 'session',
+      source: 'execute',
+      locatorCandidates: [{ strategy: 'execute', value: 'text=Save', fragile: true }],
+    };
+    const previous = registry([BASE_ELEMENT, sessionAdded]);
+    const fresh = registry([]);
+
+    const merged = mergeSelectorRegistry(previous, fresh, '2026-09-17T00:00:00Z');
+
+    expect(merged.elements).toEqual([
+      sessionAdded,
+      { ...BASE_ELEMENT, deprecatedAt: '2026-09-17T00:00:00Z' },
+    ]);
+  });
+
+  it('replaces a session-added element with the fresh crawl entry when the crawl finds it', () => {
+    const sessionAdded: SelectorElement = { ...BASE_ELEMENT, source: 'execute', stabilityScore: 0.5 };
+    const fresh = registry([BASE_ELEMENT]);
+
+    const merged = mergeSelectorRegistry(registry([sessionAdded]), fresh, '2026-09-17T00:00:00Z');
+
+    expect(merged.elements).toEqual([BASE_ELEMENT]);
+  });
+
   describe('names (P6-90)', () => {
     const named = (elementId: string, name: string | undefined): SelectorElement => ({
       ...BASE_ELEMENT,
@@ -636,6 +663,14 @@ describe('diffSelectorRegistry', () => {
     expect(diff.added).toEqual([]);
     expect(diff.removed).toEqual([BASE_ELEMENT]);
     expect(diff.degraded).toEqual([]);
+  });
+
+  it('does not report an element added from a session as removed', () => {
+    const sessionAdded: SelectorElement = { ...BASE_ELEMENT, source: 'execute' };
+
+    const diff = diffSelectorRegistry(registry([sessionAdded]), registry([]));
+
+    expect(diff.removed).toEqual([]);
   });
 
   it('reports an element whose score dropped as degraded, with both scores', () => {
