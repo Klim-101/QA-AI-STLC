@@ -29,9 +29,13 @@ session history, not another spoke's reasoning (development plan section 5.1, 5.
    spoke needs (a page snapshot, a registry slice, a requirement), and nothing else.
 3. The spoke does its work by calling engine tools directly (`qa.browser_*`, `qa.explore`, and so
    on) and returns a single `SpokeResultSchema` value (`packages/schemas/src/spoke.ts`).
-4. The hub records the spoke's input and output. Until the spoke I/O store lands (P4-01,
-   `.qa/runs/<run-id>/spokes/`), this is a session-local record; the hub's contract does not change
-   once that storage exists, only where the record is written.
+4. The hub records the dispatch with the engine: `qa.spoke_record_input` before the spoke runs (it
+   returns the attempt number; a re-dispatch after a failed validation is the next attempt of the
+   same task), and `qa.spoke_record_output` as soon as the result comes back, before validating its
+   payload. Both are stored under `.qa/runs/<run-id>/spokes/`, with secrets redacted. `<run-id>` is the
+   `qa.run` run id when there is one, otherwise one stable id the hub picks for the session. Pass
+   references to registered artifacts as context, not their content: a record over 256 KiB is
+   refused. `qa.spoke_list` shows what was dispatched. Records are evidence and are never rewritten.
 
 Spokes never talk to each other. If a second spoke's task depends on a first spoke's output, the
 hub is the one that reads the first spoke's result and builds the second spoke's input from it.
