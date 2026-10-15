@@ -8,6 +8,11 @@ import type { LocatorCandidate } from '@qa-ai-stlc/schemas';
 export interface StabilityScoringOptions {
   /** Viewport sizes checked after uniqueness and reload survival; defaults to desktop/tablet/mobile. */
   readonly viewports?: readonly ViewportSize[];
+  /**
+   * Runs after every reload, before the candidates are checked again: a control that only exists
+   * once a panel is open (P6-98) is not on the page a reload gives back until the panel is reopened.
+   */
+  readonly afterReload?: () => Promise<void>;
 }
 
 export const DEFAULT_VIEWPORTS: readonly ViewportSize[] = [
@@ -101,6 +106,7 @@ export async function scoreLocatorStability(
   let survivedChecks = 0;
 
   await page.reload();
+  await options.afterReload?.();
   if (await isUniqueMatch(page, candidate)) {
     survivedChecks += 1;
   }
@@ -176,6 +182,7 @@ export async function scorePageCandidates<T extends PageScoringItem>(
   }
 
   await page.reload();
+  await options.afterReload?.();
   await checkSurvival(page, groups);
 
   for (const viewport of viewports) {

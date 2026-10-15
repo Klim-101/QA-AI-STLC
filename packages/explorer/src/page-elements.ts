@@ -75,6 +75,7 @@ const INTERACTIVE_ELEMENT_KINDS: readonly InteractiveElementKind[] = [
   'select',
   'textarea',
   'widget',
+  'element',
 ];
 
 function isInteractiveElementKind(value: string): value is InteractiveElementKind {
@@ -274,7 +275,7 @@ async function readRawPageElements(
           return [
             {
               ...described,
-              accessibleName: undefined,
+              accessibleName: widget.namedByText === true ? described.accessibleName : undefined,
               label: widgetLabel(wrapper, inner),
               role: described.role ?? widget.role,
               widgetKind: widget.widgetKind,
@@ -283,7 +284,46 @@ async function readRawPageElements(
           ];
         }),
       );
-      const interactiveElements = [...nativeElements, ...widgetElements];
+
+      // An element that is not natively interactive but carries the test id is how an application
+      // marks a sortable header or a chip toggle. A bare container with a test id is not one, so
+      // the element must also look operable: a role, a tab stop, a custom-element tag or a pointer.
+      const operableRoles = new Set([
+        'button',
+        'link',
+        'tab',
+        'menuitem',
+        'option',
+        'switch',
+        'checkbox',
+        'radio',
+        'columnheader',
+      ]);
+      function looksOperable(element: Element): boolean {
+        const role = element.getAttribute('role');
+        return (
+          (role !== null && operableRoles.has(role)) ||
+          element.hasAttribute('tabindex') ||
+          element.tagName.includes('-') ||
+          getComputedStyle(element).cursor === 'pointer'
+        );
+      }
+      function isInsideAbsorbingWidget(element: Element): boolean {
+        return widgets.some(
+          (widget) =>
+            widget.nativeControlSelector !== undefined && element.closest(widget.wrapperSelector) !== null,
+        );
+      }
+      const customElements = Array.from(document.querySelectorAll(`[${CSS.escape(testIdAttribute)}]`))
+        .filter(
+          (element) =>
+            !element.matches('button, a[href], input, select, textarea') &&
+            !seenWrappers.has(element) &&
+            !isInsideAbsorbingWidget(element) &&
+            looksOperable(element),
+        )
+        .map((element) => describe(element, 'element'));
+      const interactiveElements = [...nativeElements, ...widgetElements, ...customElements];
 
       const forms = Array.from(document.querySelectorAll('form')).map((form) => ({
         action: form.getAttribute('action') ?? undefined,

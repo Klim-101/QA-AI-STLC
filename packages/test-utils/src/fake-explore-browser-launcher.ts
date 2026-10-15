@@ -50,6 +50,11 @@ export interface FakeExplorePageOptions {
   readonly pickModeState?: { readonly done: boolean; readonly captures: readonly unknown[] };
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
   readonly subRequestsByUrl?: Readonly<Record<string, readonly FakeSubRequest[]>>;
+  /**
+   * How many collapsed-panel controls the first round of opening panels clicks after each load of
+   * a page; the rounds after it find none, as a page whose panels are all open would.
+   */
+  readonly collapsedPanelClickCount?: number;
 }
 
 /**
@@ -75,12 +80,14 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
     evaluate: evaluateNothing,
   });
   const viewportSizeCalls: ViewportSizeLike[] = [];
+  let panelsOpenedSinceLoad = false;
 
   return {
     viewportSizeCalls,
     routeHandlers,
     goto: async (url) => {
       currentUrl = url;
+      panelsOpenedSinceLoad = false;
       for (const subRequest of options.subRequestsByUrl?.[url] ?? []) {
         for (const handler of routeHandlers) {
           await handler(createFakeRoute(subRequest.method, subRequest.url));
@@ -110,6 +117,11 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
       if (ROUTE_DISCOVERY_FUNCTIONS.has(pageFunction.name)) {
         return Promise.resolve([]);
       }
+      if (pageFunction.name === 'clickCollapsedControls') {
+        const clickCount = panelsOpenedSinceLoad ? 0 : (options.collapsedPanelClickCount ?? 0);
+        panelsOpenedSinceLoad = true;
+        return Promise.resolve(clickCount);
+      }
       if (options.pickModeState !== undefined) {
         return Promise.resolve(options.pickModeState);
       }
@@ -127,7 +139,10 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
     getByPlaceholder: locatorMethod,
     getByText: locatorMethod,
     locator: locatorMethod,
-    reload: () => Promise.resolve(DEFAULT_RESPONSE),
+    reload: () => {
+      panelsOpenedSinceLoad = false;
+      return Promise.resolve(DEFAULT_RESPONSE);
+    },
     setViewportSize: (size) => {
       viewportSizeCalls.push(size);
       return Promise.resolve();

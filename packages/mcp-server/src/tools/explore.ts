@@ -36,6 +36,15 @@ const InputSchema = z.object({
         'only a button reaches (a single-page application) are missing from the registry. Slower. ' +
         'Ignored by verify.',
     ),
+  expandCollapsed: z
+    .boolean()
+    .optional()
+    .describe(
+      'Also opens the collapsed panels of each page (controls with aria-expanded="false" that are not ' +
+        'links, submit buttons or pop-up triggers), each page in a fresh browser context under safe mode, ' +
+        'and registers the controls that appear. Use when filters or fields hidden in a collapsible ' +
+        'panel are missing from the registry. Slower. Also applied by verify.',
+    ),
   verify: z
     .boolean()
     .optional()
@@ -68,6 +77,7 @@ const OutputSchema = z.object({
   endpointsPath: z.string(),
   endpointCount: z.number(),
   navigationProbeCount: z.number().optional(),
+  expandedPanelCount: z.number().optional(),
 });
 
 /**
@@ -98,6 +108,7 @@ export const exploreTool: ToolDefinition<typeof InputSchema, typeof OutputSchema
       ...(input.maxPages !== undefined ? { maxPages: input.maxPages } : {}),
       ...(input.startUrls !== undefined ? { startUrls: input.startUrls } : {}),
       ...(input.probeNavigation !== undefined ? { probeNavigation: input.probeNavigation } : {}),
+      ...(input.expandCollapsed !== undefined ? { expandCollapsed: input.expandCollapsed } : {}),
       ...(input.verify !== undefined ? { verify: input.verify } : {}),
     });
     return {

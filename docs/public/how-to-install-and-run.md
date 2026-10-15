@@ -211,6 +211,7 @@ buttons (outside forms, each in a throwaway context under safe mode):
 ```sh
 npx qa explore --environment staging --identity admin --url /reports --url /settings
 npx qa explore --environment staging --identity admin --probe-navigation
+npx qa explore --environment staging --identity admin --expand-collapsed
 ```
 
 For an element no crawl reaches, `npx qa explore --pick <url> --identity admin` opens a browser,

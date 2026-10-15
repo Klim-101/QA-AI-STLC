@@ -60,6 +60,13 @@ export const KENDO_ANGULAR_PROFILE: ComponentLibraryProfile = {
       role: 'dialog',
       nativeControlSelector: '.k-window-titlebar *',
     },
+    // A header cell is the sort control, and its title is its only name.
+    {
+      widgetKind: 'columnheader',
+      wrapperSelector: 'kendo-grid th[role="columnheader"]',
+      role: 'columnheader',
+      namedByText: true,
+    },
     {
       widgetKind: 'grid',
       wrapperSelector: 'kendo-grid',

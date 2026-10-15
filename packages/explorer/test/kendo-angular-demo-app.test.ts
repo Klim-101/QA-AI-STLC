@@ -51,6 +51,12 @@ describe('Kendo UI for Angular profile (demo app)', () => {
     const widgets = elements.filter((element) => element.library === 'kendo-angular');
     expect(widgets.map((widget) => widget.kind).sort()).toEqual(
       [
+        'columnheader',
+        'columnheader',
+        'columnheader',
+        'columnheader',
+        'columnheader',
+        'columnheader',
         'combobox',
         'datepicker',
         'dropdownlist',
@@ -92,8 +98,22 @@ describe('Kendo UI for Angular profile (demo app)', () => {
   it('gives every widget a locator that is not position-based', async () => {
     const { elements } = await exploreKendoPage();
 
-    for (const widget of elements.filter((element) => element.library === 'kendo-angular')) {
+    // Both grids carry the same three column titles, so no header cell is unique on this page.
+    const widgets = elements.filter(
+      (element) => element.library === 'kendo-angular' && element.kind !== 'columnheader',
+    );
+    for (const widget of widgets) {
       expect(widget.stabilityScore, widget.name).toBe(1);
     }
+  }, 120_000);
+
+  it('registers a grid header cell under its title', async () => {
+    const { elements } = await exploreKendoPage();
+
+    const headerNames = elements
+      .filter((element) => element.kind === 'columnheader')
+      .map((element) => element.name);
+    expect(new Set(headerNames).size).toBe(6);
+    expect(headerNames.slice(0, 3)).toEqual(['id', 'name', 'department']);
   }, 120_000);
 });

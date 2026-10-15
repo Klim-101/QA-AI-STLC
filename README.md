@@ -245,7 +245,16 @@ add one. See [ADR-0014](docs/adr/0014-environment-allowlist-for-safe-non-get-req
 Pass the pages to start from with `qa explore --url <url-or-path>` (repeatable, each on the environment
 allowlist). A single-page application often moves between pages with buttons that carry no link:
 `--probe-navigation` clicks buttons outside forms, each in a throwaway context under safe mode, and keeps the
-page a click led to. The route map records how each route was found. Pick mode below remains the fallback.
+page a click led to (it also clicks `role="button"` elements; a bare `div`, an anchor without `href` and a button
+inside a form are skipped). The route map records how each route was found. Pick mode below remains the fallback.
+
+### Controls hidden in a collapsed panel
+
+A filter inside a "Search Details" panel is not in the page until the panel opens. `qa explore --expand-collapsed`
+opens each page's `aria-expanded="false"` panels (not links, submit buttons or pop-up triggers) in a throwaway
+context under safe mode and registers what appears, and `--verify` reopens them so those controls still resolve
+([ADR-0017](docs/adr/0017-exploration-opens-collapsed-panels-in-discarded-contexts.md)). Sortable headers and
+status chips that carry the test id are registered as `element` entries without the flag.
 
 ### Catching a stale selector
 

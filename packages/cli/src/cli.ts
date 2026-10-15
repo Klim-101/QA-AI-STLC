@@ -601,6 +601,7 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
     'max-pages': { type: 'string' },
     url: { type: 'string', multiple: true },
     'probe-navigation': { type: 'boolean', default: false },
+    'expand-collapsed': { type: 'boolean', default: false },
     verify: { type: 'boolean', default: false },
   });
   const json = values.json === true;
@@ -621,6 +622,7 @@ async function dispatchExplore(rest: readonly string[], dependencies: RunCliDepe
       : {}),
     ...(Array.isArray(values.url) && values.url.length > 0 ? { startUrls: values.url as string[] } : {}),
     ...(values['probe-navigation'] === true ? { probeNavigation: true } : {}),
+    ...(values['expand-collapsed'] === true ? { expandCollapsed: true } : {}),
     verify: values.verify === true,
   });
   printResult(context.io, json, 'explore', report, formatExploreReport(report));
@@ -1256,6 +1258,9 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
     ...(report.navigationProbeCount === undefined
       ? []
       : [`${String(report.navigationProbeCount)} navigation control(s) clicked in isolated contexts.`]),
+    ...(report.expandedPanelCount === undefined
+      ? []
+      : [`${String(report.expandedPanelCount)} collapsed panel(s) opened in isolated contexts.`]),
     ...formatRequestSummaries('Let through by the environment (safeNonGetRequests)', report.allowedRequests),
     ...formatRequestSummaries(
       'Blocked (an application that stalls may need one listed in safeNonGetRequests)',

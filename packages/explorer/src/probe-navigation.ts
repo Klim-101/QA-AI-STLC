@@ -11,11 +11,11 @@ export const DEFAULT_MAX_PROBES_PER_PAGE = 10;
 const PROBE_CLICK_TIMEOUT_MS = 2_000;
 
 /**
- * Buttons and `role="link"` elements that cannot submit anything: outside any form, not a submit or
+ * Buttons and `role="link"` or `role="button"` elements that cannot submit anything: outside any form, not a submit or
  * reset button, not disabled, and not an anchor with an `href` (the crawl follows those already).
  */
 export const PROBE_CONTROL_SELECTOR =
-  ':is(button, [role="link"]):not(form *, a[href], [type="submit"], [type="reset"], [disabled], [aria-disabled="true"])';
+  ':is(button, [role="link"], [role="button"]):not(form *, a[href], [type="submit"], [type="reset"], [disabled], [aria-disabled="true"])';
 
 /**
  * Controls whose name says they end a session or destroy something are never clicked. This is a

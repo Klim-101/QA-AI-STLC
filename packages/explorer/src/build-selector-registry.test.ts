@@ -170,6 +170,48 @@ describe('buildSelectorRegistry', () => {
     });
   });
 
+  it('opens the collapsed panels of each page in a context of its own before scoring, and again after the reload (P6-98)', async () => {
+    const urls = ['https://staging.example.com/search', 'https://staging.example.com/tasks'];
+    const model = pageModelSet(
+      urls.map((url) => pageModel(url, [element({ testId: 'filter', accessibleName: 'Filter' })])),
+    );
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      locatorCounts: [1],
+      revealRoundsByUrl: { [urls[0] ?? '']: [1, 0, 1, 0], [urls[1] ?? '']: [0] },
+    });
+
+    const { registry } = await buildSelectorRegistry({
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      revealCollapsed: true,
+      settle: {},
+      profile: { ...SYNTHETIC_PROFILE, collapsiblePanelSelectors: ['.syn-panel-header'] },
+    });
+
+    expect(registry.elements).toHaveLength(2);
+    expect(browserLauncher.newContextCalls).toHaveLength(2);
+    expect(browserLauncher.closedContexts).toBe(2);
+  });
+
+  it('opens no panel when it is not asked to', async () => {
+    const url = 'https://staging.example.com/search';
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      locatorCounts: [1],
+      revealRoundsByUrl: { [url]: [5] },
+    });
+
+    await buildSelectorRegistry({
+      pageModelSet: pageModelSet([pageModel(url, [element({ testId: 'filter' })])]),
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+    });
+
+    expect(browserLauncher.closedContexts).toBe(0);
+  });
+
   it('rejects an id matching the profile generated-id patterns (P6-37)', async () => {
     const url = 'https://staging.example.com/login';
     const model = pageModelSet([pageModel(url, [element({ htmlId: 'syn-4821', nthOfType: 3 })])]);

@@ -39,6 +39,11 @@ export interface WidgetRecognizer {
    * a segmented masked input that rewrites a filled string; omitted means the formatted text is filled.
    */
   readonly dateEntry?: DateEntry;
+  /**
+   * Names the element by its text content, as a native control is. A widget is otherwise named
+   * only by an explicit label, because its text is its popup items; a header cell has no other name.
+   */
+  readonly namedByText?: boolean;
   /** Present on a data grid: how the grid actions page or scroll to a row that is not rendered (P6-44). */
   readonly grid?: GridControls;
 }
@@ -68,6 +73,11 @@ export interface ComponentLibraryProfile {
   readonly widgets: readonly WidgetRecognizer[];
   /** Regular-expression sources of ids the library generates; added to `selectors.generatedIdPatterns`. */
   readonly generatedIdPatterns: readonly string[];
+  /**
+   * Selectors of controls that open a collapsed panel but do not say so with `aria-expanded`; they
+   * are clicked, like the ones that do, when the caller asks for collapsed panels to be revealed.
+   */
+  readonly collapsiblePanelSelectors?: readonly string[];
   /** Selectors of busy indicators (spinners, overlays) that must be gone before a page is read. */
   readonly busySelectors: readonly string[];
 }

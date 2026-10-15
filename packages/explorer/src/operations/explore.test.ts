@@ -614,6 +614,51 @@ describe('runExplore', () => {
     });
   });
 
+  describe('expandCollapsed (P6-98)', () => {
+    it('reports how many collapsed panels were opened only when opening them was asked for', async () => {
+      const browser = {
+        elementsByUrl: { [START_URL]: ONE_ELEMENT },
+        locatorCount: 1,
+        collapsedPanelClickCount: 2,
+      };
+
+      const expanded = await runExplore(fakeContext(browser), { expandCollapsed: true });
+      const notExpanded = await runExplore(fakeContext(browser));
+
+      expect(expanded.expandedPanelCount).toBe(2);
+      expect(notExpanded).not.toHaveProperty('expandedPanelCount');
+    });
+
+    it("opens the panels of a profile's own selectors when verifying as well", async () => {
+      const profile = { ...SYNTHETIC_PROFILE, collapsiblePanelSelectors: ['.syn-panel-header'] };
+      const context = fakeContext(
+        { locatorCount: 1, collapsedPanelClickCount: 1 },
+        { componentLibrary: 'kendo-jquery' },
+        {
+          [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()),
+        },
+      );
+
+      const report = await runExplore(context, {
+        verify: true,
+        expandCollapsed: true,
+        profiles: { 'kendo-jquery': profile },
+      });
+
+      expect(report).toEqual(expect.objectContaining({ mode: 'verify', degraded: [] }));
+    });
+
+    it('opens the panels while verifying without a profile', async () => {
+      const context = fakeContext({ locatorCount: 1, collapsedPanelClickCount: 1 }, undefined, {
+        [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()),
+      });
+
+      const report = await runExplore(context, { verify: true, expandCollapsed: true });
+
+      expect(report).toEqual(expect.objectContaining({ mode: 'verify', degraded: [] }));
+    });
+  });
+
   it('warns when the crawl visits 0 pages because baseUrl is not on the allowlist (#329)', async () => {
     const warn = vi.fn();
     const context = fakeContext(

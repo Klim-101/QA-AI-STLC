@@ -4,6 +4,7 @@
 import {
   DEFAULT_NORMALIZE_LIMITS,
   systemClock,
+  type AuthPage,
   type BrowserLauncher,
   type Clock,
   type NormalizeLimits,
@@ -12,6 +13,7 @@ import { SCHEMA_VERSION, type PageModel, type PageModelSet } from '@qa-ai-stlc/s
 import { analyzePage } from './analyze-page.js';
 import type { ComponentLibraryProfile } from './component-library-profile.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
+import { revealCollapsedPanels } from './reveal-collapsed-panels.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 
@@ -38,12 +40,19 @@ export interface AnalyzePagesOptions {
   readonly safeMode?: SafeModeRequests;
   /** What to wait for after each navigation before the page is read (P6-63). */
   readonly settle?: PageSettleOptions;
+  /**
+   * Opens the collapsed panels of each page before it is read (P6-98). Each page is then analyzed
+   * in a context of its own, discarded afterwards, so nothing a click changed reaches the next page.
+   */
+  readonly revealCollapsed?: boolean;
 }
 
 export interface AnalyzePagesResult {
   readonly pageModelSet: PageModelSet;
   /** Every non-GET request safe mode intercepted and cancelled; always 0 unless something is broken. */
   readonly blockedRequestCount: number;
+  /** How many collapsed-panel controls were clicked; 0 unless `revealCollapsed` was on. */
+  readonly expandedPanelCount: number;
 }
 
 /**
@@ -62,38 +71,61 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
 
   const browser = await options.browserLauncher.launch();
   try {
-    const context = await browser.newContext({
-      ...(storageState === undefined ? {} : { storageState }),
-      ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
-    });
-    const page = await context.newPage();
     let blockedRequestCount = 0;
-    await page.route(
-      '**/*',
-      createSafeModeRouteHandler(
-        options.allowlist,
-        options.baseUrl,
-        () => {
-          blockedRequestCount += 1;
-        },
-        options.safeMode,
-      ),
-    );
-
-    const pages: PageModel[] = [];
-    for (const url of options.urls) {
-      await page.goto(url);
-      await settlePage(page, url, options.settle);
-      pages.push(
-        await analyzePage(
-          page,
-          url,
-          options.testIdAttribute,
-          limits,
-          options.extraStableAttributes ?? [],
-          options.profile,
+    // Safe mode is installed on the context, not the page, so a popup a click opens is covered too.
+    const openSession = async (): Promise<{ page: AuthPage; close: () => Promise<void> }> => {
+      const context = await browser.newContext({
+        ...(storageState === undefined ? {} : { storageState }),
+        ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+      });
+      await context.route(
+        '**/*',
+        createSafeModeRouteHandler(
+          options.allowlist,
+          options.baseUrl,
+          () => {
+            blockedRequestCount += 1;
+          },
+          options.safeMode,
         ),
       );
+      return { page: await context.newPage(), close: () => context.close() };
+    };
+
+    const revealCollapsed = options.revealCollapsed === true;
+    const sharedSession = revealCollapsed ? undefined : await openSession();
+    const pages: PageModel[] = [];
+    let expandedPanelCount = 0;
+    for (const url of options.urls) {
+      const session = sharedSession ?? (await openSession());
+      try {
+        const { page } = session;
+        await page.goto(url);
+        await settlePage(page, url, options.settle);
+        if (revealCollapsed) {
+          expandedPanelCount += await revealCollapsedPanels(page, {
+            pageUrl: url,
+            ...(options.profile?.collapsiblePanelSelectors === undefined
+              ? {}
+              : { extraSelectors: options.profile.collapsiblePanelSelectors }),
+            ...(options.settle === undefined ? {} : { settle: options.settle }),
+          });
+        }
+        pages.push(
+          await analyzePage(
+            page,
+            url,
+            options.testIdAttribute,
+            limits,
+            options.extraStableAttributes ?? [],
+            options.profile,
+          ),
+        );
+      } finally {
+        if (sharedSession === undefined) {
+          await session.close();
+        }
+      }
     }
 
     const pageModelSet: PageModelSet = {
@@ -101,7 +133,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
       generatedAt: clock.now().toISOString(),
       pages,
     };
-    return { pageModelSet, blockedRequestCount };
+    return { pageModelSet, blockedRequestCount, expandedPanelCount };
   } finally {
     await browser.close();
   }

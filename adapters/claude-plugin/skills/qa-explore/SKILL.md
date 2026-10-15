@@ -76,6 +76,10 @@ steps use instead of raw clicks.
    single-page application), ask the operator before setting `probeNavigation: true`: it clicks
    buttons outside forms, each in a throwaway context under safe mode, and is slower. Do not turn it
    on unprompted, and tell the operator it skips controls named like a sign-out or delete.
+   When controls are missing because they sit inside a collapsed panel (a filter behind a "Search
+   Details" toggle), ask the operator before setting `expandCollapsed: true`: it opens each page's
+   collapsed panels in a throwaway context under safe mode and is slower. Use it for `verify` too
+   once the registry holds such controls, or they will score as degraded.
 
 ## Reading the result
 
@@ -95,6 +99,8 @@ steps use instead of raw clicks.
   the operator which entry they could add to the environment's `safeNonGetRequests` (they edit
   `config.yaml`; you cannot, and must not suggest widening it for a request that changes data).
   `allowedRequests` lists what the environment's list let through.
+- `expandedPanelCount` (present only when `expandCollapsed` was on) — how many panel toggles were
+  clicked. Zero means no page had a collapsed panel to open.
 - `navigationProbeCount` (present only when `probeNavigation` was on) — how many controls were clicked.
   Zero means the pages had no such control; the route map says which pages were found by a click
   (`click-probe`) and which by a router attribute or the History API.

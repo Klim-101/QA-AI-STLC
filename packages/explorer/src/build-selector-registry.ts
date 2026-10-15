@@ -1,7 +1,14 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { hashText, systemClock, type BrowserLauncher, type Clock, type ViewportSize } from '@qa-ai-stlc/core';
+import {
+  hashText,
+  systemClock,
+  type AuthPage,
+  type BrowserLauncher,
+  type Clock,
+  type ViewportSize,
+} from '@qa-ai-stlc/core';
 import {
   SCHEMA_VERSION,
   type InteractiveElement,
@@ -12,6 +19,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { createElementNamer } from './naming.js';
+import { revealCollapsedPanels } from './reveal-collapsed-panels.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 import { scorePageCandidates, type CandidateStabilityScore } from './stability-scoring.js';
@@ -42,6 +50,11 @@ export interface BuildSelectorRegistryOptions {
   readonly safeMode?: SafeModeRequests;
   /** What to wait for after each navigation before the page is read (P6-63). */
   readonly settle?: PageSettleOptions;
+  /**
+   * Opens each page's collapsed panels before scoring, and again after every reload the scoring
+   * makes, so the controls inside them resolve (P6-98). Each page is then scored in a context of its own.
+   */
+  readonly revealCollapsed?: boolean;
 }
 
 export interface BuildSelectorRegistryResult {
@@ -161,23 +174,28 @@ export async function buildSelectorRegistry(
 
   const browser = await options.browserLauncher.launch();
   try {
-    const context = await browser.newContext({
-      ...(storageState === undefined ? {} : { storageState }),
-      ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
-    });
-    const page = await context.newPage();
     let blockedRequestCount = 0;
-    await page.route(
-      '**/*',
-      createSafeModeRouteHandler(
-        options.allowlist,
-        options.baseUrl,
-        () => {
-          blockedRequestCount += 1;
-        },
-        options.safeMode,
-      ),
-    );
+    // Safe mode is installed on the context, not the page, so a popup a click opens is covered too.
+    const openSession = async (): Promise<{ page: AuthPage; close: () => Promise<void> }> => {
+      const context = await browser.newContext({
+        ...(storageState === undefined ? {} : { storageState }),
+        ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+      });
+      await context.route(
+        '**/*',
+        createSafeModeRouteHandler(
+          options.allowlist,
+          options.baseUrl,
+          () => {
+            blockedRequestCount += 1;
+          },
+          options.safeMode,
+        ),
+      );
+      return { page: await context.newPage(), close: () => context.close() };
+    };
+    const revealCollapsed = options.revealCollapsed === true;
+    const sharedSession = revealCollapsed ? undefined : await openSession();
 
     const generatedAt = clock.now().toISOString();
     const elements: SelectorElement[] = [];
@@ -185,39 +203,62 @@ export async function buildSelectorRegistry(
     const assignElementId = createElementIdAssigner();
 
     for (const pageModel of options.pageModelSet.pages) {
-      await page.goto(pageModel.url);
-      await settlePage(page, pageModel.url, options.settle);
+      const session = sharedSession ?? (await openSession());
+      try {
+        const { page } = session;
+        await page.goto(pageModel.url);
+        await settlePage(page, pageModel.url, options.settle);
+        const reveal = async (): Promise<void> => {
+          if (revealCollapsed) {
+            await revealCollapsedPanels(page, {
+              pageUrl: pageModel.url,
+              ...(options.profile?.collapsiblePanelSelectors === undefined
+                ? {}
+                : { extraSelectors: options.profile.collapsiblePanelSelectors }),
+              ...(options.settle === undefined ? {} : { settle: options.settle }),
+            });
+          }
+        };
+        await reveal();
 
-      const scored = await scorePageCandidates(
-        page,
-        pageModel.interactiveElements.map((interactiveElement) => ({
-          interactiveElement,
-          candidates: synthesizeLocatorCandidates(interactiveElement, policy, {
-            extraStableAttributes,
-            generatedIdPatterns,
-          }),
-        })),
-        options.viewports === undefined ? {} : { viewports: options.viewports },
-      );
+        const scored = await scorePageCandidates(
+          page,
+          pageModel.interactiveElements.map((interactiveElement) => ({
+            interactiveElement,
+            candidates: synthesizeLocatorCandidates(interactiveElement, policy, {
+              extraStableAttributes,
+              generatedIdPatterns,
+            }),
+          })),
+          {
+            ...(options.viewports === undefined ? {} : { viewports: options.viewports }),
+            afterReload: reveal,
+          },
+        );
 
-      for (const { interactiveElement, scoredCandidates } of scored) {
-        const { primaryCandidates, stabilityScore } = selectPrimaryCandidate(scoredCandidates);
+        for (const { interactiveElement, scoredCandidates } of scored) {
+          const { primaryCandidates, stabilityScore } = selectPrimaryCandidate(scoredCandidates);
 
-        const kind = interactiveElement.widgetKind ?? interactiveElement.kind;
-        elements.push({
-          elementId: assignElementId(pageModel.url, interactiveElement),
-          name: nameFor(elementNameForId(interactiveElement), kind),
-          kind,
-          ...(interactiveElement.widgetKind !== undefined && options.profile !== undefined
-            ? { library: options.profile.id }
-            : {}),
-          ...(interactiveElement.popupId === undefined ? {} : { popupId: interactiveElement.popupId }),
-          locatorCandidates: primaryCandidates,
-          stabilityScore,
-          lastVerifiedAt: generatedAt,
-          source: 'crawl',
-          pageUrl: pageModel.url,
-        });
+          const kind = interactiveElement.widgetKind ?? interactiveElement.kind;
+          elements.push({
+            elementId: assignElementId(pageModel.url, interactiveElement),
+            name: nameFor(elementNameForId(interactiveElement), kind),
+            kind,
+            ...(interactiveElement.widgetKind !== undefined && options.profile !== undefined
+              ? { library: options.profile.id }
+              : {}),
+            ...(interactiveElement.popupId === undefined ? {} : { popupId: interactiveElement.popupId }),
+            locatorCandidates: primaryCandidates,
+            stabilityScore,
+            lastVerifiedAt: generatedAt,
+            source: 'crawl',
+            pageUrl: pageModel.url,
+          });
+        }
+      } finally {
+        if (sharedSession === undefined) {
+          await session.close();
+        }
       }
     }
 
