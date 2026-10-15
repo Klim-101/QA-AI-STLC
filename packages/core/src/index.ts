@@ -54,6 +54,8 @@ export * from './testing-scope.js';
 export * from './engine-context.js';
 export * from './run-identity.js';
 export * from './run-sign-in.js';
+export type { BrowserTokenOrigin } from './browser-token-source.js';
+export * from './run-token-origin.js';
 export * from './expectation-assertions.js';
 export * from './locator-module-exports.js';
 export * from './runner.js';

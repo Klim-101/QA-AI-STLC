@@ -11,12 +11,14 @@ import {
   loadApiContract,
   loadConfig,
   resolveApiAuth,
+  withRunTokenOrigin,
   resolveBrowserEnvironment,
   scrubSecretValues,
   serializeResolvedApiAuth,
   snapshotApiContract,
   type EngineContext,
   type ResolvedApiAuth,
+  type BrowserTokenOrigin,
   type Runner,
   type RunnerInput,
   type RunnerOutcome,
@@ -43,18 +45,40 @@ async function resolveSpecProfiles(
   const environment = resolveBrowserEnvironment(config, input.environment);
   assertUrlAllowed(input.baseUrl, environment.config.allowlist, environment.config.baseUrl);
   const tokenCache = createApiAuthTokenCache();
-  const resolved: ResolvedApiAuth[] = [];
-  for (const profileName of profileNames) {
-    resolved.push(
-      await resolveApiAuth(engine, {
-        profileName,
-        apiAuth: config.apiAuth,
-        environment: environment.config,
-        tokenCache,
-      }),
-    );
+  const resolveAll = async (browserTokenOrigin?: BrowserTokenOrigin): Promise<ResolvedApiAuth[]> => {
+    const resolved: ResolvedApiAuth[] = [];
+    for (const profileName of profileNames) {
+      resolved.push(
+        await resolveApiAuth(engine, {
+          profileName,
+          apiAuth: config.apiAuth,
+          environment: environment.config,
+          tokenCache,
+          ...(browserTokenOrigin === undefined ? {} : { browserTokenOrigin }),
+        }),
+      );
+    }
+    return resolved;
+  };
+
+  // A token that lives in a browser session is read from a headless session the run signs in to as
+  // its identity (ADR-0012), opened once for every profile of the run and closed before the specs start.
+  const browserProfileName = [...profileNames].find(
+    (name) => config.apiAuth.profiles[name]?.type === 'from-browser',
+  );
+  if (browserProfileName === undefined) {
+    return resolveAll();
   }
-  return resolved;
+  return withRunTokenOrigin(
+    engine,
+    config,
+    {
+      environment: input.environment,
+      identity: input.identity,
+      profileName: browserProfileName,
+    },
+    resolveAll,
+  );
 }
 
 // A failed API test normally leaves a Playwright trace as its evidence, but a trace is a zip of every
@@ -84,6 +108,7 @@ function scrubOutcome(outcome: RunnerOutcome, secretValues: readonly string[]): 
  */
 export const apiRunner: Runner = {
   testType: 'api',
+  readsIdentity: true,
   async run(engine, input) {
     const config = await loadConfig(engine);
     const contract = await loadApiContract(engine, config, input.environment);
@@ -92,10 +117,16 @@ export const apiRunner: Runner = {
     await ensureApiAuthModule(engine, config.apiAuth);
 
     const resolved = await resolveSpecProfiles(engine, config, input);
+    // The identity was only for reading a token above; an api spec drives no page, and handing it on
+    // would sign in a second time and give the specs a browser session they never use.
+    const specInput = Object.fromEntries(Object.entries(input).filter(([key]) => key !== 'identity')) as Omit<
+      RunnerInput,
+      'identity'
+    >;
     if (resolved.length === 0) {
-      return runPlaywrightSpecs(engine, input, 'api');
+      return runPlaywrightSpecs(engine, specInput, 'api');
     }
-    const outcomes = await runPlaywrightSpecs(engine, input, 'api', {
+    const outcomes = await runPlaywrightSpecs(engine, specInput, 'api', {
       env: { [API_AUTH_ENVIRONMENT_VARIABLE]: serializeResolvedApiAuth(resolved) },
       isTraceEnabled: false,
     });

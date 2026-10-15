@@ -5,7 +5,7 @@ import type { BrowserTokenSource } from '@qa-ai-stlc/schemas';
 import { isUrlAllowed } from './browser-allowlist.js';
 import type { BrowserSession } from './browser-session-store.js';
 import { QaError } from './errors.js';
-import type { StorageState } from './ports/browser-launcher.js';
+import type { AuthBrowserContext, AuthPage, StorageState } from './ports/browser-launcher.js';
 
 /**
  * Where a `from-browser` profile can read from. A live session offers everything a developer-tools
@@ -42,28 +42,42 @@ export function createStorageStateOrigin(
   };
 }
 
-/** A live engine browser session, with sessionStorage and observed request headers on top. */
-export function createSessionOrigin(session: BrowserSession): BrowserTokenOrigin {
+/** What a page-backed origin needs from a browser: a live session, or a headless one a run opened. */
+export interface PageOriginSource {
+  readonly context: Pick<AuthBrowserContext, 'storageState'>;
+  readonly page: Pick<AuthPage, 'url' | 'evaluate'>;
+  readonly allowlist: readonly string[];
+  readonly baseUrl: string;
+  readonly observedRequestHeaders: ReadonlyMap<string, string>;
+}
+
+/** A browser with a page open, with sessionStorage and observed request headers on top of the storage state. */
+export function createPageOrigin(source: PageOriginSource, description: string): BrowserTokenOrigin {
   return {
-    description: 'the open browser session',
-    allowlist: session.allowlist,
-    baseUrl: session.baseUrl,
-    loadStorageState: () => session.context.storageState(),
+    description,
+    allowlist: source.allowlist,
+    baseUrl: source.baseUrl,
+    loadStorageState: () => source.context.storageState(),
     readSessionStorage: async (key) => {
       // The page is untrusted until proven to be on the allowlist: reading its storage while it
       // sits on some other origin would hand back a value the application never set.
-      if (!isUrlAllowed(session.page.url(), session.allowlist, session.baseUrl)) {
+      if (!isUrlAllowed(source.page.url(), source.allowlist, source.baseUrl)) {
         throw new QaError(
           'API_AUTH_SOURCE_UNAVAILABLE',
           'The session page is not on the environment allowlist, so its sessionStorage is not read',
           { remediation: 'Navigate the session back to the application, then retry.' },
         );
       }
-      const value = await session.page.evaluate(readSessionStorageItem, key);
+      const value = await source.page.evaluate(readSessionStorageItem, key);
       return typeof value === 'string' ? value : undefined;
     },
-    readObservedRequestHeader: (name) => session.observedRequestHeaders.get(name.toLowerCase()),
+    readObservedRequestHeader: (name) => source.observedRequestHeaders.get(name.toLowerCase()),
   };
+}
+
+/** A live engine browser session, with sessionStorage and observed request headers on top. */
+export function createSessionOrigin(session: BrowserSession): BrowserTokenOrigin {
+  return createPageOrigin(session, 'the open browser session');
 }
 
 // Runs inside the browser, where a closure over Node-side state is not available, and is not

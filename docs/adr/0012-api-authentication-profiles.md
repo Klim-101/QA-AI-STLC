@@ -97,7 +97,11 @@ of the same environment (opened by `qa.browser_open`, or attached to the operato
 can also produce). The token stays in
 engine memory, is read again at request time on every call (it is never cached, so a token the
 application rotated is picked up immediately and there is no stale copy for a 401 to expose), and
-follows rules 1 to 4 above. A source
+follows rules 1 to 4 above. A run (`qa run`, `qa.generation_verify`) has no one to open a
+session, so for a spec whose profile is `from-browser` it signs in as the run's identity (the
+`--identity` or `identity` argument, else the environment's `identity`) in a headless session under
+safe mode, loads the environment's `baseUrl`, reads the token once before the specs start and closes
+the session; a run with no identity stops with `API_AUTH_SESSION_REQUIRED`. A source
 that the session cannot provide (for example `sessionStorage` from a saved storage-state file) fails
 with a coded error rather than falling back silently. This complements the manual path, where the
 operator copies a token into a `QA_*` variable used by a `bearer` profile.

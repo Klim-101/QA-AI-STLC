@@ -4,7 +4,7 @@
 import { ConfigSchema, type Config } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { QaError } from './errors.js';
-import { resolveRunIdentity } from './run-identity.js';
+import { resolveRunIdentity, resolveRunnerInputIdentity } from './run-identity.js';
 import type { Runner } from './runner.js';
 
 const IDENTITY = {
@@ -83,5 +83,46 @@ describe('resolveRunIdentity', () => {
     const error = failureOf(() => resolve(buildConfig({ hasIdentities: false }), browserRunner, 'ghost'));
 
     expect(error.remediation).toContain('(none configured)');
+  });
+});
+
+describe('resolveRunnerInputIdentity', () => {
+  const tokenReader: Runner = { testType: 'api', readsIdentity: true, run: () => Promise.resolve([]) };
+  const environmentOf = (config: Config) => {
+    const environment = config.environments.staging;
+    if (environment === undefined) {
+      throw new Error('test config has no staging environment');
+    }
+    return environment;
+  };
+
+  it('hands a runner that reads a credential through the identity the environment names', () => {
+    const config = buildConfig({ environmentIdentity: 'tester' });
+
+    expect(resolveRunnerInputIdentity(config, environmentOf(config), tokenReader, undefined)).toBe('tester');
+    expect(resolveRunnerInputIdentity(config, environmentOf(config), tokenReader, 'admin')).toBe('admin');
+  });
+
+  it('hands that runner no identity when none is named or configured', () => {
+    const config = buildConfig({});
+
+    expect(resolveRunnerInputIdentity(config, environmentOf(config), tokenReader, undefined)).toBeUndefined();
+  });
+
+  it('answers exactly as the recorded identity does for any other runner', () => {
+    const config = buildConfig({ environmentIdentity: 'tester' });
+
+    expect(resolveRunnerInputIdentity(config, environmentOf(config), browserRunner, undefined)).toBe(
+      'tester',
+    );
+    expect(
+      resolveRunnerInputIdentity(config, environmentOf(config), apiOnlyRunner, undefined),
+    ).toBeUndefined();
+  });
+
+  it('does not let a token reader change what the run record says', () => {
+    const config = buildConfig({ environmentIdentity: 'tester' });
+
+    expect(resolveRunIdentity(config, environmentOf(config), tokenReader, undefined)).toBeUndefined();
   });
 });
