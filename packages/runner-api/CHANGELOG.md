@@ -1,5 +1,23 @@
 # @qa-ai-stlc/runner-api
 
+## 1.9.0
+
+### Patch Changes
+
+- Updated dependencies [b9e9efc]
+- Updated dependencies [cd6d619]
+- Updated dependencies [26818b4]
+- Updated dependencies [d75348b]
+- Updated dependencies [6cbe958]
+- Updated dependencies [2c0a81f]
+- Updated dependencies [48f9f7d]
+- Updated dependencies [6e64902]
+- Updated dependencies [edbb652]
+- Updated dependencies [8a00424]
+  - @qa-ai-stlc/core@1.9.0
+  - @qa-ai-stlc/schemas@1.9.0
+  - @qa-ai-stlc/runner-playwright@1.9.0
+
 ## 1.8.0
 
 ### Patch Changes

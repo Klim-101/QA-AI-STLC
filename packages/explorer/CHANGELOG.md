@@ -1,5 +1,27 @@
 # @qa-ai-stlc/explorer
 
+## 1.9.0
+
+### Minor Changes
+
+- afa3690: The generated locator module (`tests/qa/locators.ts`) is easier to use against a large application. Elements that share a locator (the rows of a repeated list) now have one function instead of numbered copies, and the generator reports which elements share it. Elements added during an interactive session (`execute` strategy) become `page.locator(...)` functions, named after their selector when they have no name, instead of being dropped. Every active registry element is now either an export, shared with one, or reported as skipped with a reason (`no-locator-candidate`, `no-name`). A data grid gets `<name>Row(page, rowText)` and `<name>Cell(page, rowText, columnName)` helpers. Names ignore a number or a letter plus digits (`V11102`) in favour of the next meaningful signal, and an element that is found again keeps the name it had, so specs that import it keep working.
+
+### Patch Changes
+
+- d75348b: `qa.generation_spoke_input` lists the locator functions the module really exports. Since elements with an identical locator share one function, the list built from registry names named functions that do not exist, and a spec importing one failed typecheck. The generated `tests/qa/locators.ts` now says above each function which elements it answers (`// elements: <id> <id>`), and the spoke input reads that. A module written by an older generator is refused with `GENERATION_LOCATOR_MODULE_OUTDATED`; re-run `qa explore` to regenerate it.
+- Updated dependencies [b9e9efc]
+- Updated dependencies [cd6d619]
+- Updated dependencies [26818b4]
+- Updated dependencies [d75348b]
+- Updated dependencies [6cbe958]
+- Updated dependencies [2c0a81f]
+- Updated dependencies [48f9f7d]
+- Updated dependencies [6e64902]
+- Updated dependencies [edbb652]
+- Updated dependencies [8a00424]
+  - @qa-ai-stlc/core@1.9.0
+  - @qa-ai-stlc/schemas@1.9.0
+
 ## 1.8.0
 
 ### Minor Changes

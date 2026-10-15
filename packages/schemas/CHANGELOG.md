@@ -1,5 +1,12 @@
 # @qa-ai-stlc/schemas
 
+## 1.9.0
+
+### Minor Changes
+
+- 6e64902: Browser specs can now run against a site that needs sign-in. `qa run`, `qa.run` and `qa.generation_verify` sign in as a configured identity and start the browser with its session, so a spec carries no credential and no login steps. The identity is `--identity` / `identity` on the call, else the new `environments.<name>.identity` in `config.yaml`; with neither the run is anonymous. The run record, the run summary and the verification result name the identity used. The session exists only for the run (traces are off for it) and is never written to a report, log or artifact. A login that does not take stops the run with `RUN_SIGN_IN_FAILED` and a remediation, instead of running the specs against the login page; an unknown identity is `RUN_IDENTITY_UNKNOWN`.
+- 8a00424: A generated spec now re-checks what its case declares. `qa.generation_spoke_input` renders every `expectations` and `resultExpectations` entry of the case as the assertion line the spec needs (`expectationAssertions`): the matching Playwright assertion on the locator-module function for the browser kinds, the response assertions for an api case, `scanAccessibility` for `a11y-clean`. A selector that names no registry element, or whose element has no function in the module, is listed in `unresolvedExpectations` and is never inlined. `qa.generation_verify` looks for every line, in its step, before running the spec and answers `expectations_missing` with what to add; a spec that asserts them all goes on to the run. A case that declares nothing is unaffected, and its spoke input keeps its hash. `qa-generate-tests` guidance covers both lists.
+
 ## 1.8.0
 
 ### Minor Changes
