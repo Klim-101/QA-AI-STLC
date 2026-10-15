@@ -1,11 +1,20 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ManifestStore, QaStore, configureTestIdAttribute, loadConfig } from '@qa-ai-stlc/core';
+import {
+  ManifestStore,
+  QaError,
+  QaStore,
+  configureTestIdAttribute,
+  loadConfig,
+  type SafeModeRequestSummaries,
+} from '@qa-ai-stlc/core';
 import {
   buildRequestLogHar,
   capturePickModeElements,
   finalizeManualSelectorEntries,
+  guardPickModeSession,
+  isAllowedUrl,
   mergeGeneratedIdPatterns,
   persistExploreResult,
   resolveEnvironment,
@@ -18,7 +27,12 @@ import {
   type ExploreOptions as ExploreOperationOptions,
   type ExploreReport,
 } from '@qa-ai-stlc/explorer';
-import { SelectorRegistrySchema, type Config, type SelectorElement } from '@qa-ai-stlc/schemas';
+import {
+  SelectorRegistrySchema,
+  type Config,
+  type SafeNonGetRequest,
+  type SelectorElement,
+} from '@qa-ai-stlc/schemas';
 import type { CommandContext } from '../command-context.js';
 
 const REGISTRY_PATH = 'selectors/registry.json';
@@ -30,27 +44,57 @@ export interface ExploreOptions extends ExploreOperationOptions {
   readonly pick?: string;
 }
 
+interface PickModeEnvironment {
+  readonly tlsInsecure: boolean;
+  readonly allowlist: readonly string[];
+  readonly baseUrl: string;
+  readonly safeRequests?: readonly SafeNonGetRequest[];
+}
+
 // Pick mode navigates to an arbitrary URL, not necessarily a configured environment's baseUrl, so
-// an environment given by --environment opts pick mode into its `tlsInsecure` too, but an
-// unresolvable one (none configured, none named -- `resolveEnvironment` only ever throws a
-// QaError for those cases) leaves TLS validation on rather than failing the session over
-// something pick mode does not otherwise need.
-function resolveExploreEnvironment(config: Config, name: string | undefined): boolean {
+// an environment given by --environment opts pick mode into its `tlsInsecure` and its allowlist
+// too, but an unresolvable one (none configured, none named -- `resolveEnvironment` only ever
+// throws a QaError for those cases) leaves TLS validation on and allows only the page's own host
+// rather than failing the session over something pick mode does not otherwise need.
+function resolvePickModeEnvironment(
+  config: Config,
+  name: string | undefined,
+  pickUrl: string,
+): PickModeEnvironment {
+  const pickOrigin = new URL(pickUrl);
   try {
-    return resolveEnvironment(config, name).config.tlsInsecure === true;
-  } catch {
-    return false;
+    const { config: environment } = resolveEnvironment(config, name);
+    if (!isAllowedUrl(pickUrl, environment.allowlist)) {
+      throw new QaError(
+        'explorer.pick_mode.url_not_allowed',
+        `"${pickUrl}" is not on the environment allowlist (${environment.allowlist.join(', ')})`,
+        { remediation: 'Pick a page on an allowlisted host, or add the host to the environment allowlist.' },
+      );
+    }
+    return {
+      tlsInsecure: environment.tlsInsecure === true,
+      allowlist: environment.allowlist,
+      baseUrl: environment.baseUrl,
+      ...(environment.safeNonGetRequests === undefined
+        ? {}
+        : { safeRequests: environment.safeNonGetRequests }),
+    };
+  } catch (error) {
+    if (error instanceof QaError && error.code === 'explorer.pick_mode.url_not_allowed') {
+      throw error;
+    }
+    return { tlsInsecure: false, allowlist: [pickOrigin.hostname], baseUrl: pickOrigin.origin };
   }
 }
 
 async function runPickModeSession(
   context: CommandContext,
   options: ExploreOptions & { readonly pick: string },
-): Promise<{ elements: SelectorElement[]; blockedRequestCount: number }> {
+): Promise<{ elements: SelectorElement[]; blockedRequestCount: number; requests: SafeModeRequestSummaries }> {
   const config = await loadConfig(context);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
-  const tlsInsecure = resolveExploreEnvironment(config, options.environment);
+  const { tlsInsecure, ...guard } = resolvePickModeEnvironment(config, options.environment, options.pick);
   configureTestIdAttribute(config.selectors.testIdAttribute);
   const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
 
@@ -61,10 +105,11 @@ async function runPickModeSession(
       ...(storageState === undefined ? {} : { storageState }),
       ...(tlsInsecure ? { ignoreHttpsErrors: true } : {}),
     });
+    const tally = await guardPickModeSession(browserContext, guard);
     const page = await browserContext.newPage();
     await page.goto(options.pick);
     context.io.stdout(
-      `Pick mode: a browser window opened at ${options.pick}. Click every element to capture, then click "Finish picking".`,
+      `Pick mode: a browser window opened at ${options.pick}. Click every element to capture, then click "Finish picking". To open a collapsed panel or menu first, switch "Browse" on, click, then switch it off again.`,
     );
     const captures = await waitForPickModeCompletion(page, {
       testIdAttribute: config.selectors.testIdAttribute,
@@ -79,7 +124,12 @@ async function runPickModeSession(
     });
     const generatedAt = context.clock.now().toISOString();
     const elements = finalizeManualSelectorEntries(pickModeElements, new Map(), generatedAt);
-    return { elements, blockedRequestCount: 0 };
+    const requests = tally.summary();
+    return {
+      elements,
+      blockedRequestCount: requests.blocked.reduce((total, entry) => total + entry.count, 0),
+      requests,
+    };
   } finally {
     await browser.close();
   }
@@ -106,7 +156,7 @@ export async function runExplore(
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : undefined;
 
-  const { elements, blockedRequestCount } = await runPickModeSession(context, {
+  const { elements, blockedRequestCount, requests } = await runPickModeSession(context, {
     ...options,
     pick: options.pick,
   });
@@ -123,5 +173,6 @@ export async function runExplore(
     elements,
     blockedRequestCount,
     emptyRequestLogHar,
+    requests,
   );
 }

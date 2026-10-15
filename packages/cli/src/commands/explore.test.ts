@@ -165,6 +165,60 @@ describe('runExplore', () => {
     expect(report.elementCount).toBe(0);
   });
 
+  describe('safe-mode guard (P6-95)', () => {
+    const subRequests = (url: string): FakeExploreBrowserLauncherOptions => ({
+      pickModeState: { done: true, captures: [] },
+      subRequestsByUrl: {
+        [url]: [
+          { method: 'POST', url: 'https://staging.example.com/orders' },
+          { method: 'GET', url: 'https://other.example.com/script.js' },
+        ],
+      },
+    });
+
+    it('blocks writes and off-allowlist requests while the operator browses, and reports them', async () => {
+      const context = await fakeContext(subRequests(START_URL));
+
+      const report = await runExplore(context, { pick: START_URL, environment: 'staging' });
+
+      expect(report.blockedRequestCount).toBe(2);
+      expect(report.blockedRequests).toEqual([
+        { method: 'GET', path: '/script.js', count: 1 },
+        { method: 'POST', path: '/orders', count: 1 },
+      ]);
+    });
+
+    it('allows only the picked page host when no environment can be resolved', async () => {
+      const configYaml = CONFIG_YAML.replace(/environments:\n.*\n/u, 'environments: {}\n');
+      const context = await fakeContext(subRequests(START_URL), configYaml);
+
+      const report = await runExplore(context, { pick: START_URL });
+
+      expect(report.blockedRequestCount).toBe(2);
+    });
+
+    it('lets through a POST the environment names exactly (ADR-0014)', async () => {
+      const configYaml = CONFIG_YAML.replace(
+        'allowlist: ["staging.example.com"] }',
+        'allowlist: ["staging.example.com"], safeNonGetRequests: [{ method: POST, path: /orders, reason: opens the session }] }',
+      );
+      const context = await fakeContext(subRequests(START_URL), configYaml);
+
+      const report = await runExplore(context, { pick: START_URL, environment: 'staging' });
+
+      expect(report.blockedRequestCount).toBe(1);
+      expect(report.allowedRequests).toEqual([{ method: 'POST', path: '/orders', count: 1 }]);
+    });
+
+    it('refuses a page that is not on the environment allowlist before opening a browser', async () => {
+      const context = await fakeContext({ pickModeState: { done: true, captures: [] } });
+
+      await expect(
+        runExplore(context, { pick: 'https://other.example.com/', environment: 'staging' }),
+      ).rejects.toMatchObject({ code: 'explorer.pick_mode.url_not_allowed' });
+    });
+  });
+
   it('merges pick mode onto a registry already built by a crawl', async () => {
     const context = await fakeContext({ elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 });
     await runExplore(context);

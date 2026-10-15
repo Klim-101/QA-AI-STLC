@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AuthPage } from '@qa-ai-stlc/core';
-import { QaError } from '@qa-ai-stlc/core';
+import { QaError, type SafeModeRequestTally } from '@qa-ai-stlc/core';
 import type { InteractiveElement } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { computeElementId } from './build-selector-registry.js';
 import {
   capturePickModeElements,
   finalizeManualSelectorEntries,
+  guardPickModeSession,
   injectPickModeOverlay,
   readPickModeState,
   waitForPickModeCompletion,
@@ -81,6 +82,72 @@ describe('injectPickModeOverlay', () => {
     await injectPickModeOverlay(page, 'data-ui-id');
 
     expect(evaluateArgs).toEqual(['data-ui-id']);
+  });
+});
+
+describe('guardPickModeSession', () => {
+  function routeOf(method: string, url: string): { calls: string[]; route: unknown } {
+    const calls: string[] = [];
+    return {
+      calls,
+      route: {
+        request: () => ({ method: () => method, url: () => url }),
+        continue: () => {
+          calls.push('continue');
+          return Promise.resolve();
+        },
+        abort: () => {
+          calls.push('abort');
+          return Promise.resolve();
+        },
+      },
+    };
+  }
+
+  async function guard(
+    options: Partial<Parameters<typeof guardPickModeSession>[1]> = {},
+  ): Promise<{ handle: (method: string, url: string) => Promise<string[]>; tally: SafeModeRequestTally }> {
+    let handler: ((route: never) => Promise<void> | void) | undefined;
+    const tally = await guardPickModeSession(
+      {
+        route: (_pattern, routeHandler) => {
+          handler = routeHandler;
+          return Promise.resolve();
+        },
+      },
+      { allowlist: ['app.example.test'], baseUrl: 'https://app.example.test/', ...options },
+    );
+    return {
+      tally,
+      handle: async (method, url) => {
+        const { calls, route } = routeOf(method, url);
+        await handler?.(route as never);
+        return calls;
+      },
+    };
+  }
+
+  it('lets a GET on the allowlist through and aborts a write and an off-allowlist request', async () => {
+    const { handle, tally } = await guard();
+
+    expect(await handle('GET', 'https://app.example.test/page')).toEqual(['continue']);
+    expect(await handle('POST', 'https://app.example.test/orders')).toEqual(['abort']);
+    expect(await handle('GET', 'https://elsewhere.example.test/x')).toEqual(['abort']);
+    expect(
+      tally
+        .summary()
+        .blocked.map((entry) => entry.method)
+        .sort(),
+    ).toEqual(['GET', 'POST']);
+  });
+
+  it('lets through a write the environment names exactly', async () => {
+    const { handle, tally } = await guard({
+      safeRequests: [{ method: 'POST', path: '/auth/refresh', reason: 'opens the session' }],
+    });
+
+    expect(await handle('POST', 'https://app.example.test/auth/refresh')).toEqual(['continue']);
+    expect(tally.summary().allowed).toEqual([{ method: 'POST', path: '/auth/refresh', count: 1 }]);
   });
 });
 

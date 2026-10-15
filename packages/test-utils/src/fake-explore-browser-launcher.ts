@@ -63,6 +63,8 @@ export interface FakeExplorePageOptions {
 export interface FakeExplorePage extends AuthPageLike {
   /** Every viewport size `setViewportSize()` was called with, in call order (P6-23). */
   readonly viewportSizeCalls: ViewportSizeLike[];
+  /** Every handler registered with `route()`, on the page or on its context, in registration order. */
+  readonly routeHandlers: RouteHandlerLike[];
 }
 
 export function createFakeExplorePage(options: FakeExplorePageOptions = {}): FakeExplorePage {
@@ -76,6 +78,7 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
 
   return {
     viewportSizeCalls,
+    routeHandlers,
     goto: async (url) => {
       currentUrl = url;
       for (const subRequest of options.subRequestsByUrl?.[url] ?? []) {
@@ -159,7 +162,10 @@ export function createFakeExploreBrowserLauncher(
     newPage: () => Promise.resolve(page),
     pages: () => [page],
     storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
-    route: () => Promise.resolve(),
+    route: (_pattern, handler) => {
+      page.routeHandlers.push(handler);
+      return Promise.resolve();
+    },
     on: () => undefined,
     close: () => Promise.resolve(),
   };

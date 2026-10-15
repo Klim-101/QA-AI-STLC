@@ -129,6 +129,9 @@ ending on the registry report alone.
   `npx @qa-ai-stlc/cli explore --pick <url>`; with it installed: `npx qa explore --pick <url>`. Add
   `--identity <name>` whenever the page needs sign-in (without it the browser opens on the login
   page), and `--environment <name>` when `config.yaml` has more than one.
+  Tell the operator how to reach a control behind a collapsed panel (a filter section, a menu): in the
+  toolbar, switch **Browse** on, click to open the panel, switch it off, then click the element to
+  capture. While browsing the session still blocks every write and every request off the allowlist.
 - It does not write test cases or dispatch execution — that is `qa-design-cases` and later skills.
 - It does not re-implement the explorer's crawl, static-analysis or scoring logic; it calls
   `qa.explore` and reports the structured result.
