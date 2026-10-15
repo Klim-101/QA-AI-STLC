@@ -1,6 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { DefectDraft } from '@qa-ai-stlc/schemas';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
@@ -1383,6 +1384,57 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(added).toEqual({ defectId: 'login-error', rcaPath: 'artifacts/rca/login-error.json' });
       expect(approved).toEqual({ defectId: 'login-error', status: 'approved', wasAlreadyApproved: false });
       expect(again.wasAlreadyApproved).toBe(true);
+    });
+  });
+
+  it('qa.defect_add and qa.rca_add take their content inline and leave no file in the project (P6-100)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      const before = (await readdir(projectRoot)).sort();
+      const draft: DefectDraft = {
+        schemaVersion: 1,
+        id: 'login-error',
+        title: 'Invalid credentials show no error',
+        severityProposal: 'major',
+        category: 'functional',
+        steps: ['Open the login page'],
+        expectedResult: 'An error is shown',
+        actualResult: 'Nothing is shown',
+        environment: 'staging',
+        requirementIds: [],
+        evidencePaths: [],
+        status: 'draft',
+        createdAt: '2026-10-07T12:00:00Z',
+      };
+
+      const invalid = await defectAddTool
+        .handler({ draft: { ...draft, category: 'bug' } as unknown as DefectDraft })
+        .catch((caught: unknown) => caught);
+      const added = await defectAddTool.handler({ draft });
+      await defectAcceptTool.handler({ id: 'login-error', approvedBy: 'operator' });
+      const rcaAdded = await rcaAddTool.handler({
+        rca: {
+          schemaVersion: 1,
+          defectId: 'login-error',
+          facts: ['The login request returns 401'],
+          evidencePaths: [],
+          hypotheses: [{ description: 'The handler is not wired', confidence: 'medium' }],
+          remediation: [],
+          status: 'draft',
+          createdAt: '2026-10-07T12:00:00Z',
+        },
+      });
+      const after = (await readdir(projectRoot)).sort();
+      process.chdir(originalCwd);
+
+      expect(invalid).toMatchObject({
+        code: 'DEFECT_INVALID',
+        remediation: expect.stringContaining('category:') as unknown,
+      });
+      expect(added).toMatchObject({ id: 'login-error' });
+      expect(rcaAdded).toEqual({ defectId: 'login-error', rcaPath: 'artifacts/rca/login-error.json' });
+      expect(after).toEqual(before);
     });
   });
 

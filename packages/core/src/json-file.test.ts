@@ -41,5 +41,6 @@ describe('writeJsonFile and readJsonFile', () => {
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('JSON_FILE_INVALID');
+    expect((error as QaError).remediation).toContain('x:');
   });
 });

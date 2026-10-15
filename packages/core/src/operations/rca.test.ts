@@ -145,6 +145,32 @@ describe('runRcaAdd', () => {
     await expect(runRcaAdd(fakeContext(), {})).rejects.toMatchObject({ code: 'RCA_ADD_USAGE' });
   });
 
+  it('registers an analysis given inline', async () => {
+    const context = await withAcceptedDefect();
+
+    const result = await runRcaAdd(context, { rca: rca() });
+
+    expect(result).toEqual({ defectId: 'login-error', rcaPath: 'artifacts/rca/login-error.json' });
+    expect((await stores(context).rcas.read('login-error')).status).toBe('draft');
+  });
+
+  it('names the invalid field when an inline analysis does not match its schema (P6-100)', async () => {
+    const context = await withAcceptedDefect();
+
+    const error: unknown = await runRcaAdd(context, {
+      rca: { ...rca(), hypotheses: [{ description: 'x', confidence: 'certain' }] },
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: 'RCA_INVALID' });
+    expect((error as { remediation?: string }).remediation).toContain('hypotheses.0.confidence:');
+  });
+
+  it('rejects a call that gives both a path and an inline analysis', async () => {
+    await expect(runRcaAdd(fakeContext(), { path: 'rca.json', rca: rca() })).rejects.toMatchObject({
+      code: 'RCA_ADD_USAGE',
+    });
+  });
+
   it('rejects a path that does not exist', async () => {
     await expect(runRcaAdd(fakeContext(), { path: 'missing.json' })).rejects.toMatchObject({
       code: 'RCA_ADD_FILE_NOT_FOUND',

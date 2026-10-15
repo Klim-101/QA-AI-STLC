@@ -18,6 +18,7 @@ import { hashText } from '../hash.js';
 import { readJsonFile, toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
+import { parseInlineContent } from '../schema-issues.js';
 import { QaStore } from '../qa-store.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 
@@ -37,6 +38,8 @@ function openStores(context: EngineContext): {
 
 export interface DefectAddOptions {
   readonly path?: string;
+  /** The draft itself, instead of a file holding it; validated by `DefectDraftSchema` exactly like a file's content. */
+  readonly draft?: unknown;
 }
 
 export interface DefectAddResult {
@@ -52,16 +55,36 @@ export interface DefectAddResult {
  * is always `draft`: acceptance is a separate, approved step (`runDefectAccept`), so a file that
  * arrives already claiming `accepted` is rejected. Every requirement it cites must exist in the
  * scope artifact and every evidence path must be a file the engine registered (AGENTS.md 12.5).
- * Re-adding replaces an unaccepted draft; an accepted one is never overwritten.
+ * Re-adding replaces an unaccepted draft; an accepted one is never overwritten. The draft comes from a
+ * file (`path`) or inline (`draft`, so an agent needs no scratch file in the project tree); exactly
+ * one of the two is given.
  */
 export async function runDefectAdd(
   context: EngineContext,
   options: DefectAddOptions,
 ): Promise<DefectAddResult> {
-  if (options.path === undefined) {
-    throw new QaError('DEFECT_ADD_USAGE', 'Usage: qa defect add --path <path>', {
-      remediation: 'Example: qa defect add --path defects/login-error.json',
+  return registerDefectDraft(context, await readDefectDraft(context, options));
+}
+
+function defectAddUsageError(): QaError {
+  return new QaError('DEFECT_ADD_USAGE', 'Usage: qa defect add --path <path>', {
+    remediation:
+      'Give exactly one of a file path (qa defect add --path defects/login-error.json) or an inline draft.',
+  });
+}
+
+async function readDefectDraft(context: EngineContext, options: DefectAddOptions): Promise<DefectDraft> {
+  if (options.draft !== undefined) {
+    if (options.path !== undefined) {
+      throw defectAddUsageError();
+    }
+    return parseInlineContent(DefectDraftSchema, options.draft, {
+      code: 'DEFECT_INVALID',
+      subject: 'defect draft',
     });
+  }
+  if (options.path === undefined) {
+    throw defectAddUsageError();
   }
   const path = assertRelativePath(options.path);
   const absolutePath = resolveRelativePath(context.projectRoot, path);
@@ -70,7 +93,7 @@ export async function runDefectAdd(
       remediation: 'Check --path points at a real, readable file relative to the project root.',
     });
   }
-  return registerDefectDraft(context, await readJsonFile(context.fs, absolutePath, DefectDraftSchema));
+  return readJsonFile(context.fs, absolutePath, DefectDraftSchema);
 }
 
 /**

@@ -44,10 +44,12 @@ without an accepted defect: the engine refuses to build the input for anything e
    shows directly; everything else is a _hypothesis_ with a confidence and the evidence that would
    confirm or refute it. Cite the evidence a fact rests on by its path from `qa.rca_input`. Give
    every cause the label it deserves; never promote a hypothesis to a fact because it is plausible.
-4. **Write the RCA** as JSON (`RcaSchema`: `defectId`, `facts`, `evidencePaths`, `hypotheses`,
+4. **Write the RCA** (`RcaSchema`: `defectId`, `facts`, `evidencePaths`, `hypotheses`,
    `remediation`, optional `regressionRecommendation`, `status: "draft"`, `createdAt`). Field content
    is English whatever language the operator uses.
-5. **Register it** with `qa.rca_add` (the path of the JSON file). The engine stamps the defect it
+5. **Register it** with `qa.rca_add`, passing the analysis inline as `rca`: no file is written in the
+   project, and a field that does not match comes back as `RCA_INVALID` naming the field and the
+   values it allows (read it; never download the schemas package to find them). The engine stamps the defect it
    was written against and rejects evidence it did not register
    (`RCA_EVIDENCE_UNREGISTERED`). Hand the registered RCA to the operator for review.
 

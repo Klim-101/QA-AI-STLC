@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { RcaSchema, type Approval, type RcaStatus } from '@qa-ai-stlc/schemas';
+import { RcaSchema, type Approval, type Rca, type RcaStatus } from '@qa-ai-stlc/schemas';
 import { ApprovalLedgerStore } from '../approval-ledger-store.js';
 import { DefectStore } from '../defect-store.js';
 import type { EngineContext } from '../engine-context.js';
@@ -10,6 +10,7 @@ import { hashText } from '../hash.js';
 import { readJsonFile, toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
+import { parseInlineContent } from '../schema-issues.js';
 import { QaStore } from '../qa-store.js';
 import { RcaStore, assertDefectAccepted, rcaGate, rcaPath } from '../rca-store.js';
 
@@ -27,6 +28,8 @@ function openStores(context: EngineContext): {
 
 export interface RcaAddOptions {
   readonly path?: string;
+  /** The analysis itself, instead of a file holding it; validated by `RcaSchema` exactly like a file's content. */
+  readonly rca?: unknown;
 }
 
 export interface RcaAddResult {
@@ -40,22 +43,11 @@ export interface RcaAddResult {
  * defect, no RCA (development plan section 2.4): the defect it analyses must be `accepted`. The
  * engine stamps the SHA-256 of that defect onto the RCA, so the analysis is bound to the defect it
  * was written against. A new RCA is always `draft`; review is a separate step (`runRcaApprove`),
- * and an approved RCA is never overwritten.
+ * and an approved RCA is never overwritten. The analysis comes from a file (`path`) or inline (`rca`,
+ * so an agent needs no scratch file in the project tree); exactly one of the two is given.
  */
 export async function runRcaAdd(context: EngineContext, options: RcaAddOptions): Promise<RcaAddResult> {
-  if (options.path === undefined) {
-    throw new QaError('RCA_ADD_USAGE', 'Usage: qa rca add --path <path>', {
-      remediation: 'Example: qa rca add --path rca/login-error.json',
-    });
-  }
-  const path = assertRelativePath(options.path);
-  const absolutePath = resolveRelativePath(context.projectRoot, path);
-  if (!(await context.fs.pathExists(absolutePath))) {
-    throw new QaError('RCA_ADD_FILE_NOT_FOUND', `"${path}" does not exist`, {
-      remediation: 'Check --path points at a real, readable file relative to the project root.',
-    });
-  }
-  const rca = await readJsonFile(context.fs, absolutePath, RcaSchema);
+  const rca = await readRca(context, options);
   if (rca.status !== 'draft') {
     throw new QaError(
       'RCA_ADD_STATUS_INVALID',
@@ -92,6 +84,36 @@ export async function runRcaAdd(context: EngineContext, options: RcaAddOptions):
   const stamped = { ...rca, defectSha256 };
   await rcas.write(stamped, toCanonicalJson(stamped));
   return { defectId: rca.defectId, rcaPath: rcaPath(rca.defectId) };
+}
+
+function rcaAddUsageError(): QaError {
+  return new QaError('RCA_ADD_USAGE', 'Usage: qa rca add --path <path>', {
+    remediation:
+      'Give exactly one of a file path (qa rca add --path rca/login-error.json) or an inline analysis.',
+  });
+}
+
+async function readRca(context: EngineContext, options: RcaAddOptions): Promise<Rca> {
+  if (options.rca !== undefined) {
+    if (options.path !== undefined) {
+      throw rcaAddUsageError();
+    }
+    return parseInlineContent(RcaSchema, options.rca, {
+      code: 'RCA_INVALID',
+      subject: 'root cause analysis',
+    });
+  }
+  if (options.path === undefined) {
+    throw rcaAddUsageError();
+  }
+  const path = assertRelativePath(options.path);
+  const absolutePath = resolveRelativePath(context.projectRoot, path);
+  if (!(await context.fs.pathExists(absolutePath))) {
+    throw new QaError('RCA_ADD_FILE_NOT_FOUND', `"${path}" does not exist`, {
+      remediation: 'Check --path points at a real, readable file relative to the project root.',
+    });
+  }
+  return readJsonFile(context.fs, absolutePath, RcaSchema);
 }
 
 export interface RcaApproveOptions {

@@ -4,6 +4,7 @@
 import type { z } from 'zod';
 import type { FileSystem } from './ports/file-system.js';
 import { QaError } from './errors.js';
+import { formatSchemaIssues } from './schema-issues.js';
 
 // Two spaces, a trailing newline, and no other formatting choice, so the same value serializes
 // to byte-identical content on every OS and every run (AGENTS.md 12.6).
@@ -26,6 +27,7 @@ export async function readJsonFile<Schema extends z.ZodType>(
   const result = schema.safeParse(parsed);
   if (!result.success) {
     throw new QaError('JSON_FILE_INVALID', `"${absolutePath}" does not match its schema`, {
+      remediation: formatSchemaIssues(result.error),
       cause: result.error,
     });
   }
