@@ -1,5 +1,35 @@
 # @qa-ai-stlc/cli
 
+## 1.9.0
+
+### Minor Changes
+
+- b9e9efc: The agent can now set up API authentication without the operator editing `config.yaml`. `qa.config_add_api_auth` (and `qa config add api-auth <name> --profile <json> [--default-for <environment>]`) adds an `apiAuth` profile and an environment default, validated by the same schema; a secret is only ever the name of a `QA_` variable, so a token value is refused. `qa.browser_discover_api_auth` reads an open, signed-in session and reports which request header carries the bearer token and which cookie, localStorage or sessionStorage key stores it, as names only, with a proposed `from-browser` profile. For this, a session now keeps in memory the latest `Authorization` and bearer-valued request headers sent to allowlisted hosts; they are never returned or logged. `qa-execute` says to use these instead of asking the operator for YAML.
+- 2c0a81f: The security audit that `runner-security` can run is now reachable on demand. `qa security authorize --path <file>`, `qa security approve --approved-by <name>` and `qa security audit` (and the MCP tools `qa.security_authorize`, `qa.security_approve`, `qa.security_audit`) register the audit authorization, record the operator's approval of its exact content, and run the authorized checks, filing every finding as a defect draft that is not accepted. All three refuse with `SECURITY_OUT_OF_SCOPE` unless `testing.security` is `in-scope`, and the audit refuses to start without an approved, current authorization. The new `qa-security` skill drafts the authorization, puts it in front of the operator, waits for their approval and reports the result; it fires only on a request for a security audit and is never called by the pipeline. `qa security audit` exits non-zero when it found something or stopped early.
+- 48f9f7d: `qa report` and `qa.report` now report the results `qa-execute` registered, not only `qa run` records. A session that executed cases but never ran a spec set no longer ends in `REPORT_NO_RUNS`: the new `interactiveSummary` lists one row per case (its latest result, with an honest status) and the traceability matrix already covered both. `runId`, `runRecordPath` and `runSummary` are now present only when a `qa run` record is reported, and `--run <id>` also accepts the id of a live execution run. `REPORT_NO_RUNS` now means neither kind of result exists.
+- 6e64902: Browser specs can now run against a site that needs sign-in. `qa run`, `qa.run` and `qa.generation_verify` sign in as a configured identity and start the browser with its session, so a spec carries no credential and no login steps. The identity is `--identity` / `identity` on the call, else the new `environments.<name>.identity` in `config.yaml`; with neither the run is anonymous. The run record, the run summary and the verification result name the identity used. The session exists only for the run (traces are off for it) and is never written to a report, log or artifact. A login that does not take stops the run with `RUN_SIGN_IN_FAILED` and a remediation, instead of running the specs against the login page; an unknown identity is `RUN_IDENTITY_UNKNOWN`.
+
+### Patch Changes
+
+- Updated dependencies [b9e9efc]
+- Updated dependencies [cd6d619]
+- Updated dependencies [26818b4]
+- Updated dependencies [d75348b]
+- Updated dependencies [afa3690]
+- Updated dependencies [6cbe958]
+- Updated dependencies [2c0a81f]
+- Updated dependencies [48f9f7d]
+- Updated dependencies [6e64902]
+- Updated dependencies [edbb652]
+- Updated dependencies [8a00424]
+  - @qa-ai-stlc/core@1.9.0
+  - @qa-ai-stlc/explorer@1.9.0
+  - @qa-ai-stlc/runner-security@1.9.0
+  - @qa-ai-stlc/schemas@1.9.0
+  - @qa-ai-stlc/runner-playwright@1.9.0
+  - @qa-ai-stlc/runner-a11y@1.9.0
+  - @qa-ai-stlc/runner-api@1.9.0
+
 ## 1.8.0
 
 ### Minor Changes
