@@ -45,4 +45,49 @@ describe('pick mode click capture (overlay demo app)', () => {
     await context.close();
     await browser.close();
   }, 30_000);
+
+  // A collapsed panel whose controls exist only once it is open, like a search-details filter panel.
+  const PANEL_HTML = `
+<!doctype html>
+<html>
+  <body>
+    <button id="toggle" type="button" aria-expanded="false">Search Details</button>
+    <div id="panel" hidden><input id="filter" type="text" /></div>
+    <script>
+      document.getElementById('toggle').addEventListener('click', () => {
+        document.getElementById('panel').hidden = false;
+      });
+    </script>
+  </body>
+</html>
+`;
+
+  it('captures but does not open a collapsed panel until the operator switches browsing on (P6-95)', async () => {
+    const browser = await playwrightBrowserLauncher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`data:text/html,${encodeURIComponent(PANEL_HTML)}`);
+    await injectPickModeOverlay(page, 'data-testid');
+
+    await page.click('#toggle');
+    expect(await page.evaluate(() => document.getElementById('panel')?.hidden)).toBe(true);
+
+    await page.click('#qa-pick-mode-browse');
+    await page.click('#toggle');
+    expect(await page.evaluate(() => document.getElementById('panel')?.hidden)).toBe(false);
+
+    await page.click('#qa-pick-mode-browse');
+    await page.click('#filter');
+    await page.click('#qa-pick-mode-finish');
+
+    const captures = await waitForPickModeCompletion(page, { wait: () => Promise.resolve() });
+
+    expect(captures).toEqual([
+      expect.objectContaining({ tagName: 'button', htmlId: 'toggle' }),
+      expect.objectContaining({ tagName: 'input', htmlId: 'filter' }),
+    ]);
+
+    await context.close();
+    await browser.close();
+  }, 30_000);
 });

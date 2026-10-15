@@ -1,10 +1,16 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, type AuthPage, type ViewportSize } from '@qa-ai-stlc/core';
-import type { InteractiveElement, LocatorCandidate, SelectorElement } from '@qa-ai-stlc/schemas';
+import { QaError, SafeModeRequestTally, type AuthPage, type ViewportSize } from '@qa-ai-stlc/core';
+import type {
+  InteractiveElement,
+  LocatorCandidate,
+  SafeNonGetRequest,
+  SelectorElement,
+} from '@qa-ai-stlc/schemas';
 import { createElementIdAssigner, elementNameForId } from './build-selector-registry.js';
 import { createElementNamer } from './naming.js';
+import { createSafeModeRouteHandler } from './safe-mode.js';
 import { scoreLocatorStability } from './stability-scoring.js';
 import { synthesizeLocatorCandidates, type LocatorPolicy } from './synthesize-locators.js';
 
@@ -34,20 +40,26 @@ interface PickModeState {
 
 /**
  * Injects the pick-mode overlay into the current page (development plan section 6.1): a fixed
- * toolbar with a "Finish picking" button, plus a capture-phase click listener that records the
+ * toolbar with "Browse" and "Finish picking" buttons, plus a capture-phase click listener that records the
  * clicked element (or its closest interactive ancestor) instead of letting the click reach the
  * application, so a click on a submit button never actually submits the form (safe mode, AGENTS.md
  * 12.4). A second call on the same page is a no-op — the overlay is idempotent across re-navigation
  * within the same pick-mode session.
  */
 export async function injectPickModeOverlay(page: AuthPage, testIdAttribute: string): Promise<void> {
-  /* v8 ignore next 95 -- runs in the browser's own V8 instance, invisible to Node coverage */
+  /* v8 ignore next 122 -- runs in the browser's own V8 instance, invisible to Node coverage */
   await page.evaluate((testIdAttribute: string) => {
-    const globalWindow = window as unknown as { __qaPickMode?: { done: boolean; captures: unknown[] } };
+    const globalWindow = window as unknown as {
+      __qaPickMode?: { done: boolean; browsing: boolean; captures: unknown[] };
+    };
     if (globalWindow.__qaPickMode !== undefined) {
       return;
     }
-    const state: { done: boolean; captures: unknown[] } = { done: false, captures: [] };
+    const state: { done: boolean; browsing: boolean; captures: unknown[] } = {
+      done: false,
+      browsing: false,
+      captures: [],
+    };
     globalWindow.__qaPickMode = state;
     let nextPickId = 1;
 
@@ -127,7 +139,25 @@ export async function injectPickModeOverlay(page: AuthPage, testIdAttribute: str
     overlay.style.cssText =
       'position:fixed;top:0;right:0;z-index:2147483647;background:#111;color:#fff;' +
       'padding:8px 12px;font:13px sans-serif;display:flex;gap:8px;align-items:center;';
-    overlay.textContent = 'QA pick mode: click an element to capture it.';
+    const message = document.createElement('span');
+    message.textContent = 'QA pick mode: click an element to capture it.';
+    overlay.appendChild(message);
+
+    // A control that only reveals more of the page (a collapsed filter panel) is swallowed like any
+    // other click, so the controls behind it can never be picked. Browsing hands clicks to the
+    // application untouched; the session's safe-mode network guard still blocks any write.
+    const browseButton = document.createElement('button');
+    browseButton.id = 'qa-pick-mode-browse';
+    browseButton.type = 'button';
+    browseButton.textContent = 'Browse: off';
+    browseButton.addEventListener('click', () => {
+      state.browsing = !state.browsing;
+      browseButton.textContent = state.browsing ? 'Browse: on' : 'Browse: off';
+      message.textContent = state.browsing
+        ? 'QA pick mode: browsing, clicks reach the page and are not captured.'
+        : 'QA pick mode: click an element to capture it.';
+    });
+    overlay.appendChild(browseButton);
 
     const finishButton = document.createElement('button');
     finishButton.id = 'qa-pick-mode-finish';
@@ -168,6 +198,9 @@ export async function injectPickModeOverlay(page: AuthPage, testIdAttribute: str
       'click',
       (event) => {
         const target = event.target;
+        if (state.browsing) {
+          return;
+        }
         if (target instanceof Element && target.closest('#qa-pick-mode-overlay') !== null) {
           return;
         }
@@ -197,6 +230,36 @@ export async function injectPickModeOverlay(page: AuthPage, testIdAttribute: str
       { capture: true },
     );
   }, testIdAttribute);
+}
+
+export interface PickModeSafeModeOptions {
+  readonly allowlist: readonly string[];
+  readonly baseUrl: string;
+  readonly safeRequests?: readonly SafeNonGetRequest[];
+}
+
+/**
+ * Puts the session under safe mode's network rules (AGENTS.md 12.4): every non-GET request and
+ * every request off the allowlist is aborted, whatever triggered it. Click capture alone cannot
+ * guarantee this once the operator browses (the "Browse" toggle lets clicks reach the page), so the
+ * guard sits on the context and also covers popups and new tabs. Returns the tally of what was let
+ * through and blocked.
+ */
+export async function guardPickModeSession(
+  context: { route: AuthPage['route'] },
+  options: PickModeSafeModeOptions,
+): Promise<SafeModeRequestTally> {
+  const tally = new SafeModeRequestTally();
+  await context.route(
+    '**/*',
+    createSafeModeRouteHandler(
+      options.allowlist,
+      options.baseUrl,
+      () => undefined,
+      options.safeRequests === undefined ? { tally } : { tally, safeRequests: options.safeRequests },
+    ),
+  );
+  return tally;
 }
 
 function isPickModeCapture(value: unknown): value is PickModeCapture {

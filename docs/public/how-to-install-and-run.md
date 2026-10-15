@@ -215,7 +215,10 @@ npx qa explore --environment staging --identity admin --probe-navigation
 
 For an element no crawl reaches, `npx qa explore --pick <url> --identity admin` opens a browser,
 already signed in, and records the element you click. Run it in an ordinary terminal; it needs a
-human.
+human. A click on a control is captured, not passed to the page, so to open a collapsed panel or menu
+first switch **Browse** on in the toolbar, click it, switch Browse off and then click the element to
+capture. The session blocks every write and every request off the environment's allowlist, whichever
+mode it is in, and refuses a page that is not on that allowlist.
 
 A typical path after exploring:
 
