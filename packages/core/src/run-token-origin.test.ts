@@ -156,6 +156,32 @@ describe('withRunTokenOrigin', () => {
     );
   });
 
+  it('lets through a write the environment names exactly while the page loads (ADR-0014)', async () => {
+    const yaml = CONFIG_YAML.replace(
+      'identity: tester }',
+      'identity: tester, safeNonGetRequests: [{ method: POST, path: /auth/refresh-token, reason: opens the session }] }',
+    );
+    const { engine, launcher } = createEngine(yaml);
+    const config = await loadConfig(engine);
+
+    await withRunTokenOrigin(
+      engine,
+      config,
+      { environment: undefined, identity: 'tester', profileName: 'stage-api' },
+      async () => {
+        const handler = launcher.pageCalls.find((call) => call.method === 'contextRoute')?.args[1] as (
+          route: unknown,
+        ) => Promise<void>;
+        const listed = routeFor('POST', 'https://staging.example.test/auth/refresh-token', {});
+        const other = routeFor('POST', 'https://staging.example.test/orders', {});
+        await handler(listed.route);
+        await handler(other.route);
+        expect(listed.calls).toEqual(['continue']);
+        expect(other.calls).toEqual(['abort']);
+      },
+    );
+  });
+
   it('closes the session when the callback throws', async () => {
     const { engine, launcher } = createEngine();
     const config = await loadConfig(engine);
