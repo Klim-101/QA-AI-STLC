@@ -21,7 +21,7 @@ const InputSchema = SessionIdInputSchema.extend({
   ),
   ...ELEMENT_TARGET_FIELDS,
   expected: ValueSchema.optional().describe(
-    'text, value and url: the text expected; a number or boolean is compared as its string form. count: a whole number. checked: true (default) or false. visible and hidden take none.',
+    'text, value and url: the text expected (an empty string means empty); a number or boolean is compared as its string form. count: a whole number. checked: true (default) or false. visible and hidden take none.',
   ),
   exact: z
     .boolean()
@@ -69,7 +69,10 @@ export function createBrowserExpectTool(
       'the expectation holds or the wait runs out. A failed expectation is returned with ' +
       '`passed: false` and the observed value, not thrown; only a misuse (BROWSER_EXPECT_INVALID, ' +
       'BROWSER_REF_STALE) is an error. More than one matching element fails a check that reads ' +
-      'one. A password field is recorded as [redacted].',
+      'one. An empty `expected` for text or value means the element holds nothing and is compared in ' +
+      'full. A count of 0 only proves nothing matched the selector (it also holds while the page has ' +
+      'not rendered); pair it with a visible check on the container that must exist. ' +
+      'A password field is recorded as [redacted].',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
     handler: (input) =>

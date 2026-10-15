@@ -320,6 +320,52 @@ describe('runBrowserExpect', () => {
     });
   });
 
+  describe('an empty expected value (P6-101)', () => {
+    it('passes for an element whose text is empty', async () => {
+      const { harness, sessionId } = await openSession({ readings: [{ ...READING, text: '   ' }] });
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'text', selector: '#status', expected: '' }),
+      );
+
+      expect(result).toMatchObject({ passed: true, expected: '' });
+    });
+
+    it('fails for an element that has text, instead of passing because every text contains nothing', async () => {
+      const { harness, sessionId } = await openSession();
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'text', selector: '#status', expected: '' }),
+      );
+
+      expect(result).toMatchObject({ passed: false, observed: 'Task saved' });
+    });
+
+    it('checks that an input holds nothing', async () => {
+      const { harness, sessionId } = await openSession({ readings: [{ ...READING, value: '' }] });
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'value', selector: '#status', expected: '' }),
+      );
+
+      expect(result).toMatchObject({ passed: true });
+    });
+
+    it('does not pass an empty expected url on a page that has one', async () => {
+      const { harness, sessionId } = await openSession();
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'url', expected: '' }),
+      );
+
+      expect(result.passed).toBe(false);
+    });
+  });
+
   it('caps long page text before it is returned or recorded', async () => {
     const { harness, sessionId } = await openSession({ readings: [{ ...READING, text: 'x'.repeat(500) }] });
 

@@ -549,7 +549,7 @@
     },
     {
       "name": "qa.browser_expect",
-      "description": "Checks one expected result in the open page and registers what the page showed with a pass or fail verdict as evidence. Use for every expected result of a case step instead of describing the page yourself. Target an element with `selector` or a snapshot `ref` for visible, hidden, text, value, count and checked; url takes neither. It looks again until the expectation holds or the wait runs out. A failed expectation is returned with `passed: false` and the observed value, not thrown; only a misuse (BROWSER_EXPECT_INVALID, BROWSER_REF_STALE) is an error. More than one matching element fails a check that reads one. A password field is recorded as [redacted].",
+      "description": "Checks one expected result in the open page and registers what the page showed with a pass or fail verdict as evidence. Use for every expected result of a case step instead of describing the page yourself. Target an element with `selector` or a snapshot `ref` for visible, hidden, text, value, count and checked; url takes neither. It looks again until the expectation holds or the wait runs out. A failed expectation is returned with `passed: false` and the observed value, not thrown; only a misuse (BROWSER_EXPECT_INVALID, BROWSER_REF_STALE) is an error. More than one matching element fails a check that reads one. An empty `expected` for text or value means the element holds nothing and is compared in full. A count of 0 only proves nothing matched the selector (it also holds while the page has not rendered); pair it with a visible check on the container that must exist. A password field is recorded as [redacted].",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -580,7 +580,7 @@
             "type": "string"
           },
           "expected": {
-            "description": "text, value and url: the text expected; a number or boolean is compared as its string form. count: a whole number. checked: true (default) or false. visible and hidden take none.",
+            "description": "text, value and url: the text expected (an empty string means empty); a number or boolean is compared as its string form. count: a whole number. checked: true (default) or false. visible and hidden take none.",
             "type": [
               "string",
               "number",

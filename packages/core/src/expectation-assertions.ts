@@ -128,7 +128,12 @@ function renderSelectorForm(expectation: SelectorExpectation, locatorName: strin
     case 'hidden':
       return literalForm(`await ${target}.toBeHidden();`);
     case 'text':
-      return literalForm(`await ${target}.toContainText(${JSON.stringify(expectation.expected)});`);
+      // `toContainText("")` passes on any element, so an empty expectation must compare in full.
+      return literalForm(
+        expectation.expected === ''
+          ? `await ${target}.toHaveText("");`
+          : `await ${target}.toContainText(${JSON.stringify(expectation.expected)});`,
+      );
     case 'value':
       return literalForm(`await ${target}.toHaveValue(${JSON.stringify(expectation.expected)});`);
     case 'count':
