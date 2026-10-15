@@ -614,6 +614,23 @@ describe('runCli', () => {
     expect(deps.stdout.join('\n')).toContain('0 navigation control(s) clicked in isolated contexts.');
   });
 
+  it('reports the collapsed panels opened by explore --expand-collapsed, and says nothing without the flag (P6-98)', async () => {
+    const { fs, deps } = exploreDeps({ locatorCount: 1 });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
+
+    deps.stdout.length = 0;
+    const withoutFlag = await runCli(['explore'], deps);
+    const outputWithoutFlag = deps.stdout.join('\n');
+    deps.stdout.length = 0;
+    const withFlag = await runCli(['explore', '--expand-collapsed'], deps);
+
+    expect(withoutFlag).toBe(EXIT_SUCCESS);
+    expect(withFlag).toBe(EXIT_SUCCESS);
+    expect(outputWithoutFlag).not.toContain('collapsed panel(s)');
+    expect(deps.stdout.join('\n')).toContain('0 collapsed panel(s) opened in isolated contexts.');
+  });
+
   it('fails explore --url for a page off the environment allowlist (P6-77)', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
     await runCli(['init', '--defer-scope'], deps);

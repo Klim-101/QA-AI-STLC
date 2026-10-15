@@ -4,6 +4,7 @@
 import type { IdentityConfig } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
 import { analyzePages } from './analyze-pages.js';
+import { SYNTHETIC_PROFILE } from './test-support/synthetic-profile.js';
 import { createFakeCrawlBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-crawl-browser-launcher';
 
 const EMPTY_ELEMENTS = { interactiveElements: [], forms: [], tables: [], dialogs: [] };
@@ -37,6 +38,50 @@ describe('analyzePages', () => {
     ]);
     expect(result.pageModelSet.pages[0]?.accessibilityTree).toEqual({ role: 'document', name: 'Home' });
     expect(result.blockedRequestCount).toBe(0);
+  });
+
+  it('opens the collapsed panels of each page in a context of its own, and counts what it clicked', async () => {
+    const urls = ['https://staging.example.com/', 'https://staging.example.com/tasks'];
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      ariaSnapshotByUrl: { [urls[0] ?? '']: { role: 'document' }, [urls[1] ?? '']: { role: 'document' } },
+      elementsByUrl: { [urls[0] ?? '']: EMPTY_ELEMENTS, [urls[1] ?? '']: EMPTY_ELEMENTS },
+      revealRoundsByUrl: { [urls[0] ?? '']: [2, 0], [urls[1] ?? '']: [1, 0] },
+    });
+
+    const result = await analyzePages({
+      urls,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      testIdAttribute: 'data-testid',
+      revealCollapsed: true,
+      settle: {},
+      profile: { ...SYNTHETIC_PROFILE, collapsiblePanelSelectors: ['.syn-panel-header'] },
+    });
+
+    expect(result.expandedPanelCount).toBe(3);
+    expect(result.pageModelSet.pages).toHaveLength(2);
+    expect(browserLauncher.newContextCalls).toHaveLength(2);
+    expect(browserLauncher.closedContexts).toBe(2);
+  });
+
+  it('opens no panel and counts none when it is not asked to', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      ariaSnapshotByUrl: { 'https://staging.example.com/': { role: 'document' } },
+      elementsByUrl: { 'https://staging.example.com/': EMPTY_ELEMENTS },
+      revealRoundsByUrl: { 'https://staging.example.com/': [2] },
+    });
+
+    const result = await analyzePages({
+      urls: ['https://staging.example.com/'],
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      testIdAttribute: 'data-testid',
+    });
+
+    expect(result.expandedPanelCount).toBe(0);
+    expect(browserLauncher.closedContexts).toBe(0);
   });
 
   it('crawls anonymously with an empty newContext() call when no identity is given', async () => {

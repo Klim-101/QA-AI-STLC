@@ -30,6 +30,7 @@ import {
 } from '@qa-ai-stlc/schemas';
 import { isAllowedUrl } from '../allowlist.js';
 import { analyzePages } from '../analyze-pages.js';
+import { revealCollapsedPanels } from '../reveal-collapsed-panels.js';
 import { buildApiSurface, mergeApiSurface } from '../api-surface.js';
 import { analyzeStaticSource, type StaticSourceFile } from '../analyze-static-source.js';
 import { buildMissingTestIdReport } from '../build-missing-test-id-report.js';
@@ -80,6 +81,12 @@ export interface ExploreOptions {
    * router attribute declares (P6-78, ADR-0015). Slower, so off unless asked for. Ignored by `verify`.
    */
   readonly probeNavigation?: boolean;
+  /**
+   * Opens each page's collapsed panels (`aria-expanded="false"` controls) in a throwaway context
+   * under safe mode, so the controls inside them are registered (P6-98). Slower, so off unless asked
+   * for. Also applied by `verify`, so an element inside a panel resolves there too.
+   */
+  readonly expandCollapsed?: boolean;
   /** Re-checks the stored registry's candidates live instead of building a new one. */
   readonly verify?: boolean;
   /** Overrides the shipped component-library profiles; a test seam, unset in production. */
@@ -103,6 +110,8 @@ export interface ExploreReport {
   readonly endpointCount: number;
   /** Controls the navigation probe clicked; present only when `probeNavigation` was on. */
   readonly navigationProbeCount?: number;
+  /** Collapsed-panel controls clicked while reading the pages; present only when `expandCollapsed` was on. */
+  readonly expandedPanelCount?: number;
 }
 
 export function resolvePolicy(config: Config, given: string | undefined): SelectorPolicy {
@@ -295,6 +304,7 @@ async function runCrawlAndBuild(
   requestLogHar: string;
   requests: SafeModeRequestSummaries;
   probeCount: number;
+  expandedPanelCount: number;
 }> {
   const environment = resolveEnvironment(config, options.environment);
   const identity = resolveIdentity(context, config, options);
@@ -322,7 +332,13 @@ async function runCrawlAndBuild(
   });
   warnIfStartUrlNotAllowed(context, environment.name, environment.config, crawlResult.routeMap.routes.length);
   const urls = crawlResult.routeMap.routes.map((route) => route.url);
-  const { pageModelSet, blockedRequestCount: analyzeBlocked } = await analyzePages({
+  const revealCollapsed = options.expandCollapsed === true;
+  const {
+    pageModelSet,
+    blockedRequestCount: analyzeBlocked,
+    expandedPanelCount,
+  } = await analyzePages({
+    revealCollapsed,
     urls,
     allowlist: environment.config.allowlist,
     baseUrl: environment.config.baseUrl,
@@ -337,6 +353,7 @@ async function runCrawlAndBuild(
   });
   const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
     pageModelSet,
+    revealCollapsed,
     allowlist: environment.config.allowlist,
     baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
@@ -378,6 +395,7 @@ async function runCrawlAndBuild(
     requestLogHar: crawlResult.requestLogHar,
     requests: tally.summary(),
     probeCount: crawlResult.probeCount,
+    expandedPanelCount,
   };
 }
 
@@ -400,11 +418,8 @@ async function runVerify(
   warnIfTlsInsecure(context, environment.name, tlsInsecure);
   configureTestIdAttribute(config.selectors.testIdAttribute);
   const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
-  const settle = resolveSettleOptions(
-    context,
-    config,
-    resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles),
-  );
+  const profile = resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles);
+  const settle = resolveSettleOptions(context, config, profile);
   const tally = new SafeModeRequestTally();
 
   const checkable = stored.elements.filter(
@@ -434,7 +449,8 @@ async function runVerify(
       ...(tlsInsecure ? { ignoreHttpsErrors: true } : {}),
     });
     const page = await browserContext.newPage();
-    await page.route(
+    // On the context, so a popup a revealing click opens is covered as well.
+    await browserContext.route(
       '**/*',
       createSafeModeRouteHandler(
         environment.config.allowlist,
@@ -448,11 +464,24 @@ async function runVerify(
     for (const [pageUrl, elements] of elementsByPageUrl) {
       await page.goto(pageUrl);
       await settlePage(page, pageUrl, settle);
+      const reveal = async (): Promise<void> => {
+        if (options.expandCollapsed === true) {
+          await revealCollapsedPanels(page, {
+            pageUrl,
+            settle,
+            ...(profile?.collapsiblePanelSelectors === undefined
+              ? {}
+              : { extraSelectors: profile.collapsiblePanelSelectors }),
+          });
+        }
+      };
+      await reveal();
       for (const element of elements) {
         // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- filtered above
         const primary = element.locatorCandidates[0] as SelectorElement['locatorCandidates'][number];
         const currentScore = await scoreLocatorStability(page, primary, {
           viewports: config.selectors.stabilityViewports,
+          afterReload: reveal,
         });
         if (currentScore < element.stabilityScore) {
           degraded.push({
@@ -506,6 +535,7 @@ export async function persistExploreResult(
   requestLogHar: string,
   requests: SafeModeRequestSummaries = { allowed: [], blocked: [] },
   navigationProbeCount?: number,
+  expandedPanelCount?: number,
 ): Promise<ExploreReport> {
   const generatedAt = context.clock.now().toISOString();
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
@@ -564,6 +594,7 @@ export async function persistExploreResult(
     endpointsPath: ENDPOINTS_PATH,
     endpointCount: apiSurface.endpoints.length,
     ...(navigationProbeCount === undefined ? {} : { navigationProbeCount }),
+    ...(expandedPanelCount === undefined ? {} : { expandedPanelCount }),
   };
 }
 
@@ -592,11 +623,8 @@ export async function runExplore(
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : undefined;
 
-  const { elements, blockedRequestCount, requestLogHar, requests, probeCount } = await runCrawlAndBuild(
-    context,
-    config,
-    options,
-  );
+  const { elements, blockedRequestCount, requestLogHar, requests, probeCount, expandedPanelCount } =
+    await runCrawlAndBuild(context, config, options);
 
   return persistExploreResult(
     context,
@@ -608,5 +636,6 @@ export async function runExplore(
     requestLogHar,
     requests,
     options.probeNavigation === true ? probeCount : undefined,
+    options.expandCollapsed === true ? expandedPanelCount : undefined,
   );
 }

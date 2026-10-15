@@ -201,7 +201,56 @@ describe('createFakeCrawlPage navigation probing support', () => {
   });
 });
 
+describe('createFakeCrawlPage collapsed panel support', () => {
+  function clickCollapsedControls(): number {
+    return 0;
+  }
+
+  it('plays the scripted rounds of opening collapsed panels in order, then finds none', async () => {
+    const page = createFakeCrawlPage({ revealRoundsByUrl: { 'https://example.com/': [2, 1] } });
+    await page.goto('https://example.com/');
+
+    expect(await page.evaluate(clickCollapsedControls)).toBe(2);
+    expect(await page.evaluate(clickCollapsedControls)).toBe(1);
+    expect(await page.evaluate(clickCollapsedControls)).toBe(0);
+  });
+
+  it('rejects the way a page does when a click navigated and destroyed its script context', async () => {
+    const page = createFakeCrawlPage({
+      revealRoundsByUrl: { 'https://example.com/': ['context-destroyed'] },
+    });
+    await page.goto('https://example.com/');
+
+    await expect(page.evaluate(clickCollapsedControls)).rejects.toThrow('Execution context was destroyed');
+  });
+
+  it('navigates the page when a round says the click led elsewhere', async () => {
+    const page = createFakeCrawlPage({
+      revealRoundsByUrl: { 'https://example.com/': [{ navigatesTo: 'https://example.com/next' }] },
+    });
+    await page.goto('https://example.com/');
+
+    expect(await page.evaluate(clickCollapsedControls)).toBe(1);
+    expect(page.url()).toBe('https://example.com/next');
+  });
+});
+
 describe('createFakeCrawlBrowserLauncher', () => {
+  it("replays requests of the crawl's own page through its context route", async () => {
+    const launcher = createFakeCrawlBrowserLauncher({
+      subRequestsByUrl: { 'https://example.com/': [{ method: 'POST', url: 'https://example.com/x' }] },
+    });
+    const context = await (await launcher.launch()).newContext();
+    const seen: string[] = [];
+    await context.route('**/*', (route) => {
+      seen.push(route.request().method());
+    });
+
+    await (await context.newPage()).goto('https://example.com/');
+
+    expect(seen).toEqual(['POST']);
+  });
+
   it('hands each later context a page of its own, replays requests through its context route, and counts closes', async () => {
     const launcher = createFakeCrawlBrowserLauncher({
       clickResultsByUrl: {

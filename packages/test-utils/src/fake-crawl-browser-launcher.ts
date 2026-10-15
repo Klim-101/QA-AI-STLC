@@ -42,6 +42,12 @@ export interface FakeClickResult {
   readonly subRequests?: readonly FakeSubRequest[];
 }
 
+/**
+ * What one round of opening collapsed panels does on a page: clicks that many controls, rejects the
+ * way a page does when a click navigated and destroyed its script context, or navigates the page.
+ */
+export type FakeRevealRound = number | 'context-destroyed' | { readonly navigatesTo: string };
+
 export interface FakeCrawlPageOptions {
   /** Maps a normalized URL to the response `goto()` resolves with for it; defaults to a 200. */
   readonly responsesByUrl?: Readonly<Record<string, PageResponseLike | null>>;
@@ -61,6 +67,8 @@ export interface FakeCrawlPageOptions {
   /** Maps a normalized URL to the indexes of its navigation controls that are safe to probe. */
   readonly probeControlIndexesByUrl?: Readonly<Record<string, readonly number[]>>;
   /** Maps a page URL, then a control index, to what clicking that control does. */
+  /** Maps a normalized URL to the outcome of each successive round of opening collapsed panels on it. */
+  readonly revealRoundsByUrl?: Readonly<Record<string, readonly FakeRevealRound[]>>;
   readonly clickResultsByUrl?: Readonly<Record<string, Readonly<Record<number, FakeClickResult>>>>;
   /** The session `authenticate()` resolves to for a `cdp-attach` identity in these tests. */
   readonly authStorageState?: StorageStateLike;
@@ -92,6 +100,23 @@ export function createFakeCrawlPage(
   let currentUrl: string | undefined;
   const locatorCounts = options.locatorCounts ?? [1];
   let locatorCallIndex = 0;
+  const revealRoundIndexByUrl = new Map<string, number>();
+
+  function nextRevealRound(url: string): Promise<unknown> {
+    const index = revealRoundIndexByUrl.get(url) ?? 0;
+    revealRoundIndexByUrl.set(url, index + 1);
+    const round = options.revealRoundsByUrl?.[url]?.[index] ?? 0;
+    if (round === 'context-destroyed') {
+      return Promise.reject(
+        new Error('Execution context was destroyed, most likely because of a navigation'),
+      );
+    }
+    if (typeof round === 'object') {
+      currentUrl = round.navigatesTo;
+      return Promise.resolve(1);
+    }
+    return Promise.resolve(round);
+  }
 
   function nextLocatorCount(): number {
     const index = Math.min(locatorCallIndex, locatorCounts.length - 1);
@@ -160,6 +185,8 @@ export function createFakeCrawlPage(
           return Promise.resolve(options.routeAttributeValuesByUrl?.[currentUrl]);
         case 'readCapturedHistoryUrls':
           return Promise.resolve(options.historyUrlsByUrl?.[currentUrl]);
+        case 'clickCollapsedControls':
+          return nextRevealRound(currentUrl);
         case 'listProbeControlIndexes':
           return Promise.resolve(options.probeControlIndexesByUrl?.[currentUrl]);
         default:
@@ -201,7 +228,9 @@ export interface FakeCrawlBrowserLauncher extends BrowserLauncherLike {
 
 /** A fake `BrowserLauncher` for crawl tests across the monorepo (AGENTS.md 5.3, 13): no real browser or network call. */
 export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {}): FakeCrawlBrowserLauncher {
-  const page = createFakeCrawlPage(options);
+  // The crawl's own page lives in the first context, so that context's handlers must reach it too.
+  const firstContextRouteHandlers: RouteHandlerLike[] = [];
+  const page = createFakeCrawlPage(options, firstContextRouteHandlers);
   const pages: FakeCrawlPage[] = [];
   const newContextCalls: NewContextOptionsLike[] = [];
   let closedBrowsers = 0;
@@ -224,8 +253,9 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
           newContextCalls.push(newContextOptions);
           // The first context is the crawl's own and shares `page`; every later one is a fresh
           // navigation probe, whose page is its own so a test can tell a probe from the crawl.
-          const contextRouteHandlers: RouteHandlerLike[] = [];
-          const contextPage = pages.length === 0 ? page : createFakeCrawlPage(options, contextRouteHandlers);
+          const isFirstContext = pages.length === 0;
+          const contextRouteHandlers: RouteHandlerLike[] = isFirstContext ? firstContextRouteHandlers : [];
+          const contextPage = isFirstContext ? page : createFakeCrawlPage(options, contextRouteHandlers);
           pages.push(contextPage);
           const context: AuthBrowserContextLike = {
             newPage: () => Promise.resolve(contextPage),

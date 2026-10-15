@@ -45,6 +45,8 @@ export const InteractiveElementKindSchema = z.enum([
   'select',
   'textarea',
   'widget',
+  // Not natively interactive, but carries the configured test id: a sortable header, a chip.
+  'element',
 ]);
 export type InteractiveElementKind = z.infer<typeof InteractiveElementKindSchema>;
 

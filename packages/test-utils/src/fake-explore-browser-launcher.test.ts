@@ -235,4 +235,31 @@ describe('createFakeExploreBrowserLauncher', () => {
       page.setInputFiles('#file', [{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('a') }]),
     ).resolves.toBeUndefined();
   });
+
+  it('opens the configured number of collapsed panels once after each load, and none the second time', async () => {
+    const launcher = createFakeExploreBrowserLauncher({ collapsedPanelClickCount: 2 });
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    function clickCollapsedControls(): number {
+      return 0;
+    }
+    await page.goto('https://example.com/');
+
+    expect(await page.evaluate(clickCollapsedControls)).toBe(2);
+    expect(await page.evaluate(clickCollapsedControls)).toBe(0);
+    await page.reload();
+    expect(await page.evaluate(clickCollapsedControls)).toBe(2);
+    await page.goto('https://example.com/other');
+    expect(await page.evaluate(clickCollapsedControls)).toBe(2);
+  });
+
+  it('opens no collapsed panel when none is configured', async () => {
+    const launcher = createFakeExploreBrowserLauncher();
+    const page = await (await (await launcher.launch()).newContext()).newPage();
+    function clickCollapsedControls(): number {
+      return 0;
+    }
+    await page.goto('https://example.com/');
+
+    expect(await page.evaluate(clickCollapsedControls)).toBe(0);
+  });
 });
