@@ -91,6 +91,12 @@ that is the finding to report. Only `BROWSER_EXPECT_INVALID` (a malformed check)
 `BROWSER_REF_STALE` are errors. A check that reads one element fails when its selector matches
 several; narrow the selector or use a snapshot `ref`.
 
+Two checks need care. An empty `expected` for `text` or `value` means the element holds nothing (an
+empty cell, an empty input); it is compared in full, so it fails on an element that has text. A
+`count` of 0 only proves that nothing matched the selector, which is also true while the page, the
+grid or the row has not rendered yet or the selector is wrong: pair it with a `visible` check on the
+container that must be there (the grid, the list) in the same step, and say so in the result.
+
 ## Attaching a file
 
 A step that attaches a file calls `qa.browser_upload` with the file input and project-relative `paths`

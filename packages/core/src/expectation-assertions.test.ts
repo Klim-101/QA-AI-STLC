@@ -82,6 +82,7 @@ describe('deriveExpectationAssertions', () => {
       { kind: 'text', selector: '#status', expected: 'Saved "ok"' },
       'await expect(status(page)).toContainText("Saved \\"ok\\"");',
     ],
+    [{ kind: 'text', selector: '#status', expected: '' }, 'await expect(status(page)).toHaveText("");'],
     [
       { kind: 'value', selector: '#status', expected: '0012' },
       'await expect(status(page)).toHaveValue("0012");',
