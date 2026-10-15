@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { ApprovalLedgerStore } from '../approval-ledger-store.js';
 import { DefectStore } from '../defect-store.js';
 import type { EngineContext } from '../engine-context.js';
+import type { QaError } from '../errors.js';
 import { hashText } from '../hash.js';
 import { toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
@@ -122,6 +123,46 @@ describe('runDefectAdd', () => {
 
   it('requires a path', async () => {
     await expect(runDefectAdd(fakeContext(), {})).rejects.toMatchObject({ code: 'DEFECT_ADD_USAGE' });
+  });
+
+  it('registers a draft given inline and writes no file in the project tree', async () => {
+    const context = fakeContext();
+
+    const result = await runDefectAdd(context, { draft: draft() });
+
+    expect(result.id).toBe('login-error');
+    expect((await stores(context).defects.read('login-error')).title).toBe(draft().title);
+    expect(await context.fs.pathExists(join(PROJECT_ROOT, 'defects'))).toBe(false);
+  });
+
+  it('names the invalid field and what is allowed when an inline draft does not match its schema (P6-100)', async () => {
+    const context = fakeContext();
+
+    const error: unknown = await runDefectAdd(context, {
+      draft: { ...draft(), category: 'bug', steps: 'Open the login page' },
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: 'DEFECT_INVALID' });
+    const remediation = (error as QaError).remediation ?? '';
+    expect(remediation).toContain('category:');
+    expect(remediation).toContain('"functional"');
+    expect(remediation).toContain('steps:');
+  });
+
+  it('names the invalid field of a draft file as well (P6-100)', async () => {
+    const context = contextWithDraftFile({ ...draft(), severityProposal: 'huge' } as unknown as DefectDraft);
+
+    const error: unknown = await runDefectAdd(context, { path: 'defects/d.json' }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect((error as QaError).remediation).toContain('severityProposal:');
+  });
+
+  it('rejects a call that gives both a path and an inline draft', async () => {
+    await expect(
+      runDefectAdd(contextWithDraftFile(), { path: 'defects/d.json', draft: draft() }),
+    ).rejects.toMatchObject({ code: 'DEFECT_ADD_USAGE' });
   });
 
   it('rejects a path that does not exist', async () => {

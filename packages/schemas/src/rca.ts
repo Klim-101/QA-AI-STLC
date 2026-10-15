@@ -22,17 +22,22 @@ export type RcaStatus = z.infer<typeof RcaStatusSchema>;
 export const RcaSchema = z.object({
   schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
   defectId: IdentifierSchema,
-  facts: z.array(z.string().min(1)),
+  facts: z.array(z.string().min(1)).describe('Only what the evidence established, one statement each.'),
   // Evidence the facts rest on, registered by the engine; a fact with nothing here is the author's word.
   evidencePaths: z.array(RelativePathSchema).default([]),
-  hypotheses: z.array(RcaHypothesisSchema).min(1),
+  hypotheses: z
+    .array(RcaHypothesisSchema)
+    .min(1)
+    .describe('Candidate causes, each with a confidence (low, medium or high).'),
   remediation: z.array(z.string().min(1)),
   regressionRecommendation: z.string().optional(),
   // SHA-256 of the accepted defect this analysis was written against, stamped by the engine when
   // the RCA is registered (never taken from the author): an approval stops counting once the
   // defect it analysed has changed.
   defectSha256: Sha256HexSchema.optional(),
-  status: RcaStatusSchema,
+  status: RcaStatusSchema.describe(
+    'A new analysis is always "draft"; the operator reviews it in a separate step.',
+  ),
   createdAt: IsoDateTimeSchema,
 });
 export type Rca = z.infer<typeof RcaSchema>;

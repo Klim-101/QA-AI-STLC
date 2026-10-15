@@ -210,7 +210,7 @@ describe('runCasesAdd', () => {
       const error = await runCasesAdd(context, { testCase: 'not a case' }).catch((caught: unknown) => caught);
 
       expect((error as QaError).code).toBe('CASE_INVALID');
-      expect((error as QaError).remediation).toContain('(case)');
+      expect((error as QaError).remediation).toContain('(root)');
     });
 
     it('rejects a call that gives both a path and an inline case', async () => {

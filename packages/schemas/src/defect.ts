@@ -43,14 +43,20 @@ export const DefectDraftSchema = z
     id: IdentifierSchema,
     title: z.string().min(1),
     severityProposal: DefectSeverityProposalSchema,
-    category: DefectCategorySchema,
-    steps: z.array(z.string().min(1)).min(1),
+    category: DefectCategorySchema.describe(
+      'Where the defect lies: functional, ui, accessibility, api, performance or security.',
+    ),
+    steps: z.array(z.string().min(1)).min(1).describe('The steps to reproduce, one plain string each.'),
     expectedResult: z.string().min(1),
     actualResult: z.string().min(1),
     environment: z.string().min(1),
     requirementIds: z.array(IdentifierSchema),
-    evidencePaths: z.array(RelativePathSchema),
-    status: DefectStatusSchema,
+    evidencePaths: z
+      .array(RelativePathSchema)
+      .describe('Project-relative paths of evidence the engine registered; never a file made by hand.'),
+    status: DefectStatusSchema.describe(
+      'A new draft is always "draft"; the operator accepts it in a separate step.',
+    ),
     createdAt: IsoDateTimeSchema,
     securityRiskArea: z.string().optional(),
     securityConfidence: SecurityConfidenceSchema.optional(),

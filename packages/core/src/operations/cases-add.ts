@@ -16,6 +16,7 @@ import { readJsonFile, toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
+import { formatSchemaIssues } from '../schema-issues.js';
 import { findUnlinkedRequirementIds } from '../requirement-linking.js';
 import { findUndecidedTestingTypes } from '../testing-scope.js';
 import { caseMarkdownPath, regenerateCaseIndexes } from './cases-index.js';
@@ -117,9 +118,7 @@ async function readTestCase(context: EngineContext, options: CasesAddOptions): P
     const result = TestCaseSchema.safeParse(options.testCase);
     if (!result.success) {
       throw new QaError('CASE_INVALID', 'The test case does not match TestCaseSchema', {
-        remediation: result.error.issues
-          .map((issue) => `${issue.path.join('.') || '(case)'}: ${issue.message}`)
-          .join('; '),
+        remediation: formatSchemaIssues(result.error),
         cause: result.error,
       });
     }

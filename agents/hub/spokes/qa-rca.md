@@ -17,7 +17,7 @@ id that is not an accepted defect gets `RCA_DEFECT_NOT_ACCEPTED` and returns `st
 A single `SpokeResultSchema` (`packages/schemas/src/spoke.ts`):
 
 - `status: "ok"`: `payload` is one `Rca` document (`RcaSchema`, `status: "draft"`), already registered
-  with `qa.rca_add`. The hub validates it against `RcaSchema` before reporting it to the operator; an
+  with `qa.rca_add` (inline, as `rca`). The hub validates it against `RcaSchema` before reporting it to the operator; an
   invalid payload is handled like a spoke error (re-dispatch up to `agents.retries`, then `blocked`).
 - `status: "error"`: the spoke could not produce a valid RCA; `error.code` and `error.message` say why.
 
