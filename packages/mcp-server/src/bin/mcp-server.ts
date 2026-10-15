@@ -12,6 +12,13 @@ import { checkEngineVersionHandshake } from '../version-handshake.js';
 
 const actualVersion = readPackageVersion();
 
+// `npx -y @qa-ai-stlc/mcp-server@<version> --version` downloads and caches the package without starting
+// a server, so the first session in a project does not spend its connection timeout on the download.
+if (process.argv.includes('--version')) {
+  process.stdout.write(`${actualVersion}\n`);
+  process.exit(0);
+}
+
 try {
   checkEngineVersionHandshake({
     actualVersion,

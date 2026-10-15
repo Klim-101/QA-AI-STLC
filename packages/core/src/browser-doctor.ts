@@ -21,6 +21,14 @@ export interface DoctorCheckResult {
 export const SUPPORTED_BROWSERS = ['chromium', 'firefox', 'webkit'] as const;
 export type SupportedBrowser = (typeof SUPPORTED_BROWSERS)[number];
 
+/**
+ * The browsers the engine itself launches (`playwrightBrowserLauncher` is Chromium only), so the
+ * only ones whose absence `qa doctor` can call a failure. A project that tests in no other browser
+ * must not be told to install Firefox and WebKit before it can start a session (P6-99); one that
+ * does can install them with `npx playwright install`.
+ */
+export const REQUIRED_BROWSERS: readonly SupportedBrowser[] = ['chromium'];
+
 const EXECUTABLE_PATH_RESOLVERS: Readonly<Record<SupportedBrowser, () => string>> = {
   chromium: () => chromium.executablePath(),
   firefox: () => firefox.executablePath(),
