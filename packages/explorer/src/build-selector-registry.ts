@@ -234,6 +234,9 @@ export async function buildSelectorRegistry(
  * (un-deprecating it, if it had been). An element the fresh crawl did not find is kept rather than
  * deleted, with `deprecatedAt` set to `generatedAt` the first time it goes missing; once
  * deprecated, its `deprecatedAt` is never overwritten by a later run that still does not find it.
+ * An `execute`-sourced element is the exception: it was added from a live session precisely because
+ * the crawl cannot see it (a collapsed panel, a non-interactive header), so a crawl that misses it
+ * says nothing about whether it is gone and it stays as it was.
  */
 export function mergeSelectorRegistry(
   previous: SelectorRegistry,
@@ -242,15 +245,19 @@ export function mergeSelectorRegistry(
 ): SelectorRegistry {
   const freshIds = new Set(fresh.elements.map((element) => element.elementId));
   const deprecated = previous.elements
-    .filter((element) => !freshIds.has(element.elementId))
+    .filter((element) => !freshIds.has(element.elementId) && element.source !== 'execute')
     .map((element) =>
       element.deprecatedAt === undefined ? { ...element, deprecatedAt: generatedAt } : element,
     );
 
+  const sessionAdded = previous.elements.filter(
+    (element) => !freshIds.has(element.elementId) && element.source === 'execute',
+  );
+
   return {
     schemaVersion: SCHEMA_VERSION,
     generatedAt,
-    elements: [...keepPreviousNames(previous, fresh.elements), ...deprecated],
+    elements: [...keepPreviousNames(previous, fresh.elements), ...sessionAdded, ...deprecated],
   };
 }
 
@@ -308,7 +315,8 @@ export interface SelectorRegistryDiff {
 /**
  * Compares two crawls' registries by `elementId`: elements only the current crawl found, elements
  * only the previous crawl found, and elements both found where the current stability score is
- * lower than before.
+ * lower than before. An element added from a session is never "removed" by a crawl that misses it
+ * (see `mergeSelectorRegistry`).
  */
 export function diffSelectorRegistry(
   previous: SelectorRegistry,
@@ -318,7 +326,9 @@ export function diffSelectorRegistry(
   const currentIds = new Set(current.elements.map((element) => element.elementId));
 
   const added = current.elements.filter((element) => !previousById.has(element.elementId));
-  const removed = previous.elements.filter((element) => !currentIds.has(element.elementId));
+  const removed = previous.elements.filter(
+    (element) => !currentIds.has(element.elementId) && element.source !== 'execute',
+  );
 
   const degraded: DegradedSelectorElement[] = [];
   for (const element of current.elements) {

@@ -136,6 +136,18 @@ describe('resolveCandidateLocator', () => {
     ).toThrow('no "role" string');
   });
 
+  it('resolves a session-added candidate as the selector the browser tool used', () => {
+    const { page, locatorCalls } = trackedFakePage();
+
+    resolveCandidateLocator(page, {
+      strategy: 'execute',
+      value: 'role=columnheader[name="Last GW ID"]',
+      fragile: true,
+    });
+
+    expect(locatorCalls).toEqual([{ method: 'locator', args: ['role=columnheader[name="Last GW ID"]'] }]);
+  });
+
   it('throws a QaError for an unknown strategy', () => {
     const { page } = trackedFakePage();
 

@@ -65,6 +65,10 @@ export function resolveCandidateLocator(page: AuthPage, candidate: LocatorCandid
       return page.getByText(candidate.value);
     case 'css':
       return page.locator(candidate.value);
+    // What the browser tool passed to `page.locator()` while the element was added from a session
+    // (`role=columnheader[name="..."]`, `text=Save`, a CSS selector), so it resolves the same way.
+    case 'execute':
+      return page.locator(candidate.value);
     default:
       throw new QaError('locator-strategy-unknown', `Unknown locator strategy "${candidate.strategy}".`);
   }
