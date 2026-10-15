@@ -19,7 +19,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
-import { resolveRunIdentity } from '../run-identity.js';
+import { resolveRunIdentity, resolveRunnerInputIdentity } from '../run-identity.js';
 import { resolveBrowserEnvironment } from './browser-open.js';
 import type { Runner, RunnerOutcome } from '../runner.js';
 
@@ -114,6 +114,12 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
   const environment = resolveBrowserEnvironment(config, options.environment);
 
   const identity = resolveRunIdentity(config, environment.config, options.runner, options.identity);
+  const runnerIdentity = resolveRunnerInputIdentity(
+    config,
+    environment.config,
+    options.runner,
+    options.identity,
+  );
   const idGenerator = options.idGenerator ?? randomIdGenerator;
   const runId = `run-${idGenerator.next()}`;
   const startedAt = context.clock.now().toISOString();
@@ -125,7 +131,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
     specFiles: absoluteSpecFiles,
     idGenerator,
     testIdAttribute: config.selectors.testIdAttribute,
-    ...(identity !== undefined ? { identity } : {}),
+    ...(runnerIdentity !== undefined ? { identity: runnerIdentity } : {}),
   });
 
   // A spec path that does not exist or matches nothing still makes Playwright write a JSON report

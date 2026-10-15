@@ -28,6 +28,8 @@ interface EngineOptions {
   readonly specSource?: string;
   readonly env?: Record<string, string>;
   readonly apiAuthYaml?: string;
+  /** Makes the environment sign in as `tester`, and the launcher answer `evaluate()` with this token. */
+  readonly browserToken?: string;
 }
 
 const DEFAULT_SPEC_SOURCE =
@@ -40,8 +42,12 @@ function engineWith(endpointPath: string, options: EngineOptions = {}): EngineCo
       [join('project', '.qa', 'config.yaml')]: [
         'schemaVersion: 1',
         'testing: { e2e: undecided, api: in-scope, a11y: undecided, security: undecided }',
-        'environments:\n  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
-        'identities: {}',
+        `environments:\n  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"]${
+          options.browserToken === undefined ? '' : ', identity: tester'
+        } }`,
+        options.browserToken === undefined
+          ? 'identities: {}'
+          : 'identities:\n  tester: { auth: storage-state, secret: QA_TESTER_PASSWORD, loginUrl: "https://staging.example.com/login", username: "tester@example.com" }',
         'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
         'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
         'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
@@ -69,7 +75,17 @@ function engineWith(endpointPath: string, options: EngineOptions = {}): EngineCo
     logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined },
     processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
     httpClient: createFakeHttpClient({ ok: true, status: 200 }),
-    browserLauncher: createFakeBrowserLauncher(),
+    browserLauncher: createFakeBrowserLauncher(
+      options.browserToken === undefined
+        ? {}
+        : {
+            storageState: {
+              cookies: [{ name: 'session', value: 'x', domain: 'staging.example.com' }],
+              origins: [],
+            },
+            evaluateResult: options.browserToken,
+          },
+    ),
     env: options.env ?? {},
   };
 }
@@ -160,6 +176,64 @@ describe('apiRunner', () => {
       expect(runOptions.isTraceEnabled).toBe(false);
       expect(JSON.parse(runOptions.env[API_AUTH_ENVIRONMENT_VARIABLE] ?? '')).toEqual({
         service: { headers: { Authorization: 'Bearer super-secret-token' }, params: {} },
+      });
+    });
+
+    describe('a profile that reads its token from a browser session (P6-97)', () => {
+      const BROWSER_SPEC = `${DEFAULT_SPEC_SOURCE}
+const options = apiAuth('stage-api');`;
+      const BROWSER_PROFILE_YAML =
+        'apiAuth: { profiles: { stage-api: { type: from-browser, source: { kind: session-storage, key: sessionToken } } }, defaults: {} }';
+
+      it('signs in as the environment identity, reads the token and hands it to the spec process', async () => {
+        const engine = engineWith('/tasks/{id}', {
+          specSource: BROWSER_SPEC,
+          apiAuthYaml: BROWSER_PROFILE_YAML,
+          browserToken: 'session-secret',
+          env: { QA_TESTER_PASSWORD: 'hunter2' },
+        });
+
+        await apiRunner.run(engine, { ...input, identity: 'tester' });
+
+        const [, specInput, , runOptions] = runPlaywrightSpecs.mock.calls[0] as unknown as [
+          unknown,
+          Record<string, unknown>,
+          string,
+          { env: Record<string, string> },
+        ];
+        expect(specInput).not.toHaveProperty('identity');
+        expect(JSON.parse(runOptions.env[API_AUTH_ENVIRONMENT_VARIABLE] ?? '')).toEqual({
+          'stage-api': { headers: { Authorization: 'Bearer session-secret' }, params: {} },
+        });
+      });
+
+      it('does not hand the identity to the spec run when no profile needs it', async () => {
+        const engine = engineWith('/tasks/{id}');
+
+        await apiRunner.run(engine, { ...input, identity: 'tester' });
+
+        const [, specInput] = runPlaywrightSpecs.mock.calls[0] as unknown as [
+          unknown,
+          Record<string, unknown>,
+        ];
+        expect(specInput).not.toHaveProperty('identity');
+      });
+
+      it('asks for an identity when the run has none, and runs nothing', async () => {
+        const engine = engineWith('/tasks/{id}', {
+          specSource: BROWSER_SPEC,
+          apiAuthYaml: BROWSER_PROFILE_YAML,
+        });
+
+        const rejected = await apiRunner.run(engine, input).catch((caught: unknown) => caught);
+
+        expect(rejected).toMatchObject({ code: 'API_AUTH_SESSION_REQUIRED' });
+        expect(runPlaywrightSpecs).not.toHaveBeenCalled();
+      });
+
+      it('lets the run identity reach the runner without recording a browser sign-in', () => {
+        expect(apiRunner.readsIdentity).toBe(true);
+        expect(apiRunner.signsIn).toBeUndefined();
       });
     });
 

@@ -30,3 +30,20 @@ export function resolveRunIdentity(
   }
   return identity;
 }
+
+/**
+ * The identity handed to a runner as `RunnerInput.identity`: the recorded one, plus the identity a
+ * runner that never opens a page reads a credential through (`readsIdentity`). The run record keeps
+ * `resolveRunIdentity`'s answer, so it never claims a browser sign-in an API run did not make.
+ */
+export function resolveRunnerInputIdentity(
+  config: Config,
+  environment: EnvironmentConfig,
+  runner: Runner,
+  requestedIdentity: string | undefined,
+): string | undefined {
+  if (runner.readsIdentity !== true) {
+    return resolveRunIdentity(config, environment, runner, requestedIdentity);
+  }
+  return resolveRunIdentity(config, environment, { ...runner, signsIn: true }, requestedIdentity);
+}

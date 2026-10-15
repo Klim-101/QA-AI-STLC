@@ -32,7 +32,7 @@ import { findCasePath } from './operations/cases-render.js';
 import { resolveRelativePath } from './paths.js';
 import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
 import { QaStore } from './qa-store.js';
-import { resolveRunIdentity } from './run-identity.js';
+import { resolveRunIdentity, resolveRunnerInputIdentity } from './run-identity.js';
 import type { Runner } from './runner.js';
 import { canonicalStepIds } from './step-ids.js';
 
@@ -376,6 +376,12 @@ export async function verifyGeneratedTestSpec(
     const config = await loadConfig(context);
     const environment = resolveBrowserEnvironment(config, options.environment);
     const identity = resolveRunIdentity(config, environment.config, options.runner, options.identity);
+    const runnerIdentity = resolveRunnerInputIdentity(
+      config,
+      environment.config,
+      options.runner,
+      options.identity,
+    );
     const runId = `verify-${idGenerator.next()}`;
 
     const outcomes = await options.runner.run(context, {
@@ -386,7 +392,7 @@ export async function verifyGeneratedTestSpec(
       idGenerator,
       requiredStepIds: canonicalStepIds(registeredTestCase),
       testIdAttribute: config.selectors.testIdAttribute,
-      ...(identity !== undefined ? { identity } : {}),
+      ...(runnerIdentity !== undefined ? { identity: runnerIdentity } : {}),
     });
     const [outcome, ...extra] = outcomes;
     if (outcome === undefined || extra.length > 0) {

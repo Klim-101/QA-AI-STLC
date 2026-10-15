@@ -72,6 +72,9 @@ the live contract: when that happens the contract changed, so regenerate from a 
 `apiAuth` profile, never a literal credential in the spec: `import { apiAuth } from '<relative path to tests/qa/api-auth.js>'`
 and pass `apiAuth('<profile>')` as the options of the request call. The profile name must be a string
 literal from `.qa/config.yaml`; the engine writes `tests/qa/api-auth.ts` when it builds the spoke input.
+A profile that reads its token from a browser session (`from-browser`) works in `qa.generation_verify`
+and `qa run` too: they sign in as the environment's identity and read it themselves, so the operator
+needs no token variable, only an identity on the environment (or `identity` on the call).
 A spec that writes an `Authorization`/`Cookie` header or a profile's header, query parameter or a
 `Bearer` value itself is rejected (`HTTP_CREDENTIAL_INPUT_REJECTED`).
 

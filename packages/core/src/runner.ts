@@ -70,5 +70,11 @@ export interface Runner {
   readonly testType: TestType;
   /** True when the runner opens browser pages and so signs in as `RunnerInput.identity`. */
   readonly signsIn?: boolean;
+  /**
+   * True when the runner may sign in as `RunnerInput.identity` to read a credential (an `apiAuth`
+   * profile that takes its token from a browser session), without driving the specs through a
+   * page. The run record does not name the identity: nothing was signed in for the specs.
+   */
+  readonly readsIdentity?: boolean;
   run(engine: EngineContext, input: RunnerInput): Promise<readonly RunnerOutcome[]>;
 }
