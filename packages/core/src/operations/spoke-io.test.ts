@@ -352,6 +352,17 @@ describe('spoke budgets (P4-02)', () => {
     });
   });
 
+  it('counts a running spoke that was dispatched without context, and accepts its output', async () => {
+    const context = fakeContext({ ...TIGHT, parallelism: 1 });
+    await runSpokeRecordInput(context, { ...INPUT, context: undefined });
+
+    await expect(runSpokeRecordInput(context, { ...INPUT, taskId: 'page-2' })).rejects.toMatchObject({
+      code: 'SPOKE_PARALLELISM_EXCEEDED',
+    });
+    const output = await runSpokeRecordOutput(context, { runId: 'run-1', attempt: 1, result: OK_RESULT });
+    expect(output.wasAlreadyRecorded).toBe(false);
+  });
+
   it('frees a slot once a running spoke has its output recorded', async () => {
     const context = fakeContext(TIGHT);
     await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-a' });
