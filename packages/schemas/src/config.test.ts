@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   A11yConfigSchema,
+  AgentsConfigSchema,
   ApiAuthProfileSchema,
   DEFAULT_API_AUTH_CONFIG,
   CONFIG_SECTION_LAYERING,
@@ -580,5 +581,30 @@ describe('apiAuth config (P6-30)', () => {
 
   it('is committed-only, since it names where a credential is read from and sent to', () => {
     expect(isLocalOverridableConfigSection('apiAuth')).toBe(false);
+  });
+});
+
+describe('agents.models', () => {
+  const agents = { parallelism: 2, spokeTimeoutSeconds: 60, retries: 1 };
+
+  it('defaults to no routing, so every spoke inherits the session model', () => {
+    expect(AgentsConfigSchema.parse(agents).models).toEqual({});
+  });
+
+  it('accepts a model alias or id for a known spoke', () => {
+    const parsed = AgentsConfigSchema.parse({
+      ...agents,
+      models: { explorer: 'haiku', 'test-generation': 'claude-opus-5-5', 'qa-rca': 'inherit' },
+    });
+
+    expect(parsed.models['test-generation']).toBe('claude-opus-5-5');
+  });
+
+  it.each([
+    ['an unknown spoke', { unknown: 'haiku' }],
+    ['a model with a space', { explorer: 'big model' }],
+    ['an empty model', { explorer: '' }],
+  ])('rejects %s', (_name, models) => {
+    expect(AgentsConfigSchema.safeParse({ ...agents, models }).success).toBe(false);
   });
 });

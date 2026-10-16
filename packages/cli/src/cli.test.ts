@@ -1426,6 +1426,72 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('artifacts/scope.json');
   });
 
+  describe('agents generate', () => {
+    const CONFIG = [
+      'schemaVersion: 1',
+      'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 2, spokeTimeoutSeconds: 60, retries: 1, models: { explorer: haiku } }',
+      '',
+    ].join('\n');
+
+    it('writes the subagents with their models and says what it wrote', async () => {
+      const fs = createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'config.yaml')]: CONFIG });
+      const deps = dependencies({ fs });
+
+      const exitCode = await runCli(['agents', 'generate'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toContain('  .claude/agents/qa-explorer.md  model: haiku');
+      expect(deps.stdout).toContain('  .claude/agents/qa-rca.md  model: inherit');
+      expect(await fs.readFile(join(PROJECT_ROOT, '.claude', 'agents', 'qa-explorer.md'))).toContain(
+        'model: haiku',
+      );
+    });
+
+    it('prints machine-readable JSON with --json', async () => {
+      const fs = createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'config.yaml')]: CONFIG });
+      const deps = dependencies({ fs });
+
+      await runCli(['agents', 'generate', '--json'], deps);
+
+      expect(JSON.parse(deps.stdout.join('')) as unknown).toMatchObject({
+        command: 'agents-generate',
+        data: { directory: '.claude/agents' },
+      });
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io, stdout } = captureIO();
+      const fs = createFakeFileSystem({ [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG });
+
+      const exitCode = await runCli(['agents', 'generate'], { io, fs, env: {} });
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(stdout.join('\n')).toContain('.claude/agents/qa-explorer.md');
+    });
+
+    it('rejects an unknown subcommand', async () => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(['agents', 'sync'], deps);
+
+      expect(exitCode).toBe(EXIT_USAGE);
+      expect(deps.stderr.join('\n')).toContain('Unknown "qa agents" subcommand "sync"');
+    });
+
+    it('rejects a missing subcommand', async () => {
+      const deps = dependencies();
+
+      expect(await runCli(['agents'], deps)).toBe(EXIT_USAGE);
+      expect(deps.stderr.join('\n')).toContain('Unknown "qa agents" subcommand ""');
+    });
+  });
+
   it('runs "validate" and reports every gate open on a fresh project', async () => {
     const deps = dependencies();
 

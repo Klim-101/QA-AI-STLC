@@ -84,6 +84,8 @@ export * from './operations/security-authorization.js';
 export * from './operations/rca.js';
 export * from './operations/rca-input.js';
 export * from './operations/spoke-io.js';
+export * from './operations/agents-generate.js';
+export { listSpokeDefinitionIds, renderSpokeSubagents, type GeneratedSubagent } from './spoke-subagents.js';
 export * from './untrusted-evidence-text.js';
 export * from './rca-store.js';
 export * from './defect-store.js';
