@@ -21,6 +21,8 @@ export interface InteractiveResultRow {
   readonly status: RunResultStatus;
   readonly finishedAt: string;
   readonly runId: Identifier;
+  /** The id of the latest result, so a report line can be traced to the file that backs it. */
+  readonly resultId: Identifier;
   readonly evidenceCount: number;
   readonly resultCount: number;
   /** The first line of the failure message, capped, present only when the latest result has one. */
@@ -87,6 +89,7 @@ function toRow(latest: RunResult, resultCount: number): InteractiveResultRow {
     status: latest.status,
     finishedAt: latest.finishedAt,
     runId: latest.runId,
+    resultId: latest.id,
     evidenceCount: latest.evidenceIds.length,
     resultCount,
     ...(failureMessage === undefined ? {} : { failureMessage }),

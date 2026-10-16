@@ -2724,6 +2724,52 @@ describe('runCli', () => {
     expect(deps.stdout.join('\n')).not.toContain('# Run summary');
   });
 
+  describe('"report --output" (P6-104)', () => {
+    function reportDeps(): ReturnType<typeof dependencies> {
+      return dependencies({
+        fs: createFakeFileSystem({
+          [CONFIG_PATH]: CONFIG_YAML,
+          [join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'run.json')]: runRecordJson(
+            'run-1',
+            '2026-09-25T10:00:00.000Z',
+          ),
+        }),
+      });
+    }
+
+    it('saves the report under the default path when --output stands alone', async () => {
+      const deps = reportDeps();
+
+      const exitCode = await runCli(['report', '--run', 'run-1', '--output'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout.join('\n')).toMatch(
+        /Saved the run-result report to artifacts\/reports\/run-result-\d{4}-\d{2}-\d{2}\.md\./,
+      );
+    });
+
+    it('saves the report to the given path', async () => {
+      const deps = reportDeps();
+
+      const exitCode = await runCli(['report', '--run', 'run-1', '--output', 'docs/results.md'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(await deps.fs?.readFile(join(PROJECT_ROOT, '.qa', 'docs', 'results.md'))).toContain(
+        '# Run result report',
+      );
+    });
+
+    it('treats --output followed by another flag as the bare flag', async () => {
+      const deps = reportDeps();
+
+      const exitCode = await runCli(['report', '--run', 'run-1', '--output', '--json'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      const parsed = JSON.parse(deps.stdout[0] ?? '') as { data: { reportPath: string } };
+      expect(parsed.data.reportPath).toMatch(/^artifacts\/reports\/run-result-/);
+    });
+  });
+
   it('reports a coded error when "report --format" is an unknown value', async () => {
     const deps = dependencies();
 

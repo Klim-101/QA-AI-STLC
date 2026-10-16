@@ -4,12 +4,14 @@
 import type { DefectDraft, FeatureCaseIndex, Rca, RunRecord, TestCase } from '@qa-ai-stlc/schemas';
 import type { A11yConformanceReport } from '../a11y-conformance.js';
 import type { InteractiveResultsSummary } from '../interactive-results-summary.js';
+import type { RunResultReport } from '../run-result-report.js';
 import type { TraceabilityMatrix } from '../traceability.js';
 import { renderA11yConformanceMarkdown } from './a11y-conformance-markdown.js';
 import { renderCaseIndexMarkdown } from './case-index-markdown.js';
 import { renderDefectDraftMarkdown } from './defect-draft-markdown.js';
 import { renderInteractiveResultsSummaryMarkdown } from './interactive-results-summary-markdown.js';
 import { renderRcaMarkdown } from './rca-markdown.js';
+import { renderRunResultReportMarkdown } from './run-result-report-markdown.js';
 import { renderRunSummaryMarkdown } from './run-summary-markdown.js';
 import { renderTestCaseMarkdown } from './test-case-markdown.js';
 import { renderTraceabilityMatrixMarkdown } from './traceability-matrix-markdown.js';
@@ -29,6 +31,7 @@ export interface MarkdownArtifactByKind {
   'a11y-conformance': A11yConformanceReport;
   'defect-draft': DefectDraft;
   rca: Rca;
+  'run-result-report': RunResultReport;
 }
 
 export type ArtifactKind = keyof MarkdownArtifactByKind;
@@ -44,6 +47,7 @@ const MARKDOWN_RENDERERS: {
   'a11y-conformance': renderA11yConformanceMarkdown,
   'defect-draft': renderDefectDraftMarkdown,
   rca: renderRcaMarkdown,
+  'run-result-report': renderRunResultReportMarkdown,
 };
 
 /** Renders one registered artifact kind to Markdown through its own renderer. */
