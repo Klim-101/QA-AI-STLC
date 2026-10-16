@@ -10,6 +10,7 @@ import { ManifestStore } from './manifest-store.js';
 import type { Clock } from './ports/clock.js';
 import { QaStore } from './qa-store.js';
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
+import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 
 const FIXED_TIME = new Date('2026-09-16T12:00:00.000Z');
 const fixedClock: Clock = { now: () => FIXED_TIME };
@@ -206,6 +207,20 @@ describe('ManifestStore', () => {
 
       expect(error).toBeInstanceOf(QaError);
       expect((error as QaError).code).toBe('ARTIFACT_HASH_MISMATCH');
+    });
+  });
+});
+
+describe('ManifestStore parallel registration', () => {
+  it('keeps every artifact when many spokes register at once', async () => {
+    await withTempDir(async (directory) => {
+      const store = new QaStore({ projectRoot: directory, lock: { retryEveryMs: 1 } });
+      const manifestStore = new ManifestStore({ store, clock: fixedClock });
+      const paths = Array.from({ length: 25 }, (_unused, index) => `artifacts/case-${String(index)}.json`);
+
+      await Promise.all(paths.map((path) => manifestStore.register(path, `content of ${path}`)));
+
+      expect(Object.keys((await manifestStore.load()).artifacts).toSorted()).toEqual(paths.toSorted());
     });
   });
 });

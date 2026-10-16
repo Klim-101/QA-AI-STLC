@@ -35,6 +35,13 @@ export function caseMarkdownPath(feature: string, id: string): RelativePath {
  * approval bound to a stale snapshot would defeat the point of hashing it.
  */
 export async function regenerateCaseIndexes(store: QaStore, manifest: ManifestStore): Promise<void> {
+  // Parallel test-design spokes each call this after their own case. Run one at a time, each pass
+  // reads the cases that exist when it starts, so the last pass sees every case and leaves the index
+  // and its manifest hashes consistent; two overlapping passes could register another's content.
+  await store.withLock('cases-index', () => regenerateCaseIndexesLocked(store, manifest));
+}
+
+async function regenerateCaseIndexesLocked(store: QaStore, manifest: ManifestStore): Promise<void> {
   const casePaths = [...(await store.listFiles(CASES_DIR))].sort();
   const cases = await Promise.all(
     casePaths.map(async (path) => ({ path, content: await store.readText(path) })),

@@ -43,6 +43,24 @@ session history, not another spoke's reasoning (development plan section 5.1, 5.
    report the task as `blocked`), and `qa.spoke_record_output` fails with `SPOKE_TIMEOUT_EXCEEDED`
    for a result that arrives after `agents.spokeTimeoutSeconds` (treat the attempt as failed).
 
+## Dispatching spokes in parallel
+
+On Claude Code, with `agents.parallelism` above 1, the hub may dispatch several spokes of the same
+kind in one step, as the subagents `qa agents generate` wrote (`qa-test-design`, `qa-test-generation`,
+`qa-explorer`), up to `agents.parallelism` at a time. The engine is built for it: writes to shared
+artifacts (the manifest, the case indexes, the selector registry, a run's spoke records) are locked,
+so spokes dispatched together lose nothing. What stays the hub's:
+
+- **Only independent tasks.** One task per feature for test design, one per case for generation, one
+  crawl per environment for exploration. Two tasks that depend on each other (a case and the
+  execution that proves it) are sequential: `case-execution` precedes `test-generation` for a case.
+- **Record each dispatch.** `qa.spoke_record_input` for every spoke before it starts, so the engine
+  refuses a dispatch past `agents.parallelism`; wait for a running spoke's output before the next.
+- **Validate each result on its own.** A failed spoke is re-dispatched alone (the next attempt of its
+  task); the spokes that succeeded are not run again.
+- **Sequential is the default.** Parallel mode is used when the operator or the configuration asks
+  for it, and only after the comparison with sequential mode on the eval set has been made (P4-08).
+
 Spokes never talk to each other. If a second spoke's task depends on a first spoke's output, the
 hub is the one that reads the first spoke's result and builds the second spoke's input from it.
 

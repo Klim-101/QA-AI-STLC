@@ -10,6 +10,7 @@ export interface FileSystemLike {
   readBytes(absolutePath: string): Promise<Uint8Array>;
   writeFile(absolutePath: string, content: string | Uint8Array): Promise<void>;
   deleteFile(absolutePath: string): Promise<void>;
+  createExclusive(absolutePath: string, content: string): Promise<boolean>;
   mkdir(absolutePath: string): Promise<void>;
   pathExists(absolutePath: string): Promise<boolean>;
   listFiles(absolutePath: string): Promise<readonly string[]>;
@@ -71,6 +72,13 @@ export function createFakeFileSystem(initialFiles: Readonly<Record<string, strin
     deleteFile: (absolutePath) => {
       files.delete(absolutePath);
       return Promise.resolve();
+    },
+    createExclusive: (absolutePath, content) => {
+      if (files.has(absolutePath)) {
+        return Promise.resolve(false);
+      }
+      files.set(absolutePath, content);
+      return Promise.resolve(true);
     },
     mkdir: (absolutePath) => {
       directories.add(absolutePath);

@@ -165,46 +165,50 @@ export async function runSpokeRecordInput(
   const spokeId = assertSegment('spokeId', options.spokeId);
   const taskId = assertSegment('taskId', options.taskId);
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
-  const attempt = Math.max(0, ...(await listAttempts(store, runId, spokeId, taskId))) + 1;
-  const budgets = toSpokeBudgets((await loadConfig(context)).agents);
-  if (attempt > budgets.maxAttempts) {
-    return {
-      status: 'retry_budget_exhausted',
-      attempt,
-      wasRedacted: false,
-      budgetError: {
-        code: SPOKE_RETRY_BUDGET_EXCEEDED,
-        message: `Task "${taskId}" of spoke "${spokeId}" has used its ${String(budgets.maxAttempts)} attempts (agents.retries allows ${String(budgets.maxAttempts - 1)} re-dispatches)`,
-        remediation:
-          'Do not dispatch it again. Report the task to the operator as blocked, or raise agents.retries in .qa/config.yaml.',
-      },
-    };
-  }
-  await assertParallelismAvailable(store, runId, context.clock.now(), budgets);
-  const redactedContext = redactValue(options.context);
-  const redactedTask = redactValue(options.task);
+  // The attempt number, the parallelism count and the write have to be one step: two spokes
+  // dispatched together would otherwise both see a free slot, or both take the same attempt.
+  return store.withLock(`spokes-${runId}`, async () => {
+    const attempt = Math.max(0, ...(await listAttempts(store, runId, spokeId, taskId))) + 1;
+    const budgets = toSpokeBudgets((await loadConfig(context)).agents);
+    if (attempt > budgets.maxAttempts) {
+      return {
+        status: 'retry_budget_exhausted',
+        attempt,
+        wasRedacted: false,
+        budgetError: {
+          code: SPOKE_RETRY_BUDGET_EXCEEDED,
+          message: `Task "${taskId}" of spoke "${spokeId}" has used its ${String(budgets.maxAttempts)} attempts (agents.retries allows ${String(budgets.maxAttempts - 1)} re-dispatches)`,
+          remediation:
+            'Do not dispatch it again. Report the task to the operator as blocked, or raise agents.retries in .qa/config.yaml.',
+        },
+      };
+    }
+    await assertParallelismAvailable(store, runId, context.clock.now(), budgets);
+    const redactedContext = redactValue(options.context);
+    const redactedTask = redactValue(options.task);
 
-  const record: SpokeInputRecord = parseInlineContent(
-    SpokeInputRecordSchema,
-    {
-      runId,
-      spokeId,
-      taskId,
+    const record: SpokeInputRecord = parseInlineContent(
+      SpokeInputRecordSchema,
+      {
+        runId,
+        spokeId,
+        taskId,
+        attempt,
+        task: redactedTask.value,
+        context: redactedContext.value,
+        recordedAt: context.clock.now().toISOString(),
+      },
+      { code: 'SPOKE_INPUT_INVALID', subject: 'spoke input record' },
+    );
+    const inputPath = `${attemptDirectory(runId, spokeId, taskId, attempt)}/${INPUT_FILE}`;
+    await store.writeText(inputPath, serializeRecord(record));
+    return {
+      status: 'recorded',
       attempt,
-      task: redactedTask.value,
-      context: redactedContext.value,
-      recordedAt: context.clock.now().toISOString(),
-    },
-    { code: 'SPOKE_INPUT_INVALID', subject: 'spoke input record' },
-  );
-  const inputPath = `${attemptDirectory(runId, spokeId, taskId, attempt)}/${INPUT_FILE}`;
-  await store.writeText(inputPath, serializeRecord(record));
-  return {
-    status: 'recorded',
-    attempt,
-    inputPath,
-    wasRedacted: redactedContext.wasRedacted || redactedTask.wasRedacted,
-  };
+      inputPath,
+      wasRedacted: redactedContext.wasRedacted || redactedTask.wasRedacted,
+    };
+  });
 }
 
 /**
