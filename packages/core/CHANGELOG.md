@@ -1,5 +1,20 @@
 # @qa-ai-stlc/core
 
+## 1.10.0
+
+### Minor Changes
+
+- d2ede91: `qa.defect_add` and `qa.rca_add` take the defect draft (`draft`) and the root cause analysis (`rca`) inline, validated by their schemas, so an agent writes no scratch file in the operator's project; `path` still works, and exactly one of the two is given. A content that does not match fails with `DEFECT_INVALID` or `RCA_INVALID` whose remediation lists every invalid field by its path with the values it allows, and a file that does not match (`JSON_FILE_INVALID`) now carries the same list instead of a bare message. The fields of both schemas have descriptions in the tool's input schema. The `qa-rca` skill registers inline.
+
+### Patch Changes
+
+- 4810691: An api spec whose `apiAuth` profile reads its token from a browser session (`from-browser`) can now be verified and run. `qa.generation_verify` and `qa run` used to end in `API_AUTH_SESSION_REQUIRED` because nothing gave them a session. They now sign in as the run's identity (the `identity` argument, else the environment's `identity`) in a headless session under safe mode, load the environment's base URL, read the cookie, localStorage or sessionStorage key or request header the profile names, and close the session before the specs start; the token never reaches a spec, a log or a report. A run with no identity still stops with `API_AUTH_SESSION_REQUIRED`, and the remediation now names the identity. The run record names an identity only for runners that sign the specs in, so an api run does not claim a browser sign-in.
+- ad08f4a: `qa.browser_expect` with an empty `expected` for `text` or `url` used to pass on every element, because any text contains the empty string; it now means the text is empty and is compared in full, so it fails on an element that has text. `value` with an empty `expected` already checked that an input holds nothing. A generated spec renders an empty `text` expectation as `toHaveText("")` instead of the vacuous `toContainText("")`. The tool description and the `qa-execute` guidance now say that a `count` of 0 only proves that nothing matched, and to pair it with a `visible` check on the container.
+- 5aab58c: Three problems at the start of a session. `qa.config_show` failed with a bare schema error for any configuration that lists `safeNonGetRequests`, because the report only accepted a few list shapes; it now reports any list of records, and a value it still cannot report fails with `CONFIG_SHOW_VALUE_UNSUPPORTED`, naming the field and a remediation. `qa.doctor` no longer fails for Firefox or WebKit being absent: the engine launches only Chromium, so only Chromium is checked, and `qa doctor --fix` installs only that. The MCP server answers `--version` without serving, so `npx -y @qa-ai-stlc/mcp-server@<version> --version` warms the cache before the first session; a cold `npx` download can outlast the 30 seconds Claude Code waits for a server to connect (the server needs about five seconds to start once cached), and the install guide and `qa-start` now say so.
+- Updated dependencies [c0e163c]
+- Updated dependencies [d2ede91]
+  - @qa-ai-stlc/schemas@1.10.0
+
 ## 1.9.0
 
 ### Minor Changes

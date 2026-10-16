@@ -1,5 +1,34 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.10.0
+
+### Minor Changes
+
+- c0e163c: Explore can now register what a page keeps out of sight or does not mark as interactive. `qa explore --expand-collapsed` (MCP `expandCollapsed`) opens each page's collapsed panels (`aria-expanded="false"` controls that are not links, submit buttons or pop-up triggers, plus a component library profile's own selectors) in a throwaway context under safe mode, and registers the filter inputs that appear; the report gives `expandedPanelCount`. Scoring and `--verify` reopen the panels after each reload, so those controls resolve. Elements that carry the configured test id and look operable (a sortable header, a status chip) are registered with the new kind `element`, and the Kendo UI for Angular profile registers a grid header cell under its title. `--probe-navigation` also clicks `role="button"` elements; a bare `div`, an anchor without `href` and a button inside a form are still skipped.
+- d2ede91: `qa.defect_add` and `qa.rca_add` take the defect draft (`draft`) and the root cause analysis (`rca`) inline, validated by their schemas, so an agent writes no scratch file in the operator's project; `path` still works, and exactly one of the two is given. A content that does not match fails with `DEFECT_INVALID` or `RCA_INVALID` whose remediation lists every invalid field by its path with the values it allows, and a file that does not match (`JSON_FILE_INVALID`) now carries the same list instead of a bare message. The fields of both schemas have descriptions in the tool's input schema. The `qa-rca` skill registers inline.
+- 5995057: Pick mode can now reach a control behind a collapsed panel. Its click capture swallows every click on an interactive element, so a toggle such as a "Search Details" button was recorded but never opened and the filter inputs inside it could not be picked. The toolbar has a **Browse** switch: while it is on, clicks go to the page and are not captured; switch it off and click the element to capture it. Because browsing lets a click act on the page, the pick-mode session now runs under safe mode's network rules: every non-GET request and every request off the environment allowlist is aborted (a `POST` the environment lists in `safeNonGetRequests` is let through), and the report lists what was blocked. `--pick <url>` refuses a page that is not on the allowlist of the resolved environment (`explorer.pick_mode.url_not_allowed`); with no environment, only the picked page's own host is allowed.
+
+### Patch Changes
+
+- 4810691: An api spec whose `apiAuth` profile reads its token from a browser session (`from-browser`) can now be verified and run. `qa.generation_verify` and `qa run` used to end in `API_AUTH_SESSION_REQUIRED` because nothing gave them a session. They now sign in as the run's identity (the `identity` argument, else the environment's `identity`) in a headless session under safe mode, load the environment's base URL, read the cookie, localStorage or sessionStorage key or request header the profile names, and close the session before the specs start; the token never reaches a spec, a log or a report. A run with no identity still stops with `API_AUTH_SESSION_REQUIRED`, and the remediation now names the identity. The run record names an identity only for runners that sign the specs in, so an api run does not claim a browser sign-in.
+- ad08f4a: `qa.browser_expect` with an empty `expected` for `text` or `url` used to pass on every element, because any text contains the empty string; it now means the text is empty and is compared in full, so it fails on an element that has text. `value` with an empty `expected` already checked that an input holds nothing. A generated spec renders an empty `text` expectation as `toHaveText("")` instead of the vacuous `toContainText("")`. The tool description and the `qa-execute` guidance now say that a `count` of 0 only proves that nothing matched, and to pair it with a `visible` check on the container.
+- 5aab58c: Three problems at the start of a session. `qa.config_show` failed with a bare schema error for any configuration that lists `safeNonGetRequests`, because the report only accepted a few list shapes; it now reports any list of records, and a value it still cannot report fails with `CONFIG_SHOW_VALUE_UNSUPPORTED`, naming the field and a remediation. `qa.doctor` no longer fails for Firefox or WebKit being absent: the engine launches only Chromium, so only Chromium is checked, and `qa doctor --fix` installs only that. The MCP server answers `--version` without serving, so `npx -y @qa-ai-stlc/mcp-server@<version> --version` warms the cache before the first session; a cold `npx` download can outlast the 30 seconds Claude Code waits for a server to connect (the server needs about five seconds to start once cached), and the install guide and `qa-start` now say so.
+- b10a724: An element an agent added from a live session (`qa.registry_execute_register`) is no longer deprecated by the next `qa explore`. The crawl cannot see such elements (a collapsed panel, a header or chip that is not natively interactive), so missing one says nothing about it being gone; it used to be marked deprecated and then left out of `tests/qa/locators.ts`, so a spec could not import it. A crawl that misses a session-added element also no longer counts it as removed, and `qa explore --verify` now resolves the `execute` strategy instead of failing with `locator-strategy-unknown`. An element that is not found on a fresh page load (revealed only after an interaction) is reported as degraded.
+- Updated dependencies [4810691]
+- Updated dependencies [ad08f4a]
+- Updated dependencies [c0e163c]
+- Updated dependencies [5aab58c]
+- Updated dependencies [d2ede91]
+- Updated dependencies [5995057]
+- Updated dependencies [b10a724]
+  - @qa-ai-stlc/core@1.10.0
+  - @qa-ai-stlc/runner-api@1.10.0
+  - @qa-ai-stlc/schemas@1.10.0
+  - @qa-ai-stlc/explorer@1.10.0
+  - @qa-ai-stlc/runner-a11y@1.10.0
+  - @qa-ai-stlc/runner-playwright@1.10.0
+  - @qa-ai-stlc/runner-security@1.10.0
+
 ## 1.9.0
 
 ### Minor Changes
