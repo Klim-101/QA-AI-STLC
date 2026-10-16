@@ -43,8 +43,7 @@ async function countInFlightAttempts(
   const paths = await store.listFiles(`runs/${runId}/spokes`);
   const unanswered = paths.filter(
     (path) =>
-      ATTEMPT_INPUT.test(path) &&
-      !paths.includes(`${path.slice(0, -INPUT_FILE.length)}${OUTPUT_FILE}`),
+      ATTEMPT_INPUT.test(path) && !paths.includes(`${path.slice(0, -INPUT_FILE.length)}${OUTPUT_FILE}`),
   );
   const records = await Promise.all(unanswered.map((path) => store.readJson(path, SpokeInputRecordSchema)));
   return records.filter((record) => !isExpired(record.recordedAt, now, timeoutMs)).length;
