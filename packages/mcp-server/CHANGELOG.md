@@ -1,5 +1,28 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.11.0
+
+### Minor Changes
+
+- ff04ffd: `qa.browser_open` takes `headed` to open the interactive session in a visible window, so an operator can watch a `qa-execute` run or sign in by hand. The environment gets a `headed` setting as the default (a machine setting the local layer may set, shown by `qa config show`); the input overrides it either way. A headed session keeps safe mode, the domain allowlist, evidence registration and secret scanning, and the result's `headed` says which mode was launched. A machine without a display gets `BROWSER_HEADED_UNAVAILABLE` with a remediation instead of a raw Playwright message. The `qa-execute` guidance tells the agent to offer it when the operator wants to watch.
+- 2087fda: `qa report --output [path]` and the `output` input of `qa.report` save a Markdown run-result report to the project. It is rendered from the engine's own data: a case table with status, finish time, evidence count and result id, the failure reasons, the `qa run` executions of generated specs, the accessibility conformance counts, the defects with the status their approval supports and the approved root cause analyses. A section with nothing to show is omitted, `blocked`, `skipped`, `uncertain` and `partial` keep their own names, and evidence is counted, never inlined. The default path is `artifacts/reports/run-result-<date>.md`; the result returns the path written. The `qa-report` skill points the operator to the saved file.
+- a55b57f: A spoke I/O store: the hub records what it gave each spoke and what came back under `.qa/runs/<run-id>/spokes/<spoke>/<task>/attempt-<n>/` with three new tools. `qa.spoke_record_input` stores the task and minimal context and returns the attempt number the engine assigned (a re-dispatch is the next attempt, nothing is overwritten); `qa.spoke_record_output` stores the result exactly as received, before the hub validates its payload, and refuses an output whose attempt has no recorded input; `qa.spoke_list` lists the attempts of a run with the status of each output. Secrets are redacted before anything is written, names must be single safe path segments, and a record over 256 KiB is refused. The hub definition describes the calls.
+
+### Patch Changes
+
+- Updated dependencies [ff04ffd]
+- Updated dependencies [b67fcb5]
+- Updated dependencies [c874bfb]
+- Updated dependencies [2087fda]
+- Updated dependencies [a55b57f]
+  - @qa-ai-stlc/schemas@1.11.0
+  - @qa-ai-stlc/core@1.11.0
+  - @qa-ai-stlc/explorer@1.11.0
+  - @qa-ai-stlc/runner-api@1.11.0
+  - @qa-ai-stlc/runner-playwright@1.11.0
+  - @qa-ai-stlc/runner-security@1.11.0
+  - @qa-ai-stlc/runner-a11y@1.11.0
+
 ## 1.10.0
 
 ### Minor Changes

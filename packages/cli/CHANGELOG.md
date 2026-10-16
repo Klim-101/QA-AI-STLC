@@ -1,5 +1,26 @@
 # @qa-ai-stlc/cli
 
+## 1.11.0
+
+### Minor Changes
+
+- 2087fda: `qa report --output [path]` and the `output` input of `qa.report` save a Markdown run-result report to the project. It is rendered from the engine's own data: a case table with status, finish time, evidence count and result id, the failure reasons, the `qa run` executions of generated specs, the accessibility conformance counts, the defects with the status their approval supports and the approved root cause analyses. A section with nothing to show is omitted, `blocked`, `skipped`, `uncertain` and `partial` keep their own names, and evidence is counted, never inlined. The default path is `artifacts/reports/run-result-<date>.md`; the result returns the path written. The `qa-report` skill points the operator to the saved file.
+
+### Patch Changes
+
+- Updated dependencies [ff04ffd]
+- Updated dependencies [b67fcb5]
+- Updated dependencies [c874bfb]
+- Updated dependencies [2087fda]
+- Updated dependencies [a55b57f]
+  - @qa-ai-stlc/schemas@1.11.0
+  - @qa-ai-stlc/core@1.11.0
+  - @qa-ai-stlc/explorer@1.11.0
+  - @qa-ai-stlc/runner-api@1.11.0
+  - @qa-ai-stlc/runner-playwright@1.11.0
+  - @qa-ai-stlc/runner-security@1.11.0
+  - @qa-ai-stlc/runner-a11y@1.11.0
+
 ## 1.10.0
 
 ### Minor Changes
