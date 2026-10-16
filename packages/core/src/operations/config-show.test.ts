@@ -42,6 +42,24 @@ describe('runConfigShow', () => {
     expect(e2e).toStrictEqual({ path: ['testing', 'e2e'], value: 'in-scope', layer: 'committed' });
   });
 
+  it('reports the headed default of an environment and the layer that set it (P6-105)', async () => {
+    const local = ['environments:', '  staging:', '    headed: true', ''].join('\n');
+    const context = createFakeEngineContext({
+      projectRoot: PROJECT_ROOT,
+      fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML, [LOCAL_PATH]: local }),
+    });
+
+    const result = await runConfigShow(context);
+
+    const headed = result.values.find((value) => value.path.join('.') === 'environments.staging.headed');
+    expect(headed).toStrictEqual({
+      path: ['environments', 'staging', 'headed'],
+      value: true,
+      layer: 'local',
+    });
+    expect(result.relaxations).toStrictEqual([]);
+  });
+
   it('reports the source layer, the local file path and the relaxations of a merged configuration', async () => {
     const local = [
       'environments:',

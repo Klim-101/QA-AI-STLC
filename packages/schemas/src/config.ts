@@ -77,6 +77,10 @@ export const EnvironmentConfigSchema = z.object({
   // The identity `qa run` and spec verification sign in as when the run names none (P6-89). Omitted
   // means runs are anonymous, which is what a project without a protected page wants.
   identity: z.string().min(1).optional(),
+  // Opens the interactive `qa.browser_*` session in a visible window by default (P6-105), for an
+  // operator who watches a run; a session can still choose either way. A machine setting, so the
+  // local layer may turn it on without touching the committed file.
+  headed: z.boolean().optional(),
 });
 export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 

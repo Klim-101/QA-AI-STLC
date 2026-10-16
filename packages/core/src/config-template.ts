@@ -135,6 +135,8 @@ export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-01
 #         reason: Exchanges the refresh cookie for an access token; creates no record.
 #     navigationTimeoutMs: 30000
 #     actionTimeoutMs: 30000
+#     # Open the interactive browser session in a visible window (a machine setting; put it in config.local.yaml).
+#     headed: false
 #
 # identities:
 #   admin:

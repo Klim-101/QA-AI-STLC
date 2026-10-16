@@ -30,6 +30,10 @@
               "dismiss",
               "accept"
             ]
+          },
+          "headed": {
+            "description": "Opens a visible browser window so the operator can watch the session or sign in by hand. Defaults to the \"headed\" setting of the environment, then to false (headless). Safe mode, the allowlist and evidence registration are unchanged. Fails with BROWSER_HEADED_UNAVAILABLE on a machine without a display.",
+            "type": "boolean"
           }
         },
         "additionalProperties": false

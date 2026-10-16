@@ -11,7 +11,7 @@ import {
   resolveSessionSettings,
   type ComponentLibraryResolvers,
 } from '../browser-session-setup.js';
-import type { StorageState } from '../ports/browser-launcher.js';
+import type { AuthBrowser, StorageState } from '../ports/browser-launcher.js';
 import type { BrowserSession, DialogPolicy } from '../browser-session-store.js';
 import { watchSessionPages } from '../browser-tabs.js';
 import { loadConfig } from '../config-loader.js';
@@ -36,6 +36,12 @@ export interface BrowserOpenOptions extends ComponentLibraryResolvers {
    */
   readonly dialogPolicy?: DialogPolicy;
   /**
+   * Opens a visible browser window instead of a headless one (P6-105). Falls back to the
+   * environment's `headed` setting, then to headless. Safe mode, the allowlist and evidence
+   * registration are the same either way.
+   */
+  readonly headed?: boolean;
+  /**
    * Identity name from config.yaml (P6-74). The session signs in through the same `authenticate`
    * flow crawling uses and starts with the resulting storage state, so a protected page opens
    * authenticated. The state itself is never returned or registered.
@@ -51,6 +57,8 @@ export interface BrowserOpenResult {
   readonly environment: string;
   readonly baseUrl: string;
   readonly allowlist: readonly string[];
+  /** Whether the session runs in a visible window; false means headless. */
+  readonly headed: boolean;
   /** The identity the session signed in as; absent for an anonymous session. */
   readonly identity?: string;
   readonly evidence: Evidence;
@@ -89,6 +97,32 @@ export function resolveBrowserEnvironment(
   );
 }
 
+// Playwright words a missing display differently per platform and version; these fragments are the
+// ones it has used for "a headed browser cannot start here".
+const NO_DISPLAY_PATTERN = /X server|\$DISPLAY|headed browser|XServer|no display/i;
+
+async function launchSessionBrowser(context: BrowserOperationContext, headed: boolean): Promise<AuthBrowser> {
+  if (!headed) {
+    return context.engine.browserLauncher.launch();
+  }
+  try {
+    return await context.engine.browserLauncher.launch({ headless: false });
+  } catch (error) {
+    if (error instanceof Error && NO_DISPLAY_PATTERN.test(error.message)) {
+      throw new QaError(
+        'BROWSER_HEADED_UNAVAILABLE',
+        'A visible browser window cannot be opened on this machine: no display is available.',
+        {
+          remediation:
+            'Run from a desktop session, or open the session without "headed" (and unset "headed" on the environment in config.yaml).',
+          cause: error,
+        },
+      );
+    }
+    throw error;
+  }
+}
+
 async function signIn(
   context: BrowserOperationContext,
   config: Config,
@@ -116,7 +150,7 @@ async function signIn(
 }
 
 /**
- * MCP `qa.browser_open` (P2-06): launches a headless browser for an exploratory session and
+ * MCP `qa.browser_open` (P2-06): launches a browser (headless unless asked for a visible window) for an exploratory session and
  * records opening it as evidence. Safe mode is applied here, once, for the whole session
  * (AGENTS.md 12.4): every non-GET request is aborted, so a later click can never submit a form —
  * unless `options.executionMode` opts an interactive case-execution session out of that one
@@ -141,7 +175,8 @@ export async function runBrowserOpen(
     );
   }
 
-  const browser = await context.engine.browserLauncher.launch();
+  const headed = options.headed ?? environment.config.headed ?? false;
+  const browser = await launchSessionBrowser(context, headed);
   const storageState = await signIn(context, config, environment.config, options);
   const blockedRequests: BlockedRequest[] = [];
   const observedRequestHeaders = new Map<string, string>();
@@ -202,6 +237,7 @@ export async function runBrowserOpen(
     environment: environment.name,
     baseUrl: environment.config.baseUrl,
     allowlist: session.allowlist,
+    headed,
     ...(options.identity === undefined ? {} : { identity: options.identity }),
     evidence,
   };

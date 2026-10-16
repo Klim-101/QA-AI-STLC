@@ -40,6 +40,15 @@ const InputSchema = z.object({
         'Either way each dialog is recorded as evidence and reported in a later result. Accepting ' +
         'only lets the page carry on; safe mode still blocks any non-GET request that follows.',
     ),
+  headed: z
+    .boolean()
+    .optional()
+    .describe(
+      'Opens a visible browser window so the operator can watch the session or sign in by hand. ' +
+        'Defaults to the "headed" setting of the environment, then to false (headless). Safe mode, ' +
+        'the allowlist and evidence registration are unchanged. Fails with BROWSER_HEADED_UNAVAILABLE ' +
+        'on a machine without a display.',
+    ),
 });
 
 const OutputSchema = z.object({
@@ -48,6 +57,7 @@ const OutputSchema = z.object({
   environment: z.string(),
   baseUrl: z.string(),
   allowlist: z.array(z.string()),
+  headed: z.boolean().describe('True when the session runs in a visible window, false when headless.'),
   identity: z.string().optional(),
   evidence: EvidenceSchema,
 });
@@ -75,6 +85,7 @@ export function createBrowserOpenTool(
         ...(input.identity !== undefined ? { identity: input.identity } : {}),
         ...(input.cdpEndpointUrl !== undefined ? { cdpEndpointUrl: input.cdpEndpointUrl } : {}),
         ...(input.dialogPolicy !== undefined ? { dialogPolicy: input.dialogPolicy } : {}),
+        ...(input.headed !== undefined ? { headed: input.headed } : {}),
         resolveLibraryBusySelectors: (library) =>
           resolveComponentLibraryProfile(library)?.busySelectors ?? [],
         resolveLibraryWidgets: (library) => listWidgetTargets(resolveComponentLibraryProfile(library)),

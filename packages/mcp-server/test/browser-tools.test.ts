@@ -229,6 +229,22 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
     });
   });
 
+  it('forwards headed to the session and reports which mode was launched (P6-105)', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await mkdir(join(projectRoot, '.qa'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
+      const open = createBrowserOpenTool(createDependencies(createFakeBrowser()));
+
+      const headless = await open.handler({});
+      const headed = await open.handler({ headed: true });
+      process.chdir(originalCwd);
+
+      expect(headless.headed).toBe(false);
+      expect(headed.headed).toBe(true);
+    });
+  });
+
   // A longer timeout than the 5000ms default: this drives open/navigate/click/fill/snapshot/close
   // plus two extra evidence-file reads (P3-07's stepId assertions) through a real temp-directory
   // filesystem, which the default budget can miss under CI load on a slower runner (observed
