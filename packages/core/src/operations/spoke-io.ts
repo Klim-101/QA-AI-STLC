@@ -6,7 +6,6 @@ import {
   SpokeOutputRecordSchema,
   SpokePathSegmentSchema,
   SpokeResultSchema,
-  type RelativePath,
   type SpokeInputRecord,
   type SpokeOutputRecord,
   type SpokeResult,
@@ -168,7 +167,7 @@ export async function runSpokeRecordInput(
     },
     { code: 'SPOKE_INPUT_INVALID', subject: 'spoke input record' },
   );
-  const inputPath = `${attemptDirectory(runId, spokeId, taskId, attempt)}/${INPUT_FILE}` as RelativePath;
+  const inputPath = `${attemptDirectory(runId, spokeId, taskId, attempt)}/${INPUT_FILE}`;
   await store.writeText(inputPath, serializeRecord(record));
   return { attempt, inputPath, wasRedacted: redactedContext.wasRedacted || redactedTask.wasRedacted };
 }
@@ -193,8 +192,8 @@ export async function runSpokeRecordOutput(
   const taskId = assertSegment('taskId', result.taskId);
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const directory = attemptDirectory(runId, spokeId, taskId, options.attempt);
-  const inputPath = `${directory}/${INPUT_FILE}` as RelativePath;
-  const outputPath = `${directory}/${OUTPUT_FILE}` as RelativePath;
+  const inputPath = `${directory}/${INPUT_FILE}`;
+  const outputPath = `${directory}/${OUTPUT_FILE}`;
 
   if (!(await store.pathExists(inputPath))) {
     throw new QaError(
@@ -268,7 +267,7 @@ export async function runSpokeList(
     if (spokeId === undefined || taskId === undefined || match?.[1] === undefined) {
       continue;
     }
-    const outputPath = `${inputPath.slice(0, -INPUT_FILE.length)}${OUTPUT_FILE}` as RelativePath;
+    const outputPath = `${inputPath.slice(0, -INPUT_FILE.length)}${OUTPUT_FILE}`;
     const output = paths.includes(outputPath)
       ? await store.readJson(outputPath, SpokeOutputRecordSchema)
       : undefined;
