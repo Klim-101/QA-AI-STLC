@@ -1,7 +1,13 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { RunRecordSchema, type Identifier, type RelativePath, type RunRecord } from '@qa-ai-stlc/schemas';
+import {
+  RelativePathSchema,
+  RunRecordSchema,
+  type Identifier,
+  type RelativePath,
+  type RunRecord,
+} from '@qa-ai-stlc/schemas';
 import { buildA11yConformanceReport, type A11yConformanceReport } from '../a11y-conformance.js';
 import { listA11yScans } from '../a11y-scan-store.js';
 import { loadConfig } from '../config-loader.js';
@@ -11,6 +17,7 @@ import { buildInteractiveResultsSummary } from '../interactive-results-summary.j
 import { QaStore } from '../qa-store.js';
 import { renderHtmlArtifact } from '../render/html-registry.js';
 import { renderMarkdownArtifact } from '../render/markdown-registry.js';
+import { buildRunResultReport } from '../run-result-report.js';
 import { buildTraceabilityMatrix } from '../traceability.js';
 
 const RUNS_DIR: RelativePath = 'runs';
@@ -24,6 +31,11 @@ export interface ReportOptions {
    */
   readonly runId?: string;
   readonly format?: ReportFormat;
+  /**
+   * Also writes the full run-result report as Markdown (P6-104): `true` for the default
+   * `artifacts/reports/run-result-<date>.md`, or a project-relative `.md` path of the caller's choice.
+   */
+  readonly output?: true | string;
 }
 
 export interface ReportResult {
@@ -38,6 +50,8 @@ export interface ReportResult {
   readonly traceabilityMatrix: string;
   /** Rendered accessibility conformance section; present only when accessibility testing is in scope. */
   readonly a11yConformance?: string;
+  /** Where the run-result report was written; set only when `output` was asked for. */
+  readonly reportPath?: RelativePath;
 }
 
 /**
@@ -56,6 +70,8 @@ export interface ReportResult {
 export async function runReport(context: EngineContext, options: ReportOptions): Promise<ReportResult> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const format = options.format ?? 'markdown';
+  const reportPath =
+    options.output === undefined ? undefined : resolveReportPath(context, options.output, format);
 
   const runRecord = await readRunRecord(store, options.runId ?? (await findMostRecentRunId(store)));
   // A `runId` that names a `qa run` record asks for that run only; one that names no record may be a
@@ -91,7 +107,13 @@ export async function runReport(context: EngineContext, options: ReportOptions):
       ? renderA11yConformance(buildA11yConformanceReport(config.a11y, await listA11yScans(store)), format)
       : undefined;
 
+  if (reportPath !== undefined) {
+    const report = await buildRunResultReport({ store, clock: context.clock, config });
+    await store.writeText(reportPath, renderMarkdownArtifact('run-result-report', report));
+  }
+
   return {
+    ...(reportPath === undefined ? {} : { reportPath }),
     ...(runRecord === undefined
       ? {}
       : {
@@ -145,4 +167,29 @@ async function findMostRecentRunId(store: QaStore): Promise<Identifier | undefin
     }
   }
   return latest?.id;
+}
+
+const DEFAULT_REPORT_DIRECTORY = 'artifacts/reports';
+
+function resolveReportPath(
+  context: EngineContext,
+  output: true | string,
+  format: ReportFormat,
+): RelativePath {
+  if (format !== 'markdown') {
+    throw new QaError('REPORT_OUTPUT_FORMAT', 'A saved run-result report is Markdown only.', {
+      remediation: 'Drop --format html, or drop --output.',
+    });
+  }
+  if (output === true) {
+    const date = context.clock.now().toISOString().slice(0, 10);
+    return `${DEFAULT_REPORT_DIRECTORY}/run-result-${date}.md`;
+  }
+  const parsed = RelativePathSchema.safeParse(output);
+  if (!parsed.success || !output.endsWith('.md')) {
+    throw new QaError('REPORT_OUTPUT_INVALID', `"${output}" is not a usable report path.`, {
+      remediation: 'Use a project-relative path with forward slashes, no "..", ending in ".md".',
+    });
+  }
+  return parsed.data;
 }

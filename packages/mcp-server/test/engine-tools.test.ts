@@ -1500,6 +1500,8 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       const a11yResult = await reportTool.handler({ runId: 'run-1' });
       await writeConfig(projectRoot);
       const htmlResult = await reportTool.handler({ format: 'html' });
+      const savedResult = await reportTool.handler({ runId: 'run-1', output: 'docs/results.md' });
+      const savedByDefault = await reportTool.handler({ runId: 'run-1', output: true });
       const notFoundError = await reportTool.handler({ runId: 'missing' }).catch((caught: unknown) => caught);
       process.chdir(originalCwd);
 
@@ -1511,6 +1513,9 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(result.traceabilityMatrix).toContain('Log in with valid credentials (login-case) | passed |');
       expect(htmlResult).toMatchObject({ runId: 'run-1', format: 'html' });
       expect(htmlResult.runSummary).toContain('<h1>Run summary: run-1</h1>');
+      expect(result.reportPath).toBeUndefined();
+      expect(savedResult.reportPath).toBe('docs/results.md');
+      expect(savedByDefault.reportPath).toMatch(/^artifacts\/reports\/run-result-\d{4}-\d{2}-\d{2}\.md$/);
       expect(notFoundError).toMatchObject({ code: 'REPORT_RUN_NOT_FOUND' });
     });
   });

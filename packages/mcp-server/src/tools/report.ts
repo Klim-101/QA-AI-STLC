@@ -12,6 +12,14 @@ const InputSchema = z.object({
     .enum(['markdown', 'html'])
     .optional()
     .describe('The rendered format for the run summary and traceability matrix. Defaults to "markdown".'),
+  output: z
+    .union([z.literal(true), z.string().min(1)])
+    .optional()
+    .describe(
+      'Also save the full run-result report (summary, case table, failures, spec runs, accessibility, ' +
+        'defects, RCA) as Markdown: true for artifacts/reports/run-result-<date>.md, or a ' +
+        'project-relative .md path. Markdown format only.',
+    ),
 });
 
 const OutputSchema = z.object({
@@ -29,6 +37,7 @@ const OutputSchema = z.object({
       'Results registered by live case execution (qa-execute), one row per case; absent when there are none.',
     ),
   traceabilityMatrix: z.string(),
+  reportPath: z.string().optional().describe('Where the run-result report was saved; set only for `output`.'),
   a11yConformance: z
     .string()
     .optional()
@@ -54,6 +63,7 @@ export const reportTool: ToolDefinition<typeof InputSchema, typeof OutputSchema>
     const result = await runReport(createNodeEngineContext(), {
       ...(input.runId !== undefined ? { runId: input.runId } : {}),
       ...(input.format !== undefined ? { format: input.format } : {}),
+      ...(input.output !== undefined ? { output: input.output } : {}),
     });
     return {
       ...(result.runId === undefined ? {} : { runId: result.runId }),
@@ -62,6 +72,7 @@ export const reportTool: ToolDefinition<typeof InputSchema, typeof OutputSchema>
       ...(result.runSummary === undefined ? {} : { runSummary: result.runSummary }),
       ...(result.interactiveSummary === undefined ? {} : { interactiveSummary: result.interactiveSummary }),
       traceabilityMatrix: result.traceabilityMatrix,
+      ...(result.reportPath === undefined ? {} : { reportPath: result.reportPath }),
       ...(result.a11yConformance === undefined ? {} : { a11yConformance: result.a11yConformance }),
     };
   },

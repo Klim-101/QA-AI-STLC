@@ -36,7 +36,9 @@ runs a spec set through the runner for its test type and persists every result u
 (P6-89); the run record names it. `qa report [--run <run-id>] [--format markdown|html]` renders that run's
 summary and the current requirement → case → result → evidence traceability matrix — defaulting to
 the most recently started run — from the canonical JSON already recorded under `.qa/`, with no
-hand-written report path. Every command supports `--json` for machine-readable output and exits
+hand-written report path. `--output [path]` also saves the full Markdown run-result report (summary, case
+table, failure reasons, spec runs, accessibility, defects, approved RCA) to `artifacts/reports/run-result-<date>.md`
+or the given `.md` path. Every command supports `--json` for machine-readable output and exits
 non-zero on failure.
 
 Part of [QA-AI-STLC](https://github.com/Klim-101/QA-AI-STLC). See the repository root for

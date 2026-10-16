@@ -99,7 +99,7 @@ Commands:
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
   run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]"
   link          Register a hand-written spec in traceability without regeneration: "link <spec> <requirement-id> --feature <name> [--test-type e2e]"
-  report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html]"
+  report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
   rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
@@ -855,11 +855,22 @@ function parseReportFormat(value: string | undefined): ReportFormat | undefined 
   return value;
 }
 
+// `--output` may stand alone (the default path) or take a path; `parseArgs` insists on a value, so a
+// bare flag is given an empty one first.
+function withBareOutputFlag(rest: readonly string[]): readonly string[] {
+  return rest.flatMap((argument, index) => {
+    const next = rest[index + 1];
+    const isBare = argument === '--output' && (next === undefined || next.startsWith('--'));
+    return isBare ? [argument, ''] : [argument];
+  });
+}
+
 async function dispatchReport(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
-  const values = parseCommandArgs(rest, {
+  const values = parseCommandArgs(withBareOutputFlag(rest), {
     json: { type: 'boolean', default: false },
     run: { type: 'string' },
     format: { type: 'string' },
+    output: { type: 'string' },
   });
   const format = parseReportFormat(typeof values.format === 'string' ? values.format : undefined);
   const json = values.json === true;
@@ -871,6 +882,7 @@ async function dispatchReport(rest: readonly string[], dependencies: RunCliDepen
   const result = await runReport(context, {
     ...(typeof values.run === 'string' ? { runId: values.run } : {}),
     ...(format !== undefined ? { format } : {}),
+    ...(typeof values.output === 'string' ? { output: values.output === '' ? true : values.output } : {}),
   });
   printResult(context.io, json, 'report', result, formatReportResult(result));
   return EXIT_SUCCESS;
@@ -1335,6 +1347,12 @@ function formatRunSummary(summary: RunSummary): readonly string[] {
 }
 
 function formatReportResult(result: ReportResult): readonly string[] {
+  const saved =
+    result.reportPath === undefined ? [] : [`Saved the run-result report to ${result.reportPath}.`, ''];
+  return [...saved, ...formatReportSections(result)];
+}
+
+function formatReportSections(result: ReportResult): readonly string[] {
   const sections = [
     result.runSummary,
     result.interactiveSummary,

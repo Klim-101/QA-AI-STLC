@@ -1,0 +1,85 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderRunResultReportMarkdown > renders every section of a full report 1`] = `
+"# Run result report
+
+## Summary
+
+| Status | Cases |
+| --- | --- |
+| passed | 1 |
+| failed | 1 |
+| blocked | 1 |
+| skipped | 0 |
+| uncertain | 0 |
+| partial | 0 |
+
+## Cases
+
+One row per case: its latest result.
+
+| Case | Type | Status | Finished | Evidence | Result |
+| --- | --- | --- | --- | --- | --- |
+| case-columns | e2e | passed | 2026-10-13T15:06:29.196Z | 5 | result-1 |
+| case-filter | e2e | failed | 2026-10-13T15:48:59.359Z | 11 | result-2 |
+| case-export | e2e | blocked | 2026-10-13T16:00:00.000Z | 0 | result-3 |
+
+## Failure reasons
+
+- case-filter (failed): The node list request returned HTTP 500
+
+## Spec runs
+
+Executions of generated specs with \`qa run\`.
+
+| Run | Type | Started | Finished | Specs | Results by status |
+| --- | --- | --- | --- | --- | --- |
+| run-spec-1 | e2e | 2026-10-13T17:00:00.000Z | 2026-10-13T17:01:00.000Z | 2 | passed 3, failed 0, blocked 0, skipped 0, uncertain 0, partial 1 |
+
+## Accessibility
+
+WCAG 2.1 level AA, 2 scan(s). Automated results alone do not establish conformance.
+
+| Status | Criteria |
+| --- | --- |
+| passed | 4 |
+| failed | 1 |
+| needs-manual-check | 20 |
+| not-applicable | 3 |
+| excepted | 0 |
+
+## Defects
+
+| Defect | Title | Severity (proposed) | Category | Status |
+| --- | --- | --- | --- | --- |
+| filter-error | Filter returns HTTP 500 | major | api | accepted |
+
+## Root cause analysis
+
+### filter-error
+
+**Facts**
+
+- The list request returns 500
+
+**Hypotheses**
+
+- The filter is not escaped (confidence: medium)
+
+**Remediation**
+
+- Escape the filter
+
+### other-error
+
+**Facts**
+
+- A fact
+
+**Hypotheses**
+
+- A cause (confidence: low)
+
+1 root cause analysis(es) not approved are left out.
+"
+`;
