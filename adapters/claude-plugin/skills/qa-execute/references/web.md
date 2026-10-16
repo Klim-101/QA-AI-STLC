@@ -135,6 +135,16 @@ then `qa.browser_tabs` with `switchTo` to act on one; take a new snapshot after 
 belong to the page they came from. A page that opens off the allowlist is closed and reported as
 `tab-blocked`: that is a finding, not something to retry.
 
+## Watching the run
+
+When the operator asks to watch the run, follow what is clicked, or sign in by hand, open the
+session with `headed: true`: a visible window opens, with the same safe mode, allowlist and evidence
+as a headless session. The result's `headed` says which mode was launched. An operator who always
+wants a window sets `headed: true` on the environment in `config.yaml` (usually the local layer),
+and `headed: false` still overrides it for one session. `BROWSER_HEADED_UNAVAILABLE` means this
+machine has no display: report it and carry on headless, do not look for a workaround. Offer the
+option when the operator mentions watching; never turn it on unprompted.
+
 ## Signing in
 
 When the case's environment sits behind a login page, pass `identity` (a name from `config.yaml`) to

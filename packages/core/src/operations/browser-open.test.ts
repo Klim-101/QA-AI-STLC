@@ -4,7 +4,7 @@
 import { join } from 'node:path';
 import { ConfigSchema, type Config } from '@qa-ai-stlc/schemas';
 import { describe, expect, it, vi } from 'vitest';
-import type { AuthBrowser, AuthBrowserContext } from '../ports/browser-launcher.js';
+import type { AuthBrowser, AuthBrowserContext, LaunchOptions } from '../ports/browser-launcher.js';
 import {
   BROWSER_TEST_CONFIG_YAML,
   createBrowserTestHarness,
@@ -424,5 +424,113 @@ describe('runBrowserOpen', () => {
       code: 'BROWSER_EVIDENCE_QUARANTINED',
     });
     expect(harness.sessions.sessionIds).toEqual([]);
+  });
+});
+
+describe('runBrowserOpen headed sessions (P6-105)', () => {
+  const HEADED_ENVIRONMENT_YAML = BROWSER_TEST_CONFIG_YAML.replace(
+    'allowlist: ["staging.example.test"] }',
+    'allowlist: ["staging.example.test"], headed: true }',
+  );
+
+  function recordingHarness(
+    configYaml?: string,
+    launchFailure?: Error,
+  ): {
+    readonly context: ReturnType<typeof createBrowserTestHarness>['context'];
+    readonly launchCalls: (LaunchOptions | undefined)[];
+  } {
+    const harness = createBrowserTestHarness(configYaml === undefined ? {} : { configYaml });
+    const launchCalls: (LaunchOptions | undefined)[] = [];
+    const browserLauncher = {
+      ...harness.launcher,
+      launch: (options?: LaunchOptions) => {
+        launchCalls.push(options);
+        return launchFailure === undefined ? harness.launcher.launch() : Promise.reject(launchFailure);
+      },
+    };
+    return {
+      context: { ...harness.context, engine: { ...harness.context.engine, browserLauncher } },
+      launchCalls,
+    };
+  }
+
+  it('launches headless and says so by default', async () => {
+    const { context, launchCalls } = recordingHarness();
+
+    const result = await runBrowserOpen(context);
+
+    expect(launchCalls).toEqual([undefined]);
+    expect(result.headed).toBe(false);
+  });
+
+  it('launches a visible window when the session asks for one', async () => {
+    const { context, launchCalls } = recordingHarness();
+
+    const result = await runBrowserOpen(context, { headed: true });
+
+    expect(launchCalls).toEqual([{ headless: false }]);
+    expect(result.headed).toBe(true);
+  });
+
+  it('uses the environment default when the session does not choose', async () => {
+    const { context, launchCalls } = recordingHarness(HEADED_ENVIRONMENT_YAML);
+
+    const result = await runBrowserOpen(context);
+
+    expect(launchCalls).toEqual([{ headless: false }]);
+    expect(result.headed).toBe(true);
+  });
+
+  it('lets the session override the environment default', async () => {
+    const { context, launchCalls } = recordingHarness(HEADED_ENVIRONMENT_YAML);
+
+    const result = await runBrowserOpen(context, { headed: false });
+
+    expect(launchCalls).toEqual([undefined]);
+    expect(result.headed).toBe(false);
+  });
+
+  it('keeps safe mode on a visible window', async () => {
+    const harness = createBrowserTestHarness();
+
+    await runBrowserOpen(harness.context, { headed: true });
+
+    expect(harness.launcher.pageCalls.some((call) => call.method === 'contextRoute')).toBe(true);
+  });
+
+  it('turns a missing display into a coded error with a remediation', async () => {
+    const { context } = recordingHarness(
+      undefined,
+      new Error('Looks like you launched a headed browser without having a XServer running.'),
+    );
+
+    await expect(runBrowserOpen(context, { headed: true })).rejects.toMatchObject({
+      code: 'BROWSER_HEADED_UNAVAILABLE',
+      remediation: expect.stringContaining('without "headed"') as string,
+    });
+  });
+
+  it('passes any other launch failure through unchanged', async () => {
+    const { context } = recordingHarness(undefined, new Error('browser executable is missing'));
+
+    await expect(runBrowserOpen(context, { headed: true })).rejects.toThrow('browser executable is missing');
+  });
+
+  it('passes a launch failure that is not an Error through unchanged', async () => {
+    const harness = createBrowserTestHarness();
+    const context = {
+      ...harness.context,
+      engine: {
+        ...harness.context.engine,
+        browserLauncher: {
+          ...harness.launcher,
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- proves a non-Error rejection is not mistaken for a missing display
+          launch: () => Promise.reject('no X server'),
+        },
+      },
+    };
+
+    await expect(runBrowserOpen(context, { headed: true })).rejects.toBe('no X server');
   });
 });
