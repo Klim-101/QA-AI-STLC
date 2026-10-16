@@ -99,4 +99,14 @@ describe('createFakeFileSystem', () => {
     await expect(fs.realPath('/empty')).resolves.toBe('/empty');
     await expect(fs.realPath('/nope')).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  it('creates a file only when it is not there, keeping the first content', async () => {
+    const fs = createFakeFileSystem();
+
+    const first = await fs.createExclusive('/lock', 'first');
+    const second = await fs.createExclusive('/lock', 'second');
+
+    expect([first, second]).toEqual([true, false]);
+    expect(await fs.readFile('/lock')).toBe('first');
+  });
 });
