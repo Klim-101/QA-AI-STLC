@@ -525,7 +525,7 @@ async function runVerify(
  * something an agent can drive over stdio) — shares this persistence tail with `runExplore`
  * instead of duplicating it.
  */
-export async function persistExploreResult(
+async function persistExploreResultLocked(
   context: EngineContext,
   store: QaStore,
   manifest: ManifestStore,
@@ -598,6 +598,38 @@ export async function persistExploreResult(
   };
 }
 
+export async function persistExploreResult(
+  context: EngineContext,
+  store: QaStore,
+  manifest: ManifestStore,
+  elements: readonly SelectorElement[],
+  blockedRequestCount: number,
+  requestLogHar: string,
+  requests: SafeModeRequestSummaries = { allowed: [], blocked: [] },
+  navigationProbeCount?: number,
+  expandedPanelCount?: number,
+): Promise<ExploreReport> {
+  // Parallel explorer spokes each merge into the one registry. The registry they merge into is read
+  // here, inside the lock, so a spoke never builds on one that another has since replaced.
+  return store.withLock('explore', async () => {
+    const previous = (await store.pathExists(REGISTRY_PATH))
+      ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
+      : undefined;
+    return persistExploreResultLocked(
+      context,
+      store,
+      manifest,
+      previous,
+      elements,
+      blockedRequestCount,
+      requestLogHar,
+      requests,
+      navigationProbeCount,
+      expandedPanelCount,
+    );
+  });
+}
+
 /**
  * `qa explore` / MCP `qa_explore` (P2-05): builds the selector registry (development plan section
  * 6.3) by crawling, then merges in static source analysis (`--static`) when asked. `--verify`
@@ -619,10 +651,6 @@ export async function runExplore(
     return runVerify(context, store, config, options);
   }
 
-  const previous = (await store.pathExists(REGISTRY_PATH))
-    ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
-    : undefined;
-
   const { elements, blockedRequestCount, requestLogHar, requests, probeCount, expandedPanelCount } =
     await runCrawlAndBuild(context, config, options);
 
@@ -630,7 +658,6 @@ export async function runExplore(
     context,
     store,
     manifest,
-    previous,
     elements,
     blockedRequestCount,
     requestLogHar,

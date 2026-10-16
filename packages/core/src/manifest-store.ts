@@ -45,19 +45,23 @@ export class ManifestStore {
   /** Hashes `content` and records it, and which hasher produced that hash, as the current
    * registered version of `relativePath`. */
   async register(relativePath: RelativePath, content: string | Uint8Array): Promise<void> {
-    const manifest = await this.load();
-    const nextManifest: Manifest = {
-      ...manifest,
-      artifacts: {
-        ...manifest.artifacts,
-        [relativePath]: {
-          sha256: hashContent(content),
-          mode: typeof content === 'string' ? 'text' : 'bytes',
-          registeredAt: this.clock.now().toISOString(),
+    // Every spoke registers into the one manifest, so the read-modify-write is locked: without it
+    // two parallel registrations both read the old manifest and the later write drops the earlier.
+    await this.store.withLock('manifest', async () => {
+      const manifest = await this.load();
+      const nextManifest: Manifest = {
+        ...manifest,
+        artifacts: {
+          ...manifest.artifacts,
+          [relativePath]: {
+            sha256: hashContent(content),
+            mode: typeof content === 'string' ? 'text' : 'bytes',
+            registeredAt: this.clock.now().toISOString(),
+          },
         },
-      },
-    };
-    await this.save(nextManifest);
+      };
+      await this.save(nextManifest);
+    });
   }
 
   /** Reports whether `content` still matches the hash registered for `relativePath`, if any. */

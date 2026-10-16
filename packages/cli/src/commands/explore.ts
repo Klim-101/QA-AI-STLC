@@ -27,15 +27,8 @@ import {
   type ExploreOptions as ExploreOperationOptions,
   type ExploreReport,
 } from '@qa-ai-stlc/explorer';
-import {
-  SelectorRegistrySchema,
-  type Config,
-  type SafeNonGetRequest,
-  type SelectorElement,
-} from '@qa-ai-stlc/schemas';
+import { type Config, type SafeNonGetRequest, type SelectorElement } from '@qa-ai-stlc/schemas';
 import type { CommandContext } from '../command-context.js';
-
-const REGISTRY_PATH = 'selectors/registry.json';
 
 export type { ExploreReport } from '@qa-ai-stlc/explorer';
 
@@ -152,10 +145,6 @@ export async function runExplore(
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
-  const previous = (await store.pathExists(REGISTRY_PATH))
-    ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
-    : undefined;
-
   const { elements, blockedRequestCount, requests } = await runPickModeSession(context, {
     ...options,
     pick: options.pick,
@@ -169,7 +158,6 @@ export async function runExplore(
     context,
     store,
     manifest,
-    previous,
     elements,
     blockedRequestCount,
     emptyRequestLogHar,

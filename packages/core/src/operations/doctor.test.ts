@@ -197,6 +197,7 @@ describe('runDoctor', () => {
       realPath: () => Promise.reject(new Error('unused')),
       writeFile: () => Promise.resolve(),
       deleteFile: () => Promise.resolve(),
+      createExclusive: () => Promise.resolve(true),
       mkdir: () => Promise.resolve(),
       pathExists: (path) => Promise.resolve(path.endsWith('config.yaml')),
       listFiles: () => Promise.resolve([]),

@@ -15,6 +15,8 @@ export async function withTempDir<T>(use: (directoryPath: string) => Promise<T>)
   try {
     return await use(directoryPath);
   } finally {
-    await rm(directoryPath, { recursive: true, force: true });
+    // A file deleted a moment earlier can still be "delete pending" on Windows, which fails the
+    // removal of its folder once; waiting briefly clears it.
+    await rm(directoryPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 }

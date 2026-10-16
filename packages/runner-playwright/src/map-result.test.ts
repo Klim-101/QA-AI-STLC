@@ -68,6 +68,7 @@ function fakeFileSystem(bytesByPath: Readonly<Record<string, Uint8Array>> = {}):
     },
     writeFile: () => Promise.reject(new Error('not implemented')),
     deleteFile: () => Promise.reject(new Error('not implemented')),
+    createExclusive: () => Promise.reject(new Error('not implemented')),
     mkdir: () => Promise.reject(new Error('not implemented')),
     pathExists: () => Promise.reject(new Error('not implemented')),
     listFiles: () => Promise.reject(new Error('not implemented')),

@@ -363,6 +363,31 @@ describe('spoke budgets (P4-02)', () => {
     expect(output.wasAlreadyRecorded).toBe(false);
   });
 
+  it('lets only agents.parallelism of several simultaneous dispatches through', async () => {
+    const context = fakeContext(TIGHT);
+
+    const outcomes = await Promise.allSettled(
+      ['page-a', 'page-b', 'page-c', 'page-d'].map((taskId) =>
+        runSpokeRecordInput(context, { ...INPUT, taskId }),
+      ),
+    );
+
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(2);
+    expect(
+      outcomes.flatMap((outcome) =>
+        outcome.status === 'rejected' ? [(outcome.reason as { code: string }).code] : [],
+      ),
+    ).toEqual(['SPOKE_PARALLELISM_EXCEEDED', 'SPOKE_PARALLELISM_EXCEEDED']);
+  });
+
+  it('gives simultaneous dispatches of one task distinct attempts', async () => {
+    const context = fakeContext({ ...TIGHT, parallelism: 10, retries: 9 });
+
+    const results = await Promise.all([1, 2, 3, 4].map(() => runSpokeRecordInput(context, INPUT)));
+
+    expect(results.map((result) => result.attempt).toSorted()).toEqual([1, 2, 3, 4]);
+  });
+
   it('frees a slot once a running spoke has its output recorded', async () => {
     const context = fakeContext(TIGHT);
     await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-a' });
