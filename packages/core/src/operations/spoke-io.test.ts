@@ -19,11 +19,43 @@ import {
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
-function fakeContext(): EngineContext {
+interface Budgets {
+  readonly parallelism: number;
+  readonly spokeTimeoutSeconds: number;
+  readonly retries: number;
+}
+
+const GENEROUS_BUDGETS: Budgets = { parallelism: 10, spokeTimeoutSeconds: 300, retries: 5 };
+
+function configYaml(budgets: Budgets): string {
+  return [
+    'schemaVersion: 1',
+    'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+    'environments:',
+    '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+    'identities: {}',
+    'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+    'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+    `agents: { parallelism: ${String(budgets.parallelism)}, spokeTimeoutSeconds: ${String(budgets.spokeTimeoutSeconds)}, retries: ${String(budgets.retries)} }`,
+    '',
+  ].join('\n');
+}
+
+interface TestClock {
+  current: Date;
+  now: () => Date;
+}
+
+function fakeClock(): TestClock {
+  const clock: TestClock = { current: new Date('2026-10-15T12:00:00Z'), now: () => clock.current };
+  return clock;
+}
+
+function fakeContext(budgets: Budgets = GENEROUS_BUDGETS, clock: TestClock = fakeClock()): EngineContext {
   return {
     projectRoot: PROJECT_ROOT,
-    fs: createFakeFileSystem(),
-    clock: { now: () => new Date('2026-10-15T12:00:00Z') },
+    fs: createFakeFileSystem({ [join(QA_DIR, 'config.yaml')]: configYaml(budgets) }),
+    clock,
     logger: noopLogger,
     processRunner: createFakeProcessRunner({ exitCode: 0, stdout: '', stderr: '' }),
     httpClient: createFakeHttpClient({ ok: true, status: 200 }),
@@ -53,11 +85,12 @@ describe('runSpokeRecordInput', () => {
     const result = await runSpokeRecordInput(context, INPUT);
 
     expect(result).toEqual({
+      status: 'recorded',
       attempt: 1,
       inputPath: 'runs/run-1/spokes/explorer-page/page-1/attempt-1/input.json',
       wasRedacted: false,
     });
-    expect(await readStored(context, result.inputPath)).toMatchObject({
+    expect(await readStored(context, result.inputPath ?? '')).toMatchObject({
       runId: 'run-1',
       spokeId: 'explorer-page',
       taskId: 'page-1',
@@ -76,7 +109,7 @@ describe('runSpokeRecordInput', () => {
     const other = await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-2' });
 
     expect([first.attempt, second.attempt, other.attempt]).toEqual([1, 2, 1]);
-    expect(await context.fs.pathExists(join(QA_DIR, ...first.inputPath.split('/')))).toBe(true);
+    expect(await context.fs.pathExists(join(QA_DIR, ...(first.inputPath ?? '').split('/')))).toBe(true);
   });
 
   it('does not count a stray folder under the task as an attempt', async () => {
@@ -94,7 +127,7 @@ describe('runSpokeRecordInput', () => {
 
     const result = await runSpokeRecordInput(context, { ...INPUT, context: undefined });
 
-    expect(await readStored(context, result.inputPath)).not.toHaveProperty('context');
+    expect(await readStored(context, result.inputPath ?? '')).not.toHaveProperty('context');
   });
 
   it('redacts secrets in the task and the context, wherever they sit, and says so', async () => {
@@ -107,7 +140,7 @@ describe('runSpokeRecordInput', () => {
       context: { headers: [{ authorization: token }], count: 2, nothing: null },
     });
 
-    const stored = JSON.stringify(await readStored(context, result.inputPath));
+    const stored = JSON.stringify(await readStored(context, result.inputPath ?? ''));
     expect(result.wasRedacted).toBe(true);
     expect(stored).not.toContain('aaaaaaaa');
     expect(stored).toContain('[REDACTED]');
@@ -298,5 +331,136 @@ describe('runSpokeList', () => {
     await expect(runSpokeList(fakeContext(), { runId: '..' })).rejects.toMatchObject({
       code: 'SPOKE_NAME_INVALID',
     });
+  });
+});
+
+describe('spoke budgets (P4-02)', () => {
+  const TIGHT: Budgets = { parallelism: 2, spokeTimeoutSeconds: 60, retries: 1 };
+
+  it('refuses a dispatch while agents.parallelism spokes of the run are running', async () => {
+    const context = fakeContext(TIGHT);
+    await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-a' });
+    await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-b' });
+
+    const error: unknown = await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-c' }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toMatchObject({ code: 'SPOKE_PARALLELISM_EXCEEDED' });
+    expect(await runSpokeList(context, { runId: 'run-1' })).toMatchObject({
+      records: [{ taskId: 'page-a' }, { taskId: 'page-b' }],
+    });
+  });
+
+  it('frees a slot once a running spoke has its output recorded', async () => {
+    const context = fakeContext(TIGHT);
+    await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-a' });
+    await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-b' });
+    await runSpokeRecordOutput(context, {
+      runId: 'run-1',
+      attempt: 1,
+      result: { ...OK_RESULT, taskId: 'page-a' },
+    });
+
+    const third = await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-c' });
+
+    expect(third.status).toBe('recorded');
+  });
+
+  it('counts the running spokes of one run only', async () => {
+    const context = fakeContext({ ...TIGHT, parallelism: 1 });
+    await runSpokeRecordInput(context, { ...INPUT, runId: 'run-1' });
+
+    expect((await runSpokeRecordInput(context, { ...INPUT, runId: 'run-2' })).status).toBe('recorded');
+  });
+
+  it('stops counting a spoke that never answered once its timeout has passed', async () => {
+    const clock = fakeClock();
+    const context = fakeContext({ ...TIGHT, parallelism: 1 }, clock);
+    await runSpokeRecordInput(context, INPUT);
+
+    clock.current = new Date(clock.current.getTime() + 60_000);
+    await expect(runSpokeRecordInput(context, { ...INPUT, taskId: 'page-2' })).rejects.toMatchObject({
+      code: 'SPOKE_PARALLELISM_EXCEEDED',
+    });
+
+    clock.current = new Date(clock.current.getTime() + 1);
+    const next = await runSpokeRecordInput(context, { ...INPUT, taskId: 'page-2' });
+    expect(next.status).toBe('recorded');
+  });
+
+  it('answers with a coded budget error and stores nothing once a task used its attempts', async () => {
+    const context = fakeContext(TIGHT);
+    await runSpokeRecordInput(context, INPUT);
+    await runSpokeRecordOutput(context, {
+      runId: 'run-1',
+      attempt: 1,
+      result: { ...OK_RESULT, status: 'error', payload: undefined, error: { code: 'X', message: 'bad' } },
+    });
+    const retry = await runSpokeRecordInput(context, INPUT);
+    await runSpokeRecordOutput(context, {
+      runId: 'run-1',
+      attempt: 2,
+      result: { ...OK_RESULT, status: 'error', payload: undefined, error: { code: 'X', message: 'bad' } },
+    });
+
+    const exhausted = await runSpokeRecordInput(context, INPUT);
+
+    expect(retry).toMatchObject({ status: 'recorded', attempt: 2 });
+    expect(exhausted).toMatchObject({
+      status: 'retry_budget_exhausted',
+      attempt: 3,
+      wasRedacted: false,
+      budgetError: { code: 'SPOKE_RETRY_BUDGET_EXCEEDED' },
+    });
+    expect(exhausted).not.toHaveProperty('inputPath');
+    expect(exhausted.budgetError?.remediation).toContain('blocked');
+    const attempts = (await runSpokeList(context, { runId: 'run-1' })).records.map(
+      (record) => record.attempt,
+    );
+    expect(attempts).toEqual([1, 2]);
+  });
+
+  it('with agents.retries of 0 allows the first attempt only', async () => {
+    const context = fakeContext({ ...TIGHT, retries: 0 });
+    await runSpokeRecordInput(context, INPUT);
+
+    expect((await runSpokeRecordInput(context, INPUT)).status).toBe('retry_budget_exhausted');
+  });
+
+  it('refuses an output that arrives after the spoke timeout and stores nothing', async () => {
+    const clock = fakeClock();
+    const context = fakeContext(TIGHT, clock);
+    const { inputPath } = await runSpokeRecordInput(context, INPUT);
+    clock.current = new Date(clock.current.getTime() + 61_000);
+
+    const error: unknown = await runSpokeRecordOutput(context, {
+      runId: 'run-1',
+      attempt: 1,
+      result: OK_RESULT,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: 'SPOKE_TIMEOUT_EXCEEDED' });
+    expect(await context.fs.pathExists(join(QA_DIR, ...(inputPath ?? '').split('/')))).toBe(true);
+    expect((await runSpokeList(context, { runId: 'run-1' })).records[0]).not.toHaveProperty('outputPath');
+  });
+
+  it('accepts an output exactly at the timeout and records the same late output again as a no-op', async () => {
+    const clock = fakeClock();
+    const context = fakeContext(TIGHT, clock);
+    await runSpokeRecordInput(context, INPUT);
+    clock.current = new Date(clock.current.getTime() + 60_000);
+    await runSpokeRecordOutput(context, { runId: 'run-1', attempt: 1, result: OK_RESULT });
+
+    clock.current = new Date(clock.current.getTime() + 600_000);
+    const again = await runSpokeRecordOutput(context, { runId: 'run-1', attempt: 1, result: OK_RESULT });
+
+    expect(again.wasAlreadyRecorded).toBe(true);
+  });
+
+  it('needs the project configuration, which holds the budgets', async () => {
+    const context = { ...fakeContext(), fs: createFakeFileSystem() };
+
+    await expect(runSpokeRecordInput(context, INPUT)).rejects.toMatchObject({ code: 'CONFIG_MISSING' });
   });
 });

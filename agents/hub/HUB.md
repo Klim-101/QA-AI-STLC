@@ -36,6 +36,12 @@ session history, not another spoke's reasoning (development plan section 5.1, 5.
    `qa.run` run id when there is one, otherwise one stable id the hub picks for the session. Pass
    references to registered artifacts as context, not their content: a record over 256 KiB is
    refused. `qa.spoke_list` shows what was dispatched. Records are evidence and are never rewritten.
+   The engine enforces the `agents` budgets here, so the hub does not count them itself:
+   `qa.spoke_record_input` fails with `SPOKE_PARALLELISM_EXCEEDED` while `agents.parallelism` spokes
+   of the run are still running (record a running spoke's output first), answers
+   `retry_budget_exhausted` and stores nothing once the task has used its attempts (do not dispatch;
+   report the task as `blocked`), and `qa.spoke_record_output` fails with `SPOKE_TIMEOUT_EXCEEDED`
+   for a result that arrives after `agents.spokeTimeoutSeconds` (treat the attempt as failed).
 
 Spokes never talk to each other. If a second spoke's task depends on a first spoke's output, the
 hub is the one that reads the first spoke's result and builds the second spoke's input from it.
