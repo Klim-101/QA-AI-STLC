@@ -204,7 +204,7 @@ const STEPPED_CASE = caseWith(
 );
 
 function spec(...lines: readonly string[]): string {
-  return lines.join('\n');
+  return ["test('a case', async ({ page }) => {", ...lines, '});'].join('\n');
 }
 
 const COMPLETE_SPEC = spec(
@@ -321,7 +321,7 @@ describe('findMissingExpectationAssertions', () => {
         apiCase,
         undefined,
         [],
-        "test.step('[step-1] a', async () => { expect(r.status()).toBe(4040); });",
+        spec("await test.step('[step-1] a', async () => { expect(r.status()).toBe(4040); });"),
       ),
     ).toHaveLength(1);
   });
@@ -334,7 +334,7 @@ describe('findMissingExpectationAssertions', () => {
         a11yCase,
         undefined,
         [],
-        "test.step('[step-1] a', async () => { await scanAccessibility(page, testInfo); });",
+        spec("await test.step('[step-1] a', async () => { await scanAccessibility(page, testInfo); });"),
       ),
     ).toEqual([]);
     expect(findMissingExpectationAssertions(a11yCase, undefined, [], 'nothing')).toHaveLength(1);
@@ -355,6 +355,112 @@ describe('findMissingExpectationAssertions', () => {
     expect(missing('const a = "say \\"hi\\" // not a comment"; /* open')).toHaveLength(3);
     expect(missing("const b = 'open")).toHaveLength(3);
     expect(missing('// only a comment')).toHaveLength(3);
+  });
+});
+
+describe('findMissingExpectationAssertions: the assertion has to run', () => {
+  const urlCase = caseWith([[]], [{ kind: 'url', expected: 'about:required' }]);
+  const ASSERTION = 'await expect(page).toHaveURL(new RegExp("about:required"));';
+  const stepWith = (...body: readonly string[]) =>
+    spec("await test.step('[step-1] Open', async () => {", ...body, '});');
+  const issues = (content: string) => findMissingExpectationAssertions(urlCase, undefined, [], content);
+
+  it.each([
+    ['a condition that is false', stepWith(`if (false) { ${ASSERTION} }`)],
+    ['a condition of 0', stepWith(`if (0) { ${ASSERTION} }`)],
+    [
+      'a condition on a variable',
+      stepWith('const ready = Math.random() > 1;', `if (ready) { ${ASSERTION} }`),
+    ],
+    ['the else of a true condition', stepWith(`if (true) { await page.goto("x"); } else { ${ASSERTION} }`)],
+    ['a return before it', stepWith('return;', ASSERTION)],
+    ['a throw before it', stepWith('throw new Error("x");', ASSERTION)],
+    ['a function that is never called', stepWith(`async function later() { ${ASSERTION} }`)],
+    ['an arrow function that is never called', stepWith(`const later = async () => { ${ASSERTION} };`)],
+    ['a try whose catch swallows the failure', stepWith(`try { ${ASSERTION} } catch { /* ignored */ }`)],
+    ['a loop that runs zero times', stepWith(`for (const _ of []) { ${ASSERTION} }`)],
+    ['a while loop', stepWith(`while (false) { ${ASSERTION} }`)],
+    ['a step that is skipped', spec(`await test.step.skip('[step-1] Open', async () => { ${ASSERTION} });`)],
+    ['a step that is not awaited', spec(`test.step('[step-1] Open', async () => { ${ASSERTION} });`)],
+    [
+      'a test that is skipped before it',
+      spec('test.skip(true);', `await test.step('[step-1] Open', async () => { ${ASSERTION} });`),
+    ],
+    ['a catch chained onto it', stepWith(ASSERTION.replace(');', ').catch(() => undefined);'))],
+    ['another statement after it on the same line', stepWith(`${ASSERTION.slice(0, -1)}, 1;`)],
+  ])('refuses an assertion in %s', (_shape, content) => {
+    const found = issues(content);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toEqual(['result']);
+  });
+
+  it('says the line is written but may never run when it is there in dead code', () => {
+    const found = issues(stepWith(`if (false) { ${ASSERTION} }`));
+
+    expect(found[0]?.message).toContain('written but may never run');
+    expect(found[0]?.message).toContain(ASSERTION);
+  });
+
+  it('says the line is missing when it is nowhere', () => {
+    expect(issues(stepWith('await page.goto("x");'))[0]?.message).toContain('is not asserted');
+  });
+
+  it('accepts an assertion under a literal true condition, in a block, or at the top level', () => {
+    expect(issues(stepWith(`if (true) { ${ASSERTION} }`))).toEqual([]);
+    expect(issues(stepWith(`{ ${ASSERTION} }`))).toEqual([]);
+    expect(issues(stepWith(`if (false) { await page.goto("x"); } else { ${ASSERTION} }`))).toEqual([]);
+    expect(issues(stepWith(ASSERTION))).toEqual([]);
+    expect(issues(spec(ASSERTION))).toEqual([]);
+  });
+
+  it('accepts a title in a template literal and a step whose callback is a function expression', () => {
+    expect(issues(spec(`await test.step(\`[step-1] Open\`, async function () { ${ASSERTION} });`))).toEqual(
+      [],
+    );
+  });
+
+  it('counts a statement after a nested step that ends in a return', () => {
+    const found = issues(
+      spec(
+        "await test.step('[step-1] Open', async () => { return; });",
+        "await test.step('[step-2] Check', async () => {",
+        `  ${ASSERTION}`,
+        '});',
+      ),
+    );
+
+    expect(found).toEqual([]);
+  });
+
+  it('ignores a step callback that is not a function and a title without a step id', () => {
+    expect(
+      issues(
+        spec(
+          "await test.step('[step-1] Open', helper);",
+          `await test.step(title, async () => { ${ASSERTION} });`,
+        ),
+      ),
+    ).toEqual([]);
+    expect(issues(spec("await test.step('Open', async () => { await page.goto('x'); });"))).toHaveLength(1);
+  });
+
+  it('reads nothing outside a top-level test call', () => {
+    expect(
+      issues(`const run = async () => { ${ASSERTION} };
+helper();`),
+    ).toHaveLength(1);
+    expect(issues(`test.describe('group', () => { ${ASSERTION} });`)).toHaveLength(1);
+    expect(issues(`test(title);`)).toHaveLength(1);
+  });
+
+  it('refuses a step expectation that sits in dead code of another step', () => {
+    const stepCase = caseWith([[{ kind: 'url', expected: 'about:required' }]]);
+    const content = spec(
+      "await test.step('[step-1] Open', async () => { if (false) { " + ASSERTION + ' } });',
+    );
+
+    expect(findMissingExpectationAssertions(stepCase, undefined, [], content)[0]?.path).toEqual(['step-1']);
   });
 });
 
