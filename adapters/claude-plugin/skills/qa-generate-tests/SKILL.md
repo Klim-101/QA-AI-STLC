@@ -51,7 +51,11 @@ assertion each one needs in `expectationAssertions`: the step (`where`, `step-<N
 the exact line (`code`). Put each line, unchanged, in the `test.step` of its step (a result
 expectation may go in any step), so the test re-checks what the case declares. A selector reaches
 the spec only as the locator-module function inside that line. `qa.generation_verify` looks for every
-line before it runs anything and answers `expectations_missing` with what to add.
+line before it runs anything and answers `expectations_missing` with what to add. A line counts only
+when it always runs: at the top level of its `test.step` (a literal `if (true)` or a plain block is
+fine), not inside a condition on a value, loop, `try`, function, skipped step or after a `return`
+or `throw`, and with nothing chained onto it (no `.catch(...)`). Execution proves the line passes,
+not that it was reached, so the engine checks that before it runs.
 
 `unresolvedExpectations` lists the expectations the engine could not turn into a line: the selector
 names no registry element (`selector-not-in-registry`), or its element has no function in the module

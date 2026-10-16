@@ -309,9 +309,21 @@ describe('declared expectations (demo app, no LLM)', () => {
         'tests/qa/generated/login-expectation.spec.ts',
       );
 
+      const skipped = await verify(
+        specWith(`if (false) { ${assertion?.code ?? ''} }`),
+        'tests/qa/generated/login-expectation-skipped.spec.ts',
+      );
+      const alwaysTaken = await verify(
+        specWith(`if (true) { ${assertion?.code ?? ''} }`),
+        'tests/qa/generated/login-expectation-taken.spec.ts',
+      );
+
       expect(refused.status).toBe('expectations_missing');
       expect(refused.issues?.[0]?.message).toContain(assertion?.code ?? 'missing');
       expect(accepted.status).toBe('verified');
+      expect(skipped.status).toBe('expectations_missing');
+      expect(skipped.issues?.[0]?.message).toContain('may never run');
+      expect(alwaysTaken.status).toBe('verified');
     },
     STARTUP_TIMEOUT_MS,
   );

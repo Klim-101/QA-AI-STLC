@@ -322,9 +322,11 @@ describe('verifyGeneratedTestSpec', () => {
     const SPEC_WITH_ASSERTION: GeneratedTestSpec = {
       ...SPEC,
       content: [
-        "await test.step('[step-1] Add', async () => {});",
-        "await test.step('[step-2] Complete', async () => {",
-        '  await expect(status(page)).toContainText("Ordered");',
+        "test('checkout', async ({ page }) => {",
+        "  await test.step('[step-1] Add', async () => {});",
+        "  await test.step('[step-2] Complete', async () => {",
+        '    await expect(status(page)).toContainText("Ordered");',
+        '  });',
         '});',
       ].join('\n'),
     };

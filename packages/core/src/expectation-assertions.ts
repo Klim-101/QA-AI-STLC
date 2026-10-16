@@ -11,6 +11,7 @@ import type {
   TestCase,
   UnresolvedExpectation,
 } from '@qa-ai-stlc/schemas';
+import { readReachableSpecCode } from './reachable-spec-code.js';
 import { STEP_ID_PREFIX } from './step-ids.js';
 
 /** True when the case declares at least one expectation, at any step or for the result. */
@@ -111,12 +112,6 @@ function stripWhitespace(text: string): string {
   return text.replace(/\s+/gu, '');
 }
 
-// What a formatter may change in a call without changing it: whitespace, and a trailing comma
-// before a closing parenthesis once the arguments are split over lines.
-function normalizeCode(text: string): string {
-  return stripWhitespace(text).replace(/,\)/gu, ')');
-}
-
 type SelectorExpectation = Extract<CaseExpectation, { selector: string }>;
 type PageExpectation = Exclude<CaseExpectation, SelectorExpectation>;
 
@@ -169,7 +164,10 @@ function renderPageForm(expectation: PageExpectation): AssertionForm {
       };
     }
     case 'a11y-clean':
-      return { code: 'await scanAccessibility(page, testInfo);', pattern: /scanAccessibility\(/u };
+      return {
+        code: 'await scanAccessibility(page, testInfo);',
+        pattern: /awaitscanAccessibility\(page,testInfo\)/u,
+      };
   }
 }
 
@@ -236,61 +234,13 @@ export function deriveExpectationAssertions(
   };
 }
 
-// Removes `//` and `/* */` comments, leaving the inside of string and template literals alone, so a
-// commented-out assertion does not count and a URL in a string is not cut at `//`. A regular
-// expression literal holding a quote is not understood; generated specs use `new RegExp(...)`.
-function stripComments(source: string): string {
-  let output = '';
-  let index = 0;
-  while (index < source.length) {
-    const char = source.charAt(index);
-    const next = source.charAt(index + 1);
-    if (char === '"' || char === "'" || char === '`') {
-      let end = index + 1;
-      while (end < source.length && source.charAt(end) !== char) {
-        end += source.charAt(end) === '\\' ? 2 : 1;
-      }
-      output += source.slice(index, end + 1);
-      index = end + 1;
-    } else if (char === '/' && next === '/') {
-      const lineEnd = source.indexOf('\n', index);
-      index = lineEnd === -1 ? source.length : lineEnd;
-    } else if (char === '/' && next === '*') {
-      const commentEnd = source.indexOf('*/', index + 2);
-      index = commentEnd === -1 ? source.length : commentEnd + 2;
-    } else {
-      output += char;
-      index += 1;
-    }
-  }
-  return output;
-}
-
-const STEP_TITLE_PATTERN = /\[(?:step-\d+|expected-result)\]/gu;
-
-// The code of each `test.step('[step-N] ...')` block, taken as the text from its title to the next
-// step title (or the end), keyed by step id. A generated spec lists its steps in order, so this is
-// where the step's own assertions are.
-function segmentByStep(code: string): ReadonlyMap<string, string> {
-  const marks = [...code.matchAll(STEP_TITLE_PATTERN)].map((match) => ({
-    // The match is `[step-N]`, brackets included.
-    stepId: match[0].slice(1, -1),
-    start: match.index,
-  }));
-  const segments = new Map<string, string>();
-  marks.forEach((mark, position) => {
-    const end = marks[position + 1]?.start ?? code.length;
-    segments.set(mark.stepId, `${segments.get(mark.stepId) ?? ''}${code.slice(mark.start, end)}`);
-  });
-  return segments;
-}
-
 /**
  * Looks in a generated spec for each assertion `deriveExpectationAssertions` asked for and returns
  * one issue per assertion that is not there, in the shape the verification loop already reports.
  * A step's expectation has to sit in that step's `test.step`; a result expectation may sit in any.
- * Comments and whitespace are ignored. This checks the spec text; that the assertion runs and
- * passes is what the execution that follows shows.
+ * The assertion has to be a statement that always runs (see `readReachableSpecCode`), and the
+ * statement has to be the assertion and nothing more, so a trailing `.catch(...)` does not count.
+ * Comments and whitespace are ignored. That the assertion passes is what the execution shows.
  */
 export function findMissingExpectationAssertions(
   testCase: Pick<TestCase, 'steps' | 'resultExpectations'>,
@@ -299,17 +249,23 @@ export function findMissingExpectationAssertions(
   specContent: string,
 ): readonly SpokeValidationIssue[] {
   const { resolved } = resolveExpectations(testCase, registry, moduleExports);
-  const code = normalizeCode(stripComments(specContent));
-  const segments = segmentByStep(stripComments(specContent));
+  const reachable = readReachableSpecCode(specContent);
   return resolved.flatMap(({ where, expectation, form }) => {
-    const scope = where === RESULT_EXPECTATION_WHERE ? code : normalizeCode(segments.get(where) ?? '');
-    return form.pattern.test(scope)
-      ? []
-      : [
-          {
-            path: [where],
-            message: `The ${expectation.kind} expectation declared for ${where === RESULT_EXPECTATION_WHERE ? 'the result' : `"${where}"`} is not asserted. Add: ${form.code}`,
-          },
-        ];
+    const isResult = where === RESULT_EXPECTATION_WHERE;
+    const exact = new RegExp(`^(?:${form.pattern.source});?$`, form.pattern.flags);
+    const scope = isResult ? reachable.statements : (reachable.statementsByStep.get(where) ?? []);
+    if (scope.some((statement) => exact.test(statement))) {
+      return [];
+    }
+    const target = isResult ? 'the result' : `"${where}"`;
+    const isWritten = form.pattern.test(reachable.text);
+    return [
+      {
+        path: [where],
+        message: isWritten
+          ? `The ${expectation.kind} expectation declared for ${target} is written but may never run. Put this line at the top level of ${isResult ? 'a test.step' : 'its test.step'}, not inside a condition, loop, try, function, skipped step or after a return or throw, and do not chain anything onto it: ${form.code}`
+          : `The ${expectation.kind} expectation declared for ${target} is not asserted. Add: ${form.code}`,
+      },
+    ];
   });
 }
