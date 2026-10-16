@@ -275,6 +275,35 @@ describe('generateLocatorModule', () => {
     });
 
     it.each([
+      ['Last GW ID', 'lastGwId'],
+      ['Save & Close', 'saveClose'],
+      ['1st column', 'element1stColumn'],
+      ['Ünïcode', 'nCode'],
+      ['→', 'button'],
+      ['export', 'exportElement'],
+      ['loginButton', 'loginButton'],
+    ])('derives a valid function name from the registered label %j', (label, expectedName) => {
+      const { source } = generateLocatorModule(registry([selectorElement({ name: label })]), {
+        generatorVersion: '0.3.0',
+      });
+
+      expect(source).toContain(`export function ${expectedName}(page: Page): Locator`);
+    });
+
+    it('keeps two different locators with the same label as distinct exports', () => {
+      const { source } = generateLocatorModule(
+        registry([
+          selectorElement({ elementId: 'a', name: 'Last GW ID', locatorCandidates: [testId('a')] }),
+          selectorElement({ elementId: 'b', name: 'last-gw-id', locatorCandidates: [testId('b')] }),
+        ]),
+        { generatorVersion: '0.3.0' },
+      );
+
+      expect(source).toContain('export function lastGwId(page: Page)');
+      expect(source).toContain('export function lastGwId2(page: Page)');
+    });
+
+    it.each([
       ['role=columnheader[name="Last GW ID"]', 'columnheaderLastGwId'],
       ['role=button', 'button'],
       ['text=Save changes', 'saveChanges'],

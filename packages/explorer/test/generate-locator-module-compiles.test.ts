@@ -124,6 +124,41 @@ describe('generateLocatorModule (compiles under strict TypeScript)', () => {
     }
   }, 30_000);
 
+  it('compiles a locators.ts built from registered names that are labels, not identifiers', async () => {
+    const labels = ['Last GW ID', 'Save & Close', '1st column', 'Ünïcode', '→', 'export', 'Last GW ID'];
+    const { source, missingLocators } = generateLocatorModule(
+      registry(
+        labels.map((label, index) => ({
+          elementId: `element-${String(index)}`,
+          name: label,
+          kind: 'columnheader',
+          locatorCandidates: [{ strategy: 'css', value: `#header-${String(index)}`, fragile: true }],
+          stabilityScore: 0.5,
+          lastVerifiedAt: '2026-09-18T00:00:00Z',
+          pii: false,
+          dynamicText: false,
+          source: 'execute',
+        })),
+      ),
+      { generatorVersion: '0.3.0' },
+    );
+    expect(missingLocators).toEqual([]);
+
+    const testDirectory = fileURLToPath(new URL('.', import.meta.url));
+    const tempDirectory = await mkdtemp(join(testDirectory, '.tmp-locators-'));
+    try {
+      const filePath = join(tempDirectory, 'locators.ts');
+      await writeFile(filePath, source, 'utf8');
+
+      const { exitCode, output } = await runTsc(filePath);
+
+      expect(output).toBe('');
+      expect(exitCode).toBe(0);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it('compiles the widget helpers and their runtime under the same strict settings', async () => {
     const element = (name: string, kind: string): SelectorRegistry['elements'][number] => ({
       elementId: name,
