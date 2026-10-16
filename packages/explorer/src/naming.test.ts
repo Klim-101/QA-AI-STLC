@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { createElementNamer, toCamelCaseIdentifier } from './naming.js';
+import { createElementNamer, toCamelCaseIdentifier, toLocatorFunctionName } from './naming.js';
 
 describe('toCamelCaseIdentifier', () => {
   it('camelCases multi-word text', () => {
@@ -44,5 +44,20 @@ describe('createElementNamer', () => {
 
     expect(first('Submit', 'button')).toBe('submit');
     expect(second('Submit', 'button')).toBe('submit');
+  });
+});
+
+describe('toLocatorFunctionName', () => {
+  it('keeps a name that is already an identifier', () => {
+    expect(toLocatorFunctionName('loginButton', 'button')).toBe('loginButton');
+  });
+
+  it.each([
+    ['Last GW ID', 'lastGwId'],
+    ['1st', 'element1st'],
+    ['delete', 'deleteElement'],
+    ['→', 'button'],
+  ])('derives an identifier from %j', (label, expected) => {
+    expect(toLocatorFunctionName(label, 'button')).toBe(expected);
   });
 });

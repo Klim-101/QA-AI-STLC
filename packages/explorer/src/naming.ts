@@ -82,6 +82,16 @@ export function toCamelCaseIdentifier(text: string, fallback: string): string {
 }
 
 /**
+ * Returns a registered name that is already a usable identifier unchanged, so a stable export name
+ * is never re-cased, and derives one with `toCamelCaseIdentifier` otherwise. A registered name is a
+ * label (a session agent fills it with a column header's text), never an identifier.
+ */
+export function toLocatorFunctionName(name: string, fallback: string): string {
+  const isIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(name) && !RESERVED_WORDS.has(name);
+  return isIdentifier ? name : toCamelCaseIdentifier(name, fallback);
+}
+
+/**
  * Produces the camelCase export name a registry element's locator module entry will use
  * (ADR-006). Each call to the returned function assigns one element's name; two elements
  * resolving to the same base name (e.g. two buttons both named "Submit") get a numeric suffix,

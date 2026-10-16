@@ -14,7 +14,7 @@ import {
   type WidgetAction,
   type WidgetRecognizer,
 } from './component-library-profile.js';
-import { toCamelCaseIdentifier } from './naming.js';
+import { toCamelCaseIdentifier, toLocatorFunctionName } from './naming.js';
 import { WIDGET_RUNTIME_SOURCE } from './widget-runtime-source.js';
 
 export interface GenerateLocatorModuleOptions {
@@ -107,7 +107,7 @@ function nameFromExecuteSelector(selector: string, kind: string): string {
 
 function resolveName(element: SelectorElement, primary: LocatorCandidate | undefined): string | undefined {
   if (element.name !== undefined) {
-    return element.name;
+    return toLocatorFunctionName(element.name, element.kind);
   }
   return primary?.strategy === 'execute' ? nameFromExecuteSelector(primary.value, element.kind) : undefined;
 }
