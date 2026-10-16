@@ -136,6 +136,19 @@ describe('spoke I/O records', () => {
     expect(result.schemaVersion).toBe(1);
   });
 
+  it('accepts an input record that carries no context', () => {
+    const result = SpokeInputRecordSchema.safeParse({
+      runId: 'run-1',
+      spokeId: 'explorer-page',
+      taskId: 'page-1',
+      attempt: 2,
+      task: 'Retry',
+      recordedAt: '2026-10-15T12:00:00Z',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects an input record whose spoke name could leave its folder', () => {
     const result = SpokeInputRecordSchema.safeParse({
       runId: 'run-1',

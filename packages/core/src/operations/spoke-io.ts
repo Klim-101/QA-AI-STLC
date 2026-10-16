@@ -11,11 +11,13 @@ import {
   type SpokeResult,
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
+import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
 import { toCanonicalJson } from '../json-file.js';
 import { QaStore } from '../qa-store.js';
 import { parseInlineContent } from '../schema-issues.js';
 import { redactSecrets } from '../secret-scan.js';
+import { assertParallelismAvailable, assertWithinTimeout, toSpokeBudgets } from './spoke-budgets.js';
 
 /** A record is the hub's own bookkeeping, so one this large is data that should have been a reference. */
 export const MAX_SPOKE_RECORD_BYTES = 256 * 1024;
@@ -34,10 +36,23 @@ export interface SpokeInputOptions {
   readonly context?: unknown;
 }
 
+export const SPOKE_RETRY_BUDGET_EXCEEDED = 'SPOKE_RETRY_BUDGET_EXCEEDED';
+
+/**
+ * `recorded` means the hub may dispatch the attempt. `retry_budget_exhausted` means the task has
+ * used every attempt `agents.retries` allows: nothing is stored, `budgetError` says why, and the hub
+ * reports the task as blocked instead of dispatching again.
+ */
 export interface SpokeInputResult {
+  readonly status: 'recorded' | 'retry_budget_exhausted';
   readonly attempt: number;
-  readonly inputPath: string;
+  readonly inputPath?: string;
   readonly wasRedacted: boolean;
+  readonly budgetError?: {
+    readonly code: typeof SPOKE_RETRY_BUDGET_EXCEEDED;
+    readonly message: string;
+    readonly remediation: string;
+  };
 }
 
 export interface SpokeOutputOptions {
@@ -151,6 +166,21 @@ export async function runSpokeRecordInput(
   const taskId = assertSegment('taskId', options.taskId);
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const attempt = Math.max(0, ...(await listAttempts(store, runId, spokeId, taskId))) + 1;
+  const budgets = toSpokeBudgets((await loadConfig(context)).agents);
+  if (attempt > budgets.maxAttempts) {
+    return {
+      status: 'retry_budget_exhausted',
+      attempt,
+      wasRedacted: false,
+      budgetError: {
+        code: SPOKE_RETRY_BUDGET_EXCEEDED,
+        message: `Task "${taskId}" of spoke "${spokeId}" has used its ${String(budgets.maxAttempts)} attempts (agents.retries allows ${String(budgets.maxAttempts - 1)} re-dispatches)`,
+        remediation:
+          'Do not dispatch it again. Report the task to the operator as blocked, or raise agents.retries in .qa/config.yaml.',
+      },
+    };
+  }
+  await assertParallelismAvailable(store, runId, context.clock.now(), budgets);
   const redactedContext = redactValue(options.context);
   const redactedTask = redactValue(options.task);
 
@@ -169,7 +199,12 @@ export async function runSpokeRecordInput(
   );
   const inputPath = `${attemptDirectory(runId, spokeId, taskId, attempt)}/${INPUT_FILE}`;
   await store.writeText(inputPath, serializeRecord(record));
-  return { attempt, inputPath, wasRedacted: redactedContext.wasRedacted || redactedTask.wasRedacted };
+  return {
+    status: 'recorded',
+    attempt,
+    inputPath,
+    wasRedacted: redactedContext.wasRedacted || redactedTask.wasRedacted,
+  };
 }
 
 /**
@@ -228,6 +263,10 @@ export async function runSpokeRecordOutput(
       { remediation: 'A record is never rewritten. Dispatch the task again: that is the next attempt.' },
     );
   }
+
+  const input = await store.readJson(inputPath, SpokeInputRecordSchema);
+  const budgets = toSpokeBudgets((await loadConfig(context)).agents);
+  assertWithinTimeout(input.recordedAt, context.clock.now(), budgets, taskId);
 
   const record: SpokeOutputRecord = {
     schemaVersion: redactedResult.schemaVersion,

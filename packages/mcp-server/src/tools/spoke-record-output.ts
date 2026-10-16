@@ -34,8 +34,10 @@ export const spokeRecordOutputTool: ToolDefinition<typeof InputSchema, typeof Ou
     'Records a spoke result exactly as received, next to the input of the same attempt. Call it as ' +
     'soon as a spoke returns and before validating the payload. Fails with SPOKE_OUTPUT_WITHOUT_INPUT ' +
     'if that attempt has no recorded input, and with SPOKE_OUTPUT_EXISTS if the attempt already has a ' +
-    'different output (a record is never rewritten; re-dispatching is a new attempt). Recording the ' +
-    'identical result again is a safe no-op. Secrets are redacted before storing.',
+    'different output (a record is never rewritten; re-dispatching is a new attempt), and with ' +
+    'SPOKE_TIMEOUT_EXCEEDED if the result came back after agents.spokeTimeoutSeconds (nothing is ' +
+    'stored; treat the attempt as failed). Recording the identical result again is a safe no-op. ' +
+    'Secrets are redacted before storing.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   handler: (input) =>

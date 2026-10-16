@@ -73,7 +73,8 @@ export const SpokeInputRecordSchema = z.object({
   taskId: SpokePathSegmentSchema,
   attempt: z.number().int().positive(),
   task: z.string().min(1),
-  context: z.unknown(),
+  // Absent when the hub gave the spoke no context: the stored record omits the key.
+  context: z.unknown().optional(),
   recordedAt: z.string().min(1),
 });
 export type SpokeInputRecord = z.infer<typeof SpokeInputRecordSchema>;

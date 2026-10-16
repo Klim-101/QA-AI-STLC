@@ -1,13 +1,32 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { withTempDir } from '@qa-ai-stlc/test-utils/temp-dir';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { spokeListTool } from '../src/tools/spoke-list.js';
 import { spokeRecordInputTool } from '../src/tools/spoke-record-input.js';
 import { spokeRecordOutputTool } from '../src/tools/spoke-record-output.js';
+
+async function writeConfig(projectRoot: string, retries: number): Promise<void> {
+  await mkdir(join(projectRoot, '.qa'), { recursive: true });
+  await writeFile(
+    join(projectRoot, '.qa', 'config.yaml'),
+    [
+      'schemaVersion: 1',
+      'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      `agents: { parallelism: 4, spokeTimeoutSeconds: 300, retries: ${String(retries)} }`,
+      '',
+    ].join('\n'),
+    'utf-8',
+  );
+}
 
 // Like the other engine-tool tests: the tools build their context from the working directory, so
 // each test runs inside a real temporary project directory.
@@ -25,6 +44,7 @@ describe('spoke I/O tools (real filesystem, temp project directory)', () => {
   it('records a dispatch, its retry and their outputs, and lists them (P4-01)', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
+      await writeConfig(projectRoot, 2);
 
       const first = await spokeRecordInputTool.handler({
         runId: 'run-1',
@@ -56,7 +76,7 @@ describe('spoke I/O tools (real filesystem, temp project directory)', () => {
         result: { schemaVersion: 1, spokeId: 'explorer-page', taskId: 'page-1', status: 'ok', payload: {} },
       });
       const listed = await spokeListTool.handler({ runId: 'run-1' });
-      const stored = await readFile(join(projectRoot, '.qa', first.inputPath), 'utf-8');
+      const stored = await readFile(join(projectRoot, '.qa', first.inputPath ?? ''), 'utf-8');
       process.chdir(originalCwd);
 
       expect([first.attempt, retry.attempt]).toEqual([1, 2]);
@@ -83,6 +103,24 @@ describe('spoke I/O tools (real filesystem, temp project directory)', () => {
       process.chdir(originalCwd);
 
       expect(error).toMatchObject({ code: 'SPOKE_OUTPUT_WITHOUT_INPUT' });
+    });
+  });
+
+  it('answers with a budget code instead of dispatching once the retries are used', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot, 0);
+      const input = { runId: 'run-1', spokeId: 'explorer-page', taskId: 'page-1', task: 'Analyze' };
+
+      const first = await spokeRecordInputTool.handler(input);
+      const second = await spokeRecordInputTool.handler(input);
+      process.chdir(originalCwd);
+
+      expect(first.status).toBe('recorded');
+      expect(second).toMatchObject({
+        status: 'retry_budget_exhausted',
+        budgetError: { code: 'SPOKE_RETRY_BUDGET_EXCEEDED' },
+      });
     });
   });
 });
