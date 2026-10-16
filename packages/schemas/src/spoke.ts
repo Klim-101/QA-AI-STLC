@@ -52,3 +52,39 @@ export const SpokeResultSchema = z.discriminatedUnion('status', [
   }),
 ]);
 export type SpokeResult = z.infer<typeof SpokeResultSchema>;
+
+// Names a spoke I/O record is stored under (`.qa/runs/<run-id>/spokes/<spoke>/<task>/...`, P4-01),
+// so each is a single safe path segment on every OS: no separator, no `..`, a bounded length.
+export const SpokePathSegmentSchema = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u,
+    'must be 1-64 letters, digits, ".", "_" or "-", starting with a letter or digit',
+  );
+export type SpokePathSegment = z.infer<typeof SpokePathSegmentSchema>;
+
+// What the hub gave a spoke for one attempt at one task: the task and the minimal context, nothing
+// else (development plan section 5.3). `attempt` counts from 1; a retry after a failed validation
+// is a new attempt of the same task. Kept as evidence of context isolation and as eval material.
+export const SpokeInputRecordSchema = z.object({
+  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+  runId: SpokePathSegmentSchema,
+  spokeId: SpokePathSegmentSchema,
+  taskId: SpokePathSegmentSchema,
+  attempt: z.number().int().positive(),
+  task: z.string().min(1),
+  context: z.unknown(),
+  recordedAt: z.string().min(1),
+});
+export type SpokeInputRecord = z.infer<typeof SpokeInputRecordSchema>;
+
+// What came back for that attempt, exactly as the hub received it, before the hub validated the
+// payload against the task's own schema.
+export const SpokeOutputRecordSchema = z.object({
+  schemaVersion: SchemaVersionSchema.default(SCHEMA_VERSION),
+  runId: SpokePathSegmentSchema,
+  attempt: z.number().int().positive(),
+  result: SpokeResultSchema,
+  recordedAt: z.string().min(1),
+});
+export type SpokeOutputRecord = z.infer<typeof SpokeOutputRecordSchema>;

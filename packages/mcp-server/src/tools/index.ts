@@ -32,6 +32,9 @@ import { casesRenderTool } from './cases-render.js';
 import { defectAcceptTool } from './defect-accept.js';
 import { defectAddTool } from './defect-add.js';
 import { rcaAddTool } from './rca-add.js';
+import { spokeListTool } from './spoke-list.js';
+import { spokeRecordInputTool } from './spoke-record-input.js';
+import { spokeRecordOutputTool } from './spoke-record-output.js';
 import { rcaApproveTool } from './rca-approve.js';
 import { rcaInputTool } from './rca-input.js';
 import { configAddApiAuthTool } from './config-add-api-auth.js';
@@ -83,6 +86,9 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   rcaInputTool,
   rcaAddTool,
   rcaApproveTool,
+  spokeRecordInputTool,
+  spokeRecordOutputTool,
+  spokeListTool,
   validateTool,
   statusTool,
   caseResultRegisterTool,
