@@ -212,6 +212,10 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 - `qa-start`, `qa-explore` and `qa-design-cases` (P2-09) are the real, shipped skills today.
 - `qa-rca` (P6-15) is the root cause analysis skill; `agents/hub/spokes/qa-rca.md` is its spoke
   contract. The input it works from is the engine's `qa.rca_input`.
+- `agents/hub/spokes/` holds one contract per spoke definition (`explorer`, `test-design`,
+  `case-execution`, `test-generation`, `qa-rca`; `SPOKE_DEFINITION_IDS` in `packages/schemas`). On Claude
+  Code, `agents.models` in `.qa/config.yaml` routes each spoke to a model and `qa agents generate` writes
+  the matching subagents into the project's `.claude/agents/` (P4-03).
 - `qa-security` (P6-18) is the on-demand security audit skill. It is not part of the pipeline: no
   gate leads to it and no other skill calls it. The engine refuses an audit until the operator has
   approved the exact authorization (`qa.security_authorize`, `qa.security_approve`, `qa.security_audit`).

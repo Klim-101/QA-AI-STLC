@@ -1,0 +1,55 @@
+// Copyright The QA-AI-STLC Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { SPOKE_DEFINITION_IDS } from '@qa-ai-stlc/schemas';
+import { describe, expect, it } from 'vitest';
+import {
+  GENERATED_SUBAGENT_MARKER,
+  listSpokeDefinitionIds,
+  renderSpokeSubagents,
+} from './spoke-subagents.js';
+
+describe('renderSpokeSubagents', () => {
+  it('writes one subagent per spoke definition under .claude/agents', () => {
+    const subagents = renderSpokeSubagents({});
+
+    expect(subagents.map((subagent) => subagent.path)).toEqual([
+      '.claude/agents/qa-explorer.md',
+      '.claude/agents/qa-test-design.md',
+      '.claude/agents/qa-case-execution.md',
+      '.claude/agents/qa-test-generation.md',
+      '.claude/agents/qa-rca.md',
+    ]);
+    expect(listSpokeDefinitionIds()).toEqual(SPOKE_DEFINITION_IDS);
+  });
+
+  it('carries the configured model of each spoke and leaves an unrouted one to inherit', () => {
+    const subagents = renderSpokeSubagents({ explorer: 'haiku', 'test-generation': 'claude-opus-5-5' });
+    const byId = new Map(subagents.map((subagent) => [subagent.spokeId, subagent]));
+
+    expect(byId.get('explorer')?.content).toContain('\nmodel: haiku\n');
+    expect(byId.get('explorer')?.model).toBe('haiku');
+    expect(byId.get('test-generation')?.content).toContain('\nmodel: claude-opus-5-5\n');
+    expect(byId.get('qa-rca')?.content).not.toContain('model:');
+    expect(byId.get('qa-rca')).not.toHaveProperty('model');
+  });
+
+  it('names the skill, the task and the result envelope, and marks the file as generated', () => {
+    const [explorer] = renderSpokeSubagents({});
+
+    expect(explorer?.content).toMatch(/^---\nname: qa-explorer\ndescription: "Use when /u);
+    expect(explorer?.content).toContain(GENERATED_SUBAGENT_MARKER);
+    expect(explorer?.content).toContain('Load the `qa-explore` skill');
+    expect(explorer?.content).toContain('"status": "ok"');
+  });
+
+  it('has a contract file in agents/hub/spokes for every spoke definition', () => {
+    const spokesDirectory = fileURLToPath(new URL('../../../agents/hub/spokes', import.meta.url));
+
+    expect(readdirSync(spokesDirectory).toSorted()).toEqual(
+      SPOKE_DEFINITION_IDS.map((id) => `${id}.md`).toSorted(),
+    );
+  });
+});

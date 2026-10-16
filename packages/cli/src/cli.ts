@@ -5,6 +5,7 @@ import { parseArgs, type ParseArgsConfig } from 'node:util';
 import {
   PHASES,
   QaError,
+  runAgentsGenerate,
   runApprove,
   runCasesAdd,
   runCasesRender,
@@ -30,6 +31,7 @@ import {
   type DefectAddResult,
   type DoctorReport,
   type LinkResult,
+  type AgentsGenerateResult,
   type RcaAddResult,
   type RcaApproveResult,
   type ReportFormat,
@@ -90,6 +92,7 @@ Commands:
   doctor        Check Node, browsers, identities and environment reachability
   explore       Build the selector registry: crawl, static source analysis, pick mode, --verify
   api-diff      Compare the OpenAPI contract with the endpoints the last explore observed: "api-diff [--environment <name>]"
+  agents generate Write one Claude Code subagent per spoke into .claude/agents with the model agents.models routes it to: "agents generate"
   config set    Change one setting after init: "config set testing.<type> <decision>" or "config set ui.componentLibrary <library>"
   config add    Add an environment, identity or API auth profile: "config add environment <name> ...", "config add identity <name> ..." or "config add api-auth <name> --profile <json>"
   config show   Print the effective configuration and its relaxations: "config show [--explain]" also names the source layer of every value
@@ -149,6 +152,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchExplore(rest, dependencies);
       case 'api-diff':
         return await dispatchApiDiff(rest, dependencies);
+      case 'agents':
+        return await dispatchAgents(rest, dependencies);
       case 'config':
         return await dispatchConfig(rest, dependencies);
       case 'scope':
@@ -948,6 +953,26 @@ async function dispatchDefectAccept(
   return EXIT_SUCCESS;
 }
 
+async function dispatchAgents(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand !== 'generate') {
+    dependencies.io.stderr(`Unknown "qa agents" subcommand "${subcommand ?? ''}".
+
+${USAGE}`);
+    return EXIT_USAGE;
+  }
+  const values = parseCommandArgs(subRest, { json: { type: 'boolean', default: false } });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runAgentsGenerate(context);
+  printResult(context.io, json, 'agents-generate', result, formatAgentsGenerateResult(result));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchRca(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const [subcommand, ...subRest] = rest;
   if (subcommand === 'add') {
@@ -1371,6 +1396,14 @@ function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[]
     result.wasAlreadyAccepted
       ? `Defect "${result.id}" was already accepted.`
       : `Accepted defect "${result.id}".`,
+  ];
+}
+
+function formatAgentsGenerateResult(result: AgentsGenerateResult): readonly string[] {
+  return [
+    `Wrote ${String(result.subagents.length)} subagents to ${result.directory}:`,
+    ...result.subagents.map((subagent) => `  ${subagent.path}  model: ${subagent.model}`),
+    'Hosts whose subagents take no model (Codex) ignore agents.models.',
   ];
 }
 

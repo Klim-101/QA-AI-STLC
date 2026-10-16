@@ -89,3 +89,15 @@ export const SpokeOutputRecordSchema = z.object({
   recordedAt: z.string().min(1),
 });
 export type SpokeOutputRecord = z.infer<typeof SpokeOutputRecordSchema>;
+
+// The spoke definitions the hub can dispatch, one per task type in development plan section 5.3. A
+// config `agents.models` entry and a generated subagent are keyed by these ids.
+export const SPOKE_DEFINITION_IDS = [
+  'explorer',
+  'test-design',
+  'case-execution',
+  'test-generation',
+  'qa-rca',
+] as const;
+export const SpokeDefinitionIdSchema = z.enum(SPOKE_DEFINITION_IDS);
+export type SpokeDefinitionId = z.infer<typeof SpokeDefinitionIdSchema>;

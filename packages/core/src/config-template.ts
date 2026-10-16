@@ -150,6 +150,9 @@ export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-01
 #   parallelism: 4
 #   spokeTimeoutSeconds: 300
 #   retries: 2
+#   models:                  # Claude Code only; "qa agents generate" writes the subagents
+#     explorer: haiku
+#     test-generation: sonnet
 `;
 
 // Runtime-only subdirectories (development plan section 3.2) and the machine-specific local

@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { RelativePathSchema } from './primitives.js';
+import { SpokeDefinitionIdSchema } from './spoke.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
 export const TestingScopeDecisionSchema = z.enum(['in-scope', 'out-of-scope', 'undecided']);
@@ -196,10 +197,19 @@ export const SelectorsConfigSchema = z.object({
 });
 export type SelectorsConfig = z.infer<typeof SelectorsConfigSchema>;
 
+// What Claude Code accepts as a subagent's `model:`: an alias (`sonnet`, `opus`, `haiku`,
+// `inherit`) or a full model id. Only the shape is checked, because the set of ids is the host's.
+export const SpokeModelSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u, 'must be a model alias or id such as "sonnet" or "inherit"');
+
 export const AgentsConfigSchema = z.object({
   parallelism: z.number().int().positive(),
   spokeTimeoutSeconds: z.number().int().positive(),
   retries: z.number().int().nonnegative(),
+  // The model a spoke runs on, by spoke definition. A spoke without an entry inherits the model of
+  // the session. Only hosts whose subagents take a model use it (Claude Code); others ignore it.
+  models: z.partialRecord(SpokeDefinitionIdSchema, SpokeModelSchema).default({}),
 });
 export type AgentsConfig = z.infer<typeof AgentsConfigSchema>;
 

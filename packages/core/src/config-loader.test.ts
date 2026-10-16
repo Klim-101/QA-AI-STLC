@@ -150,7 +150,12 @@ agents:
       auth: 'cdp-attach',
       secret: 'QA_LOCAL_ADMIN_PASSWORD',
     });
-    expect(loaded.config.agents).toStrictEqual({ parallelism: 1, spokeTimeoutSeconds: 300, retries: 2 });
+    expect(loaded.config.agents).toStrictEqual({
+      parallelism: 1,
+      spokeTimeoutSeconds: 300,
+      retries: 2,
+      models: {},
+    });
     expect(loaded.sources).toContainEqual({ path: ['environments', 'staging', 'baseUrl'], layer: 'local' });
     expect(loaded.sources).toContainEqual({
       path: ['environments', 'staging', 'allowlist'],
