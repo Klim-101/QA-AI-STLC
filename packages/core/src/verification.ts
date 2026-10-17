@@ -516,7 +516,7 @@ export async function registerVerifiedGeneratedTestSpec(
   const absolutePath = resolveRelativePath(context.projectRoot, spec.filePath);
   await context.fs.mkdir(dirname(absolutePath));
   await context.fs.writeFile(absolutePath, spec.content);
-  await manifest.register(spec.filePath, spec.content);
+  await manifest.register(spec.filePath, spec.content, { root: 'project' });
 }
 
 /**

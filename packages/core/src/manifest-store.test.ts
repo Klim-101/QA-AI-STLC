@@ -224,3 +224,17 @@ describe('ManifestStore parallel registration', () => {
     });
   });
 });
+
+describe('ManifestStore.register root', () => {
+  it('records the project root for a file the engine wrote into the project, and none otherwise', async () => {
+    const store = new QaStore({ projectRoot: 'project', fs: createFakeFileSystem() });
+    const manifestStore = new ManifestStore({ store, clock: fixedClock });
+
+    await manifestStore.register('tests/qa/generated/a.spec.ts', 'spec', { root: 'project' });
+    await manifestStore.register('artifacts/scope.json', '{}');
+
+    const { artifacts } = await manifestStore.load();
+    expect(artifacts['tests/qa/generated/a.spec.ts']?.root).toBe('project');
+    expect(artifacts['artifacts/scope.json']).not.toHaveProperty('root');
+  });
+});

@@ -266,10 +266,8 @@ describe('parallel spokes (demo app, no LLM)', () => {
       for (const filePath of registered) {
         expect(manifest.artifacts).toHaveProperty(filePath);
       }
-      // A registered spec sits in the project, outside `.qa/`, where the tamper sweep does not look
-      // for it; what this checks is that no `.qa/` artifact was left with a stale hash.
       const report = await validateTool.handler({});
-      expect(report.tamperedArtifacts.filter((path) => !path.startsWith('tests/'))).toEqual([]);
+      expect(report.tamperedArtifacts).toEqual([]);
     },
     STARTUP_TIMEOUT_MS * 3,
   );
