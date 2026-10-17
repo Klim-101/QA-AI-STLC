@@ -1524,6 +1524,133 @@ describe('runCli', () => {
     });
   });
 
+  describe('metrics', () => {
+    const CONFIG = [
+      'schemaVersion: 1',
+      'testing: { e2e: undecided, api: undecided, a11y: undecided, security: undecided }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 2, spokeTimeoutSeconds: 60, retries: 1 }',
+      '',
+    ].join('\n');
+
+    function filesFor(root: string = PROJECT_ROOT): Record<string, string> {
+      const base = join(root, '.qa', 'runs', 'run-1', 'spokes', 'explorer', 'env', 'attempt-1');
+      return {
+        [join(root, '.qa', 'config.yaml')]: CONFIG,
+        [join(base, 'input.json')]: JSON.stringify({
+          schemaVersion: 1,
+          runId: 'run-1',
+          spokeId: 'explorer',
+          taskId: 'env',
+          attempt: 1,
+          task: 'Explore',
+          recordedAt: '2026-10-18T10:00:00.000Z',
+        }),
+        [join(base, 'output.json')]: JSON.stringify({
+          schemaVersion: 1,
+          runId: 'run-1',
+          attempt: 1,
+          recordedAt: '2026-10-18T10:00:04.000Z',
+          result: { schemaVersion: 1, spokeId: 'explorer', taskId: 'env', status: 'ok', payload: {} },
+        }),
+      };
+    }
+
+    it('says how the run was carried out against the budgets', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(filesFor()) });
+
+      const exitCode = await runCli(['metrics', '--run', 'run-1'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout[0]).toBe('Run run-1: 1 task(s), 1 attempt(s): 1 valid, 0 error, 0 unanswered.');
+      expect(deps.stdout).toContain('  explorer: 1 task(s), 1 attempt(s), 0 retried');
+      expect(deps.stdout).toContain(
+        'Retries: 0 used of 1 allowed (agents.retries 1); 0 task(s) used every attempt.',
+      );
+      expect(deps.stdout.some((line) => line.startsWith('Time: 4.0 s from first dispatch'))).toBe(true);
+      expect(deps.stdout).toContain('Concurrency: at most 1 at once against agents.parallelism 2.');
+    });
+
+    it('prints machine-readable JSON with --json and flags a run over the parallelism budget', async () => {
+      const fs = createFakeFileSystem({
+        ...filesFor(),
+        ...Object.fromEntries(
+          ['b', 'c', 'd'].flatMap((task) => {
+            const base = join(PROJECT_ROOT, '.qa', 'runs', 'run-1', 'spokes', 'explorer', task, 'attempt-1');
+            return [
+              [
+                join(base, 'input.json'),
+                JSON.stringify({
+                  schemaVersion: 1,
+                  runId: 'run-1',
+                  spokeId: 'explorer',
+                  taskId: task,
+                  attempt: 1,
+                  task: 'Explore',
+                  recordedAt: '2026-10-18T10:00:01.000Z',
+                }),
+              ],
+              [
+                join(base, 'output.json'),
+                JSON.stringify({
+                  schemaVersion: 1,
+                  runId: 'run-1',
+                  attempt: 1,
+                  recordedAt: '2026-10-18T10:00:03.000Z',
+                  result: { schemaVersion: 1, spokeId: 'explorer', taskId: task, status: 'ok', payload: {} },
+                }),
+              ],
+            ];
+          }),
+        ),
+      });
+      const json = dependencies({ fs });
+      const human = dependencies({ fs });
+
+      await runCli(['metrics', '--json'], json);
+      await runCli(['metrics'], human);
+
+      expect(JSON.parse(json.stdout.join('')) as unknown).toMatchObject({
+        command: 'metrics',
+        data: { runId: 'run-1', concurrency: { peak: 4, isWithinBudget: false } },
+      });
+      expect(human.stdout.some((line) => line.endsWith('(over budget).'))).toBe(true);
+    });
+
+    it('says n/a for the time of a run in which nothing was answered', async () => {
+      const files = filesFor();
+      const unanswered = Object.fromEntries(
+        Object.entries(files).filter(([path]) => !path.endsWith('output.json')),
+      );
+      const deps = dependencies({ fs: createFakeFileSystem(unanswered) });
+
+      expect(await runCli(['metrics'], deps)).toBe(EXIT_SUCCESS);
+      expect(
+        deps.stdout.some((line) => line.startsWith('Time: n/a from first dispatch to last answer; 0.0 s')),
+      ).toBe(true);
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io } = captureIO();
+      const fs = createFakeFileSystem(filesFor(process.cwd()));
+
+      expect(await runCli(['metrics'], { io, fs, env: {} })).toBe(EXIT_SUCCESS);
+    });
+
+    it('fails with the reason when the run has no spoke records', async () => {
+      const deps = dependencies({
+        fs: createFakeFileSystem({ [join(PROJECT_ROOT, '.qa', 'config.yaml')]: CONFIG }),
+      });
+
+      expect(await runCli(['metrics'], deps)).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('No spoke records were found');
+    });
+  });
+
   describe('review add', () => {
     const SPEC = [
       "test('login', { annotation: { type: 'testCaseId', description: 'login' } }, async ({ page }) => {",

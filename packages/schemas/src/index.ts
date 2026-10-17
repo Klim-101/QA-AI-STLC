@@ -22,6 +22,7 @@ export * from './triage.js';
 export * from './eval.js';
 export * from './review.js';
 export * from './spec-check.js';
+export * from './run-metrics.js';
 export * from './selector-registry.js';
 export * from './api-diff.js';
 export * from './api-surface.js';

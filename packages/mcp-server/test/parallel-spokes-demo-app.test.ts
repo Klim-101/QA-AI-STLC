@@ -13,6 +13,7 @@ import { generationRegisterTool } from '../src/tools/generation-register.js';
 import { generationSpokeInputTool } from '../src/tools/generation-spoke-input.js';
 import { generationVerifyTool } from '../src/tools/generation-verify.js';
 import { scopeTool } from '../src/tools/scope.js';
+import { runMetricsTool } from '../src/tools/run-metrics.js';
 import { spokeListTool } from '../src/tools/spoke-list.js';
 import { spokeRecordInputTool } from '../src/tools/spoke-record-input.js';
 import { spokeRecordOutputTool } from '../src/tools/spoke-record-output.js';
@@ -279,5 +280,27 @@ describe('parallel spokes (demo app, no LLM)', () => {
     const fifth = await dispatch('explorer', 'busy-e').catch((caught: unknown) => caught);
 
     expect(fifth).toMatchObject({ code: 'SPOKE_PARALLELISM_EXCEEDED' });
+  });
+
+  it('measures the run exactly as the spoke store and the budgets hold it (P4-10)', async () => {
+    const listed = await spokeListTool.handler({ runId: RUN_ID });
+
+    const metrics = await runMetricsTool.handler({ runId: RUN_ID });
+
+    expect(metrics.budgets).toEqual({ parallelism: 4, spokeTimeoutSeconds: 120, retries: 1 });
+    expect(metrics.dispatch).toMatchObject({
+      attempts: listed.records.length,
+      okResponses: listed.records.filter((record) => record.status === 'ok').length,
+      errorResponses: listed.records.filter((record) => record.status === 'error').length,
+      unanswered: listed.records.filter((record) => record.status === undefined).length,
+    });
+    expect(metrics.dispatch.bySpoke.map((spoke) => spoke.spokeId)).toEqual(
+      [...new Set(listed.records.map((record) => record.spokeId))].sort(),
+    );
+    expect(metrics.retries.tasksOverBudget).toBe(0);
+    expect(metrics.concurrency).toMatchObject({ isWithinBudget: true });
+    expect(metrics.concurrency.peak).toBeGreaterThan(1);
+    expect(metrics.timing.overlapSavingMs).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(metrics).filter((key) => /token|cost/iu.test(key))).toEqual([]);
   });
 });

@@ -63,6 +63,7 @@ import { securityApproveTool } from './security-approve.js';
 import { securityAuditTool } from './security-audit.js';
 import { securityAuthorizeTool } from './security-authorize.js';
 import { runTool } from './run.js';
+import { runMetricsTool } from './run-metrics.js';
 import { scopeTool } from './scope.js';
 import { specCheckTool } from './spec-check.js';
 import { testDataAddTool } from './test-data-add.js';
@@ -98,6 +99,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   spokeRecordInputTool,
   spokeRecordOutputTool,
   spokeListTool,
+  runMetricsTool,
   validateTool,
   statusTool,
   caseResultRegisterTool,
