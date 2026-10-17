@@ -20,6 +20,7 @@ import {
   runScope,
   runTestDataAdd,
   runStatus,
+  runTriageAdd,
   runValidate,
   type ApproveResult,
   type CasesAddResult,
@@ -105,6 +106,7 @@ Commands:
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
+  triage add    Validate and register the classification of a run's failures: "triage add --path <path>"
   rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
   rca approve   Approve a registered RCA: "rca approve <defect-id> --approved-by <name> [--note <text>]"
   security      On demand, never part of the pipeline: "security authorize --path <path>", "security approve --approved-by <name>" and "security audit" (security testing must be in scope)
@@ -170,6 +172,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchReport(rest, dependencies);
       case 'defect':
         return await dispatchDefect(rest, dependencies);
+      case 'triage':
+        return await dispatchTriage(rest, dependencies);
       case 'rca':
         return await dispatchRca(rest, dependencies);
       case 'security':
@@ -970,6 +974,33 @@ ${USAGE}`);
   });
   const result = await runAgentsGenerate(context);
   printResult(context.io, json, 'agents-generate', result, formatAgentsGenerateResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchTriage(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand !== 'add') {
+    dependencies.io.stderr(`Unknown "qa triage" subcommand "${subcommand ?? ''}".
+
+${USAGE}`);
+    return EXIT_USAGE;
+  }
+  const values = parseCommandArgs(subRest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runTriageAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'triage-add', result, [
+    `Registered ${result.triagePath} (${String(result.entryCount)} classified failure(s)).`,
+  ]);
   return EXIT_SUCCESS;
 }
 

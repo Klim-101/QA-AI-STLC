@@ -140,3 +140,6 @@ export * from './openapi-endpoints.js';
 export * from './openapi-discovery.js';
 export * from './api-contract.js';
 export * from './spec-case-ids.js';
+export * from './operations/triage-input.js';
+export * from './operations/triage-add.js';
+export { classifyFailureKind } from './triage-failures.js';
