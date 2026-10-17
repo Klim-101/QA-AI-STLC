@@ -149,3 +149,5 @@ export { renderEvalReportMarkdown } from './eval-report-markdown.js';
 export * from './operations/review-input.js';
 export * from './operations/review-add.js';
 export * from './operations/spec-check.js';
+export * from './operations/run-metrics.js';
+export { computeRunMetrics } from './run-metrics.js';

@@ -20,6 +20,7 @@ import {
   runScope,
   runTestDataAdd,
   runReviewAdd,
+  runRunMetrics,
   runStatus,
   runTriageAdd,
   runValidate,
@@ -50,6 +51,7 @@ import {
   A11yWcagVersionSchema,
   TestTypeSchema,
   UiComponentLibrarySchema,
+  type RunMetrics,
   type TestingScopeDecision,
   type TestType,
   type UiComponentLibrary,
@@ -109,6 +111,7 @@ Commands:
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
+  metrics       Show how a run of the agent layer was carried out, from the spoke records and the agents budgets: "metrics [--run <run-id>]"
   review add    Validate and register the verdict on a generated spec: "review add --path <path>"
   triage add    Validate and register the classification of a run's failures: "triage add --path <path>"
   rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
@@ -178,6 +181,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchReport(rest, dependencies);
       case 'defect':
         return await dispatchDefect(rest, dependencies);
+      case 'metrics':
+        return await dispatchMetrics(rest, dependencies);
       case 'review':
         return await dispatchReview(rest, dependencies);
       case 'triage':
@@ -1036,6 +1041,24 @@ ${USAGE}`);
   return EXIT_SUCCESS;
 }
 
+async function dispatchMetrics(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const values = parseCommandArgs(rest, {
+    json: { type: 'boolean', default: false },
+    run: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const metrics = await runRunMetrics(context, {
+    ...(typeof values.run === 'string' ? { runId: values.run } : {}),
+  });
+  printResult(context.io, json, 'metrics', metrics, formatRunMetrics(metrics));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchReview(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const [subcommand, ...subRest] = rest;
   if (subcommand !== 'add') {
@@ -1513,6 +1536,24 @@ function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[]
     result.wasAlreadyAccepted
       ? `Defect "${result.id}" was already accepted.`
       : `Accepted defect "${result.id}".`,
+  ];
+}
+
+function formatSeconds(milliseconds: number | null): string {
+  return milliseconds === null ? 'n/a' : `${(milliseconds / 1000).toFixed(1)} s`;
+}
+
+function formatRunMetrics(metrics: RunMetrics): readonly string[] {
+  const { dispatch, retries, timing, concurrency, budgets } = metrics;
+  return [
+    `Run ${metrics.runId}: ${String(dispatch.tasks)} task(s), ${String(dispatch.attempts)} attempt(s): ${String(dispatch.okResponses)} valid, ${String(dispatch.errorResponses)} error, ${String(dispatch.unanswered)} unanswered.`,
+    ...dispatch.bySpoke.map(
+      (spoke) =>
+        `  ${spoke.spokeId}: ${String(spoke.tasks)} task(s), ${String(spoke.attempts)} attempt(s), ${String(spoke.retriesUsed)} retried`,
+    ),
+    `Retries: ${String(retries.used)} used of ${String(retries.allowed)} allowed (agents.retries ${String(budgets.retries)}); ${String(retries.tasksAtBudget)} task(s) used every attempt.`,
+    `Time: ${formatSeconds(timing.spanMs)} from first dispatch to last answer; ${formatSeconds(timing.busyMs)} of attempts, ${formatSeconds(timing.activeMs)} with one running, ${formatSeconds(timing.overlapSavingMs)} saved by overlap; ${String(timing.timedOutAttempts)} timed out.`,
+    `Concurrency: at most ${String(concurrency.peak)} at once against agents.parallelism ${String(budgets.parallelism)}${concurrency.isWithinBudget ? '' : ' (over budget)'}.`,
   ];
 }
 
