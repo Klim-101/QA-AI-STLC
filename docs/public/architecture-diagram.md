@@ -6,7 +6,7 @@ map and section 2 for the non-negotiable boundaries these diagrams illustrate, a
 [architecture decision records](../adr/README.md) for why each boundary is where it is.
 
 Solid boxes and edges exist today (mirrors the [roadmap](ROADMAP.md)'s "done"/"in progress" phases);
-dashed ones are planned and not built yet.
+dashed ones are planned and not built yet (the Codex plugin and the VS Code extension).
 
 ## System context
 
@@ -16,7 +16,7 @@ Who calls what, and who owns the browser.
 flowchart TB
     subgraph Host["Your machine, your subscription"]
         Model["Model in your agent host<br/>(Claude Code, Codex, ...)"]
-        Skills["Agent skills<br/>(agents/, planned P2-08/09)"]
+        Skills["Agent skills and spokes<br/>(agents/: ten skills, hub and<br/>spoke definitions)"]
         CLI["qa CLI<br/>(@qa-ai-stlc/cli)"]
         MCP["qa-mcp-server<br/>(@qa-ai-stlc/mcp-server, stdio)"]
         Engine["Deterministic engine<br/>(@qa-ai-stlc/core + @qa-ai-stlc/explorer)"]
@@ -32,7 +32,6 @@ flowchart TB
     Engine <-->|"reads and writes, hash-verified"| Store
     Engine -->|"browser automation, safe mode, domain allowlist"| App
 
-    style Skills stroke-dasharray: 5 5
 ```
 
 **No model calls in the engine (ADR-001).** The box labelled "Model" is the only place in this
@@ -59,9 +58,9 @@ flowchart TD
     explorer["@qa-ai-stlc/explorer<br/>crawler, static analysis, locator<br/>synthesis, selector registry"]
     cli["@qa-ai-stlc/cli<br/>qa command"]
     mcpserver["@qa-ai-stlc/mcp-server<br/>local stdio MCP server"]
-    runner["@qa-ai-stlc/runner-*<br/>(planned, Phase 3+)"]
-    agents["agents/<br/>skills, hub and spoke definitions<br/>(planned, P2-08/09)"]
-    adapters["adapters/*<br/>Claude Code plugin, Codex plugin,<br/>VS Code extension — generated<br/>(planned, P2-11+)"]
+    runner["@qa-ai-stlc/runner-*<br/>playwright, api, a11y, security"]
+    agents["agents/<br/>skills, hub and spoke definitions"]
+    adapters["adapters/*<br/>Claude Code plugin — generated<br/>(Codex plugin and VS Code<br/>extension planned)"]
 
     core --> schemas
     explorer --> schemas
@@ -70,14 +69,10 @@ flowchart TD
     cli --> explorer
     mcpserver --> core
     mcpserver --> explorer
-    runner -.-> core
+    runner --> core
     agents -.-> mcpserver
     agents -.-> cli
     adapters -.-> agents
-
-    style runner stroke-dasharray: 5 5
-    style agents stroke-dasharray: 5 5
-    style adapters stroke-dasharray: 5 5
 ```
 
 `schemas` depends on nothing internal — every artifact's shape is defined once and imported
@@ -102,6 +97,8 @@ flowchart LR
         approve["runApprove"]
         validate["runValidate"]
         explore["runExplore"]
+        run["runTestRun / runReport"]
+        spokes["triage, review, regression plan,<br/>run metrics, spec check"]
         browser["runBrowserOpen / Navigate /<br/>Click / Fill / Snapshot / Close"]
     end
 
@@ -117,6 +114,10 @@ flowchart LR
     mcpValidate["qa.validate"] --> validate
     cliExplore["qa explore"] --> explore
     mcpExplore["qa.explore"] --> explore
+    cliRun["qa run / qa report"] --> run
+    mcpRun["qa.run / qa.report"] --> run
+    cliSpokes["qa triage / review / regression /<br/>metrics / spec"] --> spokes
+    mcpSpokes["qa.triage_* / review_* / regression_plan /<br/>run_metrics / spec_check"] --> spokes
 
     pick["qa explore --pick &lt;url&gt;<br/>CLI-only: a human clicks a<br/>headed browser window"] -. "shares only the registry-write tail" .-> explore
 
@@ -128,8 +129,9 @@ The `browser.*` tools have no CLI counterpart on purpose: an exploratory session
 calls an agent makes, and ADR-005 exists so that sequence is the only way an agent reaches a
 browser at all.
 
-`report` and a standalone "registry query" have no CLI command yet, so they have no MCP tool yet
-either — planned, not silently dropped.
+The rule holds for the whole engine surface: a capability without a CLI command has no MCP tool
+either, except the `browser.*` tools above and pick mode, whose reasons are stated where they are
+made.
 
 ## Pipeline state and gates (ADR-003)
 
@@ -145,14 +147,13 @@ flowchart LR
     scopeDone -->|"edit scope.json"| scope
     scopeDone --> cases(("cases<br/>open"))
     cases -->|"qa approve cases<br/>--artifact ..."| casesDone(("cases<br/>satisfied"))
-    casesDone -.->|"planned, Phase 3+"| run(("run — planned"))
-    run -.-> defects(("defect acceptance — planned"))
-    defects -.-> rca(("RCA review — planned"))
-
-    style run stroke-dasharray: 5 5
-    style defects stroke-dasharray: 5 5
-    style rca stroke-dasharray: 5 5
 ```
+
+The state machine tracks `scope` and `cases`. Defect acceptance (`qa defect accept`), root cause
+analysis review (`qa rca approve`) and the security authorization (`qa security approve`) are
+approvals of their own, each bound to the exact content of its artifact, so an edit afterwards
+reads as unapproved; they are not phases of `state.json`, and the security audit is never part of
+the pipeline.
 
 Every registered test case must link to at least one requirement (`TestCaseSchema.requirementIds`,
 schema-level), and every link must actually resolve in `artifacts/scope.json` (`qa cases add`,

@@ -199,17 +199,15 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 
 - `agents/skills/_example/SKILL.md` is a **template, not a shipped skill** — its frontmatter says
   so explicitly. It demonstrates the frontmatter fields, the "Use when ..." phrasing, a
-  `references/` file and the line budget. The real skills this format was built for (`qa-start`,
-  `qa-explore`, `qa-design-cases`, and the rest of the locked ten-skill list) are P2-09 and later,
-  not this issue.
+  `references/` file and the line budget. The real skills this format was built for are listed below.
 - `agents/hub/HUB.md` is the real hub definition.
 - `agents/phase-prompts/scope.md` and `agents/phase-prompts/cases.md` are the real phase prompts
-  for the two phases the state machine currently implements.
+  for the two phases the state machine implements.
 - `agents/references/testing-standards.md` (P2-17) is the first shared reference: test-design
   technique names, `TestCaseSchema`/`DefectDraftSchema` field conventions, and the regression-tier
-  definitions. No skill points to it by its `references:` frontmatter entry yet, because no skill
-  exists yet (P2-09 is the first one that will).
-- `qa-start`, `qa-explore` and `qa-design-cases` (P2-09) are the real, shipped skills today.
+  definitions. The skills point to it by their `references:` frontmatter entry.
+- Ten skills ship today: `qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
+  `qa-report`, `qa-rca`, `qa-security`, `qa-regression` and `qa-metrics`.
 - `qa-rca` (P6-15) is the root cause analysis skill; `agents/hub/spokes/qa-rca.md` is its spoke
   contract. The input it works from is the engine's `qa.rca_input`.
 - `agents/hub/spokes/` holds one contract per spoke definition (`explorer`, `test-design`,
