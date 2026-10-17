@@ -24,6 +24,7 @@ export * from './review.js';
 export * from './spec-check.js';
 export * from './run-metrics.js';
 export * from './regression-plan.js';
+export * from './defect-draft-input.js';
 export * from './selector-registry.js';
 export * from './api-diff.js';
 export * from './api-surface.js';
