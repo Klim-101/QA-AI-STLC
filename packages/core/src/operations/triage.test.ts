@@ -124,6 +124,16 @@ describe('runTriageInput', () => {
     expect(input.failures[0]?.evidence[0]?.excerpt).toContain('server error');
   });
 
+  it('is not confused by the spoke records of the same run', async () => {
+    const context = await projectWith(FAILING_RUN);
+    await context.fs.writeFile(
+      join('project', '.qa', 'runs', 'run-1', 'spokes', 'triage', 'run-1', 'attempt-1', 'input.json'),
+      '{"not":"a result"}',
+    );
+
+    expect((await runTriageInput(context, { runId: 'run-1' })).failures).toHaveLength(1);
+  });
+
   it('reads the failure kind off the message', async () => {
     const context = await projectWith([
       {
