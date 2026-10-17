@@ -21,6 +21,7 @@ describe('renderSpokeSubagents', () => {
       '.claude/agents/qa-case-execution.md',
       '.claude/agents/qa-test-generation.md',
       '.claude/agents/qa-triage.md',
+      '.claude/agents/qa-reviewer.md',
       '.claude/agents/qa-rca.md',
     ]);
     expect(listSpokeDefinitionIds()).toEqual(SPOKE_DEFINITION_IDS);
@@ -43,6 +44,14 @@ describe('renderSpokeSubagents', () => {
     expect(triage?.content).not.toContain('skill and follow it');
     expect(triage?.content).toContain('`qa.triage_input`');
     expect(triage?.content).toContain('UNTRUSTED EVIDENCE');
+  });
+
+  it('tells the reviewer to judge the spec without asking for the author reasoning', () => {
+    const reviewer = renderSpokeSubagents({}).find((subagent) => subagent.spokeId === 'reviewer');
+
+    expect(reviewer?.content).toContain('`qa.review_input`');
+    expect(reviewer?.content).toContain('You get no word of the author');
+    expect(reviewer?.content).toContain('`qa.review_add`');
   });
 
   it('names the skill, the task and the result envelope, and marks the file as generated', () => {

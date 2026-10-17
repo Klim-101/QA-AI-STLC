@@ -19,6 +19,7 @@ import {
   runReport,
   runScope,
   runTestDataAdd,
+  runReviewAdd,
   runStatus,
   runTriageAdd,
   runValidate,
@@ -106,6 +107,7 @@ Commands:
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
+  review add    Validate and register the verdict on a generated spec: "review add --path <path>"
   triage add    Validate and register the classification of a run's failures: "triage add --path <path>"
   rca add       Validate and register a root cause analysis for an accepted defect: "rca add --path <path>"
   rca approve   Approve a registered RCA: "rca approve <defect-id> --approved-by <name> [--note <text>]"
@@ -172,6 +174,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchReport(rest, dependencies);
       case 'defect':
         return await dispatchDefect(rest, dependencies);
+      case 'review':
+        return await dispatchReview(rest, dependencies);
       case 'triage':
         return await dispatchTriage(rest, dependencies);
       case 'rca':
@@ -974,6 +978,33 @@ ${USAGE}`);
   });
   const result = await runAgentsGenerate(context);
   printResult(context.io, json, 'agents-generate', result, formatAgentsGenerateResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchReview(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand !== 'add') {
+    dependencies.io.stderr(`Unknown "qa review" subcommand "${subcommand ?? ''}".
+
+${USAGE}`);
+    return EXIT_USAGE;
+  }
+  const values = parseCommandArgs(subRest, {
+    json: { type: 'boolean', default: false },
+    path: { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runReviewAdd(context, {
+    ...(typeof values.path === 'string' ? { path: values.path } : {}),
+  });
+  printResult(context.io, json, 'review-add', result, [
+    `Registered ${result.reviewPath} (${result.verdict}).`,
+  ]);
   return EXIT_SUCCESS;
 }
 
