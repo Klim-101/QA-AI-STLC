@@ -6,17 +6,20 @@ import type { QaStore } from './qa-store.js';
 
 const RUNS_DIR: RelativePath = 'runs';
 const INTERACTIVE_RESULT_PATH = /^runs\/[^/]+\/[^/]+\.json$/;
+// What the spoke I/O store writes under a run (P4-01): dispatch inputs and outputs, not results.
+const SPOKE_RECORD_PATH = /^runs\/[^/]+\/spokes\//;
 
 /**
  * Every `RunResultSchema` artifact recorded under `runs/**`, in either layout `qa run`'s
  * `runs/<run-id>/results/<result-id>.json` (P3-04) or interactive case execution's
  * `runs/<test-case-id>/<result-id>.json` (P3-14, `runRegisterCaseResult`). `run.json`
- * (`RunRecordSchema`, one per `qa run` invocation, not a result) is the only other thing ever
- * written under `runs/`, so excluding it is enough to isolate every result regardless of layout.
+ * (`RunRecordSchema`, one per `qa run` invocation) and the spoke records of
+ * `runs/<run-id>/spokes/**` (P4-01) are the only other things written under `runs/`; both are left
+ * out, so a project whose hub recorded a dispatch can still be read as results.
  */
 export async function listRunResultPaths(store: QaStore): Promise<readonly RelativePath[]> {
   const paths = await store.listFiles(RUNS_DIR);
-  return paths.filter((path) => !path.endsWith('/run.json'));
+  return paths.filter((path) => !path.endsWith('/run.json') && !SPOKE_RECORD_PATH.test(path));
 }
 
 /**

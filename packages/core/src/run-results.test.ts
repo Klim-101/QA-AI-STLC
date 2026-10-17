@@ -11,6 +11,20 @@ const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
 describe('listRunResultPaths', () => {
+  it('does not list the spoke records a run holds', async () => {
+    const store = new QaStore({
+      projectRoot: PROJECT_ROOT,
+      fs: createFakeFileSystem({
+        [join(QA_DIR, 'runs', 'run-1', 'results', 'result-1.json')]: '{}',
+        [join(QA_DIR, 'runs', 'run-1', 'spokes', 'explorer', 'page-1', 'attempt-1', 'input.json')]: '{}',
+        [join(QA_DIR, 'runs', 'run-1', 'spokes', 'explorer', 'page-1', 'attempt-1', 'output.json')]: '{}',
+      }),
+    });
+
+    expect(await listRunResultPaths(store)).toEqual(['runs/run-1/results/result-1.json']);
+    expect(await listInteractiveResultPaths(store)).toEqual([]);
+  });
+
   it('finds a result under "qa run"’s own "results/" layout', async () => {
     const store = new QaStore({
       projectRoot: PROJECT_ROOT,
