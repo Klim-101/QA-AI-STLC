@@ -20,6 +20,7 @@ import {
   runScope,
   runTestDataAdd,
   runReviewAdd,
+  renderRunMetricsMarkdown,
   runRunMetrics,
   runStatus,
   runTriageAdd,
@@ -51,7 +52,6 @@ import {
   A11yWcagVersionSchema,
   TestTypeSchema,
   UiComponentLibrarySchema,
-  type RunMetrics,
   type TestingScopeDecision,
   type TestType,
   type UiComponentLibrary,
@@ -1055,7 +1055,7 @@ async function dispatchMetrics(rest: readonly string[], dependencies: RunCliDepe
   const metrics = await runRunMetrics(context, {
     ...(typeof values.run === 'string' ? { runId: values.run } : {}),
   });
-  printResult(context.io, json, 'metrics', metrics, formatRunMetrics(metrics));
+  printResult(context.io, json, 'metrics', metrics, renderRunMetricsMarkdown(metrics).trimEnd().split('\n'));
   return EXIT_SUCCESS;
 }
 
@@ -1536,24 +1536,6 @@ function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[]
     result.wasAlreadyAccepted
       ? `Defect "${result.id}" was already accepted.`
       : `Accepted defect "${result.id}".`,
-  ];
-}
-
-function formatSeconds(milliseconds: number | null): string {
-  return milliseconds === null ? 'n/a' : `${(milliseconds / 1000).toFixed(1)} s`;
-}
-
-function formatRunMetrics(metrics: RunMetrics): readonly string[] {
-  const { dispatch, retries, timing, concurrency, budgets } = metrics;
-  return [
-    `Run ${metrics.runId}: ${String(dispatch.tasks)} task(s), ${String(dispatch.attempts)} attempt(s): ${String(dispatch.okResponses)} valid, ${String(dispatch.errorResponses)} error, ${String(dispatch.unanswered)} unanswered.`,
-    ...dispatch.bySpoke.map(
-      (spoke) =>
-        `  ${spoke.spokeId}: ${String(spoke.tasks)} task(s), ${String(spoke.attempts)} attempt(s), ${String(spoke.retriesUsed)} retried`,
-    ),
-    `Retries: ${String(retries.used)} used of ${String(retries.allowed)} allowed (agents.retries ${String(budgets.retries)}); ${String(retries.tasksAtBudget)} task(s) used every attempt.`,
-    `Time: ${formatSeconds(timing.spanMs)} from first dispatch to last answer; ${formatSeconds(timing.busyMs)} of attempts, ${formatSeconds(timing.activeMs)} with one running, ${formatSeconds(timing.overlapSavingMs)} saved by overlap; ${String(timing.timedOutAttempts)} timed out.`,
-    `Concurrency: at most ${String(concurrency.peak)} at once against agents.parallelism ${String(budgets.parallelism)}${concurrency.isWithinBudget ? '' : ' (over budget)'}.`,
   ];
 }
 

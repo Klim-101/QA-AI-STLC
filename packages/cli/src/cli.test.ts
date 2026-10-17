@@ -1560,19 +1560,21 @@ describe('runCli', () => {
       };
     }
 
-    it('says how the run was carried out against the budgets', async () => {
+    it('prints the metrics the engine rendered', async () => {
       const deps = dependencies({ fs: createFakeFileSystem(filesFor()) });
 
       const exitCode = await runCli(['metrics', '--run', 'run-1'], deps);
 
       expect(exitCode).toBe(EXIT_SUCCESS);
-      expect(deps.stdout[0]).toBe('Run run-1: 1 task(s), 1 attempt(s): 1 valid, 0 error, 0 unanswered.');
-      expect(deps.stdout).toContain('  explorer: 1 task(s), 1 attempt(s), 0 retried');
+      expect(deps.stdout[0]).toBe('# Run metrics: run-1');
+      expect(deps.stdout).toContain('1 task(s), 1 attempt(s): 1 valid, 0 error, 0 unanswered.');
+      expect(deps.stdout).toContain('| explorer | 1 | 1 | 0 |');
       expect(deps.stdout).toContain(
-        'Retries: 0 used of 1 allowed (agents.retries 1); 0 task(s) used every attempt.',
+        '0 used of 1 allowed (agents.retries 1 per task); 0 task(s) used every attempt; 0 recorded over the budget.',
       );
-      expect(deps.stdout.some((line) => line.startsWith('Time: 4.0 s from first dispatch'))).toBe(true);
-      expect(deps.stdout).toContain('Concurrency: at most 1 at once against agents.parallelism 2.');
+      expect(deps.stdout).toContain(
+        'At most 1 attempt(s) ran at once, against agents.parallelism 2: within the budget.',
+      );
     });
 
     it('prints machine-readable JSON with --json and flags a run over the parallelism budget', async () => {
@@ -1618,7 +1620,7 @@ describe('runCli', () => {
         command: 'metrics',
         data: { runId: 'run-1', concurrency: { peak: 4, isWithinBudget: false } },
       });
-      expect(human.stdout.some((line) => line.endsWith('(over budget).'))).toBe(true);
+      expect(human.stdout.some((line) => line.endsWith('over the budget.'))).toBe(true);
     });
 
     it('says n/a for the time of a run in which nothing was answered', async () => {
@@ -1630,7 +1632,7 @@ describe('runCli', () => {
 
       expect(await runCli(['metrics'], deps)).toBe(EXIT_SUCCESS);
       expect(
-        deps.stdout.some((line) => line.startsWith('Time: n/a from first dispatch to last answer; 0.0 s')),
+        deps.stdout.some((line) => line.startsWith('n/a from the first dispatch to the last answer.')),
       ).toBe(true);
     });
 
