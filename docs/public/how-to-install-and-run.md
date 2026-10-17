@@ -38,8 +38,8 @@ claude plugin marketplace add Klim-101/QA-AI-STLC
 claude plugin install qa-ai-stlc@qa-ai-stlc
 ```
 
-The plugin brings eight skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`,
-`qa-generate-tests`, `qa-report`, `qa-rca`, `qa-security`), a hook that blocks hand edits under `.qa/`, and a local
+The plugin brings ten skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`,
+`qa-generate-tests`, `qa-report`, `qa-rca`, `qa-security`, `qa-regression`, `qa-metrics`), a hook that blocks hand edits under `.qa/`, and a local
 MCP server that it launches through `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. The first
 launch downloads that package, so it needs network access to npm, and on a slow connection it can outlast the
 30 seconds Claude Code waits for a server to connect (`/mcp` then shows the server as failed). Warm the cache first
@@ -66,6 +66,8 @@ From there, ask for what you want in plain words and the matching skill takes ov
 | "what's the status of the last run"               | `qa-report`         |
 | "do a root cause analysis for defect login-error" | `qa-rca`            |
 | "run a security audit on staging"                 | `qa-security`       |
+| "which cases make up the regression pack"         | `qa-regression`     |
+| "how did the agent run go"                        | `qa-metrics`        |
 
 Phase order and approvals are enforced by the engine, not by the skills, so the agent cannot skip a
 gate. Do not ask the agent to edit files under `.qa/`; the plugin's hook blocks it on purpose. You
@@ -270,6 +272,35 @@ start without an approval of the current authorization. Editing the authorizatio
 afterwards withdraws it. The audit exits non-zero when it found something or stopped early (`partial`
 is not a clean result); the findings are defect drafts you accept with `npx qa defect accept`.
 
+### Triage, review, regression and metrics
+
+These commands read or register what the spokes of the agent layer produce. The agent does the
+reasoning; the engine checks the result and refuses what it cannot support.
+
+```sh
+npx qa triage add --path triage.json         # classify every failure of a run: product bug, flaky, stale selector, environment, uncertain
+npx qa review add --path review.json         # an independent review of a generated spec, bound to its exact content
+npx qa spec check --spec tests/login.playwright-spec.ts --test-type e2e --environment staging
+npx qa regression plan --max-tier regression # smoke, critical-path, regression or extended; a pack takes every tier up to the one named
+npx qa metrics [--run <run-id>]              # how a run of the agent layer was carried out
+```
+
+- `qa spec check` runs a spec and says what each test did without recording a run, so it changes
+  neither `qa report` nor the history that flaky detection and triage read.
+- `qa regression plan` lists the approved cases that are in the pack and, for every case left out,
+  why (`not-approved`, `no-tier`, `tier-above-threshold`, `flaky`). Each case in is routed to its
+  verified generated spec or to live execution, with the reason there is no spec.
+- A defect draft that names its source failure (`source: { runId, resultId }`) is accepted only when
+  the triage called that failure a product bug and the draft cites evidence the triage cited.
+  Accepting the draft stays your step.
+- `qa metrics` reports tasks, attempts, retries, time and parallelism read from the spoke store. It
+  has no token count or cost: the engine reads no host transcript.
+
+`agents` in `.qa/config.yaml` sets the budgets the engine enforces when a spoke is dispatched
+(`parallelism`, `retries`, `spokeTimeoutSeconds`) and `agents.models` routes each spoke to a model.
+`npx qa agents generate` writes one Claude Code subagent per spoke into `.claude/agents/`; it
+rewrites only files it generated. Other hosts ignore the model setting.
+
 ### Configuration layers
 
 `.qa/config.yaml` is committed. An optional `.qa/config.local.yaml` (or the file named by
@@ -290,7 +321,8 @@ The binary is `qa-mcp-server`. It listens on stdio only: no port, no Docker, no 
 outlives the session. Register it in your host as a stdio server with command `npx` and arguments
 `-y @qa-ai-stlc/mcp-server`; see your host's documentation for where that configuration lives. Each
 engine operation is one `qa.*` tool, for example `qa.doctor`, `qa.explore`, `qa.scope` and
-`qa.run`.
+`qa.run`; the spoke tools include `qa.triage_input`, `qa.review_input`, `qa.spec_check`,
+`qa.regression_plan` and `qa.run_metrics`.
 
 Skills are only packaged for Claude Code today. With another host you get the tools but not the
 skills that tell the agent how to use them.
@@ -363,7 +395,6 @@ rules are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 | The plugin and the CLI report different versions, or the MCP server fails at start-up naming two versions | See [Versions must match](#versions-must-match). Update the lagging one and restart Claude Code.                                                                                                                                                                                                                                                             |
 | The plugin's MCP server does not connect or times out                                                     | The first launch downloads `@qa-ai-stlc/mcp-server` through `npx`. Check network access to npm, then run `npx -y @qa-ai-stlc/mcp-server@<pinned version> --version` once by hand to warm the cache (Claude Code gives a server about 30 seconds to connect, and the download alone can exceed it). The server needs about five seconds to start once cached. |
 | `Cannot find module` after changing code in a workspace                                                   | A direct `vitest` or `tsc` run skips the dependency build. Use the `npm run` scripts, or `npm run build --workspace <package>` first.                                                                                                                                                                                                                        |
-| Generation verification finds no tests on Windows                                                         | Known gap, tracked as [#661](https://github.com/Klim-101/QA-AI-STLC/issues/661).                                                                                                                                                                                                                                                                             |
 
 Check the [roadmap](ROADMAP.md) for what is delivered and what is still open. A bug or a missing
 step in this guide belongs in an [issue](https://github.com/Klim-101/QA-AI-STLC/issues/new/choose);
