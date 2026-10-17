@@ -19,6 +19,7 @@ import {
   runReport,
   runScope,
   runTestDataAdd,
+  runRegressionPlan,
   runReviewAdd,
   renderRunMetricsMarkdown,
   runRunMetrics,
@@ -52,6 +53,7 @@ import {
   A11yWcagVersionSchema,
   TestTypeSchema,
   UiComponentLibrarySchema,
+  type RegressionPlan,
   type TestingScopeDecision,
   type TestType,
   type UiComponentLibrary,
@@ -111,6 +113,7 @@ Commands:
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
   defect accept Accept a registered defect draft: "defect accept <id> --approved-by <name> [--note <text>]"
+  regression plan Select the regression pack for a tier: "regression plan --max-tier smoke|critical-path|regression|extended"
   metrics       Show how a run of the agent layer was carried out, from the spoke records and the agents budgets: "metrics [--run <run-id>]"
   review add    Validate and register the verdict on a generated spec: "review add --path <path>"
   triage add    Validate and register the classification of a run's failures: "triage add --path <path>"
@@ -181,6 +184,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchReport(rest, dependencies);
       case 'defect':
         return await dispatchDefect(rest, dependencies);
+      case 'regression':
+        return await dispatchRegression(rest, dependencies);
       case 'metrics':
         return await dispatchMetrics(rest, dependencies);
       case 'review':
@@ -1041,6 +1046,34 @@ ${USAGE}`);
   return EXIT_SUCCESS;
 }
 
+async function dispatchRegression(
+  rest: readonly string[],
+  dependencies: RunCliDependencies,
+): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand !== 'plan') {
+    dependencies.io.stderr(`Unknown "qa regression" subcommand "${subcommand ?? ''}".
+
+${USAGE}`);
+    return EXIT_USAGE;
+  }
+  const values = parseCommandArgs(subRest, {
+    json: { type: 'boolean', default: false },
+    'max-tier': { type: 'string' },
+  });
+  const json = values.json === true;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const plan = await runRegressionPlan(context, {
+    ...(typeof values['max-tier'] === 'string' ? { maxTier: values['max-tier'] } : {}),
+  });
+  printResult(context.io, json, 'regression-plan', plan, formatRegressionPlan(plan));
+  return EXIT_SUCCESS;
+}
+
 async function dispatchMetrics(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
   const values = parseCommandArgs(rest, {
     json: { type: 'boolean', default: false },
@@ -1536,6 +1569,17 @@ function formatDefectAcceptResult(result: DefectAcceptResult): readonly string[]
     result.wasAlreadyAccepted
       ? `Defect "${result.id}" was already accepted.`
       : `Accepted defect "${result.id}".`,
+  ];
+}
+
+function formatRegressionPlan(plan: RegressionPlan): readonly string[] {
+  return [
+    `Regression pack up to "${plan.maxTier}": ${String(plan.included.length)} case(s) in, ${String(plan.excluded.length)} out.`,
+    ...plan.included.map(
+      (entry) =>
+        `  in  ${entry.testCaseId} (${entry.tier}): ${entry.route === 'spec' ? `run ${String(entry.specPath)}` : `execute live (${entry.routeReason})`}`,
+    ),
+    ...plan.excluded.map((entry) => `  out ${entry.testCaseId}: ${entry.reason}`),
   ];
 }
 

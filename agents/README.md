@@ -219,6 +219,10 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 - `qa-metrics` (P4-11) tells how a run of the agent layer was carried out: it relays the engine's own
   rendering of `qa.run_metrics` (counts, retries against the budget, time, concurrency) and says that
   tokens and cost are not measured. It is about the spokes, not about test results (`qa-report`).
+- `qa-regression` (P4-09) runs a regression pack chosen by tier: the engine plans it (`qa.regression_plan`:
+  which cases are in, which are out and why, and whether each runs as its verified spec or live), and the
+  skill shows the plan, asks before live execution, runs the spec route with `qa.run` and the live route
+  with `qa-execute`, and says what came back.
 - `qa-security` (P6-18) is the on-demand security audit skill. It is not part of the pipeline: no
   gate leads to it and no other skill calls it. The engine refuses an audit until the operator has
   approved the exact authorization (`qa.security_authorize`, `qa.security_approve`, `qa.security_audit`).

@@ -152,3 +152,5 @@ export * from './operations/spec-check.js';
 export * from './operations/run-metrics.js';
 export { computeRunMetrics } from './run-metrics.js';
 export { renderRunMetricsMarkdown } from './run-metrics-markdown.js';
+export * from './operations/regression-plan.js';
+export { planRegression, type CaseSpecState, type RegressionPlanInput } from './regression-plan.js';

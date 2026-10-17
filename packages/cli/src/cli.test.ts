@@ -1524,6 +1524,118 @@ describe('runCli', () => {
     });
   });
 
+  describe('regression plan', () => {
+    const CONFIG = [
+      'schemaVersion: 1',
+      'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+      '',
+    ].join('\n');
+
+    function caseJson(id: string, tier: string): string {
+      return JSON.stringify({
+        id,
+        feature: 'f',
+        requirementIds: ['r'],
+        testType: 'e2e',
+        title: `Case ${id}`,
+        steps: [{ description: 'Do it' }],
+        expectedResult: 'It works',
+        status: 'approved',
+        regressionTier: tier,
+        createdAt: '2026-10-01T09:00:00Z',
+      });
+    }
+
+    function filesFor(root: string = PROJECT_ROOT): Record<string, string> {
+      return {
+        [join(root, '.qa', 'config.yaml')]: CONFIG,
+        [join(root, '.qa', 'artifacts', 'cases', 'f', 'login.json')]: caseJson('login', 'smoke'),
+        [join(root, '.qa', 'artifacts', 'cases', 'f', 'checkout.json')]: caseJson('checkout', 'extended'),
+      };
+    }
+
+    it('lists the pack and what is left out, with the reasons', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(filesFor()) });
+
+      const exitCode = await runCli(['regression', 'plan', '--max-tier', 'smoke'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toEqual([
+        'Regression pack up to "smoke": 1 case(s) in, 1 out.',
+        '  in  login (smoke): execute live (no-verified-spec)',
+        '  out checkout: tier-above-threshold',
+      ]);
+    });
+
+    it('prints machine-readable JSON with --json', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(filesFor()) });
+
+      await runCli(['regression', 'plan', '--max-tier', 'extended', '--json'], deps);
+
+      expect(JSON.parse(deps.stdout.join('')) as unknown).toMatchObject({
+        command: 'regression-plan',
+        data: { maxTier: 'extended', included: [{ testCaseId: 'login' }, { testCaseId: 'checkout' }] },
+      });
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io } = captureIO();
+      const fs = createFakeFileSystem(filesFor(process.cwd()));
+
+      expect(await runCli(['regression', 'plan', '--max-tier', 'smoke'], { io, fs, env: {} })).toBe(
+        EXIT_SUCCESS,
+      );
+    });
+
+    it('prints the run command of a case that has a verified spec', async () => {
+      const spec = "test('x', () => {});\n";
+      const fs = createFakeFileSystem({
+        ...filesFor(),
+        [join(PROJECT_ROOT, 'tests', 'login.spec.ts')]: spec,
+        [join(PROJECT_ROOT, '.qa', 'verifications', 'verification-1.json')]: JSON.stringify({
+          schemaVersion: 1,
+          id: 'verification-1',
+          testCaseId: 'login',
+          filePath: 'tests/login.spec.ts',
+          contentSha256: hashText(spec),
+          status: 'verified',
+          verifiedAt: '2999-01-01T00:00:00Z',
+          consumedAt: '2999-01-01T00:00:01Z',
+        }),
+      });
+      const manifest = new ManifestStore({ store: new QaStore({ projectRoot: PROJECT_ROOT, fs }) });
+      await manifest.register('tests/login.spec.ts', spec, { root: 'project' });
+      await manifest.register('artifacts/cases/f/login.json', caseJson('login', 'smoke'));
+      const deps = dependencies({ fs });
+
+      await runCli(['regression', 'plan', '--max-tier', 'smoke'], deps);
+
+      expect(deps.stdout).toContain('  in  login (smoke): run tests/login.spec.ts');
+    });
+
+    it('refuses a threshold that is not a tier, and a missing one', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(filesFor()) });
+
+      expect(await runCli(['regression', 'plan', '--max-tier', 'weekly'], deps)).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('"weekly" is not a regression tier');
+      expect(await runCli(['regression', 'plan'], deps)).toBe(EXIT_FAILURE);
+    });
+
+    it('rejects a missing or unknown subcommand', async () => {
+      const deps = dependencies();
+
+      expect(await runCli(['regression', 'run'], deps)).toBe(EXIT_USAGE);
+      expect(await runCli(['regression'], deps)).toBe(EXIT_USAGE);
+      expect(deps.stderr.join('\n')).toContain('Unknown "qa regression" subcommand "run"');
+    });
+  });
+
   describe('metrics', () => {
     const CONFIG = [
       'schemaVersion: 1',
