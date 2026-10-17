@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "baseline-demo-app",
+  "generatedAt": "2026-10-17T11:56:23.012Z",
+  "bugs": {
+    "expectedCount": 5,
+    "detectedCount": 4,
+    "detectionRate": 0.8,
+    "results": [
+      {
+        "bugId": "BUG-001",
+        "isDetected": true,
+        "evidence": "task-empty-title"
+      },
+      {
+        "bugId": "BUG-002",
+        "isDetected": true,
+        "evidence": "task-status-filter"
+      },
+      {
+        "bugId": "BUG-004",
+        "isDetected": true,
+        "evidence": "task-delete"
+      },
+      {
+        "bugId": "BUG-007",
+        "isDetected": true,
+        "evidence": "dashboard-greeting"
+      },
+      {
+        "bugId": "BUG-008",
+        "isDetected": false
+      }
+    ]
+  },
+  "spokes": {
+    "attempts": 7,
+    "okResponses": 7,
+    "errorResponses": 0,
+    "unanswered": 0,
+    "retriedTaskCount": 0,
+    "validResponseRate": 1,
+    "bySpoke": [
+      {
+        "spokeId": "explorer",
+        "attempts": 1,
+        "okResponses": 1,
+        "errorResponses": 0,
+        "unanswered": 0,
+        "totalDurationMs": 2634
+      },
+      {
+        "spokeId": "test-design",
+        "attempts": 5,
+        "okResponses": 5,
+        "errorResponses": 0,
+        "unanswered": 0,
+        "totalDurationMs": 891
+      },
+      {
+        "spokeId": "triage",
+        "attempts": 1,
+        "okResponses": 1,
+        "errorResponses": 0,
+        "unanswered": 0,
+        "totalDurationMs": 45
+      }
+    ]
+  },
+  "selectors": {
+    "elementCount": 3,
+    "meanStabilityScore": 1,
+    "fragileCount": 1
+  },
+  "duration": {
+    "spokeSpanMs": 20736
+  },
+  "notMeasured": [
+    "tokens",
+    "cost"
+  ]
+}

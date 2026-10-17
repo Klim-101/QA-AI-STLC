@@ -110,13 +110,19 @@ export class QaStore {
   }
 
   private async isLockStale(lockPath: string): Promise<boolean> {
-    let acquiredAt: number;
+    let content: string;
     try {
-      acquiredAt = Number(await this.fs.readFile(lockPath));
+      content = await this.fs.readFile(lockPath);
     } catch {
       // The holder released it between the failed claim and this read: not stale, claim it again.
       return false;
     }
+    // A claim creates the file and then writes the time into it, so a waiter can read it empty. That
+    // is a holder at work, not a lock from long ago: `Number("")` is 0, which would read as ancient.
+    if (content.trim() === '') {
+      return false;
+    }
+    const acquiredAt = Number(content);
     return Number.isFinite(acquiredAt) && this.lockClock.now().getTime() - acquiredAt > this.lockStaleAfterMs;
   }
 
