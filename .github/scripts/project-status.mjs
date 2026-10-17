@@ -11,6 +11,7 @@ export const STATUS = Object.freeze({
 });
 
 const BLOCKED_LABEL = 'blocked';
+const ROADMAP_LABEL = 'roadmap';
 const BRANCH_ISSUE_PATTERN = /^[a-z]+\/(\d+)-/;
 
 /**
@@ -127,6 +128,24 @@ async function reconcileOpenIssues({ github, owner, repo, board }) {
       continue;
     }
     await board.setStatus(issue.node_id, await resolveOpenStatus({ github, owner, repo, issue }));
+  }
+
+  // A `closed` event whose run failed (for example an expired project token) is never replayed,
+  // so a closed roadmap task would stay on its last status forever.
+  const closedTasks = await github.paginate(github.rest.issues.listForRepo, {
+    owner,
+    repo,
+    state: 'closed',
+    labels: ROADMAP_LABEL,
+    per_page: 100,
+  });
+  for (const issue of closedTasks) {
+    if (issue.pull_request) {
+      continue;
+    }
+    if ((await board.getStatus(issue.node_id)) !== STATUS.done) {
+      await board.setStatus(issue.node_id, STATUS.done);
+    }
   }
 }
 
