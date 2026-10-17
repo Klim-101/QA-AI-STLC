@@ -148,3 +148,4 @@ export { scoreEvalRun, type EvalRunData, type EvalSpokeRecord } from './eval-sco
 export { renderEvalReportMarkdown } from './eval-report-markdown.js';
 export * from './operations/review-input.js';
 export * from './operations/review-add.js';
+export * from './operations/spec-check.js';

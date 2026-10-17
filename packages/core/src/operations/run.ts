@@ -44,7 +44,7 @@ export interface RunSummary {
   readonly counts: Readonly<Record<RunResultStatus, number>>;
 }
 
-function zeroedCounts(): Record<RunResultStatus, number> {
+export function zeroedCounts(): Record<RunResultStatus, number> {
   const counts = {} as Record<RunResultStatus, number>;
   for (const status of RunResultStatusSchema.options) {
     counts[status] = 0;
@@ -97,19 +97,26 @@ async function registerResultEvidence(
   return result;
 }
 
+export interface RunnerExecution {
+  readonly runId: Identifier;
+  readonly startedAt: string;
+  readonly specFiles: readonly RelativePath[];
+  readonly baseUrl: string;
+  /** The identity the run signed in as; absent for an anonymous run. */
+  readonly identity?: string;
+  readonly idGenerator: IdGenerator;
+  readonly outcomes: readonly RunnerOutcome[];
+}
+
 /**
- * `qa run` / MCP `qa.run` (P3-04): runs a spec set through the given `Runner` and persists every
- * `RunResult` it produces, plus a `RunRecordSchema` summary, under `.qa/runs/<run-id>/` — one
- * directory per invocation, distinct from `runRegisterCaseResult`'s per-case layout (P3-14), which
- * has no spec set or runner behind it. `core` never imports a concrete runner package (only the
- * `Runner` interface it already owns); the caller supplies one, the same injection pattern as
- * `EngineContext`'s own ports (AGENTS.md 5.3).
+ * Resolves the environment and identity, runs the spec set through the runner and refuses a run
+ * that produced no result at all. Persists nothing: `runTestRun` records what comes back, and
+ * `runSpecCheck` does not.
  */
-export async function runTestRun(context: EngineContext, options: RunOptions): Promise<RunSummary> {
+export async function executeRunner(context: EngineContext, options: RunOptions): Promise<RunnerExecution> {
   const specFiles = options.specFiles.map(assertRelativePath);
   const absoluteSpecFiles = specFiles.map((specFile) => resolveRelativePath(context.projectRoot, specFile));
 
-  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const config = await loadConfig(context);
   const environment = resolveBrowserEnvironment(config, options.environment);
 
@@ -144,7 +151,29 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
       remediation: 'Check that every --spec path exists and matches at least one test.',
     });
   }
+  return {
+    runId,
+    startedAt,
+    specFiles,
+    baseUrl: environment.config.baseUrl,
+    ...(identity !== undefined ? { identity } : {}),
+    idGenerator,
+    outcomes,
+  };
+}
 
+/**
+ * `qa run` / MCP `qa.run` (P3-04): runs a spec set through the given `Runner` and persists every
+ * `RunResult` it produces, plus a `RunRecordSchema` summary, under `.qa/runs/<run-id>/` — one
+ * directory per invocation, distinct from `runRegisterCaseResult`'s per-case layout (P3-14), which
+ * has no spec set or runner behind it. `core` never imports a concrete runner package (only the
+ * `Runner` interface it already owns); the caller supplies one, the same injection pattern as
+ * `EngineContext`'s own ports (AGENTS.md 5.3).
+ */
+export async function runTestRun(context: EngineContext, options: RunOptions): Promise<RunSummary> {
+  const execution = await executeRunner(context, options);
+  const { runId, startedAt, specFiles, idGenerator, identity, outcomes } = execution;
+  const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
   const evidenceStore = new EvidenceStore({ store, manifest, clock: context.clock });
   const resultPaths: RelativePath[] = [];
@@ -166,7 +195,7 @@ export async function runTestRun(context: EngineContext, options: RunOptions): P
     id: runId,
     testType: options.runner.testType,
     specFiles,
-    baseUrl: environment.config.baseUrl,
+    baseUrl: execution.baseUrl,
     ...(identity !== undefined ? { identity } : {}),
     startedAt,
     finishedAt,

@@ -12,7 +12,7 @@ import type { ToolDefinition } from '../tool.js';
 
 // One runner per test type, total over `TestType` so a new one fails to compile until it has a
 // runner — the same table `packages/cli/src/commands/run.ts` keeps for the CLI.
-const RUNNERS_BY_TEST_TYPE: Record<TestType, Runner> = {
+export const RUNNERS_BY_TEST_TYPE: Record<TestType, Runner> = {
   e2e: playwrightRunner,
   api: apiRunner,
   a11y: a11yRunner,

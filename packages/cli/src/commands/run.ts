@@ -20,7 +20,7 @@ export interface RunOptions {
 // One runner per test type (`@qa-ai-stlc/runner-playwright`, P3-01; `@qa-ai-stlc/runner-api`, P6-04;
 // `@qa-ai-stlc/runner-a11y`, P6-05). Total over `TestType`, so a new test type fails to compile here
 // until it has a runner.
-const RUNNERS_BY_TEST_TYPE: Record<TestType, Runner> = {
+export const RUNNERS_BY_TEST_TYPE: Record<TestType, Runner> = {
   e2e: playwrightRunner,
   api: apiRunner,
   a11y: a11yRunner,

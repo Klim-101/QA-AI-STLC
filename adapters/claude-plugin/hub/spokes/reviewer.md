@@ -24,7 +24,8 @@ assertion, what the engine found:
 
 ## What the spoke does
 
-- **Runs and checks, not only reads.** `qa.run` runs the spec; `qa.explore` with `verify` re-checks the
+- **Runs and checks, not only reads.** `qa.spec_check` runs the spec and records nothing, so a review
+  adds no run to the history `qa report`, flaky detection and triage read (`qa.run` would); `qa.explore` with `verify` re-checks the
   registry's locators against the live page. A spec that passes can still assert nothing.
 - **Judges each assertion** against the case's steps and expected result: does it check what the case
   says, with a value the case or the session gives?
