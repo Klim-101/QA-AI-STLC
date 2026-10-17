@@ -49,6 +49,8 @@ export interface FakeClickResult {
 export type FakeRevealRound = number | 'context-destroyed' | { readonly navigatesTo: string };
 
 export interface FakeCrawlPageOptions {
+  /** Maps a normalized URL to the URL the page ends up on after `goto()`, as a redirect to sign-in does. */
+  readonly redirectsByUrl?: Readonly<Record<string, string>>;
   /** Maps a normalized URL to the response `goto()` resolves with for it; defaults to a 200. */
   readonly responsesByUrl?: Readonly<Record<string, PageResponseLike | null>>;
   /** Maps a normalized URL to the links `extractLinks()` should see on it. */
@@ -70,6 +72,8 @@ export interface FakeCrawlPageOptions {
   /** Maps a normalized URL to the outcome of each successive round of opening collapsed panels on it. */
   readonly revealRoundsByUrl?: Readonly<Record<string, readonly FakeRevealRound[]>>;
   readonly clickResultsByUrl?: Readonly<Record<string, Readonly<Record<number, FakeClickResult>>>>;
+  /** What each context's `storageState()` returns, in the order the contexts were opened; empty when omitted. */
+  readonly contextStorageStates?: readonly StorageStateLike[];
   /** The session `authenticate()` resolves to for a `cdp-attach` identity in these tests. */
   readonly authStorageState?: StorageStateLike;
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
@@ -143,7 +147,7 @@ export function createFakeCrawlPage(
     clickedSelectors,
     goto: async (url) => {
       gotoUrls.push(url);
-      currentUrl = url;
+      currentUrl = options.redirectsByUrl?.[url] ?? url;
       await fireSubRequests(options.subRequestsByUrl?.[url] ?? []);
       const configured = options.responsesByUrl?.[url];
       return configured === undefined ? DEFAULT_RESPONSE : configured;
@@ -253,14 +257,16 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
           newContextCalls.push(newContextOptions);
           // The first context is the crawl's own and shares `page`; every later one is a fresh
           // navigation probe, whose page is its own so a test can tell a probe from the crawl.
-          const isFirstContext = pages.length === 0;
+          const contextIndex = pages.length;
+          const isFirstContext = contextIndex === 0;
           const contextRouteHandlers: RouteHandlerLike[] = isFirstContext ? firstContextRouteHandlers : [];
           const contextPage = isFirstContext ? page : createFakeCrawlPage(options, contextRouteHandlers);
           pages.push(contextPage);
           const context: AuthBrowserContextLike = {
             newPage: () => Promise.resolve(contextPage),
             pages: () => [contextPage],
-            storageState: () => Promise.resolve(EMPTY_STORAGE_STATE),
+            storageState: () =>
+              Promise.resolve(options.contextStorageStates?.[contextIndex] ?? EMPTY_STORAGE_STATE),
             route: (_pattern, handler) => {
               contextRouteHandlers.push(handler);
               return Promise.resolve();

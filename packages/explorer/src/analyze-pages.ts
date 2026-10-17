@@ -14,6 +14,7 @@ import { analyzePage } from './analyze-page.js';
 import type { ComponentLibraryProfile } from './component-library-profile.js';
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { revealCollapsedPanels } from './reveal-collapsed-panels.js';
+import { assertNotSignedOut } from './sign-in-redirect.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 
@@ -63,7 +64,7 @@ export interface AnalyzePagesResult {
 export async function analyzePages(options: AnalyzePagesOptions): Promise<AnalyzePagesResult> {
   const clock = options.clock ?? systemClock;
   const limits = options.limits ?? DEFAULT_NORMALIZE_LIMITS;
-  const storageState = await resolveStorageState(
+  let sessionState = await resolveStorageState(
     options.browserLauncher,
     options.identity,
     options.tlsInsecure,
@@ -75,7 +76,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
     // Safe mode is installed on the context, not the page, so a popup a click opens is covered too.
     const openSession = async (): Promise<{ page: AuthPage; close: () => Promise<void> }> => {
       const context = await browser.newContext({
-        ...(storageState === undefined ? {} : { storageState }),
+        ...(sessionState === undefined ? {} : { storageState: sessionState }),
         ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
       });
       await context.route(
@@ -89,7 +90,15 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
           options.safeMode,
         ),
       );
-      return { page: await context.newPage(), close: () => context.close() };
+      return {
+        page: await context.newPage(),
+        close: async () => {
+          // An application that rotates its session token on use hands the next context a dead one
+          // unless the state the previous context ended with is carried forward.
+          sessionState = await context.storageState();
+          await context.close();
+        },
+      };
     };
 
     const revealCollapsed = options.revealCollapsed === true;
@@ -103,6 +112,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
         await page.goto(url);
         await settlePage(page, url, options.settle);
         if (revealCollapsed) {
+          assertNotSignedOut(page, url, options.identity);
           expandedPanelCount += await revealCollapsedPanels(page, {
             pageUrl: url,
             ...(options.profile?.collapsiblePanelSelectors === undefined
@@ -110,6 +120,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
               : { extraSelectors: options.profile.collapsiblePanelSelectors }),
             ...(options.settle === undefined ? {} : { settle: options.settle }),
           });
+          assertNotSignedOut(page, url, options.identity);
         }
         pages.push(
           await analyzePage(

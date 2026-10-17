@@ -10,6 +10,11 @@ import { createFakeCrawlBrowserLauncher } from '@qa-ai-stlc/test-utils/fake-craw
 const EMPTY_ELEMENTS = { interactiveElements: [], forms: [], tables: [], dialogs: [] };
 const ALLOWLIST = ['staging.example.com'];
 const BASE_URL = 'https://staging.example.com/';
+const IDENTITY_WITH_LOGIN: IdentityConfig = {
+  auth: 'cdp-attach',
+  secret: 'QA_ADMIN_PASSWORD',
+  loginUrl: 'https://staging.example.com/login',
+};
 
 describe('analyzePages', () => {
   it('produces one page model per URL, in order', async () => {
@@ -63,6 +68,114 @@ describe('analyzePages', () => {
     expect(result.pageModelSet.pages).toHaveLength(2);
     expect(browserLauncher.newContextCalls).toHaveLength(2);
     expect(browserLauncher.closedContexts).toBe(2);
+  });
+
+  it('opens each context from the state the previous one ended with, so a rotated token is not lost', async () => {
+    const urls = [
+      'https://staging.example.com/a',
+      'https://staging.example.com/b',
+      'https://staging.example.com/c',
+    ];
+    const initial = { cookies: [{ name: 'refresh', value: 'token-0' }], origins: [] };
+    const afterFirst = { cookies: [{ name: 'refresh', value: 'token-1' }], origins: [] };
+    const afterSecond = { cookies: [{ name: 'refresh', value: 'token-2' }], origins: [] };
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      authStorageState: initial,
+      contextStorageStates: [afterFirst, afterSecond],
+      ariaSnapshotByUrl: Object.fromEntries(urls.map((url) => [url, { role: 'document' }])),
+      elementsByUrl: Object.fromEntries(urls.map((url) => [url, EMPTY_ELEMENTS])),
+    });
+
+    await analyzePages({
+      urls,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      testIdAttribute: 'data-testid',
+      revealCollapsed: true,
+      identity: { config: IDENTITY_WITH_LOGIN, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
+    });
+
+    expect(browserLauncher.newContextCalls.map((call) => call.storageState)).toEqual([
+      initial,
+      afterFirst,
+      afterSecond,
+    ]);
+  });
+
+  it('stops with EXPLORE_SIGNED_OUT when a page of its own context is sent to the sign-in page', async () => {
+    const url = 'https://staging.example.com/reports';
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      redirectsByUrl: { [url]: 'https://staging.example.com/login' },
+    });
+
+    await expect(
+      analyzePages({
+        urls: [url],
+        allowlist: ALLOWLIST,
+        baseUrl: BASE_URL,
+        browserLauncher,
+        testIdAttribute: 'data-testid',
+        revealCollapsed: true,
+        identity: { config: IDENTITY_WITH_LOGIN, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
+      }),
+    ).rejects.toMatchObject({ code: 'EXPLORE_SIGNED_OUT' });
+    expect(browserLauncher.closedContexts).toBe(1);
+    expect(browserLauncher.closedBrowsers).toBe(1);
+  });
+
+  it('stops with EXPLORE_SIGNED_OUT when a click on a panel signs the context out', async () => {
+    const url = 'https://staging.example.com/reports';
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      redirectsByUrl: { [url]: 'https://staging.example.com/login' },
+      revealRoundsByUrl: { [url]: [1] },
+    });
+
+    await expect(
+      analyzePages({
+        urls: [url],
+        allowlist: ALLOWLIST,
+        baseUrl: BASE_URL,
+        browserLauncher,
+        testIdAttribute: 'data-testid',
+        revealCollapsed: true,
+        identity: { config: IDENTITY_WITH_LOGIN, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
+      }),
+    ).rejects.toMatchObject({ code: 'EXPLORE_SIGNED_OUT' });
+  });
+
+  it('does not stop on the sign-in page itself, or when the identity names no sign-in page', async () => {
+    const loginUrl = 'https://staging.example.com/login';
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      ariaSnapshotByUrl: { [loginUrl]: { role: 'document' } },
+      elementsByUrl: { [loginUrl]: EMPTY_ELEMENTS },
+    });
+
+    const onLoginPage = await analyzePages({
+      urls: [loginUrl],
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      testIdAttribute: 'data-testid',
+      revealCollapsed: true,
+      identity: { config: IDENTITY_WITH_LOGIN, env: {}, cdpEndpointUrl: 'http://localhost:9222' },
+    });
+    const withoutLoginUrl = await analyzePages({
+      urls: [loginUrl],
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      testIdAttribute: 'data-testid',
+      revealCollapsed: true,
+      identity: {
+        config: { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' },
+        env: {},
+        cdpEndpointUrl: 'http://localhost:9222',
+      },
+    });
+
+    expect(onLoginPage.pageModelSet.pages).toHaveLength(1);
+    expect(withoutLoginUrl.pageModelSet.pages).toHaveLength(1);
   });
 
   it('opens no panel and counts none when it is not asked to', async () => {

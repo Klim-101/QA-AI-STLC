@@ -55,6 +55,11 @@ export interface FakeExplorePageOptions {
    * a page; the rounds after it find none, as a page whose panels are all open would.
    */
   readonly collapsedPanelClickCount?: number;
+  /**
+   * Once a round of opening collapsed panels has run, every load of a page ends on this URL, as an
+   * application does whose session a click or a reload lost.
+   */
+  readonly signedOutUrlAfterPanelClick?: string;
 }
 
 /**
@@ -81,12 +86,13 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
   });
   const viewportSizeCalls: ViewportSizeLike[] = [];
   let panelsOpenedSinceLoad = false;
+  let hasClickedPanels = false;
 
   return {
     viewportSizeCalls,
     routeHandlers,
     goto: async (url) => {
-      currentUrl = url;
+      currentUrl = hasClickedPanels ? (options.signedOutUrlAfterPanelClick ?? url) : url;
       panelsOpenedSinceLoad = false;
       for (const subRequest of options.subRequestsByUrl?.[url] ?? []) {
         for (const handler of routeHandlers) {
@@ -120,6 +126,7 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
       if (pageFunction.name === 'clickCollapsedControls') {
         const clickCount = panelsOpenedSinceLoad ? 0 : (options.collapsedPanelClickCount ?? 0);
         panelsOpenedSinceLoad = true;
+        hasClickedPanels = true;
         return Promise.resolve(clickCount);
       }
       if (options.pickModeState !== undefined) {
@@ -140,6 +147,7 @@ export function createFakeExplorePage(options: FakeExplorePageOptions = {}): Fak
     getByText: locatorMethod,
     locator: locatorMethod,
     reload: () => {
+      currentUrl = hasClickedPanels ? (options.signedOutUrlAfterPanelClick ?? currentUrl) : currentUrl;
       panelsOpenedSinceLoad = false;
       return Promise.resolve(DEFAULT_RESPONSE);
     },

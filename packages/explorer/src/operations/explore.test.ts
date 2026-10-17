@@ -629,6 +629,31 @@ describe('runExplore', () => {
       expect(notExpanded).not.toHaveProperty('expandedPanelCount');
     });
 
+    it('stops with EXPLORE_SIGNED_OUT and leaves the registry and the locator module untouched when a context loses its session', async () => {
+      const context = fakeContext(
+        {
+          elementsByUrl: { [START_URL]: ONE_ELEMENT },
+          locatorCount: 1,
+          collapsedPanelClickCount: 1,
+          signedOutUrlAfterPanelClick: 'https://staging.example.com/sign-in',
+        },
+        {
+          identities:
+            'identities:\n  admin: { auth: storage-state, secret: QA_ADMIN_PASSWORD, loginUrl: "https://staging.example.com/sign-in", username: "admin@example.com" }',
+        },
+      );
+
+      await expect(
+        runExplore(
+          { ...context, env: { QA_ADMIN_PASSWORD: 'secret' } },
+          { identity: 'admin', expandCollapsed: true },
+        ),
+      ).rejects.toMatchObject({ code: 'EXPLORE_SIGNED_OUT' });
+
+      expect(await context.fs.pathExists(join(QA_DIR, 'selectors', 'registry.json'))).toBe(false);
+      expect(await context.fs.pathExists(join(PROJECT_ROOT, 'tests', 'qa', 'locators.ts'))).toBe(false);
+    });
+
     it("opens the panels of a profile's own selectors when verifying as well", async () => {
       const profile = { ...SYNTHETIC_PROFILE, collapsiblePanelSelectors: ['.syn-panel-header'] };
       const context = fakeContext(

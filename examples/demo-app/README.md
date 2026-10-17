@@ -85,6 +85,10 @@ succeeded, as a single-page application does that exchanges a refresh cookie for
 aborts that POST, so the page stays empty unless the environment lists it in `safeNonGetRequests`.
 `POST /api/spa/orders` creates a record and must stay blocked; `GET /api/spa/orders` counts them.
 
+## Single-use session token fixture
+
+`/rotating/<name>` (P6-103; not one of the catalogued bugs) serves the collapsed-panel fixture to a signed-in user, but accepts the session token it hands out in the `qa_rotating` cookie only once, as an application with a single-use refresh token does. A browser context that starts from the state the sign-in produced is sent to `/login` for every page after the first, unless it starts from the state the previous context ended with.
+
 ## Tests
 
 `npm test --workspace @qa-ai-stlc/demo-app` runs a smoke suite (`src/server.test.ts`) covering the
