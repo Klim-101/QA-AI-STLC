@@ -1,5 +1,29 @@
 # @qa-ai-stlc/explorer
 
+## 1.12.0
+
+### Patch Changes
+
+- 7fb6c83: Spokes dispatched in parallel on Claude Code no longer lose each other's writes. The store has `withLock`, a lock under `.qa/locks/` that waits for the holder and takes over one left by a process that died (`STORE_LOCK_TIMEOUT` after 30 seconds). The manifest, the case indexes, the selector registry and a run's spoke records are written under it, so parallel registrations, case designs, explorations and dispatches (`SPOKE_PARALLELISM_EXCEEDED` is now exact under concurrency) all survive. Files are saved whole through a temporary file and a rename, so a reader never sees half of one. `persistExploreResult` reads the registry it merges into inside the lock, and no longer takes it as an argument. The hub definition says when it may dispatch spokes in parallel.
+- 40cbef8: `qa validate` no longer reports a registered generated spec as tampered. A manifest entry can name the tree its path is relative to (`root`, `project` for a generated spec and the locator module, absent for `.qa/`), and the sweep looks for the file there. An entry registered before `root` existed is looked for under `.qa/` first, then in the project, so manifests already on disk keep working; an edited or deleted spec is still reported.
+- Updated dependencies [0d13f55]
+- Updated dependencies [7a61e80]
+- Updated dependencies [d93192f]
+- Updated dependencies [7fb6c83]
+- Updated dependencies [dd86e85]
+- Updated dependencies [0f640f2]
+- Updated dependencies [d75a9a5]
+- Updated dependencies [e45a829]
+- Updated dependencies [ea67629]
+- Updated dependencies [3d51e7e]
+- Updated dependencies [31e0dca]
+- Updated dependencies [7a61e80]
+- Updated dependencies [4b76336]
+- Updated dependencies [00fe126]
+- Updated dependencies [40cbef8]
+  - @qa-ai-stlc/schemas@1.12.0
+  - @qa-ai-stlc/core@1.12.0
+
 ## 1.11.0
 
 ### Patch Changes
