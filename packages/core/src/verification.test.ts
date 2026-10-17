@@ -20,6 +20,7 @@ import { QaError } from './errors.js';
 import { hashText } from './hash.js';
 import { toCanonicalJson } from './json-file.js';
 import type { Runner, RunnerInput, RunnerOutcome } from './runner.js';
+import { runValidate } from './operations/validate.js';
 import { createFakeEngineContext } from './test-support/fake-engine-context.js';
 import { createSequentialIdGenerator } from './test-support/fake-id-generator.js';
 import {
@@ -985,6 +986,58 @@ describe('registerVerifiedGeneratedTestSpec', () => {
     expect(await fs.readFile(TARGET_ABSOLUTE_PATH)).toBe(SPEC.content);
     expect(await manifestEntryFor(fs, SPEC.filePath)).toBeDefined();
     expect(await readRecord(fs, verificationId)).toMatchObject({ consumedAt: expect.any(String) as string });
+  });
+
+  describe('qa validate after the registration', () => {
+    it('does not report the registered spec as tampered', async () => {
+      const { context } = createContext();
+      await registerVerifiedGeneratedTestSpec(context, SPEC, await verifyPassing(context));
+
+      const report = await runValidate(context);
+
+      expect(report.tamperedArtifacts).not.toContain(SPEC.filePath);
+    });
+
+    it('reports the registered spec once it is edited', async () => {
+      const { context, fs } = createContext();
+      await registerVerifiedGeneratedTestSpec(context, SPEC, await verifyPassing(context));
+      await fs.writeFile(
+        TARGET_ABSOLUTE_PATH,
+        `${SPEC.content}
+// edited by hand`,
+      );
+
+      const report = await runValidate(context);
+
+      expect(report.tamperedArtifacts).toContain(SPEC.filePath);
+    });
+
+    it('reports the registered spec once it is deleted', async () => {
+      const { context, fs } = createContext();
+      await registerVerifiedGeneratedTestSpec(context, SPEC, await verifyPassing(context));
+      await fs.deleteFile(TARGET_ABSOLUTE_PATH);
+
+      const report = await runValidate(context);
+
+      expect(report.tamperedArtifacts).toContain(SPEC.filePath);
+    });
+
+    it('checks a spec registered before manifest entries named a root at its project path', async () => {
+      const { context, fs } = createContext();
+      await registerVerifiedGeneratedTestSpec(context, SPEC, await verifyPassing(context));
+      const manifestPath = join('project', '.qa', 'manifest.json');
+      const manifest = JSON.parse(await fs.readFile(manifestPath)) as {
+        artifacts: Record<string, Record<string, unknown>>;
+      };
+      for (const entry of Object.values(manifest.artifacts)) {
+        delete entry.root;
+      }
+      await fs.writeFile(manifestPath, JSON.stringify(manifest));
+
+      expect((await runValidate(context)).tamperedArtifacts).not.toContain(SPEC.filePath);
+      await fs.writeFile(TARGET_ABSOLUTE_PATH, 'changed');
+      expect((await runValidate(context)).tamperedArtifacts).toContain(SPEC.filePath);
+    });
   });
 
   // The live repro from P4-13: nothing was ever verified, the caller just names an outcome.

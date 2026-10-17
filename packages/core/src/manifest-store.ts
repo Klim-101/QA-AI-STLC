@@ -43,8 +43,13 @@ export class ManifestStore {
   }
 
   /** Hashes `content` and records it, and which hasher produced that hash, as the current
-   * registered version of `relativePath`. */
-  async register(relativePath: RelativePath, content: string | Uint8Array): Promise<void> {
+   * registered version of `relativePath`. A file the engine wrote into the project rather than
+   * under `.qa/` is registered with `{ root: 'project' }`, so a later sweep looks for it there. */
+  async register(
+    relativePath: RelativePath,
+    content: string | Uint8Array,
+    options: { readonly root?: 'project' } = {},
+  ): Promise<void> {
     // Every spoke registers into the one manifest, so the read-modify-write is locked: without it
     // two parallel registrations both read the old manifest and the later write drops the earlier.
     await this.store.withLock('manifest', async () => {
@@ -57,6 +62,7 @@ export class ManifestStore {
             sha256: hashContent(content),
             mode: typeof content === 'string' ? 'text' : 'bytes',
             registeredAt: this.clock.now().toISOString(),
+            ...(options.root === undefined ? {} : { root: options.root }),
           },
         },
       };

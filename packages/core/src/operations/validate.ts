@@ -8,6 +8,7 @@ import {
   TestCaseSchema,
   TestDataSchema,
   type Identifier,
+  type ManifestEntryRoot,
   type PhaseName,
   type PipelineState,
   type RelativePath,
@@ -223,6 +224,26 @@ async function findRunResultIssues(store: QaStore, evidenceStore: EvidenceStore)
  * walks manifest entries, so a ledger `append()` has never touched would otherwise never appear
  * here even though `ApprovalLedgerStore.load()` already refuses to trust its content.
  */
+// An entry names the tree it is relative to. One registered before entries did (a generated spec,
+// or the locator module) has no root: the locator module is known to sit in the project, and any
+// other such path is looked for under `.qa/` first, then in the project.
+async function locateRegisteredFile(
+  context: EngineContext,
+  store: QaStore,
+  relativePath: RelativePath,
+  root: ManifestEntryRoot | undefined,
+): Promise<string> {
+  const projectPath = resolveRelativePath(context.projectRoot, relativePath);
+  if (root === 'project' || (root === undefined && relativePath === LOCATOR_MODULE_PATH)) {
+    return projectPath;
+  }
+  const qaPath = store.resolve(relativePath);
+  if (root === 'qa' || (await context.fs.pathExists(qaPath))) {
+    return qaPath;
+  }
+  return projectPath;
+}
+
 async function findTamperedArtifacts(
   context: EngineContext,
   store: QaStore,
@@ -231,10 +252,12 @@ async function findTamperedArtifacts(
   const manifest = await manifestStore.load();
   const tampered: RelativePath[] = [];
   for (const relativePath of Object.keys(manifest.artifacts).sort()) {
-    const absolutePath =
-      relativePath === LOCATOR_MODULE_PATH
-        ? resolveRelativePath(context.projectRoot, relativePath)
-        : store.resolve(relativePath);
+    const absolutePath = await locateRegisteredFile(
+      context,
+      store,
+      relativePath,
+      manifest.artifacts[relativePath]?.root,
+    );
     const exists = await context.fs.pathExists(absolutePath);
     if (!exists) {
       tampered.push(relativePath);

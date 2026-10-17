@@ -554,7 +554,7 @@ async function persistExploreResultLocked(
     resolveRelativePath(context.projectRoot, LOCATOR_MODULE_PATH),
     moduleResult.source,
   );
-  await manifest.register(LOCATOR_MODULE_PATH, moduleResult.source);
+  await manifest.register(LOCATOR_MODULE_PATH, moduleResult.source, { root: 'project' });
 
   const missingTestIdReport = buildMissingTestIdReport(merged);
   const missingTestIdReportSerialized = toCanonicalJson(missingTestIdReport);

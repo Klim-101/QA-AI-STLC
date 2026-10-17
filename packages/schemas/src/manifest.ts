@@ -12,10 +12,17 @@ import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 export const ManifestEntryModeSchema = z.enum(['text', 'bytes']);
 export type ManifestEntryMode = z.infer<typeof ManifestEntryModeSchema>;
 
+// Which tree a registered path is relative to: `.qa/` (the default, left out of the entry) or the
+// project root, for what the engine writes into the project (generated specs, the locator module).
+// Without it a path alone cannot say where to look for the file.
+export const ManifestEntryRootSchema = z.enum(['qa', 'project']);
+export type ManifestEntryRoot = z.infer<typeof ManifestEntryRootSchema>;
+
 export const ManifestEntrySchema = z.object({
   sha256: Sha256HexSchema,
   mode: ManifestEntryModeSchema,
   registeredAt: IsoDateTimeSchema,
+  root: ManifestEntryRootSchema.optional(),
 });
 export type ManifestEntry = z.infer<typeof ManifestEntrySchema>;
 

@@ -35,6 +35,52 @@ function fakeContext(files: Readonly<Record<string, string>> = {}): EngineContex
   };
 }
 
+describe('runValidate: where a registered file is looked for', () => {
+  const ENTRY = { sha256: hashText('{}'), mode: 'text', registeredAt: '2026-09-20T12:00:00Z' };
+
+  function contextWith(root: string | undefined, projectFiles: Readonly<Record<string, string>> = {}) {
+    const context = fakeContext({
+      'artifacts/scope.json': '{}',
+      'manifest.json': JSON.stringify({
+        schemaVersion: 1,
+        artifacts: { 'artifacts/scope.json': { ...ENTRY, ...(root === undefined ? {} : { root }) } },
+      }),
+    });
+    return Object.entries(projectFiles)
+      .reduce(async (previous, [path, content]) => {
+        await previous;
+        await context.fs.writeFile(join(PROJECT_ROOT, path), content);
+      }, Promise.resolve())
+      .then(() => context);
+  }
+
+  it('honours an entry that names the .qa tree', async () => {
+    const context = await contextWith('qa');
+
+    expect((await runValidate(context)).tamperedArtifacts).toEqual([]);
+  });
+
+  it('does not look under .qa for an entry that names the project', async () => {
+    const context = await contextWith('project');
+
+    expect((await runValidate(context)).tamperedArtifacts).toEqual(['artifacts/scope.json']);
+  });
+
+  it('looks for an entry with no root under .qa first', async () => {
+    const context = await contextWith(undefined);
+
+    expect((await runValidate(context)).tamperedArtifacts).toEqual([]);
+  });
+
+  it('falls back to the project for an entry with no root that is not under .qa', async () => {
+    const context = await contextWith(undefined);
+    await context.fs.deleteFile(join(QA_DIR, 'artifacts', 'scope.json'));
+    await context.fs.writeFile(join(PROJECT_ROOT, 'artifacts', 'scope.json'), '{}');
+
+    expect((await runValidate(context)).tamperedArtifacts).toEqual([]);
+  });
+});
+
 describe('runValidate', () => {
   it('reports every gate open and nothing reopened on a fresh project', async () => {
     const context = fakeContext();
