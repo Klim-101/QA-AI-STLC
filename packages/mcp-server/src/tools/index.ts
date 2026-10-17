@@ -64,6 +64,7 @@ import { securityAuditTool } from './security-audit.js';
 import { securityAuthorizeTool } from './security-authorize.js';
 import { runTool } from './run.js';
 import { scopeTool } from './scope.js';
+import { specCheckTool } from './spec-check.js';
 import { testDataAddTool } from './test-data-add.js';
 import { statusTool } from './status.js';
 import { validateTool } from './validate.js';
@@ -107,6 +108,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   generationVerifyTool,
   generationRegisterTool,
   runTool,
+  specCheckTool,
   linkTool,
   reportTool,
   securityAuthorizeTool,

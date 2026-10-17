@@ -79,7 +79,7 @@ const SPOKE_SUBAGENT_DEFINITIONS: readonly SpokeSubagentDefinition[] = [
       'Use when the QA-AI-STLC hub dispatches the independent review of one generated spec, to approve it or reject it.',
     guidance: [
       "Call `qa.review_input` with the case id and the spec path. It holds the case, the spec as registered, how the engine verified it and what the engine found in each assertion. You get no word of the author's reasoning and you do not ask for it: you have no file tools, so judge the spec, not the argument for it.",
-      "Use engine tools, not the text alone: `qa.run` to run the spec, and `qa.explore` with `verify` to check the registry's locators against the live page.",
+      "Use engine tools, not the text alone: `qa.spec_check` to run the spec without recording a run, and `qa.explore` with `verify` to check the registry's locators against the live page.",
       'Reject a spec with an assertion that is about nothing (a literal), that finds its element with a selector written into the spec, or that expects a value neither the case nor its proven session contains, unless you can say why it is right.',
       'Record the verdict with `qa.review_add`: `approved` or `rejected`, the reasons, and for each warning you accept a waiver with its reason. The engine refuses an approval that contradicts what it found.',
     ],

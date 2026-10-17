@@ -2687,6 +2687,117 @@ describe('runCli', () => {
     expect(parsed.data.counts).toMatchObject({ passed: 1, failed: 0 });
   });
 
+  describe('spec check (P4-18)', () => {
+    function reportWith(status: 'passed' | 'failed') {
+      return {
+        suites: [
+          {
+            specs: [
+              {
+                title: 'login',
+                tests: [
+                  {
+                    annotations: [{ type: 'testCaseId', description: 'login-case' }],
+                    results: [
+                      {
+                        status,
+                        startTime: '2026-09-25T10:00:00.000Z',
+                        duration: 1000,
+                        errors: status === 'failed' ? [{ message: 'boom' }] : [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    function checkDeps(status: 'passed' | 'failed') {
+      const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
+      return {
+        fs,
+        deps: dependencies({ fs, processRunner: fakeProcessRunnerWritingReport(fs, reportWith(status)) }),
+      };
+    }
+
+    it('says what each test did, records nothing and exits 0 when all passed', async () => {
+      const { fs, deps } = checkDeps('passed');
+      const before = [...(await fs.listFiles(PROJECT_ROOT))].sort();
+
+      const exitCode = await runCli(
+        [
+          'spec',
+          'check',
+          '--spec',
+          'tests/login.playwright-spec.ts',
+          '--test-type',
+          'e2e',
+          '--environment',
+          'staging',
+        ],
+        deps,
+      );
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toEqual(['Checked 1 test(s), nothing recorded:', '  login-case: passed']);
+      expect([...(await fs.listFiles(PROJECT_ROOT))].sort()).toEqual(before);
+    });
+
+    it('exits nonzero when a test failed, and prints JSON with --json', async () => {
+      const { deps } = checkDeps('failed');
+
+      const exitCode = await runCli(
+        ['spec', 'check', '--spec', 'tests/login.playwright-spec.ts', '--json'],
+        deps,
+      );
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(JSON.parse(deps.stdout.join('')) as unknown).toMatchObject({
+        command: 'spec-check',
+        data: { counts: { failed: 1 }, results: [{ testCaseId: 'login-case', status: 'failed' }] },
+      });
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io } = captureIO();
+      const fs = createFakeFileSystem({
+        [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML_WITH_ENVIRONMENT,
+      });
+
+      const exitCode = await runCli(['spec', 'check', '--spec', 'tests/login.playwright-spec.ts'], {
+        io,
+        fs,
+        env: {},
+        processRunner: fakeProcessRunnerWritingReport(fs, reportWith('passed')),
+      });
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+    });
+
+    it('passes the identity on, and asks for a spec when none is given', async () => {
+      const { deps } = checkDeps('passed');
+
+      await expect(runCli(['spec', 'check', '--identity', 'nobody', '--spec', 'a.ts'], deps)).resolves.toBe(
+        EXIT_FAILURE,
+      );
+      expect(deps.stderr.join('\n')).toContain('nobody');
+      const missing = checkDeps('passed').deps;
+      expect(await runCli(['spec', 'check'], missing)).toBe(EXIT_FAILURE);
+      expect(missing.stderr.join('\n')).toContain('Usage: qa spec check --spec <path>');
+    });
+
+    it('rejects a missing or unknown subcommand', async () => {
+      const deps = dependencies();
+
+      expect(await runCli(['spec', 'sync'], deps)).toBe(EXIT_USAGE);
+      expect(await runCli(['spec'], deps)).toBe(EXIT_USAGE);
+      expect(deps.stderr.join('\n')).toContain('Unknown "qa spec" subcommand "sync"');
+    });
+  });
+
   // P6-89: the sign-in reaches Playwright as a storage-state file that exists only for the run.
   it('runs "run --identity" signed in, names the identity and leaves no session behind', async () => {
     const fs = createFakeFileSystem({

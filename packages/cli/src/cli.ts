@@ -71,6 +71,7 @@ import { runApiDiff, type ApiDiffSummary } from './commands/api-diff.js';
 import { runExplore, type ExploreReport } from './commands/explore.js';
 import { runInit, type InitResult, type TestingScopeAnswers } from './commands/init.js';
 import { runRun, type RunSummary } from './commands/run.js';
+import { runSpecCheckCommand } from './commands/spec-check.js';
 import {
   runSecurityAuditCommand,
   runSecurityAuthorizationAdd,
@@ -103,6 +104,7 @@ Commands:
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
   run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]"
+  spec check    Run a spec set and say what each test did, recording nothing: "spec check --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]"
   link          Register a hand-written spec in traceability without regeneration: "link <spec> <requirement-id> --feature <name> [--test-type e2e]"
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
   defect add    Validate and register a defect draft: "defect add --path <path>"
@@ -168,6 +170,8 @@ export async function runCli(argv: readonly string[], dependencies: RunCliDepend
         return await dispatchTestData(rest, dependencies);
       case 'run':
         return await dispatchRun(rest, dependencies);
+      case 'spec':
+        return await dispatchSpec(rest, dependencies);
       case 'link':
         return await dispatchLink(rest, dependencies);
       case 'report':
@@ -819,6 +823,57 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
     ...(typeof values.identity === 'string' ? { identity: values.identity } : {}),
   });
   printResult(context.io, json, 'run', summary, formatRunSummary(summary));
+  const hasFailure =
+    summary.counts.failed > 0 ||
+    summary.counts.blocked > 0 ||
+    summary.counts.uncertain > 0 ||
+    summary.counts.partial > 0;
+  return hasFailure ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+async function dispatchSpec(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const [subcommand, ...subRest] = rest;
+  if (subcommand !== 'check') {
+    dependencies.io.stderr(`Unknown "qa spec" subcommand "${subcommand ?? ''}".
+
+${USAGE}`);
+    return EXIT_USAGE;
+  }
+  const { values } = parseArgs({
+    args: [...subRest],
+    options: {
+      json: { type: 'boolean', default: false },
+      spec: { type: 'string', multiple: true },
+      'test-type': { type: 'string' },
+      environment: { type: 'string' },
+      identity: { type: 'string' },
+    },
+    allowPositionals: false,
+    strict: true,
+  });
+  const specFiles = values.spec ?? [];
+  if (specFiles.length === 0) {
+    throw new QaError('SPEC_CHECK_USAGE', 'Usage: qa spec check --spec <path> [--spec <path> ...]', {
+      remediation: 'Example: qa spec check --spec tests/qa/generated/login.spec.ts',
+    });
+  }
+  const testType = parseTestType(values['test-type']);
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const summary = await runSpecCheckCommand(context, {
+    specFiles,
+    ...(testType !== undefined ? { testType } : {}),
+    ...(typeof values.environment === 'string' ? { environment: values.environment } : {}),
+    ...(typeof values.identity === 'string' ? { identity: values.identity } : {}),
+  });
+  printResult(context.io, json, 'spec-check', summary, [
+    `Checked ${String(summary.results.length)} test(s), nothing recorded:`,
+    ...summary.results.map((result) => `  ${result.testCaseId}: ${result.status}`),
+  ]);
   const hasFailure =
     summary.counts.failed > 0 ||
     summary.counts.blocked > 0 ||
