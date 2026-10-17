@@ -143,3 +143,6 @@ export * from './spec-case-ids.js';
 export * from './operations/triage-input.js';
 export * from './operations/triage-add.js';
 export { classifyFailureKind } from './triage-failures.js';
+export * from './operations/eval-score.js';
+export { scoreEvalRun, type EvalRunData, type EvalSpokeRecord } from './eval-score.js';
+export { renderEvalReportMarkdown } from './eval-report-markdown.js';
