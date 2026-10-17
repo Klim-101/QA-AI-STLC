@@ -31,6 +31,20 @@ describe('parseEvalArgs', () => {
     });
   });
 
+  it('runs the baseline with 4 spokes at once unless told otherwise, and takes 1 for sequential', () => {
+    expect(parseEvalArgs([], REPO)).toMatchObject({ parallelism: 4, isComparison: false });
+    expect(parseEvalArgs(['--parallelism', '1', '--compare'], REPO)).toMatchObject({
+      parallelism: 1,
+      isComparison: true,
+    });
+  });
+
+  it.each(['0', 'two', '1.5'])('rejects the parallelism "%s"', (parallelism) => {
+    expect(() => parseEvalArgs(['--parallelism', parallelism], REPO)).toThrow(
+      '--parallelism must be a whole number of 1 or more',
+    );
+  });
+
   it('keeps an absolute output folder as it is', () => {
     const absolute = resolve('somewhere', 'reports');
 

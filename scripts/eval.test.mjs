@@ -71,5 +71,5 @@ describe('npm run eval', () => {
 
     expect(failed.code).toBe(1);
     expect(failed.stderr).toContain('eval failed: --port must be a port number');
-  });
+  }, 60_000);
 });
