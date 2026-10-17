@@ -37,6 +37,7 @@ import { spokeRecordInputTool } from './spoke-record-input.js';
 import { spokeRecordOutputTool } from './spoke-record-output.js';
 import { rcaApproveTool } from './rca-approve.js';
 import { rcaInputTool } from './rca-input.js';
+import { defectDraftInputTool } from './defect-draft-input.js';
 import { regressionPlanTool } from './regression-plan.js';
 import { reviewAddTool } from './review-add.js';
 import { reviewInputTool } from './review-input.js';
@@ -90,6 +91,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   approveTool,
   defectAddTool,
   defectAcceptTool,
+  defectDraftInputTool,
   rcaInputTool,
   rcaAddTool,
   triageInputTool,

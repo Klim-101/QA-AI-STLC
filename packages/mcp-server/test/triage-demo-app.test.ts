@@ -8,7 +8,12 @@ import { startDemoApp } from '@qa-ai-stlc/test-utils/demo-app-server';
 import type { ManagedServer } from '@qa-ai-stlc/test-utils/managed-server';
 import type { TriageCategory } from '@qa-ai-stlc/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { casesAddTool } from '../src/tools/cases-add.js';
+import { defectAcceptTool } from '../src/tools/defect-accept.js';
+import { defectAddTool } from '../src/tools/defect-add.js';
+import { defectDraftInputTool } from '../src/tools/defect-draft-input.js';
 import { runTool } from '../src/tools/run.js';
+import { scopeTool } from '../src/tools/scope.js';
 import { triageAddTool } from '../src/tools/triage-add.js';
 import { triageInputTool } from '../src/tools/triage-input.js';
 
@@ -75,7 +80,32 @@ beforeAll(async () => {
   await writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
   await writeFile(join(PROJECT_ROOT, 'tests', 'triage.spec.ts'), SPEC, 'utf-8');
   process.chdir(PROJECT_ROOT);
+  await scopeTool.handler({
+    from: 'text',
+    label: 'login',
+    content: '## Login\nA registered user can log in and is greeted by name.\n',
+  });
+  for (const id of ['greeting', 'old-button', 'service-down']) {
+    await writeFile(
+      join(PROJECT_ROOT, `${id}.case.json`),
+      JSON.stringify({
+        id,
+        feature: id,
+        requirementIds: ['login'],
+        testType: 'e2e',
+        title: `Case ${id}`,
+        steps: [{ description: 'Log in as the admin' }],
+        expectedResult: id === 'greeting' ? 'The dashboard greets the user by name' : 'The case passes',
+        status: 'approved',
+        createdAt: '2026-10-17T09:00:00Z',
+      }),
+      'utf-8',
+    );
+    await casesAddTool.handler({ path: `${id}.case.json` });
+  }
 }, STARTUP_TIMEOUT_MS);
+
+let triagedRunId = '';
 
 afterAll(async () => {
   await demoApp.stop();
@@ -129,6 +159,7 @@ describe('failure triage (demo app, no LLM)', () => {
         },
       });
 
+      triagedRunId = run.runId;
       expect(added).toEqual({
         runId: run.runId,
         triagePath: `artifacts/triage/${run.runId}.json`,
@@ -161,5 +192,71 @@ describe('failure triage (demo app, no LLM)', () => {
       expect(flaky).toMatchObject({ code: 'TRIAGE_FLAKY_WITHOUT_HISTORY' });
     },
     STARTUP_TIMEOUT_MS * 2,
+  );
+
+  // P6-08: the failure the triage called a product bug becomes a draft the operator accepts, with the
+  // evidence of that failure; the others do not become drafts.
+  it(
+    'drafts the product bug from its seed and has it accepted with its evidence, and refuses a draft of a failure that is not one',
+    async () => {
+      const input = await defectDraftInputTool.handler({ runId: triagedRunId });
+
+      expect(input.seeds.map((seed) => seed.testCaseId)).toEqual(['greeting']);
+      const seed = input.seeds[0];
+      if (seed === undefined) {
+        throw new Error('Expected a seed for the greeting case.');
+      }
+      expect(seed.evidencePaths.length).toBeGreaterThan(0);
+      expect(seed.environment).toContain(BASE_URL);
+
+      const added = await defectAddTool.handler({
+        draft: {
+          schemaVersion: 1,
+          id: 'dashboard-greeting-empty',
+          title: 'The dashboard greeting has no name',
+          severityProposal: 'major',
+          category: 'functional',
+          steps: seed.steps,
+          expectedResult: seed.expectedResult,
+          actualResult: 'The greeting reads "Welcome, " with no name.',
+          environment: seed.environment ?? BASE_URL,
+          requirementIds: seed.requirementIds,
+          evidencePaths: seed.evidencePaths,
+          source: { runId: triagedRunId, resultId: seed.resultId },
+          status: 'draft',
+          createdAt: '2026-10-17T10:00:00Z',
+        },
+      });
+      const accepted = await defectAcceptTool.handler({
+        id: 'dashboard-greeting-empty',
+        approvedBy: 'operator',
+      });
+
+      expect(added.evidencePaths).toEqual(seed.evidencePaths);
+      expect(accepted).toMatchObject({ id: 'dashboard-greeting-empty', status: 'accepted' });
+
+      const environmentDraft = await defectAddTool
+        .handler({
+          draft: {
+            schemaVersion: 1,
+            id: 'service-down-defect',
+            title: 'The service is down',
+            severityProposal: 'major',
+            category: 'functional',
+            steps: ['Open the page'],
+            expectedResult: 'The page loads',
+            actualResult: 'It does not',
+            environment: BASE_URL,
+            requirementIds: ['login'],
+            evidencePaths: seed.evidencePaths,
+            source: { runId: triagedRunId, resultId: 'not-a-product-bug' },
+            status: 'draft',
+            createdAt: '2026-10-17T10:00:00Z',
+          },
+        })
+        .catch((caught: unknown) => caught);
+      expect(environmentDraft).toMatchObject({ code: 'DEFECT_SOURCE_NOT_TRIAGED' });
+    },
+    STARTUP_TIMEOUT_MS,
   );
 });

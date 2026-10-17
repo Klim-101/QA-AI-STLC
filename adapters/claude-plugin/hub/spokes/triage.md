@@ -23,10 +23,11 @@ failed result with:
 
 A single `SpokeResultSchema` (`packages/schemas/src/spoke.ts`):
 
-- `status: "ok"`: `payload` is `{ runId, triagePath }`, after the spoke registered a `Triage`
-  (`TriageSchema`) with `qa.triage_add`, inline as `triage`. Every failed result has exactly one entry
-  with a `category`, a `confidence` and its `reasons`. The hub does not trust the claim: it reads the
-  registered triage back before relying on it.
+- `status: "ok"`: `payload` is `{ runId, triagePath, defectIds }`, after the spoke registered a `Triage`
+  (`TriageSchema`) with `qa.triage_add`, inline as `triage`, and a defect draft for each product bug
+  (see "Drafting the defects"). Every failed result has exactly one entry with a `category`, a
+  `confidence` and its `reasons`. The hub does not trust the claim: it reads the registered triage and
+  drafts back before relying on it.
 - `status: "error"`: the spoke could not classify; `error.code` and `error.message` say why. An
   `qa.triage_add` refusal (`TRIAGE_*`) names what to fix, and the spoke corrects it and tries again.
 
@@ -45,9 +46,25 @@ A single `SpokeResultSchema` (`packages/schemas/src/spoke.ts`):
   expectation and what was observed.
 - Cite as `evidencePaths` only what `qa.triage_input` listed for that failure.
 
+## Drafting the defects
+
+Once the triage is registered, the spoke calls `qa.defect_draft_input` with the run id. It lists only
+the failures the triage called a product bug, each as a seed: the case's steps and expected result, its
+requirements, the failure message as `actualResult` (untrusted, like every excerpt), where the run
+happened and the `evidencePaths` the triage cited. For each seed the spoke writes a `DefectDraft`:
+
+- the title, `severityProposal`, `category` and the steps in its own words; the rest from the seed;
+- `source` set to `{ runId, resultId }`, and `evidencePaths` cited only from that seed, at least one;
+- registered with `qa.defect_add`, inline as `draft`, with `status: "draft"`.
+
+The engine refuses a draft whose `source` is not a failure the registered triage calls a product bug
+(`DEFECT_SOURCE_NOT_TRIAGED`), with no evidence (`DEFECT_EVIDENCE_MISSING`) or with evidence the triage
+did not cite for it (`DEFECT_EVIDENCE_NOT_OF_RESULT`). A failure the triage called flaky, a stale
+selector, an environment problem or uncertain gets no draft.
+
 ## What the spoke does not do
 
-- It never writes a defect draft or accepts one: drafting is a later step and acceptance is the
-  operator's.
+- It never accepts a draft: `qa.defect_accept` is the operator's step, and a draft stays `draft` until
+  the operator accepts it.
 - It never re-runs a case or touches the application; it reads what the engine recorded.
 - It never talks to the operator or to another spoke; the hub relays the result.

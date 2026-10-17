@@ -34,6 +34,15 @@ export const SecurityCodeReferenceSchema = z.object({
 });
 export type SecurityCodeReference = z.infer<typeof SecurityCodeReferenceSchema>;
 
+// The failed result a draft was written from. The engine holds a draft that names one to the
+// triage of its run: only a failure the triage called a product bug can be drafted this way, and
+// only with the evidence the triage cited for it.
+export const DefectSourceSchema = z.object({
+  runId: IdentifierSchema,
+  resultId: IdentifierSchema,
+});
+export type DefectSource = z.infer<typeof DefectSourceSchema>;
+
 // A defect draft is tracker-neutral (AGENTS.md 2.3, development plan section 2.4): the operator
 // files it in their own tracker. The `security*` fields are populated only for
 // `category: "security"` drafts produced by the on-demand audit.
@@ -54,6 +63,7 @@ export const DefectDraftSchema = z
     evidencePaths: z
       .array(RelativePathSchema)
       .describe('Project-relative paths of evidence the engine registered; never a file made by hand.'),
+    source: DefectSourceSchema.optional(),
     status: DefectStatusSchema.describe(
       'A new draft is always "draft"; the operator accepts it in a separate step.',
     ),

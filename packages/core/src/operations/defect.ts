@@ -6,6 +6,7 @@ import {
   type DefectDraft,
   SCHEMA_VERSION,
   ScopeSchema,
+  TriageSchema,
   type Approval,
   type DefectStatus,
   type Scope,
@@ -146,6 +147,10 @@ export async function registerDefectDraft(
     );
   }
 
+  if (draft.source !== undefined) {
+    await assertDraftMatchesTriage(manifest, draft.id, draft.source, draft.evidencePaths);
+  }
+
   await defects.write(draft, toCanonicalJson(draft));
   return {
     id: draft.id,
@@ -153,6 +158,50 @@ export async function registerDefectDraft(
     requirementIds: draft.requirementIds,
     evidencePaths: draft.evidencePaths,
   };
+}
+
+// A draft that names the failure it came from has to agree with the run's registered triage: that
+// failure was called a product bug, and the draft cites evidence the triage cited for it, at least
+// one piece. Without this a failure the triage called flaky or an environment problem could be filed
+// as a defect, with evidence of something else.
+async function assertDraftMatchesTriage(
+  manifest: ManifestStore,
+  draftId: string,
+  source: NonNullable<DefectDraft['source']>,
+  evidencePaths: readonly string[],
+): Promise<void> {
+  const triage = await manifest.readVerified(`artifacts/triage/${source.runId}.json`, TriageSchema);
+  const entry = triage?.entries.find(
+    (candidate) => candidate.resultId === source.resultId && candidate.category === 'product-bug',
+  );
+  if (entry === undefined) {
+    throw new QaError(
+      'DEFECT_SOURCE_NOT_TRIAGED',
+      `Defect "${draftId}" names result "${source.resultId}" of run "${source.runId}", which no registered triage calls a product bug`,
+      {
+        remediation:
+          'Draft only failures qa.defect_draft_input lists, and drop "source" for a defect found some other way.',
+      },
+    );
+  }
+  if (evidencePaths.length === 0) {
+    throw new QaError(
+      'DEFECT_EVIDENCE_MISSING',
+      `Defect "${draftId}" is drafted from a failure and cites no evidence`,
+      { remediation: 'Cite the evidencePaths of the seed qa.defect_draft_input returned for that failure.' },
+    );
+  }
+  const foreign = evidencePaths.filter((path) => !entry.evidencePaths.includes(path));
+  if (foreign.length > 0) {
+    throw new QaError(
+      'DEFECT_EVIDENCE_NOT_OF_RESULT',
+      `Defect "${draftId}" cites evidence the triage did not cite for that failure: ${foreign.join(', ')}`,
+      {
+        remediation:
+          'Cite only the evidencePaths of the seed qa.defect_draft_input returned for that failure.',
+      },
+    );
+  }
 }
 
 function emptyScope(): Scope {

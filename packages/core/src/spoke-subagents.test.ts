@@ -43,6 +43,8 @@ describe('renderSpokeSubagents', () => {
 
     expect(triage?.content).not.toContain('skill and follow it');
     expect(triage?.content).toContain('`qa.triage_input`');
+    expect(triage?.content).toContain('`qa.defect_draft_input`');
+    expect(triage?.content).toContain('`qa.defect_add`');
     expect(triage?.content).toContain('UNTRUSTED EVIDENCE');
   });
 

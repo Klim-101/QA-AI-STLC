@@ -154,3 +154,4 @@ export { computeRunMetrics } from './run-metrics.js';
 export { renderRunMetricsMarkdown } from './run-metrics-markdown.js';
 export * from './operations/regression-plan.js';
 export { planRegression, type CaseSpecState, type RegressionPlanInput } from './regression-plan.js';
+export * from './operations/defect-draft-input.js';
