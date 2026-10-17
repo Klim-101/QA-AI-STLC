@@ -74,7 +74,9 @@ Parallel work where it pays off, measured rather than assumed.
 - Failure triage and independent reviewer agents
 - Regression suite selection by test priority, replayed through the generated tests or live execution as needed
 - Run metrics — how a run was carried out, not how much it cost to think
-- Agent-layer evaluation set and a sequential versus parallel comparison
+- Agent-layer evaluation set and a sequential versus parallel comparison, run as a scripted baseline on the demo application
+
+One internal spoke, `qa-aggregate`, is deliberately not built: it waits for a skill that needs judgment over aggregated data beyond what the engine's own aggregation already gives.
 
 ## Phase 5 — Codex
 
