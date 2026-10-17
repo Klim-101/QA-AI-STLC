@@ -54,3 +54,7 @@ unique.
 control that is a bare `div` or `span` with a click handler, an anchor with no `href`, or a button
 inside a form is not clicked. A dashboard card built that way is therefore not reached by probing;
 pass its page with `--url` or pick it. `role="button"` was added to the probed set by this change.
+
+## Sign-in state across contexts, as found on a protected application
+
+Every page is read in a context of its own, so each context has to be signed in. Starting every one from the state the sign-in produced works for an application whose session lives in a cookie it never changes. An application that hands out the next session token on every use (a single-use refresh token) accepts the original one for the first page only; a later context is sent to the sign-in page, and the sign-in form was read and registered as the page. A context therefore starts from the state the previous context ended with, and a page that ends on the identity's sign-in page stops the exploration with `EXPLORE_SIGNED_OUT` before anything is written. An application that keeps its session in session storage is not carried by either approach: session storage is not part of the state, and the error names the page instead of registering the sign-in form.

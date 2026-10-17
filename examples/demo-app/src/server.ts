@@ -10,6 +10,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { createKendoRouter } from './routes/kendo.js';
 import { createOAuthRouter } from './routes/oauth.js';
 import { createOpenApiRouter } from './routes/openapi.js';
+import { createRotatingSessionRouter } from './routes/rotating-session.js';
 import { createSpaRouter } from './routes/spa.js';
 import { tasksRouter } from './routes/tasks.js';
 
@@ -41,6 +42,7 @@ export function createApp(): express.Express {
   app.use(createKendoRouter());
   app.use(createOpenApiRouter());
   app.use(createSpaRouter());
+  app.use(createRotatingSessionRouter());
 
   app.use((_request, response) => {
     response.status(404).render('error', { message: 'Page not found.' });

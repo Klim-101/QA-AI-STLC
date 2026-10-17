@@ -20,6 +20,7 @@ import {
 import { resolveStorageState, type ExplorerIdentity } from './identity.js';
 import { createElementNamer } from './naming.js';
 import { revealCollapsedPanels } from './reveal-collapsed-panels.js';
+import { assertNotSignedOut } from './sign-in-redirect.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from './safe-mode.js';
 import { settlePage, type PageSettleOptions } from './settle-page.js';
 import { scorePageCandidates, type CandidateStabilityScore } from './stability-scoring.js';
@@ -166,7 +167,7 @@ export async function buildSelectorRegistry(
     options.generatedIdPatterns ?? [],
     options.profile,
   ).map((source) => new RegExp(source));
-  const storageState = await resolveStorageState(
+  let sessionState = await resolveStorageState(
     options.browserLauncher,
     options.identity,
     options.tlsInsecure,
@@ -178,7 +179,7 @@ export async function buildSelectorRegistry(
     // Safe mode is installed on the context, not the page, so a popup a click opens is covered too.
     const openSession = async (): Promise<{ page: AuthPage; close: () => Promise<void> }> => {
       const context = await browser.newContext({
-        ...(storageState === undefined ? {} : { storageState }),
+        ...(sessionState === undefined ? {} : { storageState: sessionState }),
         ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
       });
       await context.route(
@@ -192,7 +193,15 @@ export async function buildSelectorRegistry(
           options.safeMode,
         ),
       );
-      return { page: await context.newPage(), close: () => context.close() };
+      return {
+        page: await context.newPage(),
+        close: async () => {
+          // An application that rotates its session token on use hands the next context a dead one
+          // unless the state the previous context ended with is carried forward.
+          sessionState = await context.storageState();
+          await context.close();
+        },
+      };
     };
     const revealCollapsed = options.revealCollapsed === true;
     const sharedSession = revealCollapsed ? undefined : await openSession();
@@ -210,6 +219,7 @@ export async function buildSelectorRegistry(
         await settlePage(page, pageModel.url, options.settle);
         const reveal = async (): Promise<void> => {
           if (revealCollapsed) {
+            assertNotSignedOut(page, pageModel.url, options.identity);
             await revealCollapsedPanels(page, {
               pageUrl: pageModel.url,
               ...(options.profile?.collapsiblePanelSelectors === undefined

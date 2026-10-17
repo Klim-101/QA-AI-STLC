@@ -195,6 +195,44 @@ describe('buildSelectorRegistry', () => {
     expect(browserLauncher.closedContexts).toBe(2);
   });
 
+  it('opens each context from the state the previous one ended with, and stops when one is signed out', async () => {
+    const urls = ['https://staging.example.com/a', 'https://staging.example.com/b'];
+    const initial = { cookies: [{ name: 'refresh', value: 'token-0' }], origins: [] };
+    const afterFirst = { cookies: [{ name: 'refresh', value: 'token-1' }], origins: [] };
+    const identity = {
+      config: {
+        auth: 'cdp-attach' as const,
+        secret: 'QA_ADMIN_PASSWORD',
+        loginUrl: 'https://staging.example.com/login',
+      },
+      env: {},
+      cdpEndpointUrl: 'http://localhost:9222',
+    };
+    const model = pageModelSet(urls.map((url) => pageModel(url, [element({ testId: 'filter' })])));
+    const rotating = createFakeCrawlBrowserLauncher({
+      locatorCounts: [1],
+      authStorageState: initial,
+      contextStorageStates: [afterFirst],
+    });
+    const signedOut = createFakeCrawlBrowserLauncher({
+      locatorCounts: [1],
+      redirectsByUrl: { [urls[0] ?? '']: 'https://staging.example.com/login' },
+    });
+    const common = {
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      revealCollapsed: true,
+      identity,
+    };
+
+    await buildSelectorRegistry({ ...common, browserLauncher: rotating });
+    const rejection = buildSelectorRegistry({ ...common, browserLauncher: signedOut });
+
+    expect(rotating.newContextCalls.map((call) => call.storageState)).toEqual([initial, afterFirst]);
+    await expect(rejection).rejects.toMatchObject({ code: 'EXPLORE_SIGNED_OUT' });
+  });
+
   it('opens no panel when it is not asked to', async () => {
     const url = 'https://staging.example.com/search';
     const browserLauncher = createFakeCrawlBrowserLauncher({
