@@ -54,6 +54,20 @@ describe('renderSpokeSubagents', () => {
     expect(reviewer?.content).toContain('`qa.review_add`');
   });
 
+  it('takes the reviewer file, shell and web tools away, so it can reach only what the engine hands it', () => {
+    const subagents = renderSpokeSubagents({});
+    const reviewer = subagents.find((subagent) => subagent.spokeId === 'reviewer');
+
+    expect(reviewer?.content).toContain(
+      '\ndisallowedTools: Read, Grep, Glob, Bash, Write, Edit, NotebookEdit, WebFetch, WebSearch\n',
+    );
+    expect(
+      subagents
+        .filter((subagent) => subagent.content.includes('disallowedTools:'))
+        .map((subagent) => subagent.spokeId),
+    ).toEqual(['reviewer']);
+  });
+
   it('names the skill, the task and the result envelope, and marks the file as generated', () => {
     const [explorer] = renderSpokeSubagents({});
 

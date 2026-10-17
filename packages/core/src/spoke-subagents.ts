@@ -15,6 +15,12 @@ interface SpokeSubagentBase {
   readonly description: string;
   readonly task: string;
   readonly payload: string;
+  /**
+   * Host tools the subagent never gets, written into its `disallowedTools`. A subagent otherwise
+   * inherits every tool of the session, so a rule that depends on what it cannot reach has to
+   * remove the tools that reach it; the engine's own (MCP) tools stay.
+   */
+  readonly disallowedTools?: readonly string[];
 }
 
 // How the work is done: by a plugin skill, or, for a spoke that has none, by rules written out here.
@@ -72,10 +78,24 @@ const SPOKE_SUBAGENT_DEFINITIONS: readonly SpokeSubagentDefinition[] = [
     description:
       'Use when the QA-AI-STLC hub dispatches the independent review of one generated spec, to approve it or reject it.',
     guidance: [
-      "Call `qa.review_input` with the case id and the spec path. It holds the case, the spec as registered, how the engine verified it and what the engine found in each assertion. You get no word of the author's reasoning and you do not ask for it: judge the spec, not the argument for it.",
+      "Call `qa.review_input` with the case id and the spec path. It holds the case, the spec as registered, how the engine verified it and what the engine found in each assertion. You get no word of the author's reasoning and you do not ask for it: you have no file tools, so judge the spec, not the argument for it.",
       "Use engine tools, not the text alone: `qa.run` to run the spec, and `qa.explore` with `verify` to check the registry's locators against the live page.",
       'Reject a spec with an assertion that is about nothing (a literal), that finds its element with a selector written into the spec, or that expects a value neither the case nor its proven session contains, unless you can say why it is right.',
       'Record the verdict with `qa.review_add`: `approved` or `rejected`, the reasons, and for each warning you accept a waiver with its reason. The engine refuses an approval that contradicts what it found.',
+    ],
+    // The author's spoke records sit in files of the project: with no file, shell or web tool the
+    // reviewer can reach only what the engine hands it, which is what judging without the author's
+    // reasoning needs.
+    disallowedTools: [
+      'Read',
+      'Grep',
+      'Glob',
+      'Bash',
+      'Write',
+      'Edit',
+      'NotebookEdit',
+      'WebFetch',
+      'WebSearch',
     ],
     task: 'one case id and the path its spec was registered under',
     payload: 'the case id, the verdict and the path `qa.review_add` registered the review under',
@@ -110,6 +130,9 @@ function renderSubagent(definition: SpokeSubagentDefinition, model: string | und
     // A quoted scalar, so a colon in the text cannot end the value early.
     `description: ${JSON.stringify(definition.description)}`,
     ...(model === undefined ? [] : [`model: ${model}`]),
+    ...(definition.disallowedTools === undefined
+      ? []
+      : [`disallowedTools: ${definition.disallowedTools.join(', ')}`]),
     '---',
     '',
     GENERATED_SUBAGENT_MARKER,
