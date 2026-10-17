@@ -26,6 +26,8 @@
     "generate": "node scripts/generate-claude-rules.mjs && node --experimental-strip-types scripts/generate-claude-plugin.mjs",
     "lint:generated": "node scripts/generate-claude-rules.mjs --check && node --experimental-strip-types scripts/generate-claude-plugin.mjs --check",
     "licenses:check": "node scripts/check-licenses.mjs",
+    "preeval": "npm run build",
+    "eval": "node scripts/eval.mjs",
     "pretest": "npm run build",
     "test": "vitest run --passWithNoTests",
     "pretest:coverage": "npm run build",

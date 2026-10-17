@@ -19,6 +19,7 @@ export * from './security.js';
 export * from './rca.js';
 export * from './rca-input.js';
 export * from './triage.js';
+export * from './eval.js';
 export * from './selector-registry.js';
 export * from './api-diff.js';
 export * from './api-surface.js';
