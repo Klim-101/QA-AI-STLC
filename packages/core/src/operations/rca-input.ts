@@ -16,19 +16,16 @@ import { loadConfig } from '../config-loader.js';
 import { DefectStore } from '../defect-store.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
-import { hashBytes } from '../hash.js';
 import { ManifestStore } from '../manifest-store.js';
 import { QaStore } from '../qa-store.js';
 import { RcaStore, assertDefectAccepted } from '../rca-store.js';
 import { listRunResultPaths } from '../run-results.js';
 import { wrapUntrustedEvidenceText } from '../untrusted-evidence-text.js';
+import { describeEvidence } from '../evidence-description.js';
 
 const CASES_DIR: RelativePath = 'artifacts/cases/';
 const MAX_RESULTS = 20;
 const MAX_FAILURE_MESSAGE_CHARS = 500;
-const MAX_EVIDENCE_EXCERPT_CHARS = 2_000;
-// Evidence worth showing as text; screenshots, traces and videos are referenced by path and hash only.
-const TEXT_EVIDENCE_EXTENSIONS: ReadonlySet<string> = new Set(['json', 'log', 'txt']);
 
 export interface RcaInputOptions {
   readonly defectId?: string;
@@ -102,26 +99,6 @@ export async function runRcaInput(context: EngineContext, options: RcaInputOptio
 /** `evidence/<runId>/<id>.<ext>`: the run an evidence file was registered under. */
 function runIdOfEvidencePath(path: RelativePath): string {
   return path.split('/')[1] ?? '';
-}
-
-async function describeEvidence(
-  store: QaStore,
-  manifest: ManifestStore,
-  path: RelativePath,
-): Promise<RcaInputEvidence> {
-  const bytes = await store.readBytes(path);
-  if (!(await manifest.verifyContent(path, bytes))) {
-    throw new QaError('ARTIFACT_HASH_MISMATCH', `"${path}" does not match its registered hash`, {
-      remediation: 'The evidence changed outside the engine; re-run the case to register fresh evidence.',
-    });
-  }
-  const base = { path, sha256: hashBytes(bytes), sizeBytes: bytes.length };
-  const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
-  if (!TEXT_EVIDENCE_EXTENSIONS.has(extension)) {
-    return { ...base, isTruncated: false };
-  }
-  const excerpt = wrapUntrustedEvidenceText(Buffer.from(bytes).toString('utf-8'), MAX_EVIDENCE_EXCERPT_CHARS);
-  return { ...base, excerpt: excerpt.text, isTruncated: excerpt.isTruncated };
 }
 
 async function loadResultHistory(

@@ -1430,6 +1430,98 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('artifacts/scope.json');
   });
 
+  describe('triage add', () => {
+    const CONFIG = [
+      'schemaVersion: 1',
+      'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+      '',
+    ].join('\n');
+    const RESULT = JSON.stringify({
+      schemaVersion: 1,
+      id: 'r1',
+      runId: 'run-1',
+      testCaseId: 'login',
+      testType: 'e2e',
+      status: 'failed',
+      startedAt: '2026-10-10T10:00:00Z',
+      finishedAt: '2026-10-10T10:00:01Z',
+      evidenceIds: [],
+      failure: { message: 'Timeout' },
+    });
+    const TRIAGE = JSON.stringify({
+      schemaVersion: 1,
+      runId: 'run-1',
+      entries: [
+        {
+          resultId: 'r1',
+          testCaseId: 'login',
+          category: 'uncertain',
+          confidence: 'low',
+          reasons: ['Nothing places it.'],
+        },
+      ],
+      createdAt: '2026-10-17T09:00:00Z',
+    });
+
+    function projectFiles(root: string = PROJECT_ROOT): Record<string, string> {
+      return {
+        [join(root, '.qa', 'config.yaml')]: CONFIG,
+        [join(root, '.qa', 'runs', 'run-1', 'results', 'r1.json')]: RESULT,
+        [join(root, 'triage.json')]: TRIAGE,
+      };
+    }
+
+    it('registers the classification and says what it registered', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(projectFiles()) });
+
+      const exitCode = await runCli(['triage', 'add', '--path', 'triage.json'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toContain('Registered artifacts/triage/run-1.json (1 classified failure(s)).');
+    });
+
+    it('prints machine-readable JSON with --json', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(projectFiles()) });
+
+      await runCli(['triage', 'add', '--path', 'triage.json', '--json'], deps);
+
+      expect(JSON.parse(deps.stdout.join('')) as unknown).toMatchObject({
+        command: 'triage-add',
+        data: { runId: 'run-1', entryCount: 1 },
+      });
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io } = captureIO();
+      const fs = createFakeFileSystem(projectFiles(process.cwd()));
+
+      expect(await runCli(['triage', 'add', '--path', 'triage.json'], { io, fs, env: {} })).toBe(
+        EXIT_SUCCESS,
+      );
+    });
+
+    it('asks for a path when none is given', async () => {
+      const deps = dependencies({ fs: createFakeFileSystem(projectFiles()) });
+
+      expect(await runCli(['triage', 'add'], deps)).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('Usage: qa triage add --path <path>');
+    });
+
+    it('rejects a missing or unknown subcommand', async () => {
+      const deps = dependencies();
+
+      expect(await runCli(['triage', 'sync'], deps)).toBe(EXIT_USAGE);
+      expect(await runCli(['triage'], deps)).toBe(EXIT_USAGE);
+      expect(deps.stderr.join('\n')).toContain('Unknown "qa triage" subcommand "sync"');
+    });
+  });
+
   describe('agents generate', () => {
     const CONFIG = [
       'schemaVersion: 1',

@@ -20,6 +20,7 @@ describe('renderSpokeSubagents', () => {
       '.claude/agents/qa-test-design.md',
       '.claude/agents/qa-case-execution.md',
       '.claude/agents/qa-test-generation.md',
+      '.claude/agents/qa-triage.md',
       '.claude/agents/qa-rca.md',
     ]);
     expect(listSpokeDefinitionIds()).toEqual(SPOKE_DEFINITION_IDS);
@@ -34,6 +35,14 @@ describe('renderSpokeSubagents', () => {
     expect(byId.get('test-generation')?.content).toContain('\nmodel: claude-opus-5-5\n');
     expect(byId.get('qa-rca')?.content).not.toContain('model:');
     expect(byId.get('qa-rca')).not.toHaveProperty('model');
+  });
+
+  it('gives a spoke with no skill its own rules instead of a skill to load', () => {
+    const triage = renderSpokeSubagents({}).find((subagent) => subagent.spokeId === 'triage');
+
+    expect(triage?.content).not.toContain('skill and follow it');
+    expect(triage?.content).toContain('`qa.triage_input`');
+    expect(triage?.content).toContain('UNTRUSTED EVIDENCE');
   });
 
   it('names the skill, the task and the result envelope, and marks the file as generated', () => {

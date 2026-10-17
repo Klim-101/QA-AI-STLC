@@ -97,6 +97,7 @@ export const SPOKE_DEFINITION_IDS = [
   'test-design',
   'case-execution',
   'test-generation',
+  'triage',
   'qa-rca',
 ] as const;
 export const SpokeDefinitionIdSchema = z.enum(SPOKE_DEFINITION_IDS);
