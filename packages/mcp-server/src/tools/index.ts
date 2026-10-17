@@ -37,6 +37,8 @@ import { spokeRecordInputTool } from './spoke-record-input.js';
 import { spokeRecordOutputTool } from './spoke-record-output.js';
 import { rcaApproveTool } from './rca-approve.js';
 import { rcaInputTool } from './rca-input.js';
+import { reviewAddTool } from './review-add.js';
+import { reviewInputTool } from './review-input.js';
 import { triageAddTool } from './triage-add.js';
 import { triageInputTool } from './triage-input.js';
 import { configAddApiAuthTool } from './config-add-api-auth.js';
@@ -89,6 +91,8 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   rcaAddTool,
   triageInputTool,
   triageAddTool,
+  reviewInputTool,
+  reviewAddTool,
   rcaApproveTool,
   spokeRecordInputTool,
   spokeRecordOutputTool,

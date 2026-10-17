@@ -3,7 +3,9 @@
 
 import { join } from 'node:path';
 import {
+  ManifestStore,
   QaError,
+  QaStore,
   SUPPORTED_BROWSERS,
   hashText,
   resolveBrowserExecutablePath,
@@ -1519,6 +1521,107 @@ describe('runCli', () => {
       expect(await runCli(['triage', 'sync'], deps)).toBe(EXIT_USAGE);
       expect(await runCli(['triage'], deps)).toBe(EXIT_USAGE);
       expect(deps.stderr.join('\n')).toContain('Unknown "qa triage" subcommand "sync"');
+    });
+  });
+
+  describe('review add', () => {
+    const SPEC = [
+      "test('login', { annotation: { type: 'testCaseId', description: 'login' } }, async ({ page }) => {",
+      "  await test.step('[step-1] Open', async () => {",
+      '    await expect(page).toHaveTitle("Log in");',
+      '  });',
+      '});',
+      '',
+    ].join('\n');
+    const CASE = JSON.stringify({
+      id: 'login',
+      feature: 'auth',
+      requirementIds: ['r'],
+      testType: 'e2e',
+      title: 'Log in',
+      steps: [{ description: 'Open' }],
+      expectedResult: 'Log in',
+      status: 'approved',
+      createdAt: '2026-10-01T09:00:00Z',
+    });
+    const CONFIG = [
+      'schemaVersion: 1',
+      'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
+      'environments:',
+      '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"] }',
+      'identities: {}',
+      'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
+      'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
+      'agents: { parallelism: 1, spokeTimeoutSeconds: 60, retries: 1 }',
+      '',
+    ].join('\n');
+
+    function reviewJson(): string {
+      return JSON.stringify({
+        schemaVersion: 1,
+        testCaseId: 'login',
+        specPath: 'tests/login.spec.ts',
+        specSha256: hashText(SPEC),
+        verdict: 'approved',
+        reasons: ['It checks the title the case names.'],
+        createdAt: '2026-10-17T09:00:00Z',
+      });
+    }
+
+    async function projectFs(root: string = PROJECT_ROOT): Promise<ReturnType<typeof createFakeFileSystem>> {
+      const fs = createFakeFileSystem({
+        [join(root, '.qa', 'config.yaml')]: CONFIG,
+        [join(root, '.qa', 'artifacts', 'cases', 'auth', 'login.json')]: CASE,
+        [join(root, 'tests', 'login.spec.ts')]: SPEC,
+        [join(root, 'review.json')]: reviewJson(),
+      });
+      const store = new QaStore({ projectRoot: root, fs });
+      await new ManifestStore({ store }).register('tests/login.spec.ts', SPEC, { root: 'project' });
+      return fs;
+    }
+
+    it('registers the verdict and says what it registered', async () => {
+      const deps = dependencies({ fs: await projectFs() });
+
+      const exitCode = await runCli(['review', 'add', '--path', 'review.json'], deps);
+
+      expect(exitCode).toBe(EXIT_SUCCESS);
+      expect(deps.stdout).toContain('Registered artifacts/reviews/login.json (approved).');
+    });
+
+    it('prints machine-readable JSON with --json', async () => {
+      const deps = dependencies({ fs: await projectFs() });
+
+      await runCli(['review', 'add', '--path', 'review.json', '--json'], deps);
+
+      expect(JSON.parse(deps.stdout.join('')) as unknown).toMatchObject({
+        command: 'review-add',
+        data: { testCaseId: 'login', verdict: 'approved' },
+      });
+    });
+
+    it('defaults the project root to the current working directory', async () => {
+      const { io } = captureIO();
+      const fs = await projectFs(process.cwd());
+
+      expect(await runCli(['review', 'add', '--path', 'review.json'], { io, fs, env: {} })).toBe(
+        EXIT_SUCCESS,
+      );
+    });
+
+    it('refuses a review with no --path', async () => {
+      const deps = dependencies({ fs: await projectFs() });
+
+      expect(await runCli(['review', 'add'], deps)).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('Usage: qa review add --path <path>');
+    });
+
+    it('rejects a missing or unknown subcommand', async () => {
+      const deps = dependencies();
+
+      expect(await runCli(['review', 'sync'], deps)).toBe(EXIT_USAGE);
+      expect(await runCli(['review'], deps)).toBe(EXIT_USAGE);
+      expect(deps.stderr.join('\n')).toContain('Unknown "qa review" subcommand "sync"');
     });
   });
 

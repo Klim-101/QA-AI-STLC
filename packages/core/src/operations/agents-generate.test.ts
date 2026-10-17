@@ -33,7 +33,7 @@ describe('runAgentsGenerate', () => {
     const result = await runAgentsGenerate(context);
 
     expect(result.directory).toBe('.claude/agents');
-    expect(result.subagents).toHaveLength(6);
+    expect(result.subagents).toHaveLength(7);
     expect(result.subagents[0]).toEqual({
       spokeId: 'explorer',
       path: '.claude/agents/qa-explorer.md',
