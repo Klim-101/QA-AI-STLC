@@ -148,6 +148,30 @@ describe('QaStore.withLock', () => {
     });
   });
 
+  it('does not take over a lock whose holder has not yet written the time into it', async () => {
+    const time = fakeTime();
+    const fs = createFakeFileSystem();
+    await fs.writeFile(LOCK_PATH, '');
+    const store = new QaStore({
+      projectRoot: 'project',
+      fs,
+      lock: {
+        clock: time.clock,
+        timeoutMs: 10,
+        retryEveryMs: 10,
+        sleep: (milliseconds) => {
+          time.advance(milliseconds);
+          return Promise.resolve();
+        },
+      },
+    });
+
+    await expect(store.withLock('shared', () => Promise.resolve())).rejects.toMatchObject({
+      code: 'STORE_LOCK_TIMEOUT',
+    });
+    expect(await fs.pathExists(LOCK_PATH)).toBe(true);
+  });
+
   it('claims the lock again when its holder released it between the claim and the read', async () => {
     const fs = createFakeFileSystem();
     await fs.writeFile(LOCK_PATH, '1');
