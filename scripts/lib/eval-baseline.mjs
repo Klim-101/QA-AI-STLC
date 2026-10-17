@@ -11,8 +11,9 @@ import { join } from 'node:path';
 import { BUILTIN_TOOLS } from '@qa-ai-stlc/mcp-server';
 
 const RUN_ID = 'eval-baseline';
-// `agents.parallelism` of the baseline project: the hub dispatches no more spokes than this at once.
-const PARALLELISM = 4;
+// `agents.parallelism` of the baseline project unless a run names another: the hub dispatches no
+// more spokes than this at once. 1 is sequential mode.
+export const DEFAULT_PARALLELISM = 4;
 
 function tool(name) {
   const found = BUILTIN_TOOLS.find((candidate) => candidate.name === name);
@@ -22,7 +23,7 @@ function tool(name) {
   return found;
 }
 
-export function configYaml(baseUrl) {
+export function configYaml(baseUrl, parallelism = DEFAULT_PARALLELISM) {
   return [
     'schemaVersion: 1',
     'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
@@ -31,7 +32,7 @@ export function configYaml(baseUrl) {
     'identities: {}',
     'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
     'selectors: { policy: playwright-default, testIdAttribute: data-testid }',
-    'agents: { parallelism: 4, spokeTimeoutSeconds: 120, retries: 1 }',
+    `agents: { parallelism: ${String(parallelism)}, spokeTimeoutSeconds: 120, retries: 1 }`,
     '',
   ].join('\n');
 }
@@ -140,11 +141,11 @@ async function dispatch(spokeId, taskId, work) {
  * runs the baseline against the demo app at `baseUrl`, and leaves the project for the scorer.
  * Changes the working directory to the project, as the engine tools read it from there.
  */
-export async function runBaseline({ projectRoot, baseUrl }) {
+export async function runBaseline({ projectRoot, baseUrl, parallelism = DEFAULT_PARALLELISM }) {
   await rm(projectRoot, { recursive: true, force: true });
   await mkdir(join(projectRoot, 'tests'), { recursive: true });
   await mkdir(join(projectRoot, '.qa'), { recursive: true });
-  await writeFile(join(projectRoot, '.qa', 'config.yaml'), configYaml(baseUrl), 'utf-8');
+  await writeFile(join(projectRoot, '.qa', 'config.yaml'), configYaml(baseUrl, parallelism), 'utf-8');
   await writeFile(join(projectRoot, 'tests', 'eval.spec.ts'), SPEC, 'utf-8');
   process.chdir(projectRoot);
 
@@ -160,9 +161,9 @@ export async function runBaseline({ projectRoot, baseUrl }) {
   });
 
   // One test-design spoke per case, as many at once as the configuration allows: the hub's parallel mode.
-  for (let first = 0; first < BASELINE_CASES.length; first += PARALLELISM) {
+  for (let first = 0; first < BASELINE_CASES.length; first += parallelism) {
     await Promise.all(
-      BASELINE_CASES.slice(first, first + PARALLELISM).map((testCase) =>
+      BASELINE_CASES.slice(first, first + parallelism).map((testCase) =>
         dispatch('test-design', testCase.id, async () => {
           const path = `${testCase.id}.case.json`;
           await writeFile(
