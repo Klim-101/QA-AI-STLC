@@ -10,6 +10,8 @@ the spoke follows, and the generated `qa-reviewer` subagent carries the same rul
 The hub passes the case id and the path the spec was registered under, and nothing else: not the
 generating spoke's output, not its reasoning. The spoke builds its own input with `qa.review_input`,
 which the engine assembles from registered artifacts, so the author's argument cannot reach it. The
+generated `qa-reviewer` subagent also has no file, shell or web tool (`disallowedTools`), so it cannot
+open the author's spoke records in the project either; the engine's own tools are what it has. The
 input has the case, the spec as registered, the verification that let it be registered and, per
 assertion, what the engine found:
 
