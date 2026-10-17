@@ -151,3 +151,4 @@ export * from './operations/review-add.js';
 export * from './operations/spec-check.js';
 export * from './operations/run-metrics.js';
 export { computeRunMetrics } from './run-metrics.js';
+export { renderRunMetricsMarkdown } from './run-metrics-markdown.js';

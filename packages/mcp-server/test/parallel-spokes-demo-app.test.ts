@@ -302,5 +302,13 @@ describe('parallel spokes (demo app, no LLM)', () => {
     expect(metrics.concurrency.peak).toBeGreaterThan(1);
     expect(metrics.timing.overlapSavingMs).toBeGreaterThanOrEqual(0);
     expect(Object.keys(metrics).filter((key) => /token|cost/iu.test(key))).toEqual([]);
+    // What the skill relays is the engine's rendering of these very figures (P4-11).
+    expect(metrics.markdown).toContain(
+      `${String(metrics.dispatch.tasks)} task(s), ${String(metrics.dispatch.attempts)} attempt(s): ${String(metrics.dispatch.okResponses)} valid, ${String(metrics.dispatch.errorResponses)} error, ${String(metrics.dispatch.unanswered)} unanswered.`,
+    );
+    expect(metrics.markdown).toContain(
+      `At most ${String(metrics.concurrency.peak)} attempt(s) ran at once, against agents.parallelism 4: within the budget.`,
+    );
+    expect(metrics.markdown).toContain('Tokens and cost: not measured.');
   });
 });
