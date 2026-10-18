@@ -38,8 +38,8 @@ claude plugin marketplace add Klim-101/QA-AI-STLC
 claude plugin install qa-ai-stlc@qa-ai-stlc
 ```
 
-The plugin brings ten skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`,
-`qa-generate-tests`, `qa-report`, `qa-rca`, `qa-security`, `qa-regression`, `qa-metrics`), a hook that blocks hand edits under `.qa/`, and a local
+The plugin brings thirteen skills (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`,
+`qa-generate-tests`, `qa-report`, `qa-rca`, `qa-security`, `qa-regression`, `qa-metrics`, `qa-api`, `qa-accessibility`, `qa-triage`), a hook that blocks hand edits under `.qa/`, and a local
 MCP server that it launches through `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. The first
 launch downloads that package, so it needs network access to npm, and on a slow connection it can outlast the
 30 seconds Claude Code waits for a server to connect (`/mcp` then shows the server as failed). Warm the cache first
@@ -68,6 +68,9 @@ From there, ask for what you want in plain words and the matching skill takes ov
 | "run a security audit on staging"                 | `qa-security`       |
 | "which cases make up the regression pack"         | `qa-regression`     |
 | "how did the agent run go"                        | `qa-metrics`        |
+| "check the API against its contract"              | `qa-api`            |
+| "check the app for accessibility problems"        | `qa-accessibility`  |
+| "triage the last run"                             | `qa-triage`         |
 
 Phase order and approvals are enforced by the engine, not by the skills, so the agent cannot skip a
 gate. Do not ask the agent to edit files under `.qa/`; the plugin's hook blocks it on purpose. You

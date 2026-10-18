@@ -2,7 +2,7 @@
 
 The hub may dispatch the triage of a run's failures as a spoke, one run per spoke (development plan
 section 5.3). It classifies every failed result as a product bug, a flaky test, a stale selector or an
-environment problem. There is no skill for it yet: this file is what the spoke follows, and the
+environment problem. The `qa-triage` skill is how the operator asks for it; this file is what the spoke follows, and the
 generated `qa-triage` subagent carries the same rules.
 
 ## Input

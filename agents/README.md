@@ -206,8 +206,8 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 - `agents/references/testing-standards.md` (P2-17) is the first shared reference: test-design
   technique names, `TestCaseSchema`/`DefectDraftSchema` field conventions, and the regression-tier
   definitions. The skills point to it by their `references:` frontmatter entry.
-- Ten skills ship today: `qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
-  `qa-report`, `qa-rca`, `qa-security`, `qa-regression` and `qa-metrics`.
+- Thirteen skills ship today: `qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
+  `qa-report`, `qa-rca`, `qa-security`, `qa-regression`, `qa-metrics`, `qa-api`, `qa-accessibility` and `qa-triage`.
 - `qa-rca` (P6-15) is the root cause analysis skill; `agents/hub/spokes/qa-rca.md` is its spoke
   contract. The input it works from is the engine's `qa.rca_input`.
 - `agents/hub/spokes/` holds one contract per spoke definition (`explorer`, `test-design`,
@@ -224,5 +224,9 @@ It walks `agents/skills/**/SKILL.md`, counts lines, and exits `1` naming every f
 - `qa-security` (P6-18) is the on-demand security audit skill. It is not part of the pipeline: no
   gate leads to it and no other skill calls it. The engine refuses an audit until the operator has
   approved the exact authorization (`qa.security_authorize`, `qa.security_approve`, `qa.security_audit`).
+- `qa-api`, `qa-accessibility` and `qa-triage` (P6-09) work above a single case. `qa-api` compares the
+  contract with the application (`qa.api_diff`), sets up authentication and runs the API specs;
+  `qa-accessibility` runs the accessibility specs or scans named pages and explains the findings;
+  `qa-triage` dispatches the triage spoke for a run. A case run live stays `qa-execute`.
 - The triggering eval suite (P2-10) is generated from those three skills' `triggers`/`nonTriggers`
   under `adapters/claude-plugin/evals/`; see [Triggering eval harness](#triggering-eval-harness).
