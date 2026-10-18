@@ -23,8 +23,7 @@ references:
 Fires when the operator wants the selector registry built or re-checked. Scoped to what
 `qa.explore` actually does today: crawling and static source analysis feed the registry, and the
 same crawl also derives a discovered API surface (`endpoints.json`, see
-[Reading the result](#reading-the-result)). OpenAPI discovery/diff and synthesis are not
-implemented yet (see [Not yet in scope](#not-yet-in-scope)).
+[Reading the result](#reading-the-result)). Comparing that surface with an OpenAPI contract is `qa-api` (see [Not yet in scope](#not-yet-in-scope)).
 
 ## Ask before calling anything
 
@@ -142,11 +141,8 @@ ending on the registry report alone.
 - It does not re-implement the explorer's crawl, static-analysis or scoring logic; it calls
   `qa.explore` and reports the structured result.
 
-## Not yet in scope
+## Not in this skill
 
-OpenAPI discovery/diff ([P6-02](https://github.com/Klim-101/QA-AI-STLC/issues/76)) and synthesized
-drafts ([P6-03](https://github.com/Klim-101/QA-AI-STLC/issues/77)) are not implemented yet: the
-discovered `endpoints.json` this skill reports on is traffic the crawl observed, not a contract
-diffed against or synthesized into an OpenAPI document. **When P6-02/P6-03 land, this file must be
-updated** to cover diffing and synthesis — do not let this note go stale once those tasks are
-picked up.
+Diffing the discovered API surface against an OpenAPI contract (`qa.api_diff`) belongs to `qa-api`.
+This skill reports the `endpoints.json` the crawl observed: traffic seen, not a contract. A
+synthesized draft is not a contract until the operator approves it as one.
