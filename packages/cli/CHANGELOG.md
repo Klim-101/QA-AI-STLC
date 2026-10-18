@@ -1,5 +1,46 @@
 # @qa-ai-stlc/cli
 
+## 1.12.0
+
+### Minor Changes
+
+- 0f640f2: The `qa-regression` skill and `qa.regression_plan` (also `qa regression plan --max-tier <tier>`). The engine selects the regression pack for a tier threshold (smoke, critical-path, regression, extended: a pack takes every tier up to the one named) from the registered cases, the run history and the verifications it holds: an approved case is in when its tier is at or below the threshold and its history is not flaky by the configured thresholds, and every case that is out carries its reason (`not-approved`, `no-tier`, `tier-above-threshold`, `flaky`). Each case in is routed to its verified generated spec (grouped for `qa.run`, one call per test type) or to live execution with the reason there is no spec (`no-verified-spec`, `stale-spec`, `spec-changed`). The skill shows the plan, asks before live execution, runs both routes and says what came back.
+- e45a829: The reviewer spoke. `qa.review_input` gives it a registered spec, its case, the verification that let it be registered and, for each `expect(...)`, what the engine found: `tautology` (the assertion is about a literal, so it holds whatever the application does), `inline-locator`, `unknown-locator` and `ungrounded-value` (an expected value neither the case nor its proven session contains). The author's reasoning is not part of it. `qa.review_add` (also `qa review add --path`) registers the verdict under `artifacts/reviews/<case-id>.json`, bound to the spec's exact content; the engine refuses an approval with an error finding (`REVIEW_APPROVAL_BLOCKED`), a warning with no reasoned waiver (`REVIEW_WARNING_NOT_WAIVED`) and a waiver for a finding it does not raise. `reviewer` joins the spoke definitions (contract and generated `qa-reviewer` subagent, `agents.models.reviewer`).
+- ea67629: `qa.run_metrics` (and `qa metrics [--run <run-id>]`) says how a run of the agent layer was carried out, read from the spoke I/O store and the `agents` budgets only: tasks, attempts and valid, error and unanswered responses per spoke, retries used against `agents.retries`, wall-clock and busy time, the time overlapping attempts saved, attempts that timed out, and the most attempts running at once against `agents.parallelism`. It has no token count or cost: the engine reads no host transcript.
+- 31e0dca: `qa.spec_check` (and `qa spec check --spec <path>`) runs a spec set through its runner and says what each test did (status, a capped failure message between untrusted-data markers, missing steps) without recording anything: no run record, result file, evidence or manifest entry, so it changes neither `qa report` nor the history that flaky detection and triage read. The reviewer subagent is now told to check a spec with it instead of `qa.run`, so a review no longer adds a run.
+- 4b76336: `agents.models` in `.qa/config.yaml` routes each spoke (`explorer`, `test-design`, `case-execution`, `test-generation`, `qa-rca`) to a model, and `qa agents generate` writes one Claude Code subagent per spoke into `.claude/agents/`, each with that `model:` (`inherit` when none is set). It rewrites only files it generated and refuses a file of the same name it did not (`AGENTS_FILE_NOT_GENERATED`). The explorer, test-design, case-execution and test-generation spokes get contract files in `agents/hub/spokes/`, next to `qa-rca`. Hosts whose subagents take no model ignore the setting.
+- 00fe126: The triage spoke: `qa.triage_input` gives it every failed result of a run with the failure message, a `failureKind` hint read off it (network, locator-not-found, assertion-mismatch, other), the registered evidence, the case's history across runs and whether the configured flaky thresholds call it flaky. `qa.triage_add` (also `qa triage add --path`) registers its classification under `artifacts/triage/<run-id>.json`: product bug, flaky, stale selector, environment or uncertain, each with a confidence and reasons. The engine refuses a failure left out, one classified twice, evidence that is not the result's, and `flaky` for a case whose history is not flaky. `triage` joins the spoke definitions, so it gets a contract and a generated subagent (`agents.models.triage`).
+
+### Patch Changes
+
+- 7fb6c83: Spokes dispatched in parallel on Claude Code no longer lose each other's writes. The store has `withLock`, a lock under `.qa/locks/` that waits for the holder and takes over one left by a process that died (`STORE_LOCK_TIMEOUT` after 30 seconds). The manifest, the case indexes, the selector registry and a run's spoke records are written under it, so parallel registrations, case designs, explorations and dispatches (`SPOKE_PARALLELISM_EXCEEDED` is now exact under concurrency) all survive. Files are saved whole through a temporary file and a rename, so a reader never sees half of one. `persistExploreResult` reads the registry it merges into inside the lock, and no longer takes it as an argument. The hub definition says when it may dispatch spokes in parallel.
+- dd86e85: The `qa-metrics` skill answers questions about how a run of the agent layer was carried out ("how did the agent run go", "how many retries did we use", "did we stay within the parallelism budget") by relaying `qa.run_metrics`, and says that tokens and cost are not measured instead of estimating them. `qa.run_metrics` now also returns `markdown`, the same figures rendered by the engine (seconds converted and formatted once), which the skill relays as it is; `qa metrics` prints that rendering.
+- Updated dependencies [0d13f55]
+- Updated dependencies [7394fac]
+- Updated dependencies [7a61e80]
+- Updated dependencies [d93192f]
+- Updated dependencies [7fb6c83]
+- Updated dependencies [62bc410]
+- Updated dependencies [dd86e85]
+- Updated dependencies [0f640f2]
+- Updated dependencies [d75a9a5]
+- Updated dependencies [e45a829]
+- Updated dependencies [ea67629]
+- Updated dependencies [3d51e7e]
+- Updated dependencies [31e0dca]
+- Updated dependencies [7a61e80]
+- Updated dependencies [4b76336]
+- Updated dependencies [00fe126]
+- Updated dependencies [1a5e8e2]
+- Updated dependencies [40cbef8]
+  - @qa-ai-stlc/schemas@1.12.0
+  - @qa-ai-stlc/core@1.12.0
+  - @qa-ai-stlc/explorer@1.12.0
+  - @qa-ai-stlc/runner-api@1.12.0
+  - @qa-ai-stlc/runner-playwright@1.12.0
+  - @qa-ai-stlc/runner-security@1.12.0
+  - @qa-ai-stlc/runner-a11y@1.12.0
+
 ## 1.11.0
 
 ### Minor Changes
