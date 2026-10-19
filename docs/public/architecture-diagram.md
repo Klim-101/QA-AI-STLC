@@ -41,7 +41,7 @@ no network call to one — verified in CI by `npm run lint`'s LLM-dependency den
 **The engine owns the browser (ADR-004).** Neither the model nor a skill drives Playwright
 directly; every interaction with the application under test goes through an engine tool that
 registers evidence, navigates only inside the configured allowlist, and defaults to safe mode (no
-form submission, no non-GET request).
+form submission, no request that is not a safe read).
 
 **No hosted infrastructure.** Every box above runs on your machine. `qa-mcp-server` is a local
 stdio process your agent host spawns like any other local tool — no port, no container, no service

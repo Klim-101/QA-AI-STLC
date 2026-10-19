@@ -3,6 +3,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
+import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { KENDO_PEOPLE_TOTAL } from './routes/kendo.js';
 import { DEMO_CLIENT_ID, DEMO_CLIENT_SECRET } from './routes/oauth.js';
@@ -34,6 +35,36 @@ describe('session-by-POST fixture endpoints (ADR-0014)', () => {
     expect((await request(app).get('/api/spa/orders')).body).toEqual({ orders: 0 });
     expect((await request(app).post('/api/spa/orders')).status).toBe(201);
     expect((await request(app).get('/api/spa/orders')).body).toEqual({ orders: 1 });
+  });
+});
+
+describe('read-by-QUERY fixture endpoints (ADR-0018)', () => {
+  it('answers a QUERY with the product list and has no GET on the same path', async () => {
+    const server = createApp().listen(0);
+    try {
+      const { port } = server.address() as AddressInfo;
+      const url = `http://localhost:${String(port)}/api/spa/products`;
+
+      const queried = await fetch(url, { method: 'QUERY', body: JSON.stringify({ category: 'hand-tools' }) });
+      const read = await fetch(url);
+
+      expect(queried.status).toBe(200);
+      expect(await queried.json()).toEqual({ products: ['Claw hammer', 'Hand saw', 'Pliers'] });
+      expect(read.status).toBe(404);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('counts a POST, a PUT, a PATCH and a DELETE as mutations', async () => {
+    const app = createApp();
+
+    await request(app).post('/api/spa/mutations');
+    await request(app).put('/api/spa/mutations');
+    await request(app).patch('/api/spa/mutations');
+    await request(app).delete('/api/spa/mutations');
+
+    expect((await request(app).get('/api/spa/mutations')).body).toEqual({ mutations: 4 });
   });
 });
 

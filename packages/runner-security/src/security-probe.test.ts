@@ -272,13 +272,16 @@ describe('SecurityProbe mutations', () => {
     expect(sent).toEqual([]);
   });
 
-  it.each(['GET', 'HEAD', 'OPTIONS'])('allows %s without any authorization entry', async (method) => {
-    const { client, sent } = scriptedClient();
+  it.each(['GET', 'HEAD', 'OPTIONS', 'QUERY'])(
+    'allows %s without any authorization entry',
+    async (method) => {
+      const { client, sent } = scriptedClient();
 
-    await probeWith(client).request({ method, path: '/anything' });
+      await probeWith(client).request({ method, path: '/anything' });
 
-    expect(sent).toHaveLength(1);
-  });
+      expect(sent).toHaveLength(1);
+    },
+  );
 });
 
 describe('SecurityProbe limits', () => {

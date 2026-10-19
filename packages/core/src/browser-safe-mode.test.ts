@@ -87,6 +87,43 @@ describe('createBrowserSafeModeRouteHandler', () => {
     expect(blocked).toEqual([{ method, url, reason }]);
   });
 
+  it.each(['GET', 'HEAD', 'OPTIONS', 'QUERY'])(
+    'lets an allowlisted %s request through (ADR-0018)',
+    async (method) => {
+      const blocked: BlockedRequest[] = [];
+      const route = createRoute(method, 'https://staging.example.test/products');
+
+      await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(route);
+
+      expect(route.calls).toEqual(['continue']);
+      expect(blocked).toEqual([]);
+    },
+  );
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE', 'TRACE', 'query'])(
+    'aborts an allowlisted %s request for its method (ADR-0018)',
+    async (method) => {
+      const blocked: BlockedRequest[] = [];
+      const url = 'https://staging.example.test/products';
+      const route = createRoute(method, url);
+
+      await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(route);
+
+      expect(route.calls).toEqual(['abort']);
+      expect(blocked).toEqual([{ method, url, reason: 'method' }]);
+    },
+  );
+
+  it('still aborts a QUERY request off the allowlist, for its host (ADR-0018)', async () => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute('QUERY', 'https://evil.test/products');
+
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(route);
+
+    expect(route.calls).toEqual(['abort']);
+    expect(blocked).toEqual([{ method: 'QUERY', url: 'https://evil.test/products', reason: 'host' }]);
+  });
+
   it('allows an allowlisted non-GET request when allowMutations is set (P3-14, ADR-0009)', async () => {
     const blocked: BlockedRequest[] = [];
     const route = createRoute('POST', 'https://staging.example.test/login');

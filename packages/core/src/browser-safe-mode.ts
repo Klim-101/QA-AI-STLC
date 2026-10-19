@@ -4,6 +4,7 @@
 import type { SafeNonGetRequest } from '@qa-ai-stlc/schemas';
 import { findAllowlistMismatch } from './browser-allowlist.js';
 import type { RouteHandler } from './ports/browser-launcher.js';
+import { isSafeHttpMethod } from './safe-http-methods.js';
 import type { BlockedRequestReason } from './safe-mode-requests.js';
 
 export interface SafeModeRequest {
@@ -48,8 +49,8 @@ function isNamedSafeRequest(
 }
 
 /**
- * Safe mode for an agent-driven session (AGENTS.md 12.4, ADR-005): every non-GET request is
- * aborted before it leaves the browser, so an exploratory click can never submit a form or
+ * Safe mode for an agent-driven session (AGENTS.md 12.4, ADR-005, ADR-0018): every request whose
+ * method is not a safe one is aborted before it leaves the browser, so an exploratory click can never submit a form or
  * mutate the application under test (unless `options.allowMutations` opts an execution session
  * out of that one restriction, ADR-0009). Every request is also checked against the session's
  * domain allowlist here, since this handler sees every request the page makes regardless of what
@@ -70,7 +71,7 @@ export function createBrowserSafeModeRouteHandler(
     const request = route.request();
     const method = request.method();
     const url = request.url();
-    const methodAllowed = method === 'GET' || options.allowMutations === true;
+    const methodAllowed = isSafeHttpMethod(method) || options.allowMutations === true;
     const mismatch = findAllowlistMismatch(url, allowlist, baseUrl);
     const isAllowedHost = mismatch === undefined;
     if (methodAllowed && isAllowedHost) {

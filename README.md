@@ -220,7 +220,7 @@ design.
 
 ### Applications that open their session with a POST
 
-Safe mode aborts every non-GET request an exploration makes. An application that gets its access
+Safe mode aborts every request an exploration makes that is not a safe read (`GET`, `HEAD`, `OPTIONS` or `QUERY`). An application that gets its access
 token with `POST /auth/refresh-token` on every load therefore never starts, and `qa explore` finds
 nothing past its sign-in page. List the request in the environment, in the committed
 `.qa/config.yaml`:
@@ -239,7 +239,7 @@ environments:
 or `qa config add environment staging ... --allow-request "POST /auth/refresh-token"
 --allow-request-reason "..."`. The entry is narrow on purpose: `POST` only, an exact path (no query,
 no pattern), a written reason, and only on a host the allowlist already permits. Every other
-non-GET request is still blocked. `qa explore` and `qa.browser_close` list what was let through and
+request that is not a safe read is still blocked. `qa explore` and `qa.browser_close` list what was let through and
 what was blocked, by method and path, so an application that stalls shows which request it was
 waiting for. Each blocked request carries its reason: its method (the only kind this list can answer),
 or its host, scheme or port when it left the environment's allowlist or `baseUrl`, as a GET to an API on

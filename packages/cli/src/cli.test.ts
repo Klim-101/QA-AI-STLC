@@ -578,6 +578,7 @@ describe('runCli', () => {
     const output = deps.stdout.join('\n');
     expect(output).not.toContain('non-GET');
     expect(output).toMatch(/\d+ request\(s\) blocked because their method is not allowed/u);
+    expect(output).toContain('safe mode lets GET, HEAD, OPTIONS, QUERY through');
     expect(output).toMatch(
       /\d+ request\(s\) blocked because their host is not on the environment's allowlist/u,
     );

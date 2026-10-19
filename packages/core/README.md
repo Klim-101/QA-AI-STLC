@@ -9,7 +9,7 @@ and every gate's live status in `state.json` is recomputed from that ledger, nev
 cached field, so editing an approved artifact reopens its gate automatically.
 
 It also owns the browser sessions an agent drives through the MCP `browser.*` tools (ADR-005):
-`BrowserSessionStore` holds the live sessions, safe mode aborts every non-GET request by default
+`BrowserSessionStore` holds the live sessions, safe mode aborts every request that is not a safe read (`GET`, `HEAD`, `OPTIONS`, `QUERY`) by default
 (an opt-in `executionMode` on `qa.browser_open` relaxes this for interactive case execution,
 ADR-0009 — the domain allowlist still applies unconditionally either way), and every action is
 registered through `EvidenceStore` before the operation returns.
