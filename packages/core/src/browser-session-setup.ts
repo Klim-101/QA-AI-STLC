@@ -46,7 +46,7 @@ export function createSessionRouteHandler(
     environment.baseUrl,
     (request) => {
       options.blockedRequests.push(request);
-      options.requestTally.recordBlocked(request.method, request.url);
+      options.requestTally.recordBlocked(request.method, request.url, request.reason);
     },
     {
       allowMutations: options.allowMutations,

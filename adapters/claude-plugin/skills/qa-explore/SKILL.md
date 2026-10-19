@@ -91,12 +91,17 @@ steps use instead of raw clicks.
 - `missingLocatorCount` — elements the explorer found but could not synthesize any locator for.
   These need the operator's attention (a manual pick, or a `data-testid` added to the source) before
   a case can target them.
-- `blockedRequestCount` — non-GET requests safe mode blocked during the crawl. Non-zero is expected
-  behavior, not a failure; mention it only if the operator asks what the crawl touched. The one
-  exception is a registry that is empty or stops at the sign-in page: `blockedRequests` then names, by
-  method and path, what the application tried to send (typically a `POST` that opens its session). Tell
-  the operator which entry they could add to the environment's `safeNonGetRequests` (they edit
-  `config.yaml`; you cannot, and must not suggest widening it for a request that changes data).
+- `blockedRequestCount` — requests safe mode blocked during the crawl, and `blockedRequestCounts` the
+  same by reason: `method` (not a GET), or `host`, `scheme` or `port` (the request left the
+  environment's allowlist or `baseUrl`). Non-zero is expected behavior, not a failure; mention it only
+  if the operator asks what the crawl touched. The one exception is a registry that is empty, stops at
+  the sign-in page or shows pages without their data: `blockedRequests` then names, by reason, method
+  and path, what the application tried to send. Read the reason before advising. A `method` entry
+  (typically a `POST` that opens the session) is the only kind the operator could add to the
+  environment's `safeNonGetRequests` (they edit `config.yaml`; you cannot, and must not suggest
+  widening it for a request that changes data). A `host`, `scheme` or `port` entry is a plain GET to
+  another origin, for example an API on another port: `safeNonGetRequests` cannot help; tell the operator
+  it is the environment's allowlist or `baseUrl` and that an allowlist entry names a host, not a port.
   `allowedRequests` lists what the environment's list let through.
 - `expandedPanelCount` (present only when `expandCollapsed` was on) — how many panel toggles were
   clicked. Zero means no page had a collapsed panel to open.

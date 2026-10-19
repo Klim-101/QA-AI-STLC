@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { assertUrlAllowed, isUrlAllowed } from './browser-allowlist.js';
+import { assertUrlAllowed, findAllowlistMismatch, isUrlAllowed } from './browser-allowlist.js';
 
 const ALLOWLIST = ['staging.example.test'];
 const BASE_URL = 'https://staging.example.test/';
@@ -47,6 +47,54 @@ describe('isUrlAllowed', () => {
     const httpBaseUrl = 'http://staging.example.test/';
     expect(isUrlAllowed('http://staging.example.test/', ALLOWLIST, httpBaseUrl)).toBe(true);
     expect(isUrlAllowed('http://staging.example.test:9999/', ALLOWLIST, httpBaseUrl)).toBe(false);
+  });
+});
+
+describe('findAllowlistMismatch', () => {
+  const allowlist = ['staging.example.test'];
+  const baseUrl = 'https://staging.example.test/';
+
+  it('is undefined for a URL the allowlist admits', () => {
+    expect(findAllowlistMismatch('https://staging.example.test/orders', allowlist, baseUrl)).toBeUndefined();
+    expect(
+      findAllowlistMismatch('https://staging.example.test:443/orders', allowlist, baseUrl),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    ['host', 'https://evil.test/orders'],
+    ['scheme', 'http://staging.example.test/orders'],
+    ['port', 'https://staging.example.test:8443/orders'],
+  ] as const)('names the %s when it is the part that differs', (mismatch, url) => {
+    expect(findAllowlistMismatch(url, allowlist, baseUrl)).toBe(mismatch);
+  });
+
+  it('names the host first when several parts differ', () => {
+    expect(findAllowlistMismatch('http://evil.test:8443/', allowlist, baseUrl)).toBe('host');
+  });
+
+  it('names the scheme before the port when both differ', () => {
+    expect(findAllowlistMismatch('http://staging.example.test:8443/', allowlist, baseUrl)).toBe('scheme');
+  });
+
+  it.each([
+    ['a URL that does not parse', 'not a url', baseUrl],
+    ['a base URL that does not parse', 'https://staging.example.test/', 'not a url'],
+  ])('reports a host mismatch for %s', (_label, url, base) => {
+    expect(findAllowlistMismatch(url, allowlist, base)).toBe('host');
+  });
+
+  it('agrees with isUrlAllowed on every case above', () => {
+    for (const url of [
+      'https://staging.example.test/',
+      'https://evil.test/',
+      'http://staging.example.test/',
+      'https://staging.example.test:8443/',
+    ]) {
+      expect(isUrlAllowed(url, allowlist, baseUrl)).toBe(
+        findAllowlistMismatch(url, allowlist, baseUrl) === undefined,
+      );
+    }
   });
 });
 

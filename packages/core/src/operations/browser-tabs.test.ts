@@ -3,6 +3,7 @@
 
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { BlockedRequest } from '../browser-safe-mode.js';
 import type { LogMeta, Logger } from '../ports/logger.js';
 import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
 import { runBrowserClick } from './browser-click.js';
@@ -315,9 +316,10 @@ describe('tabs (P6-59)', () => {
   it('names the request safe mode aborted when the page it opened shows the browser error page', async () => {
     const { harness, context, sessionId } = await openHarness();
     const session = await harness.sessions.get(sessionId);
-    (session.blockedRequests as { method: string; url: string }[]).push({
+    (session.blockedRequests as BlockedRequest[]).push({
       method: 'GET',
       url: 'https://elsewhere.example.test/blocked',
+      reason: 'host',
     });
     harness.launcher.openPopup('chrome-error://chromewebdata/');
 

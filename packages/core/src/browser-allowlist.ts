@@ -11,16 +11,32 @@ import { QaError } from './errors.js';
  * check against an environment whose real, HTTPS-on-443 application never listens there (#306).
  */
 export function isUrlAllowed(url: string, allowlist: readonly string[], baseUrl: string): boolean {
+  return findAllowlistMismatch(url, allowlist, baseUrl) === undefined;
+}
+
+/** The part of a URL that keeps it off the allowlist: its host, its scheme or its port. */
+export type AllowlistMismatch = 'host' | 'scheme' | 'port';
+
+/**
+ * Says which part of `url` the allowlist rejects, or `undefined` when it admits the URL. It is the
+ * one definition of the rule `isUrlAllowed` applies, so a report of why a request was blocked cannot
+ * disagree with the decision. A URL that does not parse is reported as a host mismatch: nothing about
+ * it can be matched to an allowed host.
+ */
+export function findAllowlistMismatch(
+  url: string,
+  allowlist: readonly string[],
+  baseUrl: string,
+): AllowlistMismatch | undefined {
   const parsed = tryParseUrl(url);
   const expected = tryParseUrl(baseUrl);
-  if (parsed === undefined || expected === undefined) {
-    return false;
+  if (parsed === undefined || expected === undefined || !allowlist.includes(parsed.hostname)) {
+    return 'host';
   }
-  return (
-    allowlist.includes(parsed.hostname) &&
-    parsed.protocol === expected.protocol &&
-    effectivePort(parsed) === effectivePort(expected)
-  );
+  if (parsed.protocol !== expected.protocol) {
+    return 'scheme';
+  }
+  return effectivePort(parsed) === effectivePort(expected) ? undefined : 'port';
 }
 
 /**

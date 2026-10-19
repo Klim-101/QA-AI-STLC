@@ -309,8 +309,9 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
       const closed = await close.handler({ sessionId: opened.sessionId });
 
       expect(closed.blockedRequests).toEqual([
-        { method: 'POST', url: 'https://staging.example.test/session' },
+        { method: 'POST', url: 'https://staging.example.test/session', reason: 'method' },
       ]);
+      expect(closed.requests.blockedCounts).toEqual({ method: 1, host: 0, scheme: 0, port: 0 });
       expect(fake.closedBrowsers).toBe(1);
       expect(fake.calls).toEqual([
         'goto https://staging.example.test/login',

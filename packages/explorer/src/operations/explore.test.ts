@@ -861,8 +861,14 @@ describe('runExplore', () => {
         { method: 'POST', path: '/auth/refresh-token', count: expect.any(Number) as number },
       ]);
       expect(report.blockedRequests).toEqual([
-        { method: 'POST', path: '/orders', count: expect.any(Number) as number },
+        { method: 'POST', path: '/orders', count: expect.any(Number) as number, reason: 'method' },
       ]);
+      expect(report.blockedRequestCounts).toEqual({
+        method: expect.any(Number) as number,
+        host: 0,
+        scheme: 0,
+        port: 0,
+      });
       expect(JSON.stringify(report)).not.toContain('secret');
     });
 
@@ -889,7 +895,9 @@ describe('runExplore', () => {
       const report = await runExplore(context, { verify: true });
 
       expect(report.allowedRequests).toEqual([{ method: 'POST', path: '/auth/refresh-token', count: 1 }]);
-      expect(report.blockedRequests).toEqual([{ method: 'POST', path: '/orders', count: 1 }]);
+      expect(report.blockedRequests).toEqual([
+        { method: 'POST', path: '/orders', count: 1, reason: 'method' },
+      ]);
     });
   });
 });

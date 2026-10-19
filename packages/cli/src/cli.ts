@@ -43,6 +43,8 @@ import {
   type ReportResult,
   type RequestSummary,
   type ScopeResult,
+  BLOCKED_REQUEST_REASONS,
+  type BlockedRequestReason,
   type TestDataAddResult,
   type StatusReport,
   type ValidateReport,
@@ -1464,7 +1466,7 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
     `Wrote ${report.registryPath}: ${String(report.elementCount)} element(s) (` +
       `${String(report.added)} added, ${String(report.removed)} removed, ${String(report.degraded.length)} degraded).`,
     `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
-    `${String(report.blockedRequestCount)} non-GET request(s) blocked by safe mode.`,
+    ...formatBlockedRequestCounts(report),
     ...(report.navigationProbeCount === undefined
       ? []
       : [`${String(report.navigationProbeCount)} navigation control(s) clicked in isolated contexts.`]),
@@ -1472,11 +1474,46 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
       ? []
       : [`${String(report.expandedPanelCount)} collapsed panel(s) opened in isolated contexts.`]),
     ...formatRequestSummaries('Let through by the environment (safeNonGetRequests)', report.allowedRequests),
-    ...formatRequestSummaries(
-      'Blocked (an application that stalls may need one listed in safeNonGetRequests)',
-      report.blockedRequests,
+    ...BLOCKED_REQUEST_REASONS.flatMap((reason) =>
+      formatRequestSummaries(
+        BLOCKED_REQUEST_REASON_TEXT[reason].heading,
+        report.blockedRequests.filter((entry) => entry.reason === reason),
+      ),
     ),
   ];
+}
+
+// What each reason means to an operator, and where its remedy is: only a blocked method can be
+// answered with `safeNonGetRequests`; a blocked origin is a matter of the environment's allowlist
+// and baseUrl, so pointing it at the method list would send the operator to the wrong setting.
+const BLOCKED_REQUEST_REASON_TEXT: Readonly<
+  Record<BlockedRequestReason, { cause: string; heading: string }>
+> = {
+  method: {
+    cause: 'their method is not allowed (safe mode lets only a GET through)',
+    heading: 'Blocked by method (an application that stalls may need one listed in safeNonGetRequests)',
+  },
+  host: {
+    cause: "their host is not on the environment's allowlist",
+    heading:
+      "Blocked, host not on the allowlist (add the host to the environment's allowlist if it belongs in scope)",
+  },
+  scheme: {
+    cause: "their scheme differs from the environment's baseUrl",
+    heading: 'Blocked, scheme differs from baseUrl (an environment uses one scheme for every allowed host)',
+  },
+  port: {
+    cause: "their port differs from the environment's baseUrl",
+    heading: 'Blocked, port differs from baseUrl (an allowlist entry names a host, not a port)',
+  },
+};
+
+function formatBlockedRequestCounts(report: ExploreReport): readonly string[] {
+  const lines = BLOCKED_REQUEST_REASONS.filter((reason) => report.blockedRequestCounts[reason] > 0).map(
+    (reason) =>
+      `${String(report.blockedRequestCounts[reason])} request(s) blocked because ${BLOCKED_REQUEST_REASON_TEXT[reason].cause}.`,
+  );
+  return lines.length === 0 ? ['0 request(s) blocked by safe mode.'] : lines;
 }
 
 function formatRequestSummaries(heading: string, summaries: readonly RequestSummary[]): readonly string[] {

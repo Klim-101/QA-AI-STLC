@@ -120,7 +120,8 @@ Recorded from a real run against [`examples/demo-app`](examples/demo-app): `qa i
 add` for an environment and identity, then `qa explore` building a 78-element selector registry, then
 a teammate renaming a `data-testid` on the live page, then `qa explore --verify` catching it and
 exiting non-zero. Waiting time between commands is sped up; every command and every line of output is
-real.
+real, except the blocked-request summary line of the first `qa explore`, which was updated in place when
+its wording changed (a test asserts it).
 
 `qa status` (or `qa.status`) shows the gates and what to do next: after the last gate it names exploring, executing approved cases and generating tests.
 
@@ -141,7 +142,7 @@ small task tracker used to validate the explorer against a real, running applica
 ```
 Wrote selectors/registry.json: 78 element(s) (78 added, 0 removed, 0 degraded).
 0 element(s) with no locator candidate.
-0 non-GET request(s) blocked by safe mode.
+0 request(s) blocked by safe mode.
 ```
 
 `--json` gives the same result as data instead of text:
@@ -240,7 +241,9 @@ or `qa config add environment staging ... --allow-request "POST /auth/refresh-to
 no pattern), a written reason, and only on a host the allowlist already permits. Every other
 non-GET request is still blocked. `qa explore` and `qa.browser_close` list what was let through and
 what was blocked, by method and path, so an application that stalls shows which request it was
-waiting for. An entry added only by the local layer is reported as a relaxation, and no MCP tool can
+waiting for. Each blocked request carries its reason: its method (the only kind this list can answer),
+or its host, scheme or port when it left the environment's allowlist or `baseUrl`, as a GET to an API on
+another port does. An entry added only by the local layer is reported as a relaxation, and no MCP tool can
 add one. See [ADR-0014](docs/adr/0014-environment-allowlist-for-safe-non-get-requests.md).
 
 ### Pages the crawl cannot reach

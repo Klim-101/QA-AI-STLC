@@ -551,9 +551,63 @@ describe('runCli', () => {
     expect(output).toContain('Let through by the environment (safeNonGetRequests):');
     expect(output).toMatch(/ {2}POST \/auth\/refresh-token x\d+/u);
     expect(output).toContain(
-      'Blocked (an application that stalls may need one listed in safeNonGetRequests):',
+      'Blocked by method (an application that stalls may need one listed in safeNonGetRequests):',
     );
     expect(output).toMatch(/ {2}POST \/orders x\d+/u);
+  });
+
+  it('reports a GET blocked for its origin by that, not as a non-GET request (#767)', async () => {
+    const { fs, deps } = exploreDeps({
+      locatorCount: 1,
+      subRequestsByUrl: {
+        'https://staging.example.com/login': [
+          { method: 'GET', url: 'https://staging.example.com:8091/brands' },
+          { method: 'GET', url: 'https://staging.example.com:8091/brands' },
+          { method: 'GET', url: 'http://staging.example.com/legacy' },
+          { method: 'GET', url: 'https://cdn.example.net/app.js' },
+          { method: 'POST', url: 'https://staging.example.com/orders' },
+        ],
+      },
+    });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
+    deps.stdout.length = 0;
+
+    await runCli(['explore'], deps);
+
+    const output = deps.stdout.join('\n');
+    expect(output).not.toContain('non-GET');
+    expect(output).toMatch(/\d+ request\(s\) blocked because their method is not allowed/u);
+    expect(output).toMatch(
+      /\d+ request\(s\) blocked because their host is not on the environment's allowlist/u,
+    );
+    expect(output).toMatch(
+      /\d+ request\(s\) blocked because their scheme differs from the environment's baseUrl/u,
+    );
+    expect(output).toMatch(
+      /\d+ request\(s\) blocked because their port differs from the environment's baseUrl/u,
+    );
+    expect(output).toContain(
+      'Blocked, port differs from baseUrl (an allowlist entry names a host, not a port):',
+    );
+    expect(output).toMatch(/ {2}GET \/brands x\d+/u);
+    // Only a blocked method is answered with safeNonGetRequests.
+    const originHeadings = output.split('\n').filter((line) => line.startsWith('Blocked, '));
+    expect(originHeadings).toHaveLength(3);
+    for (const heading of originHeadings) {
+      expect(heading).not.toContain('safeNonGetRequests');
+    }
+  });
+
+  it('says so when safe mode blocked nothing (#767)', async () => {
+    const { fs, deps } = exploreDeps({ locatorCount: 1 });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
+    deps.stdout.length = 0;
+
+    await runCli(['explore'], deps);
+
+    expect(deps.stdout.join('\n')).toContain('0 request(s) blocked by safe mode.');
   });
 
   it('runs explore --json and prints a single JSON line', async () => {

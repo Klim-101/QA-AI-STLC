@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { createBrowserSafeModeRouteHandler, type BlockedRequest } from './browser-safe-mode.js';
+import {
+  createBrowserSafeModeRouteHandler,
+  type BlockedRequest,
+  type SafeModeRequest,
+} from './browser-safe-mode.js';
 import type { PageRoute } from './ports/browser-launcher.js';
 
 function createRoute(method: string, url: string): PageRoute & { readonly calls: string[] } {
@@ -42,7 +46,9 @@ describe('createBrowserSafeModeRouteHandler', () => {
     await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(route);
 
     expect(route.calls).toEqual(['abort']);
-    expect(blocked).toEqual([{ method: 'POST', url: 'https://staging.example.test/orders' }]);
+    expect(blocked).toEqual([
+      { method: 'POST', url: 'https://staging.example.test/orders', reason: 'method' },
+    ]);
   });
 
   it('aborts a GET request off the domain allowlist and reports it (regression, #279)', async () => {
@@ -52,7 +58,7 @@ describe('createBrowserSafeModeRouteHandler', () => {
     await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(route);
 
     expect(route.calls).toEqual(['abort']);
-    expect(blocked).toEqual([{ method: 'GET', url: 'https://evil.test/phishing' }]);
+    expect(blocked).toEqual([{ method: 'GET', url: 'https://evil.test/phishing', reason: 'host' }]);
   });
 
   it('aborts a GET request off the domain scheme/port and reports it (regression, #306)', async () => {
@@ -62,7 +68,23 @@ describe('createBrowserSafeModeRouteHandler', () => {
     await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(route);
 
     expect(route.calls).toEqual(['abort']);
-    expect(blocked).toEqual([{ method: 'GET', url: 'http://staging.example.test:9999/' }]);
+    expect(blocked).toEqual([{ method: 'GET', url: 'http://staging.example.test:9999/', reason: 'scheme' }]);
+  });
+
+  it.each([
+    ['host', 'GET', 'https://evil.test/phishing'],
+    ['scheme', 'GET', 'http://staging.example.test/'],
+    ['port', 'GET', 'https://staging.example.test:8443/'],
+    ['host', 'POST', 'https://evil.test/phishing'],
+    ['host', 'GET', 'not a url'],
+  ] as const)('names the %s as the reason for a %s request to %s', async (reason, method, url) => {
+    const blocked: BlockedRequest[] = [];
+
+    await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request))(
+      createRoute(method, url),
+    );
+
+    expect(blocked).toEqual([{ method, url, reason }]);
   });
 
   it('allows an allowlisted non-GET request when allowMutations is set (P3-14, ADR-0009)', async () => {
@@ -86,7 +108,7 @@ describe('createBrowserSafeModeRouteHandler', () => {
     })(route);
 
     expect(route.calls).toEqual(['abort']);
-    expect(blocked).toEqual([{ method: 'POST', url: 'https://evil.test/phishing' }]);
+    expect(blocked).toEqual([{ method: 'POST', url: 'https://evil.test/phishing', reason: 'host' }]);
   });
 
   describe('safeRequests (ADR-0014)', () => {
@@ -94,7 +116,7 @@ describe('createBrowserSafeModeRouteHandler', () => {
       { method: 'POST', path: '/auth/refresh-token', reason: 'Exchanges the refresh cookie.' },
     ] as const;
 
-    async function send(method: string, url: string, onAllowed?: (request: BlockedRequest) => void) {
+    async function send(method: string, url: string, onAllowed?: (request: SafeModeRequest) => void) {
       const blocked: BlockedRequest[] = [];
       const route = createRoute(method, url);
       await createBrowserSafeModeRouteHandler(ALLOWLIST, BASE_URL, (request) => blocked.push(request), {
@@ -105,7 +127,7 @@ describe('createBrowserSafeModeRouteHandler', () => {
     }
 
     it('lets the named POST through and reports it as allowed, not blocked', async () => {
-      const allowed: BlockedRequest[] = [];
+      const allowed: SafeModeRequest[] = [];
 
       const { route, blocked } = await send(
         'POST',
@@ -140,21 +162,22 @@ describe('createBrowserSafeModeRouteHandler', () => {
       const { route, blocked } = await send(method, url);
 
       expect(route.calls).toEqual(['abort']);
-      expect(blocked).toEqual([{ method, url }]);
+      expect(blocked).toEqual([{ method, url, reason: 'method' }]);
     });
 
-    it('never lets a named request reach a host off the allowlist, scheme or port', async () => {
-      for (const url of [
-        'https://evil.test/auth/refresh-token',
-        'http://staging.example.test/auth/refresh-token',
-        'https://staging.example.test:8443/auth/refresh-token',
-      ]) {
+    it.each([
+      ['host', 'https://evil.test/auth/refresh-token'],
+      ['scheme', 'http://staging.example.test/auth/refresh-token'],
+      ['port', 'https://staging.example.test:8443/auth/refresh-token'],
+    ] as const)(
+      'never lets a named request reach another %s than the environment has',
+      async (reason, url) => {
         const { route, blocked } = await send('POST', url);
 
         expect(route.calls).toEqual(['abort']);
-        expect(blocked).toEqual([{ method: 'POST', url }]);
-      }
-    });
+        expect(blocked).toEqual([{ method: 'POST', url, reason }]);
+      },
+    );
 
     it('treats an empty list like no list', async () => {
       const blocked: BlockedRequest[] = [];
@@ -168,7 +191,7 @@ describe('createBrowserSafeModeRouteHandler', () => {
     });
 
     it('does not report an ordinary GET as allowed by the list', async () => {
-      const allowed: BlockedRequest[] = [];
+      const allowed: SafeModeRequest[] = [];
 
       await send('GET', 'https://staging.example.test/home', (request) => allowed.push(request));
 

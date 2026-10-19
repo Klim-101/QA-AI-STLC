@@ -120,7 +120,7 @@ async function runPickModeSession(
     const requests = tally.summary();
     return {
       elements,
-      blockedRequestCount: requests.blocked.reduce((total, entry) => total + entry.count, 0),
+      blockedRequestCount: Object.values(requests.blockedCounts).reduce((total, count) => total + count, 0),
       requests,
     };
   } finally {

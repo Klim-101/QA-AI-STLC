@@ -55,6 +55,7 @@ describe('safeNonGetRequests against a session-by-POST page (demo app)', () => {
     expect(tally.summary()).toEqual({
       allowed: [{ method: 'POST', path: '/api/spa/session', count: 1 }],
       blocked: [],
+      blockedCounts: { method: 0, host: 0, scheme: 0, port: 0 },
     });
     expect(result.requestLogHar).toContain('"_allowedByConfig":true');
   }, 60_000);
@@ -71,7 +72,9 @@ describe('safeNonGetRequests against a session-by-POST page (demo app)', () => {
     });
 
     expect(result.routeMap.routes.map((route) => route.url)).toEqual([`${BASE_URL}/spa-session.html`]);
-    expect(tally.summary().blocked).toEqual([{ method: 'POST', path: '/api/spa/session', count: 1 }]);
+    expect(tally.summary().blocked).toEqual([
+      { method: 'POST', path: '/api/spa/session', count: 1, reason: 'method' },
+    ]);
   }, 60_000);
 
   it('keeps blocking every other non-GET request, which never reaches the server', async () => {
@@ -94,6 +97,8 @@ describe('safeNonGetRequests against a session-by-POST page (demo app)', () => {
     }
 
     expect(await orderCount()).toBe(0);
-    expect(tally.summary().blocked).toEqual([{ method: 'POST', path: '/api/spa/orders', count: 1 }]);
+    expect(tally.summary().blocked).toEqual([
+      { method: 'POST', path: '/api/spa/orders', count: 1, reason: 'method' },
+    ]);
   }, 60_000);
 });
