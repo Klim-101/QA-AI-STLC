@@ -190,6 +190,94 @@ describe('runDoctor', () => {
     );
   });
 
+  it('fetches an API contract served from an environment host with the TLS setting of that environment', async () => {
+    const fs = createFakeFileSystem();
+    const get = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const config = CONFIG_YAML.replace(
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"], tlsInsecure: true }',
+    ).replace(
+      'identities:',
+      'api: { contract: openapi, source: "https://staging.example.com/docs?api-docs.json" }\nidentities:',
+    );
+    const context = fakeContext({
+      fs,
+      env: { QA_ADMIN_PASSWORD: 'set' },
+      httpClient: {
+        get,
+        request: vi.fn().mockRejectedValue(new Error('request() not used in this fixture')),
+      },
+    });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), config);
+
+    const report = await runDoctor(context);
+
+    expect(report.checks.find((check) => check.name === 'api-contract')?.status).toBe('pass');
+    expect(get).toHaveBeenCalledWith(
+      'https://staging.example.com/docs?api-docs.json',
+      expect.objectContaining({ tlsInsecure: true }),
+    );
+  });
+
+  it('keeps TLS validation on for an API contract no environment serves', async () => {
+    const fs = createFakeFileSystem();
+    const get = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const config = CONFIG_YAML.replace(
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"], tlsInsecure: true }',
+    ).replace(
+      'identities:',
+      'api: { contract: openapi, source: "https://elsewhere.example.com/spec" }\nidentities:',
+    );
+    const context = fakeContext({
+      fs,
+      env: { QA_ADMIN_PASSWORD: 'set' },
+      httpClient: {
+        get,
+        request: vi.fn().mockRejectedValue(new Error('request() not used in this fixture')),
+      },
+    });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), config);
+
+    await runDoctor(context);
+
+    expect(get).toHaveBeenCalledWith(
+      'https://elsewhere.example.com/spec',
+      expect.objectContaining({ tlsInsecure: false }),
+    );
+  });
+
+  it('waits as long as reachabilityTimeoutMs of the environment allows', async () => {
+    const fs = createFakeFileSystem();
+    const config = CONFIG_YAML.replace(
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"] }',
+      '  staging: { baseUrl: "https://staging.example.com", allowlist: ["staging.example.com"], reachabilityTimeoutMs: 1000 }',
+    );
+    const context = fakeContext({
+      fs,
+      env: { QA_ADMIN_PASSWORD: 'set' },
+      httpClient: {
+        get: (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => {
+              reject(new Error('aborted'));
+            });
+          }),
+        request: vi.fn().mockRejectedValue(new Error('request() not used in this fixture')),
+      },
+    });
+    await fs.mkdir(QA_DIR);
+    await fs.writeFile(join(QA_DIR, 'config.yaml'), config);
+
+    const report = await runDoctor(context);
+
+    expect(report.checks.find((check) => check.name === 'environment:staging')?.message).toContain(
+      'no response within 1000 ms',
+    );
+  });
+
   it('rethrows a config load failure that is not a QaError', async () => {
     const brokenFs: FileSystem = {
       readFile: () => Promise.reject(new Error('disk exploded')),

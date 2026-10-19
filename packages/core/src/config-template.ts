@@ -135,6 +135,9 @@ export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-01
 #         reason: Exchanges the refresh cookie for an access token; creates no record.
 #     navigationTimeoutMs: 30000
 #     actionTimeoutMs: 30000
+#     # How long "qa doctor" waits for this environment, and for an API contract served from its host,
+#     # to answer (5000 when omitted; 1000 to 120000). Raise it for an endpoint that is slow to answer.
+#     reachabilityTimeoutMs: 5000
 #     # Open the interactive browser session in a visible window (a machine setting; put it in config.local.yaml).
 #     headed: false
 #
