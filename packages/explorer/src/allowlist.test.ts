@@ -16,6 +16,16 @@ describe('isAllowedUrl', () => {
   it('rejects a value that is not a valid URL', () => {
     expect(isAllowedUrl('not a url', ['staging.example.com'])).toBe(false);
   });
+
+  it('names hosts, not ports: an entry with a port still admits its host (ADR-0019)', () => {
+    expect(isAllowedUrl('http://localhost:4200/home', ['localhost', 'localhost:8091'])).toBe(true);
+    expect(isAllowedUrl('http://api.example.com:8443/', ['app.example.com', 'api.example.com:8443'])).toBe(
+      true,
+    );
+    expect(isAllowedUrl('http://evil.example.com:8443/', ['app.example.com', 'api.example.com:8443'])).toBe(
+      false,
+    );
+  });
 });
 
 describe('normalizeUrl', () => {

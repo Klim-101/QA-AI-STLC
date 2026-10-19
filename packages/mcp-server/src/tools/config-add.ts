@@ -1,7 +1,12 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, runConfigAddEnvironment, runConfigAddIdentity } from '@qa-ai-stlc/core';
+import {
+  QaError,
+  parseAllowlistEntry,
+  runConfigAddEnvironment,
+  runConfigAddIdentity,
+} from '@qa-ai-stlc/core';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
 import type { ToolDefinition } from '../tool.js';
@@ -13,7 +18,9 @@ const InputSchema = z.object({
   allowlist: z
     .array(z.string())
     .optional()
-    .describe('environment: hosts the browser and HTTP calls may reach.'),
+    .describe(
+      'environment: bare host names the browser and HTTP calls may reach. An entry with a port is added by the operator, not through this tool.',
+    ),
   auth: z.string().optional().describe('identity: "cdp-attach" or "storage-state".'),
   secret: z
     .string()
@@ -57,6 +64,18 @@ export const configAddTool: ToolDefinition<typeof InputSchema, typeof OutputSche
   async handler(input) {
     const context = createNodeEngineContext();
     const force = input.force === true;
+    // A port widens where the engine may go, like a safeNonGetRequests entry: only the operator adds one (ADR-0019).
+    const portEntry = input.allowlist?.find((entry) => parseAllowlistEntry(entry).port !== undefined);
+    if (portEntry !== undefined) {
+      throw new QaError(
+        'CONFIG_ALLOWLIST_PORT_NOT_SETTABLE',
+        `"${portEntry}" names a port, which an agent cannot add to an allowlist`,
+        {
+          remediation:
+            'Add the bare host name here. The operator adds an entry with a port (host:port) in .qa/config.yaml or with "qa config add environment" in a terminal.',
+        },
+      );
+    }
     if (input.kind === 'environment') {
       await runConfigAddEnvironment(context, {
         name: input.name,

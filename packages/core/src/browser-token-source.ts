@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BrowserTokenSource } from '@qa-ai-stlc/schemas';
+import { allowlistHostnames } from './allowlist-entry.js';
 import { isUrlAllowed } from './browser-allowlist.js';
 import type { BrowserSession } from './browser-session-store.js';
 import { QaError } from './errors.js';
@@ -142,10 +143,11 @@ function toToken(raw: string, jsonPath: string | undefined, what: string): Brows
   return { headerName: 'Authorization', headerValue: `Bearer ${token}`, secretValues: [token] };
 }
 
-// A cookie set for a parent domain is sent to an allowlisted subdomain, so it counts.
+// A cookie set for a parent domain is sent to an allowlisted subdomain, so it counts. A cookie is
+// scoped to a host, not a port, so an allowlist entry's port plays no part here (ADR-0019).
 export function isCookieDomainAllowed(domain: string, allowlist: readonly string[]): boolean {
   const bare = domain.replace(/^\./u, '');
-  return allowlist.some((host) => host === bare || host.endsWith(`.${bare}`));
+  return allowlistHostnames(allowlist).some((host) => host === bare || host.endsWith(`.${bare}`));
 }
 
 async function readCookie(name: string, origin: BrowserTokenOrigin): Promise<string | undefined> {

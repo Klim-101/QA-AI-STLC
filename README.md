@@ -246,6 +246,28 @@ or its host, scheme or port when it left the environment's allowlist or `baseUrl
 another port does. An entry added only by the local layer is reported as a relaxation, and no MCP tool can
 add one. See [ADR-0014](docs/adr/0014-environment-allowlist-for-safe-non-get-requests.md).
 
+### Applications whose API is on another port
+
+An allowlist entry that is a bare host name admits that host on the port of `baseUrl` only. An
+application served from `http://localhost:4200` that reads its data from `http://localhost:8091`
+is therefore explored without its data: every call to the API is blocked, and `qa explore` reports
+them as blocked for their `port`. Name the second port in the environment's allowlist, in the
+committed `.qa/config.yaml`:
+
+```yaml
+environments:
+  local:
+    baseUrl: http://localhost:4200
+    allowlist: [localhost, localhost:8091]
+```
+
+or `qa config add environment local --base-url http://localhost:4200 --allowlist localhost,localhost:8091`.
+`host:port` admits that host on exactly that port; list the application's own host as well, since a
+port entry does not admit the port of `baseUrl`. The scheme of `baseUrl` still applies to every
+entry. An entry is a decision about where the engine may send requests, so no MCP tool can add one
+(`qa.config_add` refuses it), and one that only the local layer adds is reported as a relaxation.
+See [ADR-0019](docs/adr/0019-allowlist-entries-may-name-a-port.md).
+
 ### Pages the crawl cannot reach
 
 Pass the pages to start from with `qa explore --url <url-or-path>` (repeatable, each on the environment

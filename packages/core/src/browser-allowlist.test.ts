@@ -148,3 +148,76 @@ describe('assertUrlAllowed', () => {
     }
   });
 });
+
+// A UI on one port that calls its API on another (ADR-0019).
+describe('an allowlist entry with a port (ADR-0019)', () => {
+  const UI_BASE_URL = 'http://localhost:4200/';
+  const WITH_API_PORT = ['localhost', 'localhost:8091'];
+
+  it('admits the host on the port the entry names, and still on the baseUrl port', () => {
+    expect(isUrlAllowed('http://localhost:4200/home', WITH_API_PORT, UI_BASE_URL)).toBe(true);
+    expect(isUrlAllowed('http://localhost:8091/brands', WITH_API_PORT, UI_BASE_URL)).toBe(true);
+  });
+
+  it('keeps blocking a port nothing names', () => {
+    expect(isUrlAllowed('http://localhost:9999/', WITH_API_PORT, UI_BASE_URL)).toBe(false);
+    expect(findAllowlistMismatch('http://localhost:9999/', WITH_API_PORT, UI_BASE_URL)).toBe('port');
+  });
+
+  it('does not admit the port of another host', () => {
+    expect(isUrlAllowed('http://evil.test:8091/', WITH_API_PORT, UI_BASE_URL)).toBe(false);
+    expect(findAllowlistMismatch('http://evil.test:8091/', WITH_API_PORT, UI_BASE_URL)).toBe('host');
+  });
+
+  it('does not make the baseUrl port allowed on its own: only the entries decide', () => {
+    expect(isUrlAllowed('http://localhost:4200/', ['localhost:8091'], UI_BASE_URL)).toBe(false);
+    expect(findAllowlistMismatch('http://localhost:4200/', ['localhost:8091'], UI_BASE_URL)).toBe('port');
+  });
+
+  it('still requires the scheme of baseUrl on a port the allowlist names', () => {
+    expect(isUrlAllowed('https://localhost:8091/', WITH_API_PORT, UI_BASE_URL)).toBe(false);
+    expect(findAllowlistMismatch('https://localhost:8091/', WITH_API_PORT, UI_BASE_URL)).toBe('scheme');
+  });
+
+  it('matches a named default port however the URL spells it', () => {
+    const allowlist = ['api.example.test:443'];
+    const base = 'https://api.example.test/';
+
+    expect(isUrlAllowed('https://api.example.test/', allowlist, base)).toBe(true);
+    expect(isUrlAllowed('https://api.example.test:443/', allowlist, base)).toBe(true);
+    expect(isUrlAllowed('https://api.example.test:8443/', allowlist, base)).toBe(false);
+  });
+
+  it('lets a port entry carry a different port than the bare entry of the same host', () => {
+    const allowlist = ['localhost', 'localhost:8091', 'localhost:8092'];
+
+    expect(isUrlAllowed('http://localhost:8092/', allowlist, UI_BASE_URL)).toBe(true);
+    expect(isUrlAllowed('http://localhost:8093/', allowlist, UI_BASE_URL)).toBe(false);
+  });
+
+  it('names the port to add in the failure of assertUrlAllowed', () => {
+    try {
+      assertUrlAllowed('http://localhost:9999/', WITH_API_PORT, UI_BASE_URL);
+      expect.unreachable('expected a port nothing names to throw');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'BROWSER_URL_NOT_ALLOWED' });
+      expect((error as { remediation?: string }).remediation).toContain('localhost:9999');
+    }
+  });
+
+  it('lets assertUrlAllowed pass a port the allowlist names', () => {
+    expect(() => {
+      assertUrlAllowed('http://localhost:8091/brands', WITH_API_PORT, UI_BASE_URL);
+    }).not.toThrow();
+  });
+
+  it('keeps the scheme failure of assertUrlAllowed free of a port suggestion', () => {
+    try {
+      assertUrlAllowed('https://localhost:8091/', WITH_API_PORT, UI_BASE_URL);
+      expect.unreachable('expected a scheme mismatch to throw');
+    } catch (error) {
+      expect((error as { remediation?: string }).remediation).toContain('scheme');
+      expect((error as { remediation?: string }).remediation).not.toContain('allowlist');
+    }
+  });
+});

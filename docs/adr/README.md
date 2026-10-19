@@ -22,6 +22,7 @@ An ADR records one significant, hard-to-reverse decision: the context that force
 | [ADR-016](0016-structured-case-expectations-judged-by-the-engine.md)        | Cases declare structured expectations that the engine judges         | Accepted |
 | [ADR-017](0017-exploration-opens-collapsed-panels-in-discarded-contexts.md) | Exploration may open collapsed panels, in discarded contexts         | Accepted |
 | [ADR-018](0018-safe-mode-lets-the-safe-http-methods-through.md)             | Safe mode lets the safe HTTP methods through                         | Accepted |
+| [ADR-019](0019-allowlist-entries-may-name-a-port.md)                        | An allowlist entry may name a port                                   | Accepted |
 
 New ADRs are numbered sequentially and never renumbered or deleted. A decision that is later reversed gets a new ADR that supersedes the old one; the old one stays, marked `Superseded by ADR-0NN`.
 

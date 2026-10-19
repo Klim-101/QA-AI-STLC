@@ -101,7 +101,7 @@ steps use instead of raw clicks.
   environment's `safeNonGetRequests` (they edit `config.yaml`; you cannot, and must not suggest
   widening it for a request that changes data). A `host`, `scheme` or `port` entry is a plain GET to
   another origin, for example an API on another port: `safeNonGetRequests` cannot help; tell the operator
-  it is the environment's allowlist or `baseUrl` and that an allowlist entry names a host, not a port.
+  it is the environment's allowlist or `baseUrl`. For a `port` entry the operator adds `host:port` (for example `localhost:8091`) to the environment's `allowlist` in `config.yaml`, or with `qa config add environment`; you cannot add a port yourself.
   `allowedRequests` lists what the environment's list let through.
 - `expandedPanelCount` (present only when `expandCollapsed` was on) — how many panel toggles were
   clicked. Zero means no page had a collapsed panel to open.

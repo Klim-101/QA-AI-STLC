@@ -1,14 +1,17 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { parseAllowlistEntry } from './allowlist-entry.js';
 import { QaError } from './errors.js';
 
 /**
- * Reports whether `url` is on the configured domain allowlist (AGENTS.md 12.4): its hostname must
- * be listed, and its scheme and effective port (explicit, or the scheme's default) must match
- * `baseUrl`'s. One environment is one scheme-and-port policy across every allowed host, not just
- * `baseUrl`'s own -- without this, `http://staging.example.test:9999/` would pass a hostname-only
- * check against an environment whose real, HTTPS-on-443 application never listens there (#306).
+ * Reports whether `url` is on the configured domain allowlist (AGENTS.md 12.4, ADR-0019): its
+ * hostname must be listed, its scheme must match `baseUrl`'s, and its effective port (explicit, or
+ * the scheme's default) must be the one the allowlist admits for that host. A bare host name admits
+ * the port of `baseUrl`; a `host:port` entry admits exactly that port. One environment is one scheme
+ * policy across every allowed host, and a port has to be named to be allowed -- without this,
+ * `http://staging.example.test:9999/` would pass a hostname-only check against an environment whose
+ * real, HTTPS-on-443 application never listens there (#306).
  */
 export function isUrlAllowed(url: string, allowlist: readonly string[], baseUrl: string): boolean {
   return findAllowlistMismatch(url, allowlist, baseUrl) === undefined;
@@ -30,13 +33,22 @@ export function findAllowlistMismatch(
 ): AllowlistMismatch | undefined {
   const parsed = tryParseUrl(url);
   const expected = tryParseUrl(baseUrl);
-  if (parsed === undefined || expected === undefined || !allowlist.includes(parsed.hostname)) {
+  if (parsed === undefined || expected === undefined) {
+    return 'host';
+  }
+  const entriesForHost = allowlist
+    .map(parseAllowlistEntry)
+    .filter((entry) => entry.hostname === parsed.hostname);
+  if (entriesForHost.length === 0) {
     return 'host';
   }
   if (parsed.protocol !== expected.protocol) {
     return 'scheme';
   }
-  return effectivePort(parsed) === effectivePort(expected) ? undefined : 'port';
+  const admitsPort = entriesForHost.some(
+    (entry) => String(entry.port ?? effectivePort(expected)) === effectivePort(parsed),
+  );
+  return admitsPort ? undefined : 'port';
 }
 
 /**
@@ -58,7 +70,8 @@ export function assertUrlAllowed(url: string, allowlist: readonly string[], base
       remediation: "Set the environment's baseUrl in .qa/config.yaml to an absolute URL.",
     });
   }
-  if (!allowlist.includes(parsed.hostname)) {
+  const mismatch = findAllowlistMismatch(url, allowlist, baseUrl);
+  if (mismatch === 'host') {
     throw new QaError(
       'BROWSER_URL_NOT_ALLOWED',
       `"${parsed.hostname}" is not on this session's domain allowlist`,
@@ -67,12 +80,21 @@ export function assertUrlAllowed(url: string, allowlist: readonly string[], base
       },
     );
   }
-  if (parsed.protocol !== expected.protocol || effectivePort(parsed) !== effectivePort(expected)) {
+  if (mismatch === 'scheme') {
     throw new QaError(
       'BROWSER_URL_NOT_ALLOWED',
       `"${url}" does not match this session's scheme and port (${expected.protocol}//${parsed.hostname}${effectivePortSuffix(expected)})`,
       {
-        remediation: "Navigate using the same scheme and port as the environment's configured baseUrl.",
+        remediation: "Navigate using the same scheme as the environment's configured baseUrl.",
+      },
+    );
+  }
+  if (mismatch === 'port') {
+    throw new QaError(
+      'BROWSER_URL_NOT_ALLOWED',
+      `"${url}" does not match this session's scheme and port (${expected.protocol}//${parsed.hostname}${effectivePortSuffix(expected)})`,
+      {
+        remediation: `Navigate using the port of the environment's configured baseUrl, or add "${parsed.hostname}:${effectivePort(parsed)}" to the environment's allowlist in .qa/config.yaml if that port belongs in scope.`,
       },
     );
   }

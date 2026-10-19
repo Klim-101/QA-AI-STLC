@@ -7,6 +7,7 @@ import type { BrowserSession } from './browser-session-store.js';
 import {
   createSessionOrigin,
   createStorageStateOrigin,
+  isCookieDomainAllowed,
   readBrowserToken,
   type BrowserTokenOrigin,
 } from './browser-token-source.js';
@@ -74,6 +75,25 @@ const sessionStorageSource = (key: string, jsonPath?: string): BrowserTokenSourc
   kind: 'session-storage',
   key,
   ...(jsonPath !== undefined ? { jsonPath } : {}),
+});
+
+describe('isCookieDomainAllowed', () => {
+  it('admits a cookie set for an allowlisted host or for its parent domain', () => {
+    expect(isCookieDomainAllowed('app.example.test', ['app.example.test'])).toBe(true);
+    expect(isCookieDomainAllowed('.example.test', ['app.example.test'])).toBe(true);
+  });
+
+  it('refuses a cookie of a host the allowlist does not name', () => {
+    expect(isCookieDomainAllowed('evil.test', ['app.example.test'])).toBe(false);
+  });
+
+  it('reads the host of an entry that carries a port, because a cookie is not scoped to a port (ADR-0019)', () => {
+    expect(isCookieDomainAllowed('localhost', ['localhost:8091'])).toBe(true);
+    expect(isCookieDomainAllowed('api.example.test', ['app.example.test', 'api.example.test:8443'])).toBe(
+      true,
+    );
+    expect(isCookieDomainAllowed('other.test', ['api.example.test:8443'])).toBe(false);
+  });
 });
 
 describe('readBrowserToken from a cookie', () => {
