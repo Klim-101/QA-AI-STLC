@@ -56,7 +56,7 @@ export function describeReachabilityFailure(
     return {
       reason: `no response within ${String(context.timeoutMs)} ms`,
       remediation:
-        'Check the application is running and answering. An endpoint that builds its response on each request can be slow on a cold start: retry once it has answered.',
+        'Check the application is running and answering. An endpoint that builds its response on each request can be slow on a cold start: retry once it has answered, or raise reachabilityTimeoutMs on the environment that serves it if it is legitimately slow.',
     };
   }
   const code = readErrorCode(error);

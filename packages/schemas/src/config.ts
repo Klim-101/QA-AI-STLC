@@ -73,6 +73,10 @@ export const EnvironmentConfigSchema = z.object({
   // server that is consistently slower than a local one.
   navigationTimeoutMs: z.number().int().positive().optional(),
   actionTimeoutMs: z.number().int().positive().optional(),
+  // How long `qa doctor` waits for this environment, and for an API contract served from its host,
+  // to answer (5 seconds when omitted). Raise it for an endpoint that builds its response on each
+  // request. Bounded so a hung server cannot stall the doctor for minutes.
+  reachabilityTimeoutMs: z.number().int().min(1000).max(120_000).optional(),
   // Safe mode still blocks every other non-GET request (ADR-0014); empty or omitted lets none through.
   safeNonGetRequests: z.array(SafeNonGetRequestSchema).optional(),
   // The identity `qa run` and spec verification sign in as when the run names none (P6-89). Omitted

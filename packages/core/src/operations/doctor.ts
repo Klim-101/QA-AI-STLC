@@ -13,6 +13,7 @@ import {
   installBrowsers,
   type DoctorCheckResult,
 } from '../browser-doctor.js';
+import { resolveContractFetchSettings } from '../api-contract-environment.js';
 import type { ConfigRelaxation } from '../config-layers.js';
 import { loadLayeredConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
@@ -125,13 +126,19 @@ async function runConfigChecks(context: EngineContext): Promise<ConfigCheckResul
       const result = await checkBaseUrlReachable(environment.baseUrl, {
         httpClient: context.httpClient,
         tlsInsecure: environment.tlsInsecure === true,
+        ...(environment.reachabilityTimeoutMs === undefined
+          ? {}
+          : { timeoutMs: environment.reachabilityTimeoutMs }),
       });
       return { ...result, name: `environment:${name}` };
     }),
   );
   const sourcePathChecks = await checkSourcePathReadable(context.fs, context.projectRoot, config.source);
+  // A path, "discover" or "synthesize" is not a URL, so no environment admits it and the defaults apply.
+  const contractSettings = resolveContractFetchSettings(config.api?.source ?? '', config.environments);
   const apiContractChecks = await checkApiContractReadable(context.fs, context.projectRoot, config.api, {
     httpClient: context.httpClient,
+    ...contractSettings,
   });
   return {
     checks: [...identityChecks, ...environmentChecks, ...sourcePathChecks, ...apiContractChecks],

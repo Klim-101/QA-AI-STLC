@@ -112,6 +112,9 @@ export async function checkBrowserInstalled(
       };
 }
 
+/** How long a reachability check waits when the environment names no limit. */
+export const DEFAULT_REACHABILITY_TIMEOUT_MS = 5000;
+
 export interface CheckBaseUrlOptions {
   readonly httpClient?: HttpClient;
   readonly timeoutMs?: number;
@@ -125,7 +128,7 @@ export async function checkBaseUrlReachable(
   options: CheckBaseUrlOptions = {},
 ): Promise<DoctorCheckResult> {
   const httpClient = options.httpClient ?? fetchHttpClient;
-  const timeoutMs = options.timeoutMs ?? 5000;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REACHABILITY_TIMEOUT_MS;
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
@@ -192,6 +195,8 @@ const URL_SCHEME = /^https?:\/\//;
 export interface CheckApiContractOptions {
   readonly httpClient?: HttpClient;
   readonly timeoutMs?: number;
+  /** Bypasses TLS certificate validation for a contract URL, like `CheckBaseUrlOptions`; off by default. */
+  readonly tlsInsecure?: boolean;
 }
 
 /**

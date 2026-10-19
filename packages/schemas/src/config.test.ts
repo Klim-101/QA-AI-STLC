@@ -305,6 +305,35 @@ describe('EnvironmentConfigSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts a reachabilityTimeoutMs within its bounds', () => {
+    const parse = (reachabilityTimeoutMs: number) =>
+      EnvironmentConfigSchema.safeParse({
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+        reachabilityTimeoutMs,
+      });
+
+    expect(parse(1000)).toMatchObject({ success: true, data: { reachabilityTimeoutMs: 1000 } });
+    expect(parse(120_000)).toMatchObject({ success: true, data: { reachabilityTimeoutMs: 120_000 } });
+  });
+
+  it('defaults reachabilityTimeoutMs to undefined when omitted', () => {
+    const result = EnvironmentConfigSchema.parse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+    });
+    expect(result.reachabilityTimeoutMs).toBeUndefined();
+  });
+
+  it.each([999, 120_001, 1500.5, 0, -1])('rejects a reachabilityTimeoutMs of %s', (reachabilityTimeoutMs) => {
+    const result = EnvironmentConfigSchema.safeParse({
+      baseUrl: 'https://staging.example.com',
+      allowlist: ['staging.example.com'],
+      reachabilityTimeoutMs,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a non-positive actionTimeoutMs', () => {
     const result = EnvironmentConfigSchema.safeParse({
       baseUrl: 'https://staging.example.com',

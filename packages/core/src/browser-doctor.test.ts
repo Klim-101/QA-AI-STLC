@@ -315,6 +315,55 @@ describe('checkApiContractReadable', () => {
     ]);
   });
 
+  it('fetches a contract URL with the TLS and time-limit settings it is given', async () => {
+    const fs = createFakeFileSystem();
+    let receivedOptions: Parameters<HttpClient['get']>[1];
+    const httpClient: HttpClient = {
+      get: (_url, options) => {
+        receivedOptions = options;
+        return Promise.resolve({ ok: true, status: 200 });
+      },
+      request: requestNotUsed,
+    };
+
+    await checkApiContractReadable(
+      fs,
+      '/project',
+      { contract: 'openapi', source: 'https://api.example.com/openapi.yaml' },
+      { httpClient, tlsInsecure: true, timeoutMs: 20_000 },
+    );
+
+    expect(receivedOptions?.tlsInsecure).toBe(true);
+  });
+
+  it('gives a contract URL the time limit it is given', async () => {
+    const fs = createFakeFileSystem();
+    const httpClient: HttpClient = {
+      get: (_url, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => {
+            reject(new Error('aborted'));
+          });
+        }),
+      request: requestNotUsed,
+    };
+
+    const results = await checkApiContractReadable(
+      fs,
+      '/project',
+      { contract: 'openapi', source: 'https://api.example.com/openapi.yaml' },
+      { httpClient, timeoutMs: 5 },
+    );
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        name: 'api-contract',
+        status: 'fail',
+        message: 'https://api.example.com/openapi.yaml is not reachable: no response within 5 ms',
+      }),
+    ]);
+  });
+
   it('checks a contract URL over HTTP instead of the filesystem', async () => {
     const fs = createFakeFileSystem();
     const httpClient: HttpClient = {
