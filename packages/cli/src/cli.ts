@@ -1450,7 +1450,10 @@ function formatDoctorReport(report: DoctorReport): readonly string[] {
 
 function formatExploreReport(report: ExploreReport): readonly string[] {
   if (report.mode === 'verify') {
-    const lines = [`Verified ${report.registryPath}: ${String(report.elementCount)} element(s) checked.`];
+    const lines = [
+      `Verified ${report.registryPath}: ${String(report.elementCount)} element(s) checked.`,
+      ...formatOtherEnvironments(report),
+    ];
     if (report.degraded.length === 0) {
       lines.push('No degraded selectors.');
       return lines;
@@ -1466,6 +1469,7 @@ function formatExploreReport(report: ExploreReport): readonly string[] {
   return [
     `Wrote ${report.registryPath}: ${String(report.elementCount)} element(s) (` +
       `${String(report.added)} added, ${String(report.removed)} removed, ${String(report.degraded.length)} degraded).`,
+    ...formatOtherEnvironments(report),
     `${String(report.missingLocatorCount)} element(s) with no locator candidate.`,
     ...formatBlockedRequestCounts(report),
     ...(report.navigationProbeCount === undefined
@@ -1509,6 +1513,13 @@ const BLOCKED_REQUEST_REASON_TEXT: Readonly<
       "Blocked, port not allowed (add host:port to the environment's allowlist if that port belongs in scope)",
   },
 };
+
+// The counts above describe one environment; the rest of the registry is not touched (ADR-0020).
+function formatOtherEnvironments(report: ExploreReport): readonly string[] {
+  return report.otherEnvironmentElementCount === 0
+    ? []
+    : [`${String(report.otherEnvironmentElementCount)} element(s) of other environments left as they were.`];
+}
 
 function formatBlockedRequestCounts(report: ExploreReport): readonly string[] {
   const lines = BLOCKED_REQUEST_REASONS.filter((reason) => report.blockedRequestCounts[reason] > 0).map(

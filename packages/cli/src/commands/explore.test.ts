@@ -95,6 +95,64 @@ describe('runExplore', () => {
     expect(registry.elements[0]?.pageUrl).toBe('https://staging.example.com/login');
   });
 
+  it('records the environment on a picked element, and counts the elements of others apart (ADR-0020)', async () => {
+    const context = await fakeContext({
+      pickModeState: {
+        done: true,
+        captures: [{ pickId: 'pick-1', kind: 'button', tagName: 'button', nthOfType: 1 }],
+      },
+      locatorCount: 1,
+    });
+    const otherHost: SelectorRegistry = {
+      schemaVersion: 1,
+      generatedAt: '2026-09-18T00:00:00Z',
+      elements: [
+        {
+          elementId: 'elsewhere',
+          name: 'elsewhere',
+          kind: 'button',
+          locatorCandidates: [{ strategy: 'testId', value: 'x', fragile: false }],
+          stabilityScore: 1,
+          lastVerifiedAt: '2026-09-18T00:00:00Z',
+          source: 'crawl',
+          pageUrl: 'https://other.example.test/home',
+        },
+      ],
+    };
+    await context.fs.mkdir(join(QA_DIR, 'selectors'));
+    await context.fs.writeFile(join(QA_DIR, 'selectors', 'registry.json'), JSON.stringify(otherHost));
+
+    const report = await runExplore(context, { pick: START_URL, environment: 'staging' });
+
+    const registry = JSON.parse(
+      await context.fs.readFile(join(QA_DIR, 'selectors', 'registry.json')),
+    ) as SelectorRegistry;
+    expect(registry.elements.find((element) => element.source === 'manual')?.environment).toBe('staging');
+    expect(report.otherEnvironmentElementCount).toBe(1);
+  });
+
+  it('leaves a picked element unscoped when the page belongs to no configured environment', async () => {
+    const configYaml = CONFIG_YAML.replace(/environments:\n.*\n/u, 'environments: {}\n');
+    const context = await fakeContext(
+      {
+        pickModeState: {
+          done: true,
+          captures: [{ pickId: 'pick-1', kind: 'button', tagName: 'button', nthOfType: 1 }],
+        },
+        locatorCount: 1,
+      },
+      configYaml,
+    );
+
+    const report = await runExplore(context, { pick: START_URL });
+
+    const registry = JSON.parse(
+      await context.fs.readFile(join(QA_DIR, 'selectors', 'registry.json')),
+    ) as SelectorRegistry;
+    expect(registry.elements[0]?.environment).toBeUndefined();
+    expect(report.otherEnvironmentElementCount).toBe(0);
+  });
+
   it('launches pick mode headed, so a human can actually see the window to click in', async () => {
     const context = await fakeContext({
       pickModeState: { done: true, captures: [] },

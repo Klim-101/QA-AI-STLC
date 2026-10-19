@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { SelectorRegistrySchema } from './selector-registry.js';
+import { SelectorElementSchema, SelectorRegistrySchema } from './selector-registry.js';
 
 describe('SelectorRegistrySchema', () => {
   it('accepts an element with a stable elementId and locator candidates', () => {
@@ -147,5 +147,29 @@ describe('SelectorRegistrySchema', () => {
       elements: [{ ...element, sourceLocation: { filePath: '/src/components/LoginForm.tsx', line: 42 } }],
     });
     expect(withAbsolutePath.success).toBe(false);
+  });
+});
+
+describe('SelectorElementSchema environment (ADR-0020)', () => {
+  const element = {
+    elementId: 'checkout-submit-button',
+    kind: 'button',
+    locatorCandidates: [{ strategy: 'testid', value: 'checkout-submit', fragile: false }],
+    stabilityScore: 0.95,
+    lastVerifiedAt: '2026-09-16T12:00:00Z',
+    source: 'crawl',
+  };
+
+  it('accepts an element that names its environment, and one that does not', () => {
+    expect(SelectorElementSchema.safeParse({ ...element, environment: 'staging' }).success).toBe(true);
+    expect(SelectorElementSchema.safeParse(element).success).toBe(true);
+  });
+
+  it('keeps the environment it was given', () => {
+    expect(SelectorElementSchema.parse({ ...element, environment: 'staging' }).environment).toBe('staging');
+  });
+
+  it('rejects an empty environment name', () => {
+    expect(SelectorElementSchema.safeParse({ ...element, environment: '' }).success).toBe(false);
   });
 });

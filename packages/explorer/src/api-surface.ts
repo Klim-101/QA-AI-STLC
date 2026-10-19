@@ -1,7 +1,7 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { redactHar } from '@qa-ai-stlc/core';
+import { partitionByEnvironment, redactHar, type EnvironmentScope } from '@qa-ai-stlc/core';
 import {
   ApiSurfaceSchema,
   HttpMethodSchema,
@@ -41,8 +41,14 @@ function templatePath(pathname: string): string {
     .join('/');
 }
 
+// The environment breaks the tie so two environments that show the same endpoint list it in a fixed order.
 function sortEndpoints(endpoints: readonly ApiEndpoint[]): ApiEndpoint[] {
-  return [...endpoints].sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+  return [...endpoints].sort(
+    (a, b) =>
+      a.path.localeCompare(b.path) ||
+      a.method.localeCompare(b.method) ||
+      String(a.environment).localeCompare(String(b.environment)),
+  );
 }
 
 /**
@@ -126,16 +132,28 @@ function mergeExamples(
  * all) must not erase endpoints an earlier crawl already found, mirroring how the selector
  * registry merges rather than replaces (`mergeSelectorRegistry`).
  */
-export function mergeApiSurface(previous: ApiSurface, fresh: ApiSurface, generatedAt: string): ApiSurface {
+export function mergeApiSurface(
+  previous: ApiSurface,
+  fresh: ApiSurface,
+  generatedAt: string,
+  scope?: EnvironmentScope,
+): ApiSurface {
+  const { inScope, outOfScope } =
+    scope === undefined
+      ? { inScope: previous.endpoints, outOfScope: [] }
+      : partitionByEnvironment(previous.endpoints, scope);
+  const record = (endpoint: ApiEndpoint): ApiEndpoint =>
+    scope === undefined ? endpoint : { ...endpoint, environment: scope.name };
+
   const byKey = new Map<string, ApiEndpoint>();
-  for (const endpoint of previous.endpoints) {
-    byKey.set(`${endpoint.method} ${endpoint.path}`, endpoint);
+  for (const endpoint of inScope) {
+    byKey.set(`${endpoint.method} ${endpoint.path}`, record(endpoint));
   }
   for (const endpoint of fresh.endpoints) {
     const key = `${endpoint.method} ${endpoint.path}`;
     const existing = byKey.get(key);
     byKey.set(key, {
-      ...endpoint,
+      ...record(endpoint),
       examples: mergeExamples(existing?.examples, endpoint.examples),
     });
   }
@@ -143,6 +161,6 @@ export function mergeApiSurface(previous: ApiSurface, fresh: ApiSurface, generat
   return ApiSurfaceSchema.parse({
     schemaVersion: SCHEMA_VERSION,
     generatedAt,
-    endpoints: sortEndpoints([...byKey.values()]),
+    endpoints: sortEndpoints([...byKey.values(), ...outOfScope]),
   });
 }

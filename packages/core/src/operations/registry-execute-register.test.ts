@@ -36,6 +36,7 @@ describe('runRegisterExecutedElement', () => {
         lastVerifiedAt: '2026-09-21T10:00:00.000Z',
         source: 'execute',
         pageUrl: 'https://staging.example.test/login',
+        environment: 'staging',
       },
     ]);
   });

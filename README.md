@@ -246,6 +246,18 @@ or its host, scheme or port when it left the environment's allowlist or `baseUrl
 another port does. An entry added only by the local layer is reported as a relaxation, and no MCP tool can
 add one. See [ADR-0014](docs/adr/0014-environment-allowlist-for-safe-non-get-requests.md).
 
+### Several environments in one project
+
+The selector registry (`.qa/selectors/registry.json`) and the API surface (`endpoints.json`) hold
+every environment of the project, and each element and endpoint names the environment it was found in.
+`qa explore --environment public` replaces, deprecates and counts only the elements of `public` and
+leaves those of `local` as they were; the summary says how many it left
+(`297 element(s) of other environments left as they were.`). `--verify`, `qa api-diff` and
+generation read one environment's elements too, so name the environment when the project has more than
+one. A registry written before the field existed needs no migration: an element is read as belonging
+to the environment whose `baseUrl` and allowlist admit its page, and is recorded under it the next time
+that environment is explored. See [ADR-0020](docs/adr/0020-registry-elements-name-their-environment.md).
+
 ### Applications whose API is on another port
 
 An allowlist entry that is a bare host name admits that host on the port of `baseUrl` only. An

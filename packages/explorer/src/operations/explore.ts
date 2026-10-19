@@ -7,13 +7,17 @@ import {
   QaStore,
   SafeModeRequestTally,
   configureTestIdAttribute,
+  inEnvironmentOf,
   loadConfig,
   resolveRelativePath,
+  scopeOfEnvironment,
   toCanonicalJson,
   toRelativePath,
   withDefaultLoginSelectors,
+  withEnvironment,
   type EngineContext,
   type BlockedRequestCounts,
+  type EnvironmentScope,
   type BlockedRequestSummary,
   type FileSystem,
   type RequestSummary,
@@ -103,6 +107,11 @@ export interface ExploreReport {
   readonly removed: number;
   readonly degraded: readonly DegradedSelectorElement[];
   readonly missingLocatorCount: number;
+  /**
+   * Registry elements that belong to other environments and were left as they were (ADR-0020):
+   * `elementCount` and the counts above describe this environment only.
+   */
+  readonly otherEnvironmentElementCount: number;
   /** Every request safe mode blocked, whatever the reason. */
   readonly blockedRequestCount: number;
   /** The same requests by the reason they were blocked: complete, unlike the capped listing below. */
@@ -432,7 +441,9 @@ async function runVerify(
   const settle = resolveSettleOptions(context, config, profile);
   const tally = new SafeModeRequestTally();
 
-  const checkable = stored.elements.filter(
+  const scope = scopeOfEnvironment(environment.name, environment.config);
+  const inScope = inEnvironmentOf(stored.elements, scope);
+  const checkable = inScope.filter(
     (element) =>
       element.deprecatedAt === undefined &&
       element.pageUrl !== undefined &&
@@ -506,20 +517,23 @@ async function runVerify(
     await browser.close();
   }
 
-  const missingLocatorCount = generateLocatorModule(stored, { generatorVersion: readPackageVersion() })
-    .missingLocators.length;
+  const inScopeIds = new Set(inScope.map((element) => element.elementId));
+  const missingLocatorCount = generateLocatorModule(stored, {
+    generatorVersion: readPackageVersion(),
+  }).missingLocators.filter((missing) => inScopeIds.has(missing.elementId)).length;
   const endpointCount = (await store.pathExists(ENDPOINTS_PATH))
-    ? (await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema)).endpoints.length
+    ? inEnvironmentOf((await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema)).endpoints, scope).length
     : 0;
 
   return {
     mode: 'verify',
     registryPath: REGISTRY_PATH,
-    elementCount: stored.elements.length,
+    elementCount: inScope.length,
     added: 0,
     removed: 0,
     degraded,
     missingLocatorCount,
+    otherEnvironmentElementCount: stored.elements.length - inScope.length,
     blockedRequestCount,
     ...requestSummaryFields(tally.summary()),
     endpointsPath: ENDPOINTS_PATH,
@@ -539,6 +553,7 @@ async function persistExploreResultLocked(
   context: EngineContext,
   store: QaStore,
   manifest: ManifestStore,
+  scope: EnvironmentScope | undefined,
   previous: SelectorRegistry | undefined,
   elements: readonly SelectorElement[],
   blockedRequestCount: number,
@@ -549,7 +564,10 @@ async function persistExploreResultLocked(
 ): Promise<ExploreReport> {
   const generatedAt = context.clock.now().toISOString();
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
-  const merged = previous === undefined ? fresh : mergeSelectorRegistry(previous, fresh, generatedAt);
+  const merged =
+    previous === undefined
+      ? { ...fresh, elements: fresh.elements.map((element) => recordEnvironment(element, scope)) }
+      : mergeSelectorRegistry(previous, fresh, generatedAt, scope);
 
   // Registered from the exact same string each file is written with (AGENTS.md 12.7): a hash
   // computed over a differently-formatted `JSON.stringify` of the same value would never match
@@ -575,10 +593,14 @@ async function persistExploreResultLocked(
   const previousApiSurface = (await store.pathExists(ENDPOINTS_PATH))
     ? await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema)
     : undefined;
-  const apiSurface =
-    previousApiSurface === undefined
-      ? freshApiSurface
-      : mergeApiSurface(previousApiSurface, freshApiSurface, generatedAt);
+  // Also with nothing stored yet, so the endpoints of a first crawl record their environment too: left
+  // unrecorded they would be read as belonging to every environment and claimed by the next one.
+  const apiSurface = mergeApiSurface(
+    previousApiSurface ?? { schemaVersion: SCHEMA_VERSION, generatedAt, endpoints: [] },
+    freshApiSurface,
+    generatedAt,
+    scope,
+  );
   const apiSurfaceSerialized = toCanonicalJson(apiSurface);
   await store.writeText(ENDPOINTS_PATH, apiSurfaceSerialized);
   await manifest.register(ENDPOINTS_PATH, apiSurfaceSerialized);
@@ -589,20 +611,26 @@ async function persistExploreResultLocked(
   const diff =
     previous === undefined
       ? { added: fresh.elements, removed: [], degraded: [] }
-      : diffSelectorRegistry(previous, fresh);
+      : diffSelectorRegistry(previous, fresh, scope);
+  const inScope = scope === undefined ? merged.elements : inEnvironmentOf(merged.elements, scope);
+  const inScopeIds = new Set(inScope.map((element) => element.elementId));
+  const apiEndpointsInScope =
+    scope === undefined ? apiSurface.endpoints : inEnvironmentOf(apiSurface.endpoints, scope);
 
   return {
     mode: 'explore',
     registryPath: REGISTRY_PATH,
-    elementCount: merged.elements.length,
+    elementCount: inScope.length,
     added: diff.added.length,
     removed: diff.removed.length,
     degraded: diff.degraded,
-    missingLocatorCount: moduleResult.missingLocators.length,
+    missingLocatorCount: moduleResult.missingLocators.filter((missing) => inScopeIds.has(missing.elementId))
+      .length,
+    otherEnvironmentElementCount: merged.elements.length - inScope.length,
     blockedRequestCount,
     ...requestSummaryFields(requests),
     endpointsPath: ENDPOINTS_PATH,
-    endpointCount: apiSurface.endpoints.length,
+    endpointCount: apiEndpointsInScope.length,
     ...(navigationProbeCount === undefined ? {} : { navigationProbeCount }),
     ...(expandedPanelCount === undefined ? {} : { expandedPanelCount }),
   };
@@ -612,6 +640,7 @@ export async function persistExploreResult(
   context: EngineContext,
   store: QaStore,
   manifest: ManifestStore,
+  scope: EnvironmentScope | undefined,
   elements: readonly SelectorElement[],
   blockedRequestCount: number,
   requestLogHar: string,
@@ -629,6 +658,7 @@ export async function persistExploreResult(
       context,
       store,
       manifest,
+      scope,
       previous,
       elements,
       blockedRequestCount,
@@ -664,10 +694,12 @@ export async function runExplore(
   const { elements, blockedRequestCount, requestLogHar, requests, probeCount, expandedPanelCount } =
     await runCrawlAndBuild(context, config, options);
 
+  const environment = resolveEnvironment(config, options.environment);
   return persistExploreResult(
     context,
     store,
     manifest,
+    scopeOfEnvironment(environment.name, environment.config),
     elements,
     blockedRequestCount,
     requestLogHar,
@@ -675,4 +707,10 @@ export async function runExplore(
     options.probeNavigation === true ? probeCount : undefined,
     options.expandCollapsed === true ? expandedPanelCount : undefined,
   );
+}
+
+// An element found without an environment in scope (a pick-mode session whose environment could not
+// be resolved) is stored as it is.
+function recordEnvironment(element: SelectorElement, scope: EnvironmentScope | undefined): SelectorElement {
+  return scope === undefined ? element : withEnvironment(element, scope);
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { ApiSurfaceSchema } from './api-surface.js';
+import { ApiEndpointSchema, ApiSurfaceSchema } from './api-surface.js';
 
 describe('ApiSurfaceSchema', () => {
   it('accepts endpoints discovered from an OpenAPI contract with a stamped hash', () => {
@@ -30,5 +30,18 @@ describe('ApiSurfaceSchema', () => {
       ],
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('ApiEndpointSchema environment (ADR-0020)', () => {
+  const endpoint = { method: 'GET', path: '/brands', source: 'discovered' };
+
+  it('accepts an endpoint that names its environment, and one that does not', () => {
+    expect(ApiEndpointSchema.safeParse({ ...endpoint, environment: 'staging' }).success).toBe(true);
+    expect(ApiEndpointSchema.safeParse(endpoint).success).toBe(true);
+  });
+
+  it('rejects an empty environment name', () => {
+    expect(ApiEndpointSchema.safeParse({ ...endpoint, environment: '' }).success).toBe(false);
   });
 });

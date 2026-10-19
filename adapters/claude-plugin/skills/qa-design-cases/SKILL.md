@@ -33,7 +33,9 @@ restating it here — read that file before writing a case's content.
    if this skill fires mid-session. Never write a case for an `out-of-scope` or `undecided` type.
 4. **Real elements, not invented ones.** For an `e2e` case, ground steps in what
    `.qa/selectors/registry.json` (read directly — no MCP query tool for it) actually contains
-   rather than a plausible-sounding locator that may not exist on the page.
+   rather than a plausible-sounding locator that may not exist on the page. The registry holds
+   every environment of the project: read only the elements whose `environment` is the one the case
+   is for, or that name none (found in the source, or stored before the field existed).
 
 ## Writing the case
 

@@ -26,6 +26,7 @@ async function openSession(extra: Partial<OpenBrowserSessionOptions> = {}) {
     page,
     allowlist: ['staging.example.test'],
     baseUrl: 'https://staging.example.test/',
+    environmentName: 'staging',
     navigationTimeoutMs: 30_000,
     actionTimeoutMs: 30_000,
     blockedRequests: [],

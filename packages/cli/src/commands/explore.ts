@@ -7,6 +7,8 @@ import {
   QaStore,
   configureTestIdAttribute,
   loadConfig,
+  scopeOfEnvironment,
+  type EnvironmentScope,
   type SafeModeRequestSummaries,
 } from '@qa-ai-stlc/core';
 import {
@@ -80,10 +82,27 @@ function resolvePickModeEnvironment(
   }
 }
 
+// The environment a pick-mode capture is stored under (ADR-0020). Pick mode may run against a page no
+// environment names, and `resolveEnvironment` only ever throws a QaError for that case, so an
+// environment that cannot be resolved leaves the capture unscoped rather than failing the session.
+function resolvePickModeScope(config: Config, name: string | undefined): EnvironmentScope | undefined {
+  try {
+    const environment = resolveEnvironment(config, name);
+    return scopeOfEnvironment(environment.name, environment.config);
+  } catch {
+    return undefined;
+  }
+}
+
 async function runPickModeSession(
   context: CommandContext,
   options: ExploreOptions & { readonly pick: string },
-): Promise<{ elements: SelectorElement[]; blockedRequestCount: number; requests: SafeModeRequestSummaries }> {
+): Promise<{
+  elements: SelectorElement[];
+  blockedRequestCount: number;
+  requests: SafeModeRequestSummaries;
+  scope: EnvironmentScope | undefined;
+}> {
   const config = await loadConfig(context);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
@@ -122,6 +141,7 @@ async function runPickModeSession(
       elements,
       blockedRequestCount: Object.values(requests.blockedCounts).reduce((total, count) => total + count, 0),
       requests,
+      scope: resolvePickModeScope(config, options.environment),
     };
   } finally {
     await browser.close();
@@ -145,7 +165,7 @@ export async function runExplore(
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
-  const { elements, blockedRequestCount, requests } = await runPickModeSession(context, {
+  const { elements, blockedRequestCount, requests, scope } = await runPickModeSession(context, {
     ...options,
     pick: options.pick,
   });
@@ -158,6 +178,7 @@ export async function runExplore(
     context,
     store,
     manifest,
+    scope,
     elements,
     blockedRequestCount,
     emptyRequestLogHar,
