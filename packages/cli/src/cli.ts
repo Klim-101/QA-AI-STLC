@@ -44,6 +44,7 @@ import {
   type RequestSummary,
   type ScopeResult,
   BLOCKED_REQUEST_REASONS,
+  SAFE_HTTP_METHODS,
   type BlockedRequestReason,
   type TestDataAddResult,
   type StatusReport,
@@ -1490,7 +1491,7 @@ const BLOCKED_REQUEST_REASON_TEXT: Readonly<
   Record<BlockedRequestReason, { cause: string; heading: string }>
 > = {
   method: {
-    cause: 'their method is not allowed (safe mode lets only a GET through)',
+    cause: `their method is not allowed (safe mode lets ${[...SAFE_HTTP_METHODS].join(', ')} through)`,
     heading: 'Blocked by method (an application that stalls may need one listed in safeNonGetRequests)',
   },
   host: {

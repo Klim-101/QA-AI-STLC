@@ -92,7 +92,7 @@ steps use instead of raw clicks.
   These need the operator's attention (a manual pick, or a `data-testid` added to the source) before
   a case can target them.
 - `blockedRequestCount` — requests safe mode blocked during the crawl, and `blockedRequestCounts` the
-  same by reason: `method` (not a GET), or `host`, `scheme` or `port` (the request left the
+  same by reason: `method` (not a safe read), or `host`, `scheme` or `port` (the request left the
   environment's allowlist or `baseUrl`). Non-zero is expected behavior, not a failure; mention it only
   if the operator asks what the crawl touched. The one exception is a registry that is empty, stops at
   the sign-in page or shows pages without their data: `blockedRequests` then names, by reason, method

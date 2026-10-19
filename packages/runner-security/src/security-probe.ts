@@ -1,10 +1,9 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, isUrlAllowed, type HttpClient } from '@qa-ai-stlc/core';
+import { QaError, isSafeHttpMethod, isUrlAllowed, type HttpClient } from '@qa-ai-stlc/core';
 import type { SecurityAuthorization, SecurityRequestLogEntry } from '@qa-ai-stlc/schemas';
 
-const SAFE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS']);
 const MAX_BODY_CHARACTERS = 64 * 1024;
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 
@@ -140,7 +139,7 @@ export class SecurityProbe {
     if (!isUrlAllowed(url.href, allowlist, baseUrl)) {
       this.refuse(method, path, 'outside the authorized origin and allowlist', url);
     }
-    if (SAFE_METHODS.has(method)) {
+    if (isSafeHttpMethod(method)) {
       return;
     }
     const isAuthorizedMutation = this.authorization.allowedMutations.some(

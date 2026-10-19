@@ -1,6 +1,6 @@
 # Executing an `e2e` case
 
-A `qa.browser_open` session with `executionMode: true` (ADR-0009): safe mode's non-GET block is
+A `qa.browser_open` session with `executionMode: true` (ADR-0009): safe mode's block on requests that are not safe reads is
 relaxed so a real form submission can go through, but the domain allowlist still applies
 unconditionally. Never set `executionMode` outside this skill — exploration and pick mode never
 need it.

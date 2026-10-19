@@ -27,7 +27,7 @@ It also starts the six `browser.*` tools — `qa.browser_open`, `qa.browser_navi
 an agent may touch the application under test (ADR-005). Every one of them registers what it did
 as hashed evidence under the session's run before it returns, so an exploratory session leaves a
 complete trail and an unregistered screenshot is not a representable outcome. A session runs in
-safe mode with no opt-out: non-GET requests are aborted, and navigation is limited to the
+safe mode with no opt-out: requests that are not safe reads (`GET`, `HEAD`, `OPTIONS`, `QUERY`) are aborted, and navigation is limited to the
 environment's domain allowlist. For component library widgets (`ui.componentLibrary`) four more
 tools act at the widget level instead of replaying clicks: `qa.browser_select_option` (an option
 by its visible text), `qa.browser_set_date`, `qa.browser_open_popup` and `qa.browser_close_popup`.
