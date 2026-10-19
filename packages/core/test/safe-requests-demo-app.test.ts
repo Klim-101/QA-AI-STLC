@@ -97,7 +97,8 @@ describe('safeNonGetRequests in a browser session (demo app)', () => {
 
       expect(closed.requests).toEqual({
         allowed: [{ method: 'POST', path: '/api/spa/session', count: 1 }],
-        blocked: [{ method: 'POST', path: '/api/spa/orders', count: 1 }],
+        blocked: [{ method: 'POST', path: '/api/spa/orders', count: 1, reason: 'method' }],
+        blockedCounts: { method: 1, host: 0, scheme: 0, port: 0 },
       });
       expect(await orderCount()).toBe(0);
     });
@@ -112,7 +113,9 @@ describe('safeNonGetRequests in a browser session (demo app)', () => {
       const closed = await runBrowserClose(browserContext, { sessionId });
 
       expect(closed.requests.allowed).toEqual([]);
-      expect(closed.requests.blocked).toEqual([{ method: 'POST', path: '/api/spa/session', count: 1 }]);
+      expect(closed.requests.blocked).toEqual([
+        { method: 'POST', path: '/api/spa/session', count: 1, reason: 'method' },
+      ]);
     });
   }, 60_000);
 });

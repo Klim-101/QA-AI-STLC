@@ -39,8 +39,8 @@ export function createSafeModeRouteHandler(
   return createBrowserSafeModeRouteHandler(
     allowlist,
     baseUrl,
-    ({ method, url }) => {
-      requests.tally?.recordBlocked(method, url);
+    ({ method, url, reason }) => {
+      requests.tally?.recordBlocked(method, url, reason);
       onBlocked({ method, url, blocked: true });
     },
     {

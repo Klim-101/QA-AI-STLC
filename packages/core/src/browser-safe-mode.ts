@@ -2,12 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { SafeNonGetRequest } from '@qa-ai-stlc/schemas';
-import { isUrlAllowed } from './browser-allowlist.js';
+import { findAllowlistMismatch } from './browser-allowlist.js';
 import type { RouteHandler } from './ports/browser-launcher.js';
+import type { BlockedRequestReason } from './safe-mode-requests.js';
 
-export interface BlockedRequest {
+export interface SafeModeRequest {
   readonly method: string;
   readonly url: string;
+}
+
+export interface BlockedRequest extends SafeModeRequest {
+  readonly reason: BlockedRequestReason;
 }
 
 export interface SafeModeRouteHandlerOptions {
@@ -27,7 +32,7 @@ export interface SafeModeRouteHandlerOptions {
    */
   readonly safeRequests?: readonly SafeNonGetRequest[];
   /** Called once for each request let through only because of `safeRequests`. */
-  readonly onAllowed?: (request: BlockedRequest) => void;
+  readonly onAllowed?: (request: SafeModeRequest) => void;
 }
 
 function isNamedSafeRequest(
@@ -52,8 +57,8 @@ function isNamedSafeRequest(
  * checking the allowlist on its own input is not enough to bound where a click can take the
  * session (#279). The check also covers scheme and port, not just hostname (#306): `baseUrl` is
  * the environment's configured URL, and every allowed host is expected to share its scheme and
- * effective port. `onBlocked` is called once per aborted request so a session can report what it
- * stopped.
+ * effective port. `onBlocked` is called once per aborted request, with the reason, so a session can report
+ * what it stopped and why.
  */
 export function createBrowserSafeModeRouteHandler(
   allowlist: readonly string[],
@@ -66,7 +71,8 @@ export function createBrowserSafeModeRouteHandler(
     const method = request.method();
     const url = request.url();
     const methodAllowed = method === 'GET' || options.allowMutations === true;
-    const isAllowedHost = isUrlAllowed(url, allowlist, baseUrl);
+    const mismatch = findAllowlistMismatch(url, allowlist, baseUrl);
+    const isAllowedHost = mismatch === undefined;
     if (methodAllowed && isAllowedHost) {
       return route.continue();
     }
@@ -76,7 +82,10 @@ export function createBrowserSafeModeRouteHandler(
       options.onAllowed?.({ method, url });
       return route.continue();
     }
-    onBlocked({ method, url });
+    // A request off the allowlist is reported by that, whatever its method: an entry in
+    // `safeNonGetRequests` cannot make it pass, so naming the method would send the operator to the
+    // wrong setting.
+    onBlocked({ method, url, reason: mismatch ?? 'method' });
     return route.abort();
   };
 }

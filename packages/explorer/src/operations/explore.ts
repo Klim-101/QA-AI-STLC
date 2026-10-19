@@ -13,6 +13,8 @@ import {
   toRelativePath,
   withDefaultLoginSelectors,
   type EngineContext,
+  type BlockedRequestCounts,
+  type BlockedRequestSummary,
   type FileSystem,
   type RequestSummary,
   type SafeModeRequestSummaries,
@@ -101,11 +103,14 @@ export interface ExploreReport {
   readonly removed: number;
   readonly degraded: readonly DegradedSelectorElement[];
   readonly missingLocatorCount: number;
+  /** Every request safe mode blocked, whatever the reason. */
   readonly blockedRequestCount: number;
+  /** The same requests by the reason they were blocked: complete, unlike the capped listing below. */
+  readonly blockedRequestCounts: BlockedRequestCounts;
   /** Non-GET requests the environment's `safeNonGetRequests` let through, by method and path (ADR-0014). */
   readonly allowedRequests: readonly RequestSummary[];
   /** The requests safe mode blocked, by method and path, so an operator can see which one an application stalled on. */
-  readonly blockedRequests: readonly RequestSummary[];
+  readonly blockedRequests: readonly BlockedRequestSummary[];
   readonly endpointsPath: string;
   readonly endpointCount: number;
   /** Controls the navigation probe clicked; present only when `probeNavigation` was on. */
@@ -183,9 +188,14 @@ export function resolveIdentity(
 
 function requestSummaryFields(requests: SafeModeRequestSummaries): {
   allowedRequests: readonly RequestSummary[];
-  blockedRequests: readonly RequestSummary[];
+  blockedRequests: readonly BlockedRequestSummary[];
+  blockedRequestCounts: BlockedRequestCounts;
 } {
-  return { allowedRequests: requests.allowed, blockedRequests: requests.blocked };
+  return {
+    allowedRequests: requests.allowed,
+    blockedRequests: requests.blocked,
+    blockedRequestCounts: requests.blockedCounts,
+  };
 }
 
 function safeRequestsOf(environment: EnvironmentConfig): Pick<SafeModeRequests, 'safeRequests'> {
@@ -533,7 +543,7 @@ async function persistExploreResultLocked(
   elements: readonly SelectorElement[],
   blockedRequestCount: number,
   requestLogHar: string,
-  requests: SafeModeRequestSummaries = { allowed: [], blocked: [] },
+  requests: SafeModeRequestSummaries = new SafeModeRequestTally().summary(),
   navigationProbeCount?: number,
   expandedPanelCount?: number,
 ): Promise<ExploreReport> {
@@ -605,7 +615,7 @@ export async function persistExploreResult(
   elements: readonly SelectorElement[],
   blockedRequestCount: number,
   requestLogHar: string,
-  requests: SafeModeRequestSummaries = { allowed: [], blocked: [] },
+  requests: SafeModeRequestSummaries = new SafeModeRequestTally().summary(),
   navigationProbeCount?: number,
   expandedPanelCount?: number,
 ): Promise<ExploreReport> {

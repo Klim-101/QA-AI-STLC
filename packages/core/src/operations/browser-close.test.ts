@@ -30,7 +30,7 @@ describe('runBrowserClose', () => {
     expect(harness.launcher.closedBrowsers).toBe(1);
   });
 
-  it('reports every non-GET request safe mode blocked during the session', async () => {
+  it('reports every request safe mode blocked during the session, with the reason', async () => {
     const harness = createBrowserTestHarness();
     const { sessionId } = await runBrowserOpen(harness.context);
     const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
@@ -43,7 +43,9 @@ describe('runBrowserClose', () => {
 
     const result = await runBrowserClose(harness.context, { sessionId });
 
-    expect(result.blockedRequests).toEqual([{ method: 'POST', url: 'https://staging.example.test/orders' }]);
+    expect(result.blockedRequests).toEqual([
+      { method: 'POST', url: 'https://staging.example.test/orders', reason: 'method' },
+    ]);
   });
 
   it('closes the browser even when the closing record could not be registered', async () => {
@@ -84,7 +86,8 @@ describe('runBrowserClose', () => {
 
     expect(result.requests).toEqual({
       allowed: [{ method: 'POST', path: '/auth/refresh-token', count: 2 }],
-      blocked: [{ method: 'POST', path: '/orders', count: 1 }],
+      blocked: [{ method: 'POST', path: '/orders', count: 1, reason: 'method' }],
+      blockedCounts: { method: 1, host: 0, scheme: 0, port: 0 },
     });
     expect(result.blockedRequests).toHaveLength(1);
   });

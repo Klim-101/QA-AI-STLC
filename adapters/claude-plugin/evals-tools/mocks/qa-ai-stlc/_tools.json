@@ -835,7 +835,7 @@
     },
     {
       "name": "qa.browser_close",
-      "description": "Closes an open browser session, records the close as evidence, and reports every non-GET request safe mode blocked during it, and, by method and path, the non-GET requests the environment lets through (safeNonGetRequests) and the ones blocked. Call when an exploratory session is finished so the browser process does not stay alive.",
+      "description": "Closes an open browser session, records the close as evidence, and reports every request safe mode blocked during it with the reason (its method, or the host, scheme or port of its URL against the environment) and, by method and path, the non-GET requests the environment lets through (safeNonGetRequests) and the ones blocked, with counts per reason. Only a blocked method is answered with safeNonGetRequests; the others are a matter of the environment's allowlist and baseUrl. Call when an exploratory session is finished so the browser process does not stay alive.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",

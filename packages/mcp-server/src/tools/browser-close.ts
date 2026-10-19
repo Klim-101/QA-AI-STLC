@@ -13,9 +13,12 @@ import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = SessionIdInputSchema;
 
+const BlockedRequestReasonSchema = z.enum(['method', 'host', 'scheme', 'port']);
+
 const BlockedRequestSchema = z.object({
   method: z.string(),
   url: z.string(),
+  reason: BlockedRequestReasonSchema,
 });
 
 const RequestSummarySchema = z.object({
@@ -30,7 +33,13 @@ const OutputSchema = z.object({
   blockedRequests: z.array(BlockedRequestSchema),
   requests: z.object({
     allowed: z.array(RequestSummarySchema),
-    blocked: z.array(RequestSummarySchema),
+    blocked: z.array(RequestSummarySchema.extend({ reason: BlockedRequestReasonSchema })),
+    blockedCounts: z.object({
+      method: z.number(),
+      host: z.number(),
+      scheme: z.number(),
+      port: z.number(),
+    }),
   }),
   evidence: EvidenceSchema,
 });
@@ -43,9 +52,12 @@ export function createBrowserCloseTool(
     name: 'qa.browser_close',
     description:
       'Closes an open browser session, records the close as evidence, and reports every ' +
-      'non-GET request safe mode blocked during it, and, by method and path, the non-GET requests the ' +
-      'environment lets through (safeNonGetRequests) and the ones blocked. Call when an exploratory session is ' +
-      'finished so the browser process does not stay alive.',
+      'request safe mode blocked during it with the reason (its method, or the host, scheme or port ' +
+      'of its URL against the environment) and, by method and path, the non-GET requests the ' +
+      'environment lets through (safeNonGetRequests) and the ones blocked, with counts per reason. ' +
+      'Only a blocked method is answered with safeNonGetRequests; the others are a matter of the ' +
+      "environment's allowlist and baseUrl. Call when an exploratory session is finished so the " +
+      'browser process does not stay alive.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
     async handler(input) {
@@ -53,7 +65,11 @@ export function createBrowserCloseTool(
       return {
         ...result,
         blockedRequests: [...result.blockedRequests],
-        requests: { allowed: [...result.requests.allowed], blocked: [...result.requests.blocked] },
+        requests: {
+          allowed: [...result.requests.allowed],
+          blocked: [...result.requests.blocked],
+          blockedCounts: result.requests.blockedCounts,
+        },
       };
     },
   };

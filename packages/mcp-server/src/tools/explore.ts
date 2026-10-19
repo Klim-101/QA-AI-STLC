@@ -63,6 +63,12 @@ const RequestSummarySchema = z.object({
   count: z.number(),
 });
 
+// Why safe mode aborted a request: its method, or the host, scheme or port of its URL against the
+// environment. Only a blocked method is a matter for `safeNonGetRequests`; the others for the allowlist.
+const BlockedRequestReasonSchema = z.enum(['method', 'host', 'scheme', 'port']);
+
+const BlockedRequestSummarySchema = RequestSummarySchema.extend({ reason: BlockedRequestReasonSchema });
+
 const OutputSchema = z.object({
   mode: z.enum(['explore', 'verify']),
   registryPath: z.string(),
@@ -72,8 +78,14 @@ const OutputSchema = z.object({
   degraded: z.array(DegradedSelectorSchema),
   missingLocatorCount: z.number(),
   blockedRequestCount: z.number(),
+  blockedRequestCounts: z.object({
+    method: z.number(),
+    host: z.number(),
+    scheme: z.number(),
+    port: z.number(),
+  }),
   allowedRequests: z.array(RequestSummarySchema),
-  blockedRequests: z.array(RequestSummarySchema),
+  blockedRequests: z.array(BlockedRequestSummarySchema),
   endpointsPath: z.string(),
   endpointCount: z.number(),
   navigationProbeCount: z.number().optional(),

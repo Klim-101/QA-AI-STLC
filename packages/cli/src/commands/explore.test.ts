@@ -183,9 +183,10 @@ describe('runExplore', () => {
 
       expect(report.blockedRequestCount).toBe(2);
       expect(report.blockedRequests).toEqual([
-        { method: 'GET', path: '/script.js', count: 1 },
-        { method: 'POST', path: '/orders', count: 1 },
+        { method: 'GET', path: '/script.js', count: 1, reason: 'host' },
+        { method: 'POST', path: '/orders', count: 1, reason: 'method' },
       ]);
+      expect(report.blockedRequestCounts).toEqual({ method: 1, host: 1, scheme: 0, port: 0 });
     });
 
     it('allows only the picked page host when no environment can be resolved', async () => {

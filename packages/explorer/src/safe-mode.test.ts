@@ -105,6 +105,7 @@ describe('createSafeModeRouteHandler', () => {
       expect(tally.summary()).toEqual({
         allowed: [{ method: 'POST', path: '/auth/refresh-token', count: 1 }],
         blocked: [],
+        blockedCounts: { method: 0, host: 0, scheme: 0, port: 0 },
       });
     });
 
@@ -123,7 +124,9 @@ describe('createSafeModeRouteHandler', () => {
       await createSafeModeRouteHandler(ALLOWLIST, BASE_URL, vi.fn(), { safeRequests: SAFE, tally })(route);
 
       expect(calls).toEqual(['abort']);
-      expect(tally.summary().blocked).toEqual([{ method: 'POST', path: '/orders', count: 1 }]);
+      expect(tally.summary().blocked).toEqual([
+        { method: 'POST', path: '/orders', count: 1, reason: 'method' },
+      ]);
     });
   });
 });
