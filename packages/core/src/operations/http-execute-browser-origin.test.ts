@@ -33,6 +33,7 @@ async function openSession(sessions: BrowserSessionStore, baseUrl: string): Prom
     context,
     page,
     allowlist: ENVIRONMENT.allowlist,
+    environmentName: 'staging',
     baseUrl,
     navigationTimeoutMs: 1000,
     actionTimeoutMs: 1000,

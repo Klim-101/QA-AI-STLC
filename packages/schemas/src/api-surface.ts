@@ -23,6 +23,9 @@ export const ApiEndpointSchema = z.object({
   // computed value match what gets read back" applies to path templating too, so the originals
   // stay inspectable instead of being silently discarded).
   examples: z.array(z.string().min(1)).optional(),
+  // The environment whose traffic showed this endpoint (ADR-0020); absent on one stored before the
+  // field existed, which is read as belonging to every environment.
+  environment: z.string().min(1).optional(),
 });
 export type ApiEndpoint = z.infer<typeof ApiEndpointSchema>;
 

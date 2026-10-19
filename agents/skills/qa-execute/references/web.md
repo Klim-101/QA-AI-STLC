@@ -55,7 +55,8 @@ or finds the wrong element, not the one just used.
 An element already registered from a prior exploration or pick-mode session does not need
 re-registering; `qa.registry_execute_register` only adds value for a genuinely ad hoc find. Check
 `.qa/selectors/registry.json` (read directly, no MCP query tool for it) before assuming a target is
-new — the same convention `qa-design-cases` already follows.
+new — the same convention `qa-design-cases` already follows, including that only the elements of
+the session's environment count.
 
 ## Driving the case
 

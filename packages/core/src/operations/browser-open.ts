@@ -205,6 +205,7 @@ export async function runBrowserOpen(
       page,
       ...(options.dialogPolicy === undefined ? {} : { dialogPolicy: options.dialogPolicy }),
       ...resolveSessionSettings(config, environment.config, options),
+      environmentName: environment.name,
       blockedRequests,
       requestTally,
       observedRequestHeaders,

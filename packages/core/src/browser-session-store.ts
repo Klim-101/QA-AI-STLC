@@ -126,6 +126,8 @@ export interface BrowserSession {
   /** What the session does with an `alert`, `confirm` or `prompt`; fixed for the session's life. */
   readonly dialogPolicy: DialogPolicy;
   readonly allowlist: readonly string[];
+  /** The environment the session was opened for, recorded on every element it registers (ADR-0020). */
+  readonly environmentName: string;
   /** The environment's configured URL (#306): every allowed host must share its scheme and port. */
   readonly baseUrl: string;
   /** The environment's resolved navigation/action timeouts (P6-23), fixed for the session's life. */
@@ -169,6 +171,7 @@ export interface OpenBrowserSessionOptions {
   /** Omit for the default, which dismisses every dialog. */
   readonly dialogPolicy?: DialogPolicy;
   readonly allowlist: readonly string[];
+  readonly environmentName: string;
   readonly baseUrl: string;
   readonly navigationTimeoutMs: number;
   readonly actionTimeoutMs: number;
@@ -232,6 +235,7 @@ export class BrowserSessionStore {
       nextTabNumber: 2,
       dialogPolicy: options.dialogPolicy ?? 'dismiss',
       allowlist: [...options.allowlist],
+      environmentName: options.environmentName,
       baseUrl: options.baseUrl,
       navigationTimeoutMs: options.navigationTimeoutMs,
       actionTimeoutMs: options.actionTimeoutMs,

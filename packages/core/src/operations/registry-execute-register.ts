@@ -74,6 +74,7 @@ export async function runRegisterExecutedElement(
     lastVerifiedAt: now,
     source: 'execute',
     pageUrl: url,
+    environment: session.environmentName,
   };
 
   const store = new QaStore({ projectRoot: context.engine.projectRoot, fs: context.engine.fs });

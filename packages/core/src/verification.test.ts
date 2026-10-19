@@ -432,6 +432,46 @@ describe('verifyGeneratedTestSpec', () => {
       expect(outcome.status).toBe('verified');
     });
 
+    it("derives the expected assertion from the registry as the spec's environment sees it (ADR-0020)", async () => {
+      const ofEnvironment = (environment: string): string =>
+        JSON.stringify({
+          ...(JSON.parse(REGISTRY_JSON) as { elements: unknown[] }),
+          elements: (JSON.parse(REGISTRY_JSON) as { elements: object[] }).elements.map((entry) => ({
+            ...entry,
+            pageUrl: 'https://staging.example.test/checkout',
+            environment,
+          })),
+        });
+      const verifyWith = async (registryJson: string) => {
+        const { context } = createContext({
+          fs: createFakeFileSystem({
+            [join('project', '.qa', 'config.yaml')]: CONFIG_YAML,
+            [join('project', '.qa', 'selectors', 'registry.json')]: registryJson,
+            [join('project', 'tests', 'qa', 'locators.ts')]: MODULE_SOURCE,
+            ...registeredCaseFiles(WITH_EXPECTATION),
+          }),
+        });
+        return verifyGeneratedTestSpec(context, {
+          spec: SPEC,
+          testCase: WITH_EXPECTATION,
+          runner: passingRunner(),
+          idGenerator,
+          environment: 'staging',
+        });
+      };
+
+      const own = await verifyWith(ofEnvironment('staging'));
+      const another = await verifyWith(ofEnvironment('other'));
+
+      // The element is the spec's own: its assertion is demanded of the spec. Another environment's
+      // element is not read at all, so nothing is demanded on its account.
+      expect(own).toMatchObject({
+        status: 'expectations_missing',
+        issues: [{ message: expect.stringContaining('status(page)') as string }],
+      });
+      expect(another.status).toBe('verified');
+    });
+
     it('checks an api case against the response assertions without reading a registry', async () => {
       const apiCase: TestCase = {
         ...TEST_CASE,

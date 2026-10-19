@@ -77,6 +77,7 @@ const OutputSchema = z.object({
   removed: z.number(),
   degraded: z.array(DegradedSelectorSchema),
   missingLocatorCount: z.number(),
+  otherEnvironmentElementCount: z.number(),
   blockedRequestCount: z.number(),
   blockedRequestCounts: z.object({
     method: z.number(),
@@ -102,7 +103,9 @@ export const exploreTool: ToolDefinition<typeof InputSchema, typeof OutputSchema
   name: 'qa.explore',
   description:
     'Builds the selector registry by crawling the configured environment in safe mode, merging ' +
-    'in static source analysis when "static" is set. Also derives an API surface from the ' +
+    'in static source analysis when "static" is set. The registry holds every environment of the ' +
+    'project; a run only replaces, deprecates or verifies the elements of the environment it ' +
+    'explored, and "otherEnvironmentElementCount" says how many it left alone. Also derives an API surface from the ' +
     'crawl\'s traffic (redacted, with ids templated to "{id}") and writes it to "endpointsPath" ' +
     '(default ".qa/selectors/endpoints.json"), merging with anything already stored there. Set ' +
     '"verify" to instead re-check every stored, non-deprecated selector against the live page ' +

@@ -127,7 +127,7 @@ describe('runExplore', () => {
       await context.fs.readFile(join(QA_DIR, 'selectors', 'endpoints.json')),
     ) as ApiSurface;
     expect(endpoints.endpoints).toEqual([
-      { method: 'GET', path: '/login', source: 'discovered', examples: ['/login'] },
+      { method: 'GET', path: '/login', source: 'discovered', examples: ['/login'], environment: 'staging' },
     ]);
     const manifest = JSON.parse(await context.fs.readFile(join(QA_DIR, 'manifest.json'))) as {
       artifacts: Record<string, unknown>;
@@ -205,6 +205,7 @@ describe('runExplore', () => {
       path: '/tasks/{id}',
       source: 'discovered',
       examples: ['/tasks/1', '/tasks/2'],
+      environment: 'staging',
     });
   });
 
@@ -299,7 +300,11 @@ describe('runExplore', () => {
     const second = await runExplore(context);
 
     const merged = JSON.parse(await context.fs.readFile(registryPath)) as SelectorRegistry;
-    expect(merged.elements.find((element) => element.elementId === 'session-added')).toEqual(sessionAdded);
+    // Written before elements named their environment: the environment whose address admits its page claims it.
+    expect(merged.elements.find((element) => element.elementId === 'session-added')).toEqual({
+      ...sessionAdded,
+      environment: 'staging',
+    });
     expect(second.removed).toBe(0);
     expect(await context.fs.readFile(join(PROJECT_ROOT, 'tests', 'qa', 'locators.ts'))).toContain(
       'searchDetails',

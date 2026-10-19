@@ -3,12 +3,10 @@
 
 import {
   SCHEMA_VERSION,
-  SelectorRegistrySchema,
   TestCaseSchema,
   type GenerationSpokeInput,
   type Identifier,
   type ProvenSession,
-  type RelativePath,
   type SelectorRegistry,
   type TestCase,
 } from '@qa-ai-stlc/schemas';
@@ -22,9 +20,9 @@ import { buildApiGenerationSpokeInput, buildGenerationSpokeInput } from '../gene
 import { LOCATOR_MODULE_PATH, parseLocatorModuleExports } from '../locator-module-exports.js';
 import { resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
+import { readRegistryForEnvironment } from '../scoped-registry.js';
 import { findCasePath } from './cases-render.js';
 
-const REGISTRY_PATH: RelativePath = 'selectors/registry.json';
 // Avoids a capturing regex on purpose, the same reasoning `verification.ts`'s `tsc` diagnostic
 // parser and `proven-session.ts`'s step-id parser document: `noUncheckedIndexedAccess` types every
 // capture group `string | undefined` regardless of the pattern, forcing an unreachable fallback for
@@ -75,7 +73,10 @@ export interface GenerationSpokeInputOptions {
   readonly testCaseId: Identifier;
   /** Registry element ids an `e2e` case needs; an `api` case has none and ignores it. */
   readonly elementIds: readonly Identifier[];
-  /** Which environment's contract to load for an `api` case; required when there is more than one. */
+  /**
+   * Which environment the spec is for: its contract for an `api` case, its registry elements for an
+   * `e2e` case (ADR-0020). Required when there is more than one.
+   */
   readonly environment?: string;
   /** The case's proven `qa-execute` session (`findLatestProvenSession`), when one exists. */
   readonly provenSession?: ProvenSession;
@@ -100,10 +101,13 @@ export async function runBuildGenerationSpokeInput(
     return buildApiSpokeInput(context, testCase, options);
   }
 
-  const registryExists = await store.pathExists(REGISTRY_PATH);
-  const registry: SelectorRegistry = registryExists
-    ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
-    : { schemaVersion: SCHEMA_VERSION, generatedAt: context.clock.now().toISOString(), elements: [] };
+  // Only the elements of the environment the spec is for (ADR-0020): another environment's would be
+  // offered to the spoke as if the page had them.
+  const registry: SelectorRegistry = (await readRegistryForEnvironment(
+    context,
+    store,
+    options.environment,
+  )) ?? { schemaVersion: SCHEMA_VERSION, generatedAt: context.clock.now().toISOString(), elements: [] };
 
   const locatorModuleAbsolutePath = resolveRelativePath(context.projectRoot, LOCATOR_MODULE_PATH);
   const locatorModuleExists = await context.fs.pathExists(locatorModuleAbsolutePath);

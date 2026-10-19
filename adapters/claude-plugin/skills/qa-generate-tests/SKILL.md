@@ -41,7 +41,8 @@ detect or announce a stale spec — that stays the hub's/a future `qa-regression
    `// qa:manual:end <id>`).
 4. **Resolve the registry slice.** Call `qa.generation_spoke_input` with the case's id and the
    exact element ids the proven session actually used — fail loudly on one that does not resolve,
-   never guess a locator. Pass the proven session itself as `provenSession`, so it becomes part of
+   never guess a locator. Pass `environment` (the one the session ran against) when the project
+   has more than one: the registry holds every environment's elements and only that one's are offered. Pass the proven session itself as `provenSession`, so it becomes part of
    `sourceHash` and a later `qa-execute` re-run is detected as drift.
 
 ## Declared expectations

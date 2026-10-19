@@ -50,6 +50,10 @@ export const SelectorElementSchema = z.object({
   source: SelectorElementSourceSchema,
   sourceLocation: SourceLocationSchema.optional(),
   pageUrl: z.string().min(1).optional(),
+  // The environment this element was found in (ADR-0020). Absent on an element written before the
+  // field existed, and on one that belongs to no page (found in the source): such an element is read
+  // as belonging to every environment its page address admits, or to all of them when it has none.
+  environment: z.string().min(1).optional(),
   // The id of the popup a component-library widget opens (P6-37), for actions that must find it.
   popupId: z.string().min(1).optional(),
   deprecatedAt: IsoDateTimeSchema.optional(),

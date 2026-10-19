@@ -5,9 +5,12 @@ import {
   ManifestStore,
   QaError,
   QaStore,
+  inEnvironmentOf,
   listOpenApiEndpoints,
   loadApiContract,
   loadConfig,
+  resolveBrowserEnvironment,
+  scopeOfEnvironment,
   toCanonicalJson,
   type EngineContext,
 } from '@qa-ai-stlc/core';
@@ -56,8 +59,15 @@ export async function runApiDiff(
       remediation: 'Run "qa explore" first to capture the application\'s API traffic.',
     });
   }
-  const observed = await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema);
+  const stored = await store.readJson(ENDPOINTS_PATH, ApiSurfaceSchema);
   const contract = await loadApiContract(context, config, options.environment);
+  // Only the endpoints this environment's traffic showed count as observed (ADR-0020): another
+  // environment's would make an undocumented or unobserved endpoint look matched, or the reverse.
+  const environment = resolveBrowserEnvironment(config, options.environment);
+  const observed = {
+    ...stored,
+    endpoints: inEnvironmentOf(stored.endpoints, scopeOfEnvironment(environment.name, environment.config)),
+  };
 
   const findings = diffApiSurface(listOpenApiEndpoints(contract.document), observed);
   const report = ApiDiffReportSchema.parse({

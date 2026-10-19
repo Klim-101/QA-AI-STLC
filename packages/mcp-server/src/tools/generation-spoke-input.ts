@@ -19,7 +19,7 @@ const InputSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Environment whose contract an api case is generated from. Required when there is more than one.',
+      "Environment the spec is for: its contract for an api case, its registry elements for an e2e case (the registry holds every environment's, and only this one's are offered). Required when there is more than one.",
     ),
   provenSession: ProvenSessionSchema.optional().describe(
     "The case's proven qa-execute session, from qa.generation_proven_session, when one exists.",

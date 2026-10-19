@@ -3,10 +3,13 @@
 
 import {
   hashText,
+  partitionByEnvironment,
   systemClock,
+  withEnvironment,
   type AuthPage,
   type BrowserLauncher,
   type Clock,
+  type EnvironmentScope,
   type ViewportSize,
 } from '@qa-ai-stlc/core';
 import {
@@ -288,44 +291,69 @@ export async function buildSelectorRegistry(
  * An `execute`-sourced element is the exception: it was added from a live session precisely because
  * the crawl cannot see it (a collapsed panel, a non-interactive header), so a crawl that misses it
  * says nothing about whether it is gone and it stays as it was.
+ *
+ * With a `scope` (ADR-0020), only the previous elements of that environment take part: an element of
+ * another environment is neither replaced, deprecated nor renamed, because a crawl of one
+ * environment says nothing about what another has. The elements the crawl found are recorded as
+ * the scope's, and no name of an element left alone is given to one of them, so the single locator
+ * module never gets two functions with one name.
  */
 export function mergeSelectorRegistry(
   previous: SelectorRegistry,
   fresh: SelectorRegistry,
   generatedAt: string,
+  scope?: EnvironmentScope,
 ): SelectorRegistry {
-  const freshIds = new Set(fresh.elements.map((element) => element.elementId));
-  const deprecated = previous.elements
+  const { inScope, outOfScope } =
+    scope === undefined
+      ? { inScope: previous.elements, outOfScope: [] }
+      : partitionByEnvironment(previous.elements, scope);
+  const record = (element: SelectorElement): SelectorElement =>
+    scope === undefined ? element : withEnvironment(element, scope);
+  const freshElements = fresh.elements.map(record);
+
+  const freshIds = new Set(freshElements.map((element) => element.elementId));
+  const deprecated = inScope
     .filter((element) => !freshIds.has(element.elementId) && element.source !== 'execute')
     .map((element) =>
-      element.deprecatedAt === undefined ? { ...element, deprecatedAt: generatedAt } : element,
+      record(element.deprecatedAt === undefined ? { ...element, deprecatedAt: generatedAt } : element),
     );
 
-  const sessionAdded = previous.elements.filter(
-    (element) => !freshIds.has(element.elementId) && element.source === 'execute',
-  );
+  const sessionAdded = inScope
+    .filter((element) => !freshIds.has(element.elementId) && element.source === 'execute')
+    .map(record);
 
+  const reservedNames = new Set(
+    outOfScope.flatMap((element) => (element.name === undefined ? [] : [element.name])),
+  );
   return {
     schemaVersion: SCHEMA_VERSION,
     generatedAt,
-    elements: [...keepPreviousNames(previous, fresh.elements), ...sessionAdded, ...deprecated],
+    elements: [
+      ...keepPreviousNames(inScope, freshElements, reservedNames),
+      ...sessionAdded,
+      ...deprecated,
+      ...outOfScope,
+    ],
   };
 }
 
 // A spec already imports an element by its generated function name, so an element that is still
 // found keeps the name it had. Names are settled in two passes: elements with a previous name take
 // it first (the first holder wins), then every other element keeps its fresh name, numbered past
-// any name already taken so two elements never end up with the same one.
+// any name already taken so two elements never end up with the same one. `reservedNames` are names
+// of elements this merge leaves alone; they count as taken from the start.
 function keepPreviousNames(
-  previous: SelectorRegistry,
+  previousElements: readonly SelectorElement[],
   freshElements: readonly SelectorElement[],
+  reservedNames: ReadonlySet<string>,
 ): SelectorElement[] {
   const previousNames = new Map(
-    previous.elements.flatMap((element) =>
+    previousElements.flatMap((element) =>
       element.name === undefined ? [] : [[element.elementId, element.name] as const],
     ),
   );
-  const takenNames = new Set<string>();
+  const takenNames = new Set<string>(reservedNames);
   const pinnedNames = new Map<string, string>();
   for (const element of freshElements) {
     const previousName = previousNames.get(element.elementId);
@@ -367,17 +395,21 @@ export interface SelectorRegistryDiff {
  * Compares two crawls' registries by `elementId`: elements only the current crawl found, elements
  * only the previous crawl found, and elements both found where the current stability score is
  * lower than before. An element added from a session is never "removed" by a crawl that misses it
- * (see `mergeSelectorRegistry`).
+ * (see `mergeSelectorRegistry`). With a `scope`, only the previous elements of that environment are
+ * compared: one of another environment is not "removed" by a crawl that never looked at it.
  */
 export function diffSelectorRegistry(
   previous: SelectorRegistry,
   current: SelectorRegistry,
+  scope?: EnvironmentScope,
 ): SelectorRegistryDiff {
-  const previousById = new Map(previous.elements.map((element) => [element.elementId, element]));
+  const previousElements =
+    scope === undefined ? previous.elements : partitionByEnvironment(previous.elements, scope).inScope;
+  const previousById = new Map(previousElements.map((element) => [element.elementId, element]));
   const currentIds = new Set(current.elements.map((element) => element.elementId));
 
   const added = current.elements.filter((element) => !previousById.has(element.elementId));
-  const removed = previous.elements.filter(
+  const removed = previousElements.filter(
     (element) => !currentIds.has(element.elementId) && element.source !== 'execute',
   );
 

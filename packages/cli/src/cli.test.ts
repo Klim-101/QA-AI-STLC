@@ -600,6 +600,64 @@ describe('runCli', () => {
     }
   });
 
+  it('says how many elements of other environments it left as they were (ADR-0020)', async () => {
+    const button = {
+      interactiveElements: [
+        {
+          kind: 'button',
+          accessibleName: 'Log in',
+          testId: undefined,
+          role: undefined,
+          label: undefined,
+          placeholder: undefined,
+          htmlId: undefined,
+          tagName: 'button',
+          nthOfType: 1,
+        },
+      ],
+      forms: [],
+      tables: [],
+      dialogs: [],
+    };
+    const { fs, deps } = exploreDeps({
+      locatorCount: 1,
+      elementsByUrl: {
+        'https://staging.example.com/login': button,
+        'https://other.example.test/home': button,
+      },
+    });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(
+      join(PROJECT_ROOT, '.qa', 'config.yaml'),
+      EXPLORE_CONFIG.replace(
+        '\nidentities',
+        '\n  other: { baseUrl: "https://other.example.test/home", allowlist: ["other.example.test"] }\nidentities',
+      ),
+    );
+    await runCli(['explore', '--environment', 'staging'], deps);
+    deps.stdout.length = 0;
+
+    await runCli(['explore', '--environment', 'other'], deps);
+    const explored = deps.stdout.join('\n');
+    deps.stdout.length = 0;
+    await runCli(['explore', '--environment', 'staging', '--verify'], deps);
+    const verified = deps.stdout.join('\n');
+
+    expect(explored).toContain('1 element(s) of other environments left as they were.');
+    expect(verified).toContain('1 element(s) of other environments left as they were.');
+  });
+
+  it('prints no line about other environments when the registry holds only its own', async () => {
+    const { fs, deps } = exploreDeps({ locatorCount: 1 });
+    await runCli(['init', '--defer-scope'], deps);
+    await fs.writeFile(join(PROJECT_ROOT, '.qa', 'config.yaml'), EXPLORE_CONFIG);
+    deps.stdout.length = 0;
+
+    await runCli(['explore'], deps);
+
+    expect(deps.stdout.join('\n')).not.toContain('other environments');
+  });
+
   it('says so when safe mode blocked nothing (#767)', async () => {
     const { fs, deps } = exploreDeps({ locatorCount: 1 });
     await runCli(['init', '--defer-scope'], deps);

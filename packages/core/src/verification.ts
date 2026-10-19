@@ -4,7 +4,6 @@
 import { basename, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  SelectorRegistrySchema,
   TestCaseSchema,
   VerificationIdSchema,
   VerificationRecordSchema,
@@ -32,6 +31,7 @@ import { findCasePath } from './operations/cases-render.js';
 import { resolveRelativePath } from './paths.js';
 import { randomIdGenerator, type IdGenerator } from './ports/id-generator.js';
 import { QaStore } from './qa-store.js';
+import { readRegistryForEnvironment } from './scoped-registry.js';
 import { resolveRunIdentity, resolveRunnerInputIdentity } from './run-identity.js';
 import type { Runner } from './runner.js';
 import { canonicalStepIds } from './step-ids.js';
@@ -40,7 +40,6 @@ import { canonicalStepIds } from './step-ids.js';
 // module graph, the same way `runner-playwright` resolves `@playwright/test/cli` (AGENTS.md 5.6),
 // so it works whether `@qa-ai-stlc/core` is installed inside the monorepo or, once published,
 // inside an operator's project.
-const REGISTRY_PATH: RelativePath = 'selectors/registry.json';
 
 const tscPath = fileURLToPath(import.meta.resolve('typescript/bin/tsc'));
 
@@ -225,6 +224,7 @@ async function findExpectationIssues(
   store: QaStore,
   testCase: TestCase,
   specContent: string,
+  environment: string | undefined,
 ): Promise<readonly SpokeValidationIssue[]> {
   if (!hasDeclaredExpectations(testCase)) {
     return [];
@@ -232,9 +232,8 @@ async function findExpectationIssues(
   if (testCase.testType === 'api') {
     return findMissingExpectationAssertions(testCase, undefined, [], specContent);
   }
-  const registry = (await store.pathExists(REGISTRY_PATH))
-    ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
-    : undefined;
+  // The registry as the spec's environment sees it, the same elements the spoke was given (ADR-0020).
+  const registry = await readRegistryForEnvironment(context, store, environment);
   const moduleSource = resolveRelativePath(context.projectRoot, LOCATOR_MODULE_PATH);
   const moduleExports = (await context.fs.pathExists(moduleSource))
     ? parseLocatorModuleExports(await context.fs.readFile(moduleSource))
@@ -363,6 +362,7 @@ export async function verifyGeneratedTestSpec(
       store,
       registeredTestCase,
       options.spec.content,
+      options.environment,
     );
     if (expectationIssues.length > 0) {
       await writeVerificationRecord(store, manifest, {

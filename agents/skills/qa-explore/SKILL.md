@@ -91,6 +91,10 @@ steps use instead of raw clicks.
 - `missingLocatorCount` — elements the explorer found but could not synthesize any locator for.
   These need the operator's attention (a manual pick, or a `data-testid` added to the source) before
   a case can target them.
+- `elementCount` and the counts beside it describe the environment that was explored. The registry
+  holds every environment of the project and a run leaves the others alone;
+  `otherEnvironmentElementCount` says how many it left, so a number that looks small next to the file
+  is not a loss.
 - `blockedRequestCount` — requests safe mode blocked during the crawl, and `blockedRequestCounts` the
   same by reason: `method` (not a safe read), or `host`, `scheme` or `port` (the request left the
   environment's allowlist or `baseUrl`). Non-zero is expected behavior, not a failure; mention it only

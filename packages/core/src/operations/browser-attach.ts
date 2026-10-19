@@ -125,6 +125,7 @@ export async function runBrowserAttach(
       ownsBrowser: false,
       ...(options.dialogPolicy === undefined ? {} : { dialogPolicy: options.dialogPolicy }),
       ...settings,
+      environmentName: environment.name,
       blockedRequests,
       requestTally,
       observedRequestHeaders,
