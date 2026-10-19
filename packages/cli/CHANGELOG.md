@@ -1,5 +1,27 @@
 # @qa-ai-stlc/cli
 
+## 1.12.1
+
+### Patch Changes
+
+- eecace0: An allowlist entry may now name a port (ADR-0019). `localhost:8091` admits that host on exactly that port; a bare `localhost` still admits it on the port of `baseUrl` only. Before, an application served from one port that read its data from an API on another (an interface on `:4200`, its API on `:8091`) was explored without its data, because every call to the API was blocked and no setting could allow it. List both entries, `[localhost, localhost:8091]`: a port entry does not admit the port of `baseUrl` on its own, and the scheme of `baseUrl` still applies to every entry. One function now decides for the browser, the HTTP tools, the runners and the explorer, and the explorer's crawl filter and the cookie check read the host of an entry. The explore report names the entry that would admit a blocked port (`host:port`). The operator adds a port entry in `config.yaml` or with `qa config add environment`; `qa.config_add` refuses one with `CONFIG_ALLOWLIST_PORT_NOT_SETTABLE`, and an entry that only the local layer adds is reported as a relaxation. An entry with a path or a scheme is still rejected.
+- 06816a0: `qa explore` and `qa.browser_close` now say why safe mode blocked a request. The summary used to count every blocked request as `non-GET`, so a plain `GET` to an API on another port (an allowlisted host on a different port) was reported as a mutation and the hint pointed at `safeNonGetRequests`, which cannot help. Each blocked request now carries a reason: `method` (not a `GET`), or `host`, `scheme` or `port` (it left the environment's allowlist or `baseUrl`). `qa explore` prints a line per reason and a separate list with a hint that fits it: only a blocked method points at `safeNonGetRequests`; a blocked origin points at the allowlist and `baseUrl`. `qa.explore` returns `blockedRequestCounts` (complete, unlike the capped listing) and a `reason` on each blocked entry; `qa.browser_close` returns a `reason` on each blocked request and `blockedCounts`. A request off the allowlist is reported by its origin whatever its method. Pick mode now sums the complete counts instead of the capped listing. The `qa-explore` skill reads the reason before advising.
+- d535bda: Exploring a second environment no longer disturbs the first one's elements (ADR-0020). The project has one selector registry and one API surface however many environments it lists, and a crawl of the second used to report the first environment's elements as `removed` and to mark them deprecated, which also made `--verify` skip them. A registry element and an endpoint now name their environment (an optional field, so existing files stay valid and need no migration). A run replaces, deprecates, renames, verifies and counts only the elements of its own environment, leaves the others as they were, and says how many it left (`otherEnvironmentElementCount`, and a line in the explore summary). An element stored without an environment is read as belonging to the environment whose address rules admit its page, or to every environment when it has no page, and is claimed as it is explored again. No name of an element left alone is given to a new one, so the single locator module keeps unique function names. Generation and generated-spec verification offer only the elements of the spec's environment, `qa api-diff` compares the contract with the endpoints of its environment, and an element registered from a browser session is recorded under the session's environment. A call to `qa.generation_spoke_input` for an `e2e` case now has to name the environment when the project has more than one, as it already did for an `api` case.
+- 4dc2110: Safe mode now lets the safe HTTP methods through, not only `GET`: `GET`, `HEAD`, `OPTIONS` and `QUERY` (ADR-0018). An application that reads with `QUERY` (a read whose parameters travel in a request body, as a product search or a category tree often does) used to load nothing during exploration, because safe mode aborted every `QUERY` request as a mutation and `safeNonGetRequests` accepts `POST` only. The comparison is exact and case-sensitive, `TRACE` stays blocked, and every other method (`POST`, `PUT`, `PATCH`, `DELETE`) is aborted as before. The domain allowlist still applies to every request. The browser safe-mode handler and the security probe now share one definition of a safe method (`SAFE_HTTP_METHODS` in `@qa-ai-stlc/core`), so the two can no longer disagree; the security probe now also sends a `QUERY` request without an authorization entry. A `QUERY` request that goes through is not yet recorded as an endpoint in `endpoints.json` or compared with the OpenAPI contract, which do not know the method.
+- Updated dependencies [eecace0]
+- Updated dependencies [06816a0]
+- Updated dependencies [54311ad]
+- Updated dependencies [1d82f20]
+- Updated dependencies [d535bda]
+- Updated dependencies [4dc2110]
+  - @qa-ai-stlc/schemas@1.12.1
+  - @qa-ai-stlc/core@1.12.1
+  - @qa-ai-stlc/explorer@1.12.1
+  - @qa-ai-stlc/runner-security@1.12.1
+  - @qa-ai-stlc/runner-api@1.12.1
+  - @qa-ai-stlc/runner-playwright@1.12.1
+  - @qa-ai-stlc/runner-a11y@1.12.1
+
 ## 1.12.0
 
 ### Minor Changes
