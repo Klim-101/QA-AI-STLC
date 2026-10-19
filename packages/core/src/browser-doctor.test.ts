@@ -122,6 +122,60 @@ describe('checkBaseUrlReachable', () => {
     expect(result.status).toBe('fail');
   });
 
+  it('names the time limit when the request does not resolve before it', async () => {
+    const httpClient: HttpClient = {
+      get: (_url, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => {
+            reject(new Error('aborted'));
+          });
+        }),
+      request: requestNotUsed,
+    };
+
+    const result = await checkBaseUrlReachable('https://example.com', { httpClient, timeoutMs: 5 });
+
+    expect(result.message).toBe('https://example.com/ is not reachable: no response within 5 ms');
+    expect(result.remediation).toContain('cold start');
+  });
+
+  it('names the reason a connection was refused', async () => {
+    const httpClient: HttpClient = {
+      get: () =>
+        Promise.reject(
+          new TypeError('fetch failed', { cause: Object.assign(new Error('x'), { code: 'ECONNREFUSED' }) }),
+        ),
+      request: requestNotUsed,
+    };
+
+    const result = await checkBaseUrlReachable('http://localhost:4200', { httpClient });
+
+    expect(result).toMatchObject({
+      status: 'fail',
+      message: 'http://localhost:4200/ is not reachable: connection refused',
+    });
+  });
+
+  it('does not echo a credential from the URL, whether the check passes or fails', async () => {
+    const url = 'https://user:hunter2@example.com/spec?token=abc';
+    const passing: HttpClient = {
+      get: () => Promise.resolve({ ok: true, status: 200 }),
+      request: requestNotUsed,
+    };
+    const failing: HttpClient = {
+      get: () => Promise.reject(new Error(`failed for ${url}`)),
+      request: requestNotUsed,
+    };
+
+    const passed = await checkBaseUrlReachable(url, { httpClient: passing });
+    const failed = await checkBaseUrlReachable(url, { httpClient: failing });
+
+    for (const result of [passed, failed]) {
+      expect(JSON.stringify(result)).not.toMatch(/hunter2|token=abc/u);
+    }
+    expect(passed.message).toBe('https://example.com/spec?token=[REDACTED] is reachable');
+  });
+
   it('fails with a remediation when the HTTP client rejects', async () => {
     const httpClient: HttpClient = {
       get: () => Promise.reject(new Error('network down')),
