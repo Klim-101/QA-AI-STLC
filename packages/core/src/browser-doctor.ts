@@ -8,6 +8,7 @@ import type { FileSystem } from './ports/file-system.js';
 import type { HttpClient } from './ports/http-client.js';
 import { fetchHttpClient } from './ports/http-client.js';
 import type { ProcessRunner } from './ports/process-runner.js';
+import { describeReachabilityFailure, redactUrlForDisplay } from './reachability-failure.js';
 
 export type DoctorCheckStatus = 'pass' | 'fail';
 
@@ -129,15 +130,17 @@ export async function checkBaseUrlReachable(
   const timeout = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
+  const displayUrl = redactUrlForDisplay(baseUrl);
   try {
     await httpClient.get(baseUrl, { signal: controller.signal, tlsInsecure: options.tlsInsecure === true });
-    return { name: 'base-url', status: 'pass', message: `${baseUrl} is reachable` };
-  } catch {
+    return { name: 'base-url', status: 'pass', message: `${displayUrl} is reachable` };
+  } catch (error: unknown) {
+    const failure = describeReachabilityFailure(error, { timedOut: controller.signal.aborted, timeoutMs });
     return {
       name: 'base-url',
       status: 'fail',
-      message: `${baseUrl} is not reachable`,
-      remediation: 'Check the environment is running and the configured baseUrl is correct.',
+      message: `${displayUrl} is not reachable: ${failure.reason}`,
+      remediation: failure.remediation,
     };
   } finally {
     clearTimeout(timeout);
