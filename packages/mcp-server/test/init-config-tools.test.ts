@@ -167,6 +167,65 @@ describe('init and config tools (real filesystem, temp project directory)', () =
     });
   });
 
+  it('qa.config_add refuses an allowlist entry with a port and writes nothing (ADR-0019)', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+
+      await expect(
+        configAddTool.handler({
+          kind: 'environment',
+          name: 'staging',
+          baseUrl: 'http://localhost:4200',
+          allowlist: ['localhost', 'localhost:8091'],
+        }),
+      ).rejects.toMatchObject({
+        code: 'CONFIG_ALLOWLIST_PORT_NOT_SETTABLE',
+        remediation: expect.stringContaining('operator') as string,
+      });
+
+      const config = await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8');
+      expect(config).not.toContain('localhost:8091');
+      expect(config).not.toContain('staging:');
+    });
+  });
+
+  it('qa.config_add still adds a bare host name, and a malformed entry is left to the schema', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+
+      await expect(
+        configAddTool.handler({
+          kind: 'environment',
+          name: 'staging',
+          baseUrl: 'http://localhost:4200',
+          allowlist: ['localhost:http'],
+        }),
+      ).rejects.not.toMatchObject({ code: 'CONFIG_ALLOWLIST_PORT_NOT_SETTABLE' });
+      await configAddTool.handler({
+        kind: 'environment',
+        name: 'local',
+        baseUrl: 'http://localhost:4200',
+        allowlist: ['localhost'],
+      });
+      expect(await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8')).toContain('local:');
+    });
+  });
+
+  it('qa.config_add adds an identity whatever the allowlist argument is', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+
+      const added = await configAddTool.handler({
+        kind: 'identity',
+        name: 'admin',
+        auth: 'cdp-attach',
+        secret: 'QA_ADMIN_PASSWORD',
+      });
+
+      expect(added).toStrictEqual({ kind: 'identity', name: 'admin' });
+    });
+  });
+
   it('qa.config_add adds an environment and rejects an existing name without force', async () => {
     await withProject(async (projectRoot) => {
       await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });

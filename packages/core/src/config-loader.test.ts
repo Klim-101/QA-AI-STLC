@@ -270,7 +270,7 @@ agents:
 
   it('reports an invalid merged value with the layer it came from', async () => {
     const local =
-      'environments:\n  dev:\n    baseUrl: http://localhost:4310\n    allowlist: ["localhost:4310"]\n';
+      'environments:\n  dev:\n    baseUrl: http://localhost:4310\n    allowlist: ["http://localhost:4310"]\n';
     const error = await captureQaError(
       loadLayeredConfig(createSource({ committed: VALID_CONFIG_YAML, local })),
     );

@@ -67,6 +67,33 @@ describe('findConfigRelaxations', () => {
     ]);
   });
 
+  it('reports an allowlist entry with a port that only the local layer adds (ADR-0019)', () => {
+    const withApiPort = ConfigSchema.parse({
+      ...effective,
+      environments: {
+        staging: {
+          baseUrl: 'https://staging.example.com',
+          allowlist: ['staging.example.com', 'staging.example.com:8443'],
+        },
+      },
+    });
+
+    expect(
+      findConfigRelaxations(
+        { environments: { staging: { allowlist: ['staging.example.com'] } } },
+        withApiPort,
+        'local.yaml',
+      ),
+    ).toStrictEqual([
+      {
+        kind: 'allowlist-entry',
+        environment: 'staging',
+        hostname: 'staging.example.com:8443',
+        localLayerPath: 'local.yaml',
+      },
+    ]);
+  });
+
   it('treats a committed environment entry that is not a mapping as listing nothing', () => {
     expect(
       findConfigRelaxations({ environments: { staging: 'broken' } }, effective, 'local.yaml'),

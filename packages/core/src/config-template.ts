@@ -125,6 +125,8 @@ export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-01
 # environments:
 #   staging:
 #     baseUrl: https://staging.example.com
+#     # A bare host admits it on the port of baseUrl; "host:port" admits it on exactly that port, for an
+#     # API on another port than the application (ADR-0019).
 #     allowlist: [staging.example.com]
 #     tlsInsecure: false
 #     # A POST safe mode lets through, for an application that opens its session with one (ADR-0014);

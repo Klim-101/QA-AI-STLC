@@ -124,6 +124,30 @@ describe('createBrowserSafeModeRouteHandler', () => {
     expect(blocked).toEqual([{ method: 'QUERY', url: 'https://evil.test/products', reason: 'host' }]);
   });
 
+  it.each([
+    ['the port the allowlist names', 'GET', 'http://localhost:8091/brands', undefined],
+    ['a port nothing names', 'GET', 'http://localhost:9999/brands', 'port'],
+    [
+      'the port the allowlist names, with a mutating method',
+      'POST',
+      'http://localhost:8091/orders',
+      'method',
+    ],
+    ['a port another host would have', 'GET', 'http://evil.test:8091/brands', 'host'],
+  ] as const)('with a port entry, handles %s', async (_label, method, url, reason) => {
+    const blocked: BlockedRequest[] = [];
+    const route = createRoute(method, url);
+
+    await createBrowserSafeModeRouteHandler(
+      ['localhost', 'localhost:8091'],
+      'http://localhost:4200/',
+      (request) => blocked.push(request),
+    )(route);
+
+    expect(route.calls).toEqual([reason === undefined ? 'continue' : 'abort']);
+    expect(blocked).toEqual(reason === undefined ? [] : [{ method, url, reason }]);
+  });
+
   it('allows an allowlisted non-GET request when allowMutations is set (P3-14, ADR-0009)', async () => {
     const blocked: BlockedRequest[] = [];
     const route = createRoute('POST', 'https://staging.example.test/login');

@@ -68,6 +68,21 @@ describe('read-by-QUERY fixture endpoints (ADR-0018)', () => {
   });
 });
 
+describe('API-on-another-port fixture endpoints (ADR-0019)', () => {
+  it('answers a cross-origin read and counts how many reached the server', async () => {
+    const app = createApp();
+
+    expect((await request(app).get('/api/cross/reads')).body).toEqual({ reads: 0 });
+    const read = await request(app).get('/api/cross/products');
+    const reads = await request(app).get('/api/cross/reads');
+
+    expect(read.status).toBe(200);
+    expect(read.headers['access-control-allow-origin']).toBe('*');
+    expect(read.body).toEqual({ products: ['Claw hammer', 'Hand saw', 'Pliers'] });
+    expect(reads.body).toEqual({ reads: 1 });
+  });
+});
+
 describe('authentication', () => {
   it('redirects an unauthenticated request to the login page', async () => {
     const app = createApp();

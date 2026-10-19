@@ -586,10 +586,10 @@ describe('runCli', () => {
       /\d+ request\(s\) blocked because their scheme differs from the environment's baseUrl/u,
     );
     expect(output).toMatch(
-      /\d+ request\(s\) blocked because their port differs from the environment's baseUrl/u,
+      /\d+ request\(s\) blocked because their port is neither the environment's baseUrl port nor one its allowlist names for that host/u,
     );
     expect(output).toContain(
-      'Blocked, port differs from baseUrl (an allowlist entry names a host, not a port):',
+      "Blocked, port not allowed (add host:port to the environment's allowlist if that port belongs in scope):",
     );
     expect(output).toMatch(/ {2}GET \/brands x\d+/u);
     // Only a blocked method is answered with safeNonGetRequests.

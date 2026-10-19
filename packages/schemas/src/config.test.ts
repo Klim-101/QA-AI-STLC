@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  AllowlistEntrySchema,
   A11yConfigSchema,
   AgentsConfigSchema,
   ApiAuthProfileSchema,
@@ -258,12 +259,46 @@ describe('EnvironmentConfigSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects an allowlist entry carrying a port (#329)', () => {
+  it.each(['localhost:4310', 'api.example.com:8091', 'localhost:1', 'localhost:65535'])(
+    'accepts an allowlist entry carrying a port, %s (ADR-0019)',
+    (entry) => {
+      const result = EnvironmentConfigSchema.safeParse({
+        baseUrl: 'http://localhost:4310',
+        allowlist: ['localhost', entry],
+      });
+      expect(result.success).toBe(true);
+    },
+  );
+
+  it.each([
+    ['a port of zero', 'localhost:0'],
+    ['a port past 65535', 'localhost:65536'],
+    ['a port with a leading zero', 'localhost:08091'],
+    ['an empty port', 'localhost:'],
+    ['a port that is not a number', 'localhost:http'],
+    ['two ports', 'localhost:4310:8091'],
+    ['a path after the port', 'localhost:4310/api'],
+    ['a path', 'localhost/api'],
+    ['a scheme and port', 'http://localhost:4310'],
+    ['a port without a host', ':4310'],
+  ])('rejects an allowlist entry with %s (#329)', (_label, entry) => {
     const result = EnvironmentConfigSchema.safeParse({
       baseUrl: 'http://localhost:4310',
-      allowlist: ['localhost:4310'],
+      allowlist: [entry],
     });
     expect(result.success).toBe(false);
+  });
+
+  it('says what an allowlist entry may be when it is not a host', () => {
+    const result = AllowlistEntrySchema.safeParse('https://staging.example.com');
+
+    expect(result.error?.issues[0]?.message).toContain('staging.example.com:8091');
+  });
+
+  it('says the range of a port that is out of it', () => {
+    const result = AllowlistEntrySchema.safeParse('localhost:70000');
+
+    expect(result.error?.issues[0]?.message).toContain('1 to 65535');
   });
 
   it('rejects an allowlist entry carrying a scheme', () => {

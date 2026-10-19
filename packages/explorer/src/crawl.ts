@@ -57,7 +57,7 @@ export interface CrawlResult {
   readonly routeMap: RouteMap;
   /** HAR-shaped, redact before registering as `network-har` evidence (development plan section 6.4). */
   readonly requestLogHar: string;
-  /** Every non-GET request safe mode intercepted and cancelled; always 0 unless something is broken. */
+  /** Every request safe mode intercepted and cancelled, for its method or for where it went (ADR-0018, ADR-0019). */
   readonly blockedRequestCount: number;
   /** How many controls the navigation probe clicked; 0 unless `probeNavigation` was on. */
   readonly probeCount: number;

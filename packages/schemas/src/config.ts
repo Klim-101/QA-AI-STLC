@@ -30,12 +30,40 @@ export const ApiConfigSchema = z.object({
 });
 export type ApiConfig = z.infer<typeof ApiConfigSchema>;
 
-// Scheme and port are checked separately, against the environment's baseUrl (packages/core's
-// browser-allowlist.ts compares URL.hostname, which is always port-stripped) -- an entry that
-// looks like a full origin (a port suffix, a scheme prefix, a path) matches nothing at runtime and
-// used to fail silently instead of being rejected here (#329).
+// An allowlist entry is a bare host name, or `host:port` (ADR-0019). A bare name admits that host on
+// the port of the environment's baseUrl; `host:port` admits it on exactly that port, which is how
+// an application on one port reaches its API on another. The scheme always has to match the
+// baseUrl's. An entry that looks like a full origin (a scheme prefix, a path) matches nothing at
+// runtime and used to fail silently instead of being rejected here (#329).
 const HOSTNAME_PATTERN =
   /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
+const ALLOWLIST_ENTRY_MESSAGE =
+  'must be a bare hostname, or a hostname with a port -- for example "staging.example.com" or "staging.example.com:8091", not "https://staging.example.com" or "staging.example.com/api"';
+
+export const AllowlistEntrySchema = z
+  .string()
+  .min(1)
+  .superRefine((entry, context) => {
+    const separatorIndex = entry.indexOf(':');
+    const hostname = separatorIndex === -1 ? entry : entry.slice(0, separatorIndex);
+    if (!HOSTNAME_PATTERN.test(hostname)) {
+      context.addIssue({ code: 'custom', message: ALLOWLIST_ENTRY_MESSAGE });
+      return;
+    }
+    if (separatorIndex === -1) {
+      return;
+    }
+    const port = entry.slice(separatorIndex + 1);
+    if (!/^[0-9]+$/u.test(port)) {
+      context.addIssue({ code: 'custom', message: ALLOWLIST_ENTRY_MESSAGE });
+    } else if (!/^[1-9][0-9]{0,4}$/u.test(port) || Number(port) > 65_535) {
+      context.addIssue({
+        code: 'custom',
+        message: 'the port must be a number from 1 to 65535, without leading zeros',
+      });
+    }
+  });
 
 // A request safe mode lets through although it is not a GET (ADR-0014). Narrow on purpose: POST only
 // (a PUT, PATCH or DELETE changes a named resource by definition), an exact path with no query,
@@ -54,17 +82,7 @@ export type SafeNonGetRequest = z.infer<typeof SafeNonGetRequestSchema>;
 
 export const EnvironmentConfigSchema = z.object({
   baseUrl: z.string().min(1),
-  allowlist: z
-    .array(
-      z
-        .string()
-        .min(1)
-        .regex(
-          HOSTNAME_PATTERN,
-          'must be a bare hostname, with no scheme, port or path -- for example "staging.example.com", not "staging.example.com:8080" or "https://staging.example.com"',
-        ),
-    )
-    .min(1),
+  allowlist: z.array(AllowlistEntrySchema).min(1),
   // Off by default (P2-18): bypasses TLS certificate validation for this environment's HTTP and
   // browser traffic, for reaching a server behind a self-signed or internal-CA certificate.
   tlsInsecure: z.boolean().optional(),

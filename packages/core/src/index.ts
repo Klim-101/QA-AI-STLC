@@ -29,6 +29,7 @@ export * from './ports/id-generator.js';
 export * from './api-auth.js';
 export * from './api-auth-module.js';
 export * from './api-auth-redaction.js';
+export * from './allowlist-entry.js';
 export * from './browser-allowlist.js';
 export * from './browser-busy-wait.js';
 export * from './browser-timeouts.js';

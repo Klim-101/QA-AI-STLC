@@ -1504,8 +1504,9 @@ const BLOCKED_REQUEST_REASON_TEXT: Readonly<
     heading: 'Blocked, scheme differs from baseUrl (an environment uses one scheme for every allowed host)',
   },
   port: {
-    cause: "their port differs from the environment's baseUrl",
-    heading: 'Blocked, port differs from baseUrl (an allowlist entry names a host, not a port)',
+    cause: "their port is neither the environment's baseUrl port nor one its allowlist names for that host",
+    heading:
+      "Blocked, port not allowed (add host:port to the environment's allowlist if that port belongs in scope)",
   },
 };
 

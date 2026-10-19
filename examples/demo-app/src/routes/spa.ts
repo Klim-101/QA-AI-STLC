@@ -13,6 +13,10 @@ import { Router } from 'express';
  * Two more for `public/spa-query.html` (ADR-0018): a product list read with the `QUERY` method, which
  * is a safe read and must load in safe mode, and four mutating methods on one path, counted by
  * `GET /api/spa/mutations`, which safe mode must keep aborting before they reach the server.
+ *
+ * And `GET /api/cross/products` for `public/spa-cross-origin.html` (ADR-0019): a read that carries
+ * `Access-Control-Allow-Origin`, so a page served from another port may call it, as an application
+ * on one port does with its API on another.
  */
 export function createSpaRouter(): Router {
   const router = Router();
@@ -38,6 +42,19 @@ export function createSpaRouter(): Router {
       return;
     }
     response.json({ products: ['Claw hammer', 'Hand saw', 'Pliers'] });
+  });
+
+  let crossReadCount = 0;
+  router.get('/api/cross/products', (_request, response) => {
+    crossReadCount += 1;
+    response.set('Access-Control-Allow-Origin', '*');
+    response.json({ products: ['Claw hammer', 'Hand saw', 'Pliers'] });
+  });
+
+  // How many times the read above reached this server, so a test can tell a request safe mode
+  // aborted before the network from one that was answered.
+  router.get('/api/cross/reads', (_request, response) => {
+    response.json({ reads: crossReadCount });
   });
 
   let mutationCount = 0;
