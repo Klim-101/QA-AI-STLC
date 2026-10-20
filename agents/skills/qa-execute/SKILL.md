@@ -113,7 +113,7 @@ the case already exists (`qa-design-cases`); this skill drives it.
 ## What this skill calls, by test type
 
 - **`e2e`** — see [`references/web.md`](references/web.md): `qa.browser_open` with
-  `executionMode: true`, reading the normalized page snapshot to find targets without a static
+  `caseId` set to the case you are executing, reading the normalized page snapshot to find targets without a static
   locator, and promoting ad hoc finds with `qa.registry_execute_register`. For drop-downs, date
   pickers and data grids (a Kendo project, or any custom widget) also read
   [`component-libraries.md`](../../references/component-libraries.md).

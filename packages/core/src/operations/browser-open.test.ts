@@ -9,6 +9,7 @@ import {
   BROWSER_TEST_CONFIG_YAML,
   createBrowserTestHarness,
 } from '../test-support/browser-session-harness.js';
+import { seedApprovedCase } from '../test-support/approved-case.js';
 import { resolveBrowserEnvironment, runBrowserOpen } from './browser-open.js';
 
 function configWithEnvironments(environments: Config['environments']): Config {
@@ -338,10 +339,11 @@ describe('runBrowserOpen', () => {
     expect(calls).toEqual(['abort']);
   });
 
-  it('allows a non-GET request within the allowlist when executionMode is set (P3-14, ADR-0009)', async () => {
+  it('allows a non-GET request within the allowlist for an approved case (P3-14, ADR-0009)', async () => {
     const harness = createBrowserTestHarness();
+    const caseId = await seedApprovedCase(harness.context.engine);
 
-    await runBrowserOpen(harness.context, { executionMode: true });
+    await runBrowserOpen(harness.context, { caseId });
 
     const routeCall = harness.launcher.pageCalls.find((call) => call.method === 'contextRoute');
     const handler = routeCall?.args[1] as (route: {
@@ -363,6 +365,17 @@ describe('runBrowserOpen', () => {
     });
 
     expect(calls).toEqual(['continue']);
+  });
+
+  it('refuses a case the operator has not approved before any browser starts (ADR-0009)', async () => {
+    const harness = createBrowserTestHarness();
+    const caseId = await seedApprovedCase(harness.context.engine, { skipCasesApproval: true });
+
+    await expect(runBrowserOpen(harness.context, { caseId })).rejects.toMatchObject({
+      code: 'EXECUTION_CASE_NOT_APPROVED',
+    });
+    expect(harness.launcher.newContextCalls).toHaveLength(0);
+    expect(harness.sessions.sessionIds).toEqual([]);
   });
 
   it('resolves a named environment', async () => {

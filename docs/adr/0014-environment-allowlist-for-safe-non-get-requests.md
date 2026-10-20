@@ -7,7 +7,7 @@ Date: 2026-10-05
 
 Safe mode (AGENTS.md 12.4, ADR-005) aborts every non-GET request a browser session makes. ADR-0009
 relaxes that rule for one case only: an interactive case-execution session that opts in with
-`executionMode`, which lets every non-GET request through. Exploration, page analysis, pick mode and
+a `caseId` (earlier an `executionMode` flag), which lets every non-GET request through. Exploration, page analysis, pick mode and
 verification never relax it.
 
 Validating Kendo UI support on a real single-page application (P6-46) showed what that costs. The
@@ -19,7 +19,7 @@ the operator attaches a signed-in browser (`qa.browser_attach`) or runs pick mod
 exploration, in every project whose application behaves this way. Token refresh is the common case;
 sign-in itself and POST-as-query endpoints (search, GraphQL queries) are others.
 
-`executionMode` is the wrong tool: it is all or nothing, it is per session and chosen by the caller
+Execution mode is the wrong tool: it is all or nothing, it is per session and chosen by the caller
 (an agent), and it is not available to the crawler at all.
 
 ## Decision
@@ -49,7 +49,7 @@ Rules:
    An entry never widens where the session can go.
 3. **One enforcement point.** Every safe-mode session reads the list through the same handler:
    crawl, page analysis, locator scoring, `--verify`, and `qa.browser_open`/`qa.browser_attach`
-   sessions without `executionMode`. `executionMode` keeps its ADR-0009 meaning and is unaffected.
+   sessions without a `caseId`. A `caseId` keeps its ADR-0009 meaning and is unaffected.
 4. **Bodies are not inspected.** An allowed request goes out as the application made it. The engine
    records the method and the path, never the body, headers or query (AGENTS.md 5.8).
 5. **Visible.** An allowed request is counted and listed by method and path in the explore report

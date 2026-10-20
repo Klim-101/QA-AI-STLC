@@ -1,9 +1,10 @@
 # Executing an `e2e` case
 
-A `qa.browser_open` session with `executionMode: true` (ADR-0009): safe mode's block on requests that are not safe reads is
+A `qa.browser_open` session with `caseId` set to the case you execute (ADR-0009): safe mode's block on requests that are not safe reads is
 relaxed so a real form submission can go through, but the domain allowlist still applies
-unconditionally. Never set `executionMode` outside this skill — exploration and pick mode never
-need it.
+unconditionally. The engine refuses it with `EXECUTION_CASE_NOT_APPROVED` until the operator has approved the
+`cases` gate and while the case is unchanged since; tell the operator to approve it, do not work around it.
+Never set `caseId` outside this skill — exploration and pick mode never need it.
 
 ## The loop, and which tool for what
 

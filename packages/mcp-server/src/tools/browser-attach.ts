@@ -20,12 +20,13 @@ const InputSchema = z.object({
     .string()
     .optional()
     .describe('Environment name from config.yaml. Required when there is more than one.'),
-  executionMode: z
-    .boolean()
+  caseId: z
+    .string()
     .optional()
     .describe(
-      'Interactive case execution only (ADR-0009): allows a non-GET request through safe mode. ' +
-        'The domain allowlist still applies unconditionally.',
+      'Interactive case execution only (ADR-0009): the id of a case in the approved case set. Allows ' +
+        'a non-GET request through safe mode; refused with EXECUTION_CASE_NOT_APPROVED until the ' +
+        'operator approves the cases gate. The domain allowlist still applies unconditionally.',
     ),
   dialogPolicy: z
     .enum(['dismiss', 'accept'])
@@ -68,7 +69,7 @@ export function createBrowserAttachTool(
       const result = await runBrowserAttach(toBrowserOperationContext(dependencies), {
         endpoint: input.endpoint,
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
-        ...(input.executionMode !== undefined ? { executionMode: input.executionMode } : {}),
+        ...(input.caseId !== undefined ? { caseId: input.caseId } : {}),
         ...(input.dialogPolicy !== undefined ? { dialogPolicy: input.dialogPolicy } : {}),
         resolveLibraryBusySelectors: (library) =>
           resolveComponentLibraryProfile(library)?.busySelectors ?? [],

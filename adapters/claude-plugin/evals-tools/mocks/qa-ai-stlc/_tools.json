@@ -11,9 +11,9 @@
             "description": "Environment name from config.yaml. Required when there is more than one.",
             "type": "string"
           },
-          "executionMode": {
-            "description": "Interactive case execution only (ADR-0009): allows a non-GET request (a real form submission) through safe mode, so an e2e case can be proven to actually work. The domain allowlist still applies unconditionally. Never set this for exploration or pick mode.",
-            "type": "boolean"
+          "caseId": {
+            "description": "Interactive case execution only (ADR-0009): the id of a case in the approved case set. Allows a non-GET request (a real form submission) through safe mode, so the case can be proven to actually work. Refused with EXECUTION_CASE_NOT_APPROVED until the operator approves the cases gate. The domain allowlist still applies unconditionally. Omit it for exploration or pick mode.",
+            "type": "string"
           },
           "identity": {
             "description": "Identity name from config.yaml. The session signs in as it before the first navigation, so pages behind a login open authenticated. The result names the identity, never its credentials or session.",
@@ -55,9 +55,9 @@
             "description": "Environment name from config.yaml. Required when there is more than one.",
             "type": "string"
           },
-          "executionMode": {
-            "description": "Interactive case execution only (ADR-0009): allows a non-GET request through safe mode. The domain allowlist still applies unconditionally.",
-            "type": "boolean"
+          "caseId": {
+            "description": "Interactive case execution only (ADR-0009): the id of a case in the approved case set. Allows a non-GET request through safe mode; refused with EXECUTION_CASE_NOT_APPROVED until the operator approves the cases gate. The domain allowlist still applies unconditionally.",
+            "type": "string"
           },
           "dialogPolicy": {
             "description": "What the session does with an alert, confirm or prompt: dismiss (the default) or accept.",

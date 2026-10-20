@@ -16,6 +16,10 @@ import type { BrowserOperationContext } from '../src/operations/browser-context.
 import { runBrowserFill } from '../src/operations/browser-fill.js';
 import { runBrowserNavigate } from '../src/operations/browser-navigate.js';
 import { runBrowserOpen } from '../src/operations/browser-open.js';
+import { runApprove } from '../src/operations/approve.js';
+import { runCasesAdd } from '../src/operations/cases-add.js';
+import { CASES_INDEX_PATH } from '../src/gate.js';
+import { hashText } from '../src/hash.js';
 import { runRegisterCaseResult } from '../src/operations/case-result-register.js';
 import { runHttpExecute } from '../src/operations/http-execute.js';
 import { runRegisterExecutedElement } from '../src/operations/registry-execute-register.js';
@@ -66,16 +70,50 @@ async function readQaFile(projectRoot: string, relativePath: string): Promise<un
 // Exercises interactive case execution (P3-14) against a real browser and a real running
 // application (AGENTS.md section 13), the boundary the fake BrowserLauncher/HttpClient in every
 // other test file for these operations cannot cover: a real form POST going through under
-// executionMode (ADR-0009), a real axe-core scan, and a real HTTP call.
+// an approved case (ADR-0009), a real axe-core scan, and a real HTTP call.
 describe('interactive case execution (demo app)', () => {
   it('proves a real login case works end to end, across all three test types', async () => {
     await withTempDir(async (projectRoot) => {
       await mkdir(join(projectRoot, '.qa'), { recursive: true });
       await writeFile(join(projectRoot, '.qa', 'config.yaml'), CONFIG_YAML, 'utf-8');
-      await mkdir(join(projectRoot, '.qa', 'artifacts', 'cases', 'login'), { recursive: true });
+      const engine: EngineContext = {
+        projectRoot,
+        fs: nodeFileSystem,
+        clock: systemClock,
+        logger: noopLogger,
+        processRunner: nodeProcessRunner,
+        httpClient: fetchHttpClient,
+        browserLauncher: playwrightBrowserLauncher,
+        env: process.env,
+      };
+      // The case set the operator approves: execution with real requests is refused for any other.
+      const scopeJson = JSON.stringify({
+        generatedAt: '2026-09-25T09:00:00.000Z',
+        requirements: [{ id: 'login', title: 'Login', source: { kind: 'text', label: 'x' }, inScope: true }],
+      });
+      await mkdir(join(projectRoot, '.qa', 'artifacts'), { recursive: true });
+      await writeFile(join(projectRoot, '.qa', 'artifacts', 'scope.json'), scopeJson, 'utf-8');
       await writeFile(
-        join(projectRoot, '.qa', 'artifacts', 'cases', 'login', 'login-valid-credentials.json'),
+        join(projectRoot, '.qa', 'manifest.json'),
         JSON.stringify({
+          schemaVersion: 1,
+          artifacts: {
+            'artifacts/scope.json': {
+              sha256: hashText(scopeJson),
+              mode: 'text',
+              registeredAt: '2026-09-25T09:00:00Z',
+            },
+          },
+        }),
+        'utf-8',
+      );
+      await runApprove(engine, {
+        gate: 'scope',
+        artifactPath: 'artifacts/scope.json',
+        approvedBy: 'operator',
+      });
+      await runCasesAdd(engine, {
+        testCase: {
           schemaVersion: 1,
           id: 'login-valid-credentials',
           feature: 'login',
@@ -91,28 +129,18 @@ describe('interactive case execution (demo app)', () => {
           expectedResult: 'The dashboard loads',
           status: 'approved',
           createdAt: '2026-09-25T09:00:00.000Z',
-        }),
-        'utf-8',
-      );
+        },
+      });
+      await runApprove(engine, { gate: 'cases', artifactPath: CASES_INDEX_PATH, approvedBy: 'operator' });
 
-      const engine: EngineContext = {
-        projectRoot,
-        fs: nodeFileSystem,
-        clock: systemClock,
-        logger: noopLogger,
-        processRunner: nodeProcessRunner,
-        httpClient: fetchHttpClient,
-        browserLauncher: playwrightBrowserLauncher,
-        env: process.env,
-      };
       const sessions = new BrowserSessionStore();
       const context: BrowserOperationContext = { engine, sessions };
       const startedAt = systemClock.now().toISOString();
 
-      // 1. Web: a real form POST, only possible because executionMode relaxes the GET-only rule.
+      // 1. Web: a real form POST, only possible because an approved case relaxes the GET-only rule.
       const { sessionId, runId } = await runBrowserOpen(context, {
         environment: 'staging',
-        executionMode: true,
+        caseId: 'login-valid-credentials',
       });
       await runBrowserNavigate(context, { sessionId, url: `${BASE_URL}login` });
       await runBrowserFill(context, { sessionId, selector: '#email', value: 'admin@example.com' });

@@ -17,6 +17,7 @@ import { watchSessionPages } from '../browser-tabs.js';
 import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
 import type { BrowserOperationContext } from './browser-context.js';
+import { assertCaseApprovedForExecution } from './case-execution-approval.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
 export interface BrowserOpenOptions extends ComponentLibraryResolvers {
@@ -25,10 +26,11 @@ export interface BrowserOpenOptions extends ComponentLibraryResolvers {
   /**
    * Opts into interactive case execution's one relaxation of safe mode (P3-14, ADR-0009): the
    * session's route handler allows non-GET requests, so a real form submission can go through.
-   * The domain allowlist still applies unconditionally. Off by default — exploration and pick
-   * mode never set this.
+   * Only for a case of an approved case set, checked before any browser starts
+   * (`EXECUTION_CASE_NOT_APPROVED`). The domain allowlist still applies unconditionally. Omitted by
+   * exploration and pick mode.
    */
-  readonly executionMode?: boolean;
+  readonly caseId?: string;
   /**
    * What the session does with an `alert`, `confirm` or `prompt` (P6-59): `dismiss` (the default)
    * or `accept`. Either way each dialog is recorded as evidence. Accepting only lets the page
@@ -155,7 +157,7 @@ async function signIn(
  * MCP `qa.browser_open` (P2-06): launches a browser (headless unless asked for a visible window) for an exploratory session and
  * records opening it as evidence. Safe mode is applied here, once, for the whole session
  * (AGENTS.md 12.4): every non-GET request is aborted, so a later click can never submit a form —
- * unless `options.executionMode` opts an interactive case-execution session out of that one
+ * unless `options.caseId` names an approved case and so opts an interactive case-execution session out of that one
  * restriction (P3-14, ADR-0009). The session's domain allowlist comes from the environment's own
  * configuration and bounds every navigation the session will be allowed to make, in either mode.
  */
@@ -163,6 +165,9 @@ export async function runBrowserOpen(
   context: BrowserOperationContext,
   options: BrowserOpenOptions = {},
 ): Promise<BrowserOpenResult> {
+  if (options.caseId !== undefined) {
+    await assertCaseApprovedForExecution(context.engine, options.caseId);
+  }
   const config = await loadConfig(context.engine);
   const environment = resolveBrowserEnvironment(config, options.environment);
   const evidenceStore = createBrowserEvidenceStore(context.engine);
@@ -195,7 +200,7 @@ export async function runBrowserOpen(
     await browserContext.route(
       ALL_REQUESTS_PATTERN,
       createSessionRouteHandler(config, environment.config, {
-        allowMutations: options.executionMode === true,
+        allowMutations: options.caseId !== undefined,
         blockedRequests,
         requestTally,
         observedRequestHeaders,
