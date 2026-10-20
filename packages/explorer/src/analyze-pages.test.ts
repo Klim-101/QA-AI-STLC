@@ -103,6 +103,33 @@ describe('analyzePages', () => {
     ]);
   });
 
+  it('carries the state a page loaded with, not what opening its panels changed (P6-116)', async () => {
+    const urls = ['https://staging.example.com/a', 'https://staging.example.com/b'];
+    const loaded = { cookies: [{ name: 'refresh', value: 'token-1' }], origins: [] };
+    const afterClicks = {
+      cookies: [{ name: 'refresh', value: 'token-1' }],
+      origins: [{ origin: 'https://staging.example.com', localStorage: [{ name: 'filter', value: 'open' }] }],
+    };
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      contextStorageStates: [loaded],
+      contextStorageStatesAfterReveal: [afterClicks],
+      revealRoundsByUrl: { [urls[0] ?? '']: [2] },
+      ariaSnapshotByUrl: Object.fromEntries(urls.map((url) => [url, { role: 'document' }])),
+      elementsByUrl: Object.fromEntries(urls.map((url) => [url, EMPTY_ELEMENTS])),
+    });
+
+    await analyzePages({
+      urls,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      testIdAttribute: 'data-testid',
+      revealCollapsed: true,
+    });
+
+    expect(browserLauncher.newContextCalls[1]?.storageState).toEqual(loaded);
+  });
+
   it('stops with EXPLORE_SIGNED_OUT when a page of its own context is sent to the sign-in page', async () => {
     const url = 'https://staging.example.com/reports';
     const browserLauncher = createFakeCrawlBrowserLauncher({

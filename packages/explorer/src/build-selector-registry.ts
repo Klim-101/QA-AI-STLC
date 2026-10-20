@@ -181,7 +181,11 @@ export async function buildSelectorRegistry(
   try {
     let blockedRequestCount = 0;
     // Safe mode is installed on the context, not the page, so a popup a click opens is covered too.
-    const openSession = async (): Promise<{ page: AuthPage; close: () => Promise<void> }> => {
+    const openSession = async (): Promise<{
+      page: AuthPage;
+      rememberState: () => Promise<void>;
+      close: () => Promise<void>;
+    }> => {
       const context = await browser.newContext({
         ...(sessionState === undefined ? {} : { storageState: sessionState }),
         ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
@@ -199,12 +203,14 @@ export async function buildSelectorRegistry(
       );
       return {
         page: await context.newPage(),
-        close: async () => {
-          // An application that rotates its session token on use hands the next context a dead one
-          // unless the state the previous context ended with is carried forward.
+        // An application that rotates its session token on use hands the next context a dead one
+        // unless the state its page loaded with is carried forward. It is taken after every load
+        // and before any panel is opened, so nothing a click changed outlives the discarded context
+        // (ADR-0015).
+        rememberState: async () => {
           sessionState = await context.storageState();
-          await context.close();
         },
+        close: () => context.close(),
       };
     };
     const revealCollapsed = options.revealCollapsed === true;
@@ -224,6 +230,7 @@ export async function buildSelectorRegistry(
         const reveal = async (): Promise<void> => {
           if (revealCollapsed) {
             assertNotSignedOut(page, pageModel.url, options.identity);
+            await session.rememberState();
             await revealCollapsedPanels(page, {
               pageUrl: pageModel.url,
               ...(options.profile?.collapsiblePanelSelectors === undefined

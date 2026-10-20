@@ -75,7 +75,11 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
   try {
     let blockedRequestCount = 0;
     // Safe mode is installed on the context, not the page, so a popup a click opens is covered too.
-    const openSession = async (): Promise<{ page: AuthPage; close: () => Promise<void> }> => {
+    const openSession = async (): Promise<{
+      page: AuthPage;
+      rememberState: () => Promise<void>;
+      close: () => Promise<void>;
+    }> => {
       const context = await browser.newContext({
         ...(sessionState === undefined ? {} : { storageState: sessionState }),
         ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
@@ -93,12 +97,13 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
       );
       return {
         page: await context.newPage(),
-        close: async () => {
-          // An application that rotates its session token on use hands the next context a dead one
-          // unless the state the previous context ended with is carried forward.
+        // An application that rotates its session token on use hands the next context a dead one
+        // unless the state its page loaded with is carried forward. It is taken before any panel is
+        // opened, so nothing a click changed outlives the discarded context (ADR-0015).
+        rememberState: async () => {
           sessionState = await context.storageState();
-          await context.close();
         },
+        close: () => context.close(),
       };
     };
 
@@ -114,6 +119,7 @@ export async function analyzePages(options: AnalyzePagesOptions): Promise<Analyz
         await settlePage(page, url, options.settle);
         if (revealCollapsed) {
           assertNotSignedOut(page, url, options.identity);
+          await session.rememberState();
           expandedPanelCount += await revealCollapsedPanels(page, {
             pageUrl: url,
             ...(options.profile?.collapsiblePanelSelectors === undefined

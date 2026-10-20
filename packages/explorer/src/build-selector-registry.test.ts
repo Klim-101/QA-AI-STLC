@@ -233,6 +233,31 @@ describe('buildSelectorRegistry', () => {
     await expect(rejection).rejects.toMatchObject({ code: 'EXPLORE_SIGNED_OUT' });
   });
 
+  it('carries the state each load ended with before any panel was opened (P6-116)', async () => {
+    const urls = ['https://staging.example.com/a', 'https://staging.example.com/b'];
+    const loaded = { cookies: [{ name: 'refresh', value: 'token-1' }], origins: [] };
+    const afterClicks = {
+      cookies: [{ name: 'refresh', value: 'token-1' }],
+      origins: [{ origin: 'https://staging.example.com', localStorage: [{ name: 'filter', value: 'open' }] }],
+    };
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      locatorCounts: [1],
+      contextStorageStates: [loaded],
+      contextStorageStatesAfterReveal: [afterClicks],
+      revealRoundsByUrl: { [urls[0] ?? '']: [2, 2, 2, 2, 2, 2] },
+    });
+
+    await buildSelectorRegistry({
+      pageModelSet: pageModelSet(urls.map((url) => pageModel(url, [element({ testId: 'filter' })]))),
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      revealCollapsed: true,
+    });
+
+    expect(browserLauncher.newContextCalls[1]?.storageState).toEqual(loaded);
+  });
+
   it('opens no panel when it is not asked to', async () => {
     const url = 'https://staging.example.com/search';
     const browserLauncher = createFakeCrawlBrowserLauncher({
