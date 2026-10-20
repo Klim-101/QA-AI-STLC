@@ -108,7 +108,7 @@ async function runPickModeSession(
   const policy = resolvePolicy(config, options.policy);
   const { tlsInsecure, ...guard } = resolvePickModeEnvironment(config, options.environment, options.pick);
   configureTestIdAttribute(config.selectors.testIdAttribute);
-  const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
+  const storageState = await resolveStorageState(context.browserLauncher, identity, guard, tlsInsecure);
 
   // Headed: a human clicks the elements in this window, unlike every other launch() call here.
   const browser = await context.browserLauncher.launch({ headless: false });

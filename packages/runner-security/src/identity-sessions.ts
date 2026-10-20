@@ -169,6 +169,8 @@ async function signIn(
   }
   const cdpEndpointUrl = options.cdpEndpointUrls?.[name];
   return authenticate(context.browserLauncher, identity, context.env, {
+    allowlist,
+    baseUrl,
     ...(cdpEndpointUrl !== undefined ? { cdpEndpointUrl } : {}),
     ...(tlsInsecure ? { tlsInsecure: true } : {}),
   });

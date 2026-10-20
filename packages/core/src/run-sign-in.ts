@@ -1,7 +1,6 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { assertUrlAllowed } from './browser-allowlist.js';
 import { authenticate, withDefaultLoginSelectors } from './auth.js';
 import { loadConfig } from './config-loader.js';
 import type { EngineContext } from './engine-context.js';
@@ -38,20 +37,17 @@ export async function signInForRun(
   }
 
   const environment = resolveBrowserEnvironment(config, environmentName);
-  // The password goes to the login page, so the page must be one the environment admits (12.4).
-  // The schema requires `loginUrl` for a storage-state identity, so the absent case cannot be built.
-  /* v8 ignore next -- unreachable through a validated config */
-  if (identityConfig.loginUrl !== undefined) {
-    assertUrlAllowed(identityConfig.loginUrl, environment.config.allowlist, environment.config.baseUrl);
-  }
-
   let storageState: StorageState;
   try {
     storageState = await authenticate(
       engine.browserLauncher,
       withDefaultLoginSelectors(identityConfig, config),
       engine.env,
-      environment.config.tlsInsecure === true ? { tlsInsecure: true } : {},
+      {
+        allowlist: environment.config.allowlist,
+        baseUrl: environment.config.baseUrl,
+        ...(environment.config.tlsInsecure === true ? { tlsInsecure: true } : {}),
+      },
     );
   } catch (error) {
     if (error instanceof QaError) {

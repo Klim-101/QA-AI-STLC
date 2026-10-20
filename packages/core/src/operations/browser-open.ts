@@ -143,6 +143,8 @@ async function signIn(
     withDefaultLoginSelectors(identityConfig, config),
     context.engine.env,
     {
+      allowlist: environment.allowlist,
+      baseUrl: environment.baseUrl,
       ...(options.cdpEndpointUrl === undefined ? {} : { cdpEndpointUrl: options.cdpEndpointUrl }),
       ...(environment.tlsInsecure === true ? { tlsInsecure: true } : {}),
     },
