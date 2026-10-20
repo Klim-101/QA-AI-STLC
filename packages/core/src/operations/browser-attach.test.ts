@@ -10,6 +10,7 @@ import {
   type BrowserTestHarness,
   type BrowserTestHarnessOptions,
 } from '../test-support/browser-session-harness.js';
+import { seedApprovedCase } from '../test-support/approved-case.js';
 import { runBrowserAttach } from './browser-attach.js';
 
 const STAGING_URL = 'https://staging.example.test/app';
@@ -130,16 +131,27 @@ describe('runBrowserAttach', () => {
     expect(outcomes).toEqual(['abort', 'abort']);
   });
 
-  it('lets a non-GET request within the allowlist through only in execution mode (ADR-0009)', async () => {
+  it('lets a non-GET request within the allowlist through only for an approved case (ADR-0009)', async () => {
     const operator = await operatorBrowser([STAGING_URL]);
+    const caseId = await seedApprovedCase(operator.harness.context.engine);
 
-    await runBrowserAttach(operator.harness.context, { endpoint: ENDPOINT, executionMode: true });
+    await runBrowserAttach(operator.harness.context, { endpoint: ENDPOINT, caseId });
 
     const outcomes: string[] = [];
     const handler = pageRouteHandler(operator);
     await handler(postRoute('https://staging.example.test/save', outcomes));
     await handler(postRoute('https://elsewhere.example.test/save', outcomes));
     expect(outcomes).toEqual(['continue', 'abort']);
+  });
+
+  it('refuses a case the operator has not approved before it connects to the browser (ADR-0009)', async () => {
+    const operator = await operatorBrowser([STAGING_URL]);
+    const caseId = await seedApprovedCase(operator.harness.context.engine, { skipCasesApproval: true });
+
+    await expect(
+      runBrowserAttach(operator.harness.context, { endpoint: ENDPOINT, caseId }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_CASE_NOT_APPROVED' });
+    expect(operator.connect).not.toHaveBeenCalled();
   });
 
   it('observes the request headers a from-browser profile replays, from attachment onward', async () => {

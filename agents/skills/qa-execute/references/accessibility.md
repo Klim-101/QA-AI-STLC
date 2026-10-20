@@ -2,7 +2,7 @@
 
 Requires an open browser session on the page the case targets — usually reached by following the
 case's own preconditions/steps with `qa.browser_navigate` first, the same as an `e2e` case, but
-without needing `executionMode` unless a step also submits a form. Once on the right page, call
+without needing a `caseId` unless a step also submits a form. Once on the right page, call
 `qa.browser_accessibility_scan` with the session id and the scan step's `stepId` (`'step-<N>'`).
 
 ## Reading the result

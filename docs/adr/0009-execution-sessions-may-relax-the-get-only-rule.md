@@ -19,20 +19,12 @@ because the request itself would be silently aborted.
 
 ## Decision
 
-`qa.browser_open` gains an opt-in `executionMode` option. When set, the session's safe-mode route
-handler allows non-GET requests through instead of aborting them. The domain allowlist check is
-unaffected either way — an execution session can still only reach the environment's configured
-allowlist, exactly like an exploration session. `executionMode` defaults to off, so every existing
-caller (exploration, pick mode) is unchanged.
+`qa.browser_open` and `qa.browser_attach` take an optional `caseId`. When it is set, the session's safe-mode route handler allows non-GET requests through instead of aborting them. The domain allowlist check is unaffected either way: an execution session can still only reach the environment's configured allowlist.
+
+The engine, not the caller, decides whether the relaxation is allowed. Before any browser starts it checks that every gate is satisfied and that the approved case set (ADR-003) lists the case's file under the hash it has now. Otherwise it refuses with `EXECUTION_CASE_NOT_APPROVED`. The operator's approval of the `cases` gate is therefore what lets a session write to the application, the same way only the operator widens the allowlist (ADR-0014, ADR-0019). Without a `caseId` nothing changes for exploration and pick mode.
+
+An earlier version took an `executionMode` boolean, which an agent could set for any session. It was replaced because nothing tied it to an approved case.
 
 ## Consequences
 
-An execution session is the first documented way anything in this codebase can make the engine
-actually write to the application under test. That capability is deliberately narrow: it requires
-the caller to explicitly opt in per session, it never widens the allowlist, and every request it
-lets through is still registered as evidence exactly like a GET (ADR-005) — there is no execution
-mode where a mutation happens without a hash-timestamped record of it. The cost is that a project
-whose `qa-execute` skill or an operator mistakenly opens an execution-mode session against
-exploration work would lose the GET-only guarantee for that session; this is accepted because the
-option is explicit and named for what it does, not a global config flag that could be left on by
-accident.
+An execution session is the first way anything in this codebase makes the engine write to the application under test. It never widens the allowlist, it needs an approved case, and every request it lets through is registered as evidence like a GET (ADR-005). Editing the case afterwards, or adding another case, reopens the gate and ends the permission until the operator approves again.

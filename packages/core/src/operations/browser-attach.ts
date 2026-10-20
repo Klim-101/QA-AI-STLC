@@ -18,6 +18,7 @@ import { QaError } from '../errors.js';
 import type { AuthBrowser, AuthBrowserContext, AuthPage } from '../ports/browser-launcher.js';
 import { resolveBrowserEnvironment, type BrowserOpenOptions } from './browser-open.js';
 import type { BrowserOperationContext } from './browser-context.js';
+import { assertCaseApprovedForExecution } from './case-execution-approval.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
 
 export interface BrowserAttachOptions extends BrowserOpenOptions {
@@ -79,6 +80,9 @@ export async function runBrowserAttach(
   options: BrowserAttachOptions,
 ): Promise<BrowserAttachResult> {
   const endpoint = assertLoopbackCdpEndpoint(options.endpoint);
+  if (options.caseId !== undefined) {
+    await assertCaseApprovedForExecution(context.engine, options.caseId);
+  }
   const config = await loadConfig(context.engine);
   const environment = resolveBrowserEnvironment(config, options.environment);
   const settings = resolveSessionSettings(config, environment.config, options);
@@ -112,7 +116,7 @@ export async function runBrowserAttach(
     await target.page.route(
       ALL_REQUESTS_PATTERN,
       createSessionRouteHandler(config, environment.config, {
-        allowMutations: options.executionMode === true,
+        allowMutations: options.caseId !== undefined,
         blockedRequests,
         requestTally,
         observedRequestHeaders,

@@ -13,13 +13,14 @@ const InputSchema = z.object({
     .string()
     .optional()
     .describe('Environment name from config.yaml. Required when there is more than one.'),
-  executionMode: z
-    .boolean()
+  caseId: z
+    .string()
     .optional()
     .describe(
-      'Interactive case execution only (ADR-0009): allows a non-GET request (a real form ' +
-        'submission) through safe mode, so an e2e case can be proven to actually work. The ' +
-        'domain allowlist still applies unconditionally. Never set this for exploration or pick mode.',
+      'Interactive case execution only (ADR-0009): the id of a case in the approved case set. Allows ' +
+        'a non-GET request (a real form submission) through safe mode, so the case can be proven to ' +
+        'actually work. Refused with EXECUTION_CASE_NOT_APPROVED until the operator approves the ' +
+        'cases gate. The domain allowlist still applies unconditionally. Omit it for exploration or pick mode.',
     ),
   identity: z
     .string()
@@ -81,7 +82,7 @@ export function createBrowserOpenTool(
     async handler(input) {
       const result = await runBrowserOpen(toBrowserOperationContext(dependencies), {
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
-        ...(input.executionMode !== undefined ? { executionMode: input.executionMode } : {}),
+        ...(input.caseId !== undefined ? { caseId: input.caseId } : {}),
         ...(input.identity !== undefined ? { identity: input.identity } : {}),
         ...(input.cdpEndpointUrl !== undefined ? { cdpEndpointUrl: input.cdpEndpointUrl } : {}),
         ...(input.dialogPolicy !== undefined ? { dialogPolicy: input.dialogPolicy } : {}),
