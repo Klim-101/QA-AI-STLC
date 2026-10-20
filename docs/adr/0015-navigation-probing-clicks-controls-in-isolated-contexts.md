@@ -29,7 +29,7 @@ Routes are discovered in three steps, in this order of risk.
    `pushState` and `replaceState` call. The wrapper calls the original unchanged and keeps at most
    500 entries. Nothing is clicked.
 3. **Navigation probing, off unless asked for** (`qa explore --probe-navigation`, `probeNavigation`
-   on `qa.explore`). For a page the crawl visited, each button and `role="link"` element that is
+   on `qa.explore`). For a page the crawl visited, each `button`, `role="link"` and `role="button"` element that is
    outside any form, not a submit or reset button, not disabled, not an anchor with an `href`, and
    visible, is clicked in a fresh browser context. Rules:
    - **Isolated.** Each probe has its own context with the crawl's session and TLS setting, loads the
@@ -53,6 +53,9 @@ Routes are discovered in three steps, in this order of risk.
 
 Probing is chosen per run by the operator or the agent that asks for it; no configuration key turns
 it on, and no environment can make it the default.
+
+A bare `div` or `span` with a click handler, an anchor with no `href` and a button inside a form are
+not clicked; pass such a page with `--url` or pick it.
 
 **Not adopted:**
 

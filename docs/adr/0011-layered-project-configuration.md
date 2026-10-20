@@ -71,9 +71,9 @@ returns a relaxation for every effective value that is less safe than the commit
 Relaxations are printed on every CLI command that loads the configuration (stderr, one line each),
 and listed by `qa doctor`/`qa.doctor` and `qa config show`/`qa.config_show`.
 
-**Invariant.** Every value that feeds a gate, a hash or generated code comes from a section the local
-layer may not set, so gate results and generated files are identical on every machine for the same
-committed artifacts.
+**Invariant.** Gates and generated code depend only on the committed configuration and the committed
+artifacts, so their results are identical on every machine. An environment address from the local
+layer only decides which committed elements an operation reads (ADR-0020).
 
 **Not adopted:** per-key `QA_*` override variables and a generic per-environment `overrides` block.
 Environment-specific values that P6-23 moves into config become explicit fields of the environment
