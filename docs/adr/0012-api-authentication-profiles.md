@@ -68,9 +68,10 @@ at request time and adds the credential itself.
 
 **Secret handling.**
 
-1. Resolved values live in engine memory only. An OAuth token or a browser-derived token is cached
-   for the life of the process, until it expires or a request returns 401, and is never written to
-   disk.
+1. Resolved values live in engine memory only and are never written to disk. An OAuth token is
+   cached for the life of the process, until it expires or a request returns 401. A `from-browser`
+   token is never cached: a session reads it again on every call, and `qa run` reads it once before
+   the specs start.
 2. A resolved value is never returned to the agent: not in a tool result, an error message, a log
    line or an artifact. The agent learns only the profile name, its type and whether resolution
    succeeded.
@@ -94,10 +95,8 @@ optional JSON path, a `sessionStorage` key, or the `Authorization` header of an 
 an allowlisted host. The caller names where to read from: the id of an open engine browser session
 of the same environment (opened by `qa.browser_open`, or attached to the operator's own browser by
 `qa.browser_attach`), or a configured identity with a saved storage state (which an attached browser
-can also produce). The token stays in
-engine memory, is read again at request time on every call (it is never cached, so a token the
-application rotated is picked up immediately and there is no stale copy for a 401 to expose), and
-follows rules 1 to 4 above. A run (`qa run`, `qa.generation_verify`) has no one to open a
+can also produce). The token follows rules 1 to 4 above, so one the
+application rotated is picked up immediately. A run (`qa run`, `qa.generation_verify`) has no one to open a
 session, so for a spec whose profile is `from-browser` it signs in as the run's identity (the
 `--identity` or `identity` argument, else the environment's `identity`) in a headless session under
 safe mode, loads the environment's `baseUrl`, reads the token once before the specs start and closes

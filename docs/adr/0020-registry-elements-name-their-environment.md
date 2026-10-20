@@ -72,4 +72,6 @@ leave the deprecation and every reader as they are.
 
 Not covered: `selectors/api-diff.json` is the report of the last run and is not kept per
 environment, and the missing-test-id report is project-wide. A change to the registry schema that
-would make the environment required is not made.
+would make the environment required is not made. An element id includes the origin, so a local layer
+that changes the port of `baseUrl` gives the same page another id; fixing that needs a schema change
+and a migration, and is tracked separately.
