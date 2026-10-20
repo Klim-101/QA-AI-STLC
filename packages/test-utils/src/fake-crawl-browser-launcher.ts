@@ -74,6 +74,11 @@ export interface FakeCrawlPageOptions {
   readonly clickResultsByUrl?: Readonly<Record<string, Readonly<Record<number, FakeClickResult>>>>;
   /** What each context's `storageState()` returns, in the order the contexts were opened; empty when omitted. */
   readonly contextStorageStates?: readonly StorageStateLike[];
+  /**
+   * What a context's `storageState()` returns once its page has opened a panel since it last loaded,
+   * in the order the contexts were opened; falls back to `contextStorageStates` when omitted.
+   */
+  readonly contextStorageStatesAfterReveal?: readonly StorageStateLike[];
   /** The session `authenticate()` resolves to for a `cdp-attach` identity in these tests. */
   readonly authStorageState?: StorageStateLike;
   /** Simulates the subrequests a real page fires through the registered route handler on visit. */
@@ -91,6 +96,8 @@ export interface FakeCrawlPage extends AuthPageLike {
   readonly routeHandlers: RouteHandlerLike[];
   readonly initScripts: string[];
   readonly clickedSelectors: string[];
+  /** True once a round of opening collapsed panels clicked something, until the page loads again. */
+  hasOpenedPanels(): boolean;
 }
 
 export function createFakeCrawlPage(
@@ -105,6 +112,7 @@ export function createFakeCrawlPage(
   const locatorCounts = options.locatorCounts ?? [1];
   let locatorCallIndex = 0;
   const revealRoundIndexByUrl = new Map<string, number>();
+  let hasOpenedPanels = false;
 
   function nextRevealRound(url: string): Promise<unknown> {
     const index = revealRoundIndexByUrl.get(url) ?? 0;
@@ -117,8 +125,10 @@ export function createFakeCrawlPage(
     }
     if (typeof round === 'object') {
       currentUrl = round.navigatesTo;
+      hasOpenedPanels = true;
       return Promise.resolve(1);
     }
+    hasOpenedPanels ||= round > 0;
     return Promise.resolve(round);
   }
 
@@ -145,8 +155,10 @@ export function createFakeCrawlPage(
     routeHandlers,
     initScripts,
     clickedSelectors,
+    hasOpenedPanels: () => hasOpenedPanels,
     goto: async (url) => {
       gotoUrls.push(url);
+      hasOpenedPanels = false;
       currentUrl = options.redirectsByUrl?.[url] ?? url;
       await fireSubRequests(options.subRequestsByUrl?.[url] ?? []);
       const configured = options.responsesByUrl?.[url];
@@ -210,7 +222,10 @@ export function createFakeCrawlPage(
     getByPlaceholder: () => locator(),
     getByText: () => locator(),
     locator: () => locator(),
-    reload: () => Promise.resolve(DEFAULT_RESPONSE),
+    reload: () => {
+      hasOpenedPanels = false;
+      return Promise.resolve(DEFAULT_RESPONSE);
+    },
     setViewportSize: () => Promise.resolve(),
     viewportSize: () => ({ width: 1280, height: 720 }),
     url: () => currentUrl ?? 'about:blank',
@@ -265,8 +280,13 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
           const context: AuthBrowserContextLike = {
             newPage: () => Promise.resolve(contextPage),
             pages: () => [contextPage],
-            storageState: () =>
-              Promise.resolve(options.contextStorageStates?.[contextIndex] ?? EMPTY_STORAGE_STATE),
+            storageState: () => {
+              const afterReveal = options.contextStorageStatesAfterReveal?.[contextIndex];
+              if (contextPage.hasOpenedPanels() && afterReveal !== undefined) {
+                return Promise.resolve(afterReveal);
+              }
+              return Promise.resolve(options.contextStorageStates?.[contextIndex] ?? EMPTY_STORAGE_STATE);
+            },
             route: (_pattern, handler) => {
               contextRouteHandlers.push(handler);
               return Promise.resolve();

@@ -235,6 +235,72 @@ describe('createFakeCrawlPage collapsed panel support', () => {
   });
 });
 
+describe('createFakeCrawlPage panel state', () => {
+  function clickCollapsedControls(): number {
+    return 0;
+  }
+
+  it('reports opened panels until the page loads again', async () => {
+    const page = createFakeCrawlPage({
+      revealRoundsByUrl: { 'https://example.com/': [0, 1, { navigatesTo: 'https://example.com/next' }] },
+    });
+    await page.goto('https://example.com/');
+    expect(page.hasOpenedPanels()).toBe(false);
+
+    await page.evaluate(clickCollapsedControls);
+    expect(page.hasOpenedPanels()).toBe(false);
+    await page.evaluate(clickCollapsedControls);
+    expect(page.hasOpenedPanels()).toBe(true);
+
+    await page.reload();
+    expect(page.hasOpenedPanels()).toBe(false);
+    await page.evaluate(clickCollapsedControls);
+    expect(page.hasOpenedPanels()).toBe(true);
+
+    await page.goto('https://example.com/');
+    expect(page.hasOpenedPanels()).toBe(false);
+  });
+});
+
+describe('createFakeCrawlBrowserLauncher context state after panels opened', () => {
+  function clickCollapsedControls(): number {
+    return 0;
+  }
+
+  it('returns the after-reveal state only once a panel was opened, and the plain one otherwise', async () => {
+    const loaded = { cookies: [{ name: 'refresh', value: '1' }], origins: [] };
+    const afterClicks = { cookies: [{ name: 'refresh', value: '2' }], origins: [] };
+    const launcher = createFakeCrawlBrowserLauncher({
+      contextStorageStates: [loaded],
+      contextStorageStatesAfterReveal: [afterClicks],
+      revealRoundsByUrl: { 'https://example.com/': [1] },
+    });
+    const browser = await launcher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto('https://example.com/');
+
+    expect(await context.storageState()).toBe(loaded);
+    await page.evaluate(clickCollapsedControls);
+    expect(await context.storageState()).toBe(afterClicks);
+  });
+
+  it('keeps the plain state for a context with no after-reveal state', async () => {
+    const loaded = { cookies: [], origins: [] };
+    const launcher = createFakeCrawlBrowserLauncher({
+      contextStorageStates: [loaded],
+      revealRoundsByUrl: { 'https://example.com/': [1] },
+    });
+    const browser = await launcher.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto('https://example.com/');
+    await page.evaluate(clickCollapsedControls);
+
+    expect(await context.storageState()).toBe(loaded);
+  });
+});
+
 describe('createFakeCrawlBrowserLauncher', () => {
   it("replays requests of the crawl's own page through its context route", async () => {
     const launcher = createFakeCrawlBrowserLauncher({
