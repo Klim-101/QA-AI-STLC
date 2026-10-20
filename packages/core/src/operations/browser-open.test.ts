@@ -145,6 +145,26 @@ describe('runBrowserOpen with an identity (P6-74)', () => {
     expect(harness.sessions.sessionIds).toEqual([]);
   });
 
+  it('refuses a sign-in page outside the environment allowlist and opens no session (P6-115)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: LOGIN_CONFIG_YAML.replace(
+        'loginUrl: "https://staging.example.test/login"',
+        'loginUrl: "https://elsewhere.example.net/login"',
+      ),
+      launcherOptions: { storageState: SIGNED_IN_STATE },
+    });
+    const context = {
+      ...harness.context,
+      engine: { ...harness.context.engine, env: { QA_ADMIN_PASSWORD: 'placeholder-password' } },
+    };
+
+    await expect(runBrowserOpen(context, { identity: 'admin' })).rejects.toMatchObject({
+      code: 'BROWSER_URL_NOT_ALLOWED',
+    });
+    expect(harness.launcher.pageCalls).toEqual([]);
+    expect(harness.sessions.sessionIds).toEqual([]);
+  });
+
   it('surfaces IDENTITY_SECRET_MISSING and opens no session', async () => {
     const harness = loginHarness({});
 

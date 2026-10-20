@@ -98,12 +98,15 @@ of the same environment (opened by `qa.browser_open`, or attached to the operato
 can also produce). The token follows rules 1 to 4 above, so one the
 application rotated is picked up immediately. A run (`qa run`, `qa.generation_verify`) has no one to open a
 session, so for a spec whose profile is `from-browser` it signs in as the run's identity (the
-`--identity` or `identity` argument, else the environment's `identity`) in a headless session under
-safe mode, loads the environment's `baseUrl`, reads the token once before the specs start and closes
+`--identity` or `identity` argument, else the environment's `identity`), then in a headless session under
+safe mode loads the environment's `baseUrl`, reads the token once before the specs start and closes
 the session; a run with no identity stops with `API_AUTH_SESSION_REQUIRED`. A source
 that the session cannot provide (for example `sessionStorage` from a saved storage-state file) fails
 with a coded error rather than falling back silently. This complements the manual path, where the
 operator copies a token into a `QA_*` variable used by a `bearer` profile.
+
+A scripted sign-in is the one step outside safe mode: it submits a form. Its `loginUrl` must pass the
+environment's allowlist, and `authenticate()` checks that on every path that signs in.
 
 **Attaching to the operator's browser.** For an application the engine cannot sign into itself (SSO,
 MFA), `qa.browser_attach` connects over CDP to a Chrome the operator started with

@@ -82,6 +82,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
   const storageState = await resolveStorageState(
     options.browserLauncher,
     options.identity,
+    { allowlist: options.allowlist, baseUrl: options.startUrl },
     options.tlsInsecure,
   );
 

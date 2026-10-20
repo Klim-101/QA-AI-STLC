@@ -173,6 +173,7 @@ export async function buildSelectorRegistry(
   let sessionState = await resolveStorageState(
     options.browserLauncher,
     options.identity,
+    { allowlist: options.allowlist, baseUrl: options.baseUrl },
     options.tlsInsecure,
   );
 

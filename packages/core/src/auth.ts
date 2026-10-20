@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Config, IdentityConfig } from '@qa-ai-stlc/schemas';
+import { assertUrlAllowed } from './browser-allowlist.js';
 import { QaError } from './errors.js';
 import type { AuthBrowser, BrowserLauncher, StorageState } from './ports/browser-launcher.js';
 
@@ -63,6 +64,10 @@ export async function loginWithCredentials(
 }
 
 export interface AuthenticateOptions {
+  /** The environment's allowlist; a scripted login only opens a sign-in page that passes it. */
+  readonly allowlist: readonly string[];
+  /** The environment's `baseUrl`, whose scheme and port the allowlist check applies. */
+  readonly baseUrl: string;
   /** Required, and only used, when `identity.auth` is `"cdp-attach"`. */
   readonly cdpEndpointUrl?: string;
   /** Bypasses TLS certificate validation for a scripted login (P2-18); off by default, ignored for `"cdp-attach"`. */
@@ -77,7 +82,7 @@ export async function authenticate(
   launcher: BrowserLauncher,
   identity: IdentityConfig,
   env: Readonly<Record<string, string | undefined>>,
-  options: AuthenticateOptions = {},
+  options: AuthenticateOptions,
 ): Promise<StorageState> {
   if (identity.auth === 'cdp-attach') {
     if (options.cdpEndpointUrl === undefined) {
@@ -106,6 +111,9 @@ export async function authenticate(
       },
     );
   }
+  // A scripted login submits the password to this page, so it is held to the allowlist on every
+  // path that signs in (AGENTS.md 12.4), not by each caller.
+  assertUrlAllowed(identity.loginUrl, options.allowlist, options.baseUrl);
   return loginWithCredentials(launcher, {
     loginUrl: identity.loginUrl,
     username: identity.username,

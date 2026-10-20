@@ -436,7 +436,12 @@ async function runVerify(
   const tlsInsecure = environment.config.tlsInsecure === true;
   warnIfTlsInsecure(context, environment.name, tlsInsecure);
   configureTestIdAttribute(config.selectors.testIdAttribute);
-  const storageState = await resolveStorageState(context.browserLauncher, identity, tlsInsecure);
+  const storageState = await resolveStorageState(
+    context.browserLauncher,
+    identity,
+    { allowlist: environment.config.allowlist, baseUrl: environment.config.baseUrl },
+    tlsInsecure,
+  );
   const profile = resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles);
   const settle = resolveSettleOptions(context, config, profile);
   const tally = new SafeModeRequestTally();

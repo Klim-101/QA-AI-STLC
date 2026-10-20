@@ -172,6 +172,7 @@ describe('loginWithCredentials', () => {
 });
 
 describe('authenticate', () => {
+  const boundary = { allowlist: ['example.com'], baseUrl: 'https://example.com' };
   const cdpIdentity: IdentityConfig = { auth: 'cdp-attach', secret: 'QA_ADMIN_PASSWORD' };
   const loginIdentity: IdentityConfig = {
     auth: 'storage-state',
@@ -191,7 +192,12 @@ describe('authenticate', () => {
     };
     const launcher = createFakeBrowserLauncher({ contexts: [context] });
 
-    const result = await authenticate(launcher, cdpIdentity, {}, { cdpEndpointUrl: 'http://localhost:9222' });
+    const result = await authenticate(
+      launcher,
+      cdpIdentity,
+      {},
+      { ...boundary, cdpEndpointUrl: 'http://localhost:9222' },
+    );
 
     expect(result).toBe(SESSION);
   });
@@ -199,7 +205,7 @@ describe('authenticate', () => {
   it('throws CDP_ENDPOINT_MISSING when a cdp-attach identity has no endpoint URL', async () => {
     const launcher = createFakeBrowserLauncher();
 
-    const error = await authenticate(launcher, cdpIdentity, {}).catch((caught: unknown) => caught);
+    const error = await authenticate(launcher, cdpIdentity, {}, boundary).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('CDP_ENDPOINT_MISSING');
@@ -208,7 +214,7 @@ describe('authenticate', () => {
   it('dispatches to loginWithCredentials for a storage-state identity', async () => {
     const launcher = createFakeBrowserLauncher({ storageState: SESSION });
 
-    const result = await authenticate(launcher, loginIdentity, { QA_ADMIN_PASSWORD: 'hunter2' });
+    const result = await authenticate(launcher, loginIdentity, { QA_ADMIN_PASSWORD: 'hunter2' }, boundary);
 
     expect(result).toBe(SESSION);
     expect(launcher.pageCalls[1]?.args).toContain('qa.admin@example.com');
@@ -221,7 +227,7 @@ describe('authenticate', () => {
       selectors: { username: '#u', password: '#p', submit: '#s' },
     };
 
-    await authenticate(launcher, identity, { QA_ADMIN_PASSWORD: 'hunter2' });
+    await authenticate(launcher, identity, { QA_ADMIN_PASSWORD: 'hunter2' }, boundary);
 
     expect(launcher.pageCalls).toContainEqual({ method: 'fill', args: ['#u', 'qa.admin@example.com'] });
     expect(launcher.pageCalls).toContainEqual({ method: 'fill', args: ['#p', 'hunter2'] });
@@ -231,7 +237,9 @@ describe('authenticate', () => {
   it('throws IDENTITY_SECRET_MISSING when the secret env var is unset', async () => {
     const launcher = createFakeBrowserLauncher();
 
-    const error = await authenticate(launcher, loginIdentity, {}).catch((caught: unknown) => caught);
+    const error = await authenticate(launcher, loginIdentity, {}, boundary).catch(
+      (caught: unknown) => caught,
+    );
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('IDENTITY_SECRET_MISSING');
@@ -240,7 +248,7 @@ describe('authenticate', () => {
   it('throws IDENTITY_SECRET_MISSING when the secret env var is empty', async () => {
     const launcher = createFakeBrowserLauncher();
 
-    const error = await authenticate(launcher, loginIdentity, { QA_ADMIN_PASSWORD: '' }).catch(
+    const error = await authenticate(launcher, loginIdentity, { QA_ADMIN_PASSWORD: '' }, boundary).catch(
       (caught: unknown) => caught,
     );
 
@@ -250,16 +258,33 @@ describe('authenticate', () => {
   it('forwards tlsInsecure to loginWithCredentials for a storage-state identity (P2-18)', async () => {
     const launcher = createFakeBrowserLauncher({ storageState: SESSION });
 
-    await authenticate(launcher, loginIdentity, { QA_ADMIN_PASSWORD: 'hunter2' }, { tlsInsecure: true });
+    await authenticate(
+      launcher,
+      loginIdentity,
+      { QA_ADMIN_PASSWORD: 'hunter2' },
+      { ...boundary, tlsInsecure: true },
+    );
 
     expect(launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+  });
+
+  it('refuses a sign-in page outside the allowlist before any browser is launched (P6-115)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+    const identity: IdentityConfig = { ...loginIdentity, loginUrl: 'https://elsewhere.example.net/login' };
+
+    const error = await authenticate(launcher, identity, { QA_ADMIN_PASSWORD: 'hunter2' }, boundary).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect((error as QaError).code).toBe('BROWSER_URL_NOT_ALLOWED');
+    expect(launcher.pageCalls).toEqual([]);
   });
 
   it('throws LOGIN_CONFIG_INCOMPLETE for a hand-built storage-state identity missing loginUrl/username', async () => {
     const launcher = createFakeBrowserLauncher();
     const identity = { auth: 'storage-state', secret: 'QA_ADMIN_PASSWORD' } as IdentityConfig;
 
-    const error = await authenticate(launcher, identity, { QA_ADMIN_PASSWORD: 'hunter2' }).catch(
+    const error = await authenticate(launcher, identity, { QA_ADMIN_PASSWORD: 'hunter2' }, boundary).catch(
       (caught: unknown) => caught,
     );
 
