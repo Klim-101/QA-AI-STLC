@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-09-25
-Amended: 2026-10-21 (#784): the relaxation is tied to an approved case (`caseId`) instead of a flag.
+Amended: 2026-10-21 (#784, #795): the relaxation is tied to an approved case (`caseId`) instead of a flag, and `qa.http_execute` follows the same rule.
 
 ## Context
 
@@ -23,6 +23,8 @@ because the request itself would be silently aborted.
 `qa.browser_open` and `qa.browser_attach` take an optional `caseId`. When it is set, the session's safe-mode route handler allows non-GET requests through instead of aborting them. The domain allowlist check is unaffected either way: an execution session can still only reach the environment's configured allowlist.
 
 The engine, not the caller, decides whether the relaxation is allowed. Before any browser starts it checks that every gate is satisfied and that the approved case set (ADR-0003) lists the case's file under the hash it has now. Otherwise it refuses with `EXECUTION_CASE_NOT_APPROVED`. The operator's approval of the `cases` gate is therefore what lets a session write to the application, the same way only the operator widens the allowlist (ADR-0014, ADR-0019). Without a `caseId` nothing changes for exploration and pick mode.
+
+`qa.http_execute` makes the same trade for API calls: a method that is not a safe read (ADR-0018) is sent only with a `caseId` that passes the same check, and a safe read needs none. An `api` case is executed by calls like that, so a project that proves its API cases has the cases approved first.
 
 An earlier version took an `executionMode` boolean, which an agent could set for any session. It was replaced because nothing tied it to an approved case.
 

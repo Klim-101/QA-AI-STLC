@@ -17,8 +17,11 @@ check the response body or headers, not just the status.
 
 `url` must be on the resolved environment's domain allowlist (`config.yaml`), the same
 unconditional check every `qa.browser_*` tool applies (#364) — pass `environment` when the project
-defines more than one. This restricts which host can be called, never which method: a real
-POST/PUT/DELETE against an allowed host is exactly what proving the case works requires. Do not
+defines more than one. This restricts which host can be called. A method that is not a safe read
+(POST, PUT, PATCH, DELETE) also needs `caseId`, the id of the case you execute; the engine refuses it with
+`HTTP_EXECUTE_CASE_REQUIRED` without one and with `EXECUTION_CASE_NOT_APPROVED` until the operator has
+approved the `cases` gate, so ask the operator to approve rather than working around it. A GET, HEAD,
+OPTIONS or QUERY needs no case. Do not
 follow a redirect or a response-supplied URL to a different host without confirming that is what
 the case intends — `qa.http_execute` rejects it with `BROWSER_URL_NOT_ALLOWED` if it is not on the
 allowlist, but a same-allowlist redirect to an unintended endpoint would still succeed.

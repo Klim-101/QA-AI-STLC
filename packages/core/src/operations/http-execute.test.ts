@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { QaError } from '../errors.js';
 import type { EngineContext } from '../engine-context.js';
 import { createFakeEngineContext } from '../test-support/fake-engine-context.js';
+import { seedApprovedCase } from '../test-support/approved-case.js';
 import { createSequentialIdGenerator } from '../test-support/fake-id-generator.js';
 import { runHttpExecute } from './http-execute.js';
 import { createFakeFileSystem, type FakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
@@ -84,11 +85,13 @@ describe('runHttpExecute', () => {
       },
     };
     const { context } = createContext(httpClient);
+    const caseId = await seedApprovedCase(context);
 
     await runHttpExecute(context, {
       runId: 'run-1',
       url: 'https://staging.example.test/login',
       method: 'POST',
+      caseId,
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: 'email=admin%40example.com&password=admin123',
     });
@@ -221,16 +224,89 @@ describe('runHttpExecute', () => {
 
   // Regression, #364: the allowlist check must restrict hosts, never methods — a non-GET request
   // to an allowed host (already exercised above with POST) must keep succeeding.
-  it('allows a non-GET request to a host on the allowlist', async () => {
+  it('allows a non-GET request to a host on the allowlist, for an approved case', async () => {
     const httpClient = createFakeHttpClient({ ok: true, status: 200 });
     const { context } = createContext(httpClient);
+    const caseId = await seedApprovedCase(context);
 
     const result = await runHttpExecute(context, {
       runId: 'run-1',
       url: 'https://staging.example.test/submit',
       method: 'DELETE',
+      caseId,
     });
 
     expect(result.status).toBe(200);
+  });
+
+  describe('a method that is not a safe read (ADR-0009, ADR-0021)', () => {
+    function countingClient() {
+      const sent: string[] = [];
+      const httpClient = {
+        get: () => Promise.reject(new Error('get() not used in this fixture')),
+        request: (url: string, options?: { readonly method?: string }) => {
+          sent.push(options?.method ?? 'GET');
+          return Promise.resolve({ ok: true, status: 200, headers: {}, setCookies: [], bodyText: '' });
+        },
+      } as unknown as EngineContext['httpClient'];
+      return { httpClient, sent };
+    }
+
+    it('is refused without a case, and nothing is sent', async () => {
+      const { httpClient, sent } = countingClient();
+      const { context } = createContext(httpClient);
+
+      const error = await runHttpExecute(context, {
+        runId: 'run-1',
+        url: 'https://staging.example.test/submit',
+        method: 'POST',
+      }).catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({ code: 'HTTP_EXECUTE_CASE_REQUIRED' });
+      expect(sent).toEqual([]);
+    });
+
+    it('is refused for a case the operator has not approved, and nothing is sent', async () => {
+      const { httpClient, sent } = countingClient();
+      const { context } = createContext(httpClient);
+      const caseId = await seedApprovedCase(context, { skipCasesApproval: true });
+
+      const error = await runHttpExecute(context, {
+        runId: 'run-1',
+        url: 'https://staging.example.test/submit',
+        method: 'PUT',
+        caseId,
+      }).catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({ code: 'EXECUTION_CASE_NOT_APPROVED' });
+      expect(sent).toEqual([]);
+    });
+
+    it('treats a method written in another case as not safe', async () => {
+      const { httpClient, sent } = countingClient();
+      const { context } = createContext(httpClient);
+
+      await expect(
+        runHttpExecute(context, {
+          runId: 'run-1',
+          url: 'https://staging.example.test/items',
+          method: 'get',
+        }),
+      ).rejects.toMatchObject({ code: 'HTTP_EXECUTE_CASE_REQUIRED' });
+      expect(sent).toEqual([]);
+    });
+
+    it.each(['GET', 'HEAD', 'OPTIONS', 'QUERY'])('lets %s through without a case', async (method) => {
+      const { httpClient, sent } = countingClient();
+      const { context } = createContext(httpClient);
+
+      await runHttpExecute(context, {
+        runId: 'run-1',
+        url: 'https://staging.example.test/items',
+        method,
+      });
+
+      expect(sent).toEqual([method]);
+    });
   });
 });
