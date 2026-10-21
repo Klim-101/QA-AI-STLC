@@ -31,7 +31,7 @@ No third-party browser server is added, optional or otherwise. The engine closes
 
 The agent gets the actions a real case needs without giving up the evidence trail, safe mode or the allowlist. Page reads become small and predictable, and an action no longer depends on a selector the agent made up. An expected result now has engine-recorded evidence behind it.
 
-The engine takes on more browser code to maintain, and the toolset grows from 36 to about 45 tools. Each new tool stays narrow and its description says when to use it instead of its neighbour. Tool-selection evals in the skill guidance task check the common mix-ups. Refs add session state that has to be invalidated correctly; checking a ref against the snapshot that produced it is part of the integrity self-review (AGENTS.md 12.7).
+The engine takes on more browser code to maintain, and the toolset grows. Each new tool stays narrow and its description says when to use it instead of its neighbour. Tool-selection evals in the skill guidance task check the common mix-ups. Refs add session state that has to be invalidated correctly; checking a ref against the snapshot that produced it is part of the integrity self-review (AGENTS.md 12.7).
 
 Two alternatives were rejected. An optional third-party browser server was rejected for the reasons in the context: no evidence, no safe mode, and it would be an external dependency. A single generic "act" tool with an action parameter was rejected because a narrow tool with its own input schema is easier for a model to choose and for the engine to validate.
 

@@ -27,22 +27,22 @@ Stop and ask the maintainer before any change that would cross one of these line
 
 ## 3. Repository map
 
-| Path                  | Content                                                                                 | Editable          |
-| --------------------- | --------------------------------------------------------------------------------------- | ----------------- |
-| `packages/schemas`    | Zod schemas, generated JSON Schema, schema migrations                                   | Yes               |
-| `packages/core`       | State machine, gates, `.qa/` store, evidence, runners, rendering                        | Yes               |
-| `packages/explorer`   | Crawler, static analysis, pick mode, locator synthesis, registry, API-surface discovery | Yes               |
-| `packages/cli`        | `qa` command                                                                            | Yes               |
-| `packages/mcp-server` | Local stdio MCP server over the core API                                                | Yes               |
-| `packages/runner-*`   | Runners behind the `Runner` interface: `runner-api`, `runner-a11y`, `runner-security`   | Yes               |
-| `agents/`             | Canonical skills and agent definitions                                                  | Yes               |
-| `adapters/*`          | Claude Code plugin, Codex plugin, VS Code extension                                     | **No, generated** |
-| `examples/demo-app`   | Demo application with catalogued bugs                                                   | Yes               |
-| `docs/dev/`           | Development plan and task breakdown, ignored by git                                     | Local only        |
-| `docs/public/`        | Public roadmap and published documentation                                              | Yes               |
-| `docs/adr/`           | Architecture decision records for hard-to-reverse decisions                             | Yes               |
-| `.claude/rules/*`     | Claude-Code-only path-scoped rules, generated from this file's §5-7 (P0-18)             | **No, generated** |
-| `.github/`            | Community health files, workflows, templates                                            | Yes               |
+| Path                  | Content                                                                                                    | Editable          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------- |
+| `packages/schemas`    | Zod schemas, generated JSON Schema, schema migrations                                                      | Yes               |
+| `packages/core`       | State machine, gates, `.qa/` store, evidence, runners, rendering                                           | Yes               |
+| `packages/explorer`   | Crawler, static analysis, pick mode, locator synthesis, registry, API-surface discovery                    | Yes               |
+| `packages/cli`        | `qa` command                                                                                               | Yes               |
+| `packages/mcp-server` | Local stdio MCP server over the core API                                                                   | Yes               |
+| `packages/runner-*`   | Runners behind the `Runner` interface: `runner-playwright`, `runner-api`, `runner-a11y`, `runner-security` | Yes               |
+| `agents/`             | Canonical skills and agent definitions                                                                     | Yes               |
+| `adapters/*`          | Claude Code plugin, Codex plugin, VS Code extension                                                        | **No, generated** |
+| `examples/demo-app`   | Demo application with catalogued bugs                                                                      | Yes               |
+| `docs/dev/`           | Development plan and task breakdown, ignored by git                                                        | Local only        |
+| `docs/public/`        | Public roadmap and published documentation                                                                 | Yes               |
+| `docs/adr/`           | Architecture decision records for hard-to-reverse decisions                                                | Yes               |
+| `.claude/rules/*`     | Claude-Code-only path-scoped rules, generated from this file's §5-7 (P0-18)                                | **No, generated** |
+| `.github/`            | Community health files, workflows, templates                                                               | Yes               |
 
 Generated trees are rebuilt with `npm run generate` and checked by `npm run lint:generated`. Never hand-edit them; change the source and regenerate.
 

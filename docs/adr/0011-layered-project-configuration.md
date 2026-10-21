@@ -95,9 +95,8 @@ first, is what keeps that from being silent. Relaxations reach an MCP-only sessi
 `qa.doctor` and `qa.config_show`, not through every tool result, to keep results compact
 (AGENTS.md 12.3).
 
-`qa.http_execute` currently accepts `tlsInsecure` directly from the caller, which bypasses the
-environment's configured value and contradicts this decision; it is fixed as its own task, not as
-part of the loader change.
+`qa.http_execute` takes no `tlsInsecure` input: certificate validation follows the environment's
+configured value.
 
 Rejected alternatives:
 

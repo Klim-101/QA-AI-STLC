@@ -38,8 +38,8 @@ substitute it; name a profile defined in configuration and let the engine do eve
 Authentication is described by **named profiles** in configuration, and an agent refers to a profile
 **by name only**.
 
-**Configuration.** A new top-level `apiAuth` section maps a profile name to a profile. An
-environment may name a default profile. Profile types:
+**Configuration.** A new top-level `apiAuth` section maps a profile name to a profile. `apiAuth.defaults`
+maps an environment name to its default profile. Profile types:
 
 | Type                        | What the engine sends                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------ |
@@ -56,7 +56,7 @@ schema rejects a value that is not a variable name, so a literal secret cannot b
 `config.yaml`. Non-secret parameters (header names, the token URL, the scope) are plain values.
 
 **Where the profiles live.** `apiAuth` is a section the local layer may not set, and so is the
-environment's default profile name. Which variable holds a credential, which token endpoint is
+default profile of an environment (`apiAuth.defaults`). Which variable holds a credential, which token endpoint is
 called and which header carries the token are decisions the whole team reviews; letting an override
 file redirect them would be a quiet way to send a credential somewhere else. Each machine still
 supplies its own secret values, because the variables are read from that machine's environment.
