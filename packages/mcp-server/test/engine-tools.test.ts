@@ -1164,8 +1164,9 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     expect(rejected).toMatchObject({ code: 'RUN_TEST_TYPE_UNSUPPORTED' });
   });
 
-  // Spawns a real `tsc`: a cold, loaded CI runner needs more than the 5 s default, and a test that
-  // times out keeps running and changes the working directory under the next one.
+  // Spawns a real `tsc`: about 1 s alone on a 16-core Windows machine, but over 5 s on the Windows CI
+  // runner (#803). A test that times out keeps running and changes the working directory under the
+  // next one.
   it('qa.generation_verify reports typecheck_failed for a real type error, without touching the project', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);

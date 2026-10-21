@@ -60,6 +60,8 @@ function configYaml(): string {
 // ever re-checks the stored candidate against the current DOM, never asks *why* it stopped
 // resolving.
 describe('runExplore (demo app)', () => {
+  // About 77 s alone on a 16-core Windows machine: three runs of `qa explore`, each starting several
+  // browsers.
   it('builds a registry, verifies it clean, then fails --verify once the stored test ID is stale', async () => {
     await withTempDir(async (projectRoot) => {
       const context = createCommandContext({
@@ -103,5 +105,5 @@ describe('runExplore (demo app)', () => {
         true,
       );
     });
-  }, 120_000);
+  }, 180_000);
 });
