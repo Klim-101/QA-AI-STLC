@@ -14,6 +14,7 @@ import {
   buildSelectorRegistry,
   computeElementId,
   createElementIdAssigner,
+  createLegacyElementIdAssigner,
   diffSelectorRegistry,
   elementNameForId,
   mergeSelectorRegistry,
@@ -88,6 +89,30 @@ describe('createElementIdAssigner', () => {
   });
 });
 
+describe('element ids with an environment (ADR-0020)', () => {
+  const scope = { name: 'staging', baseUrl: BASE_URL, allowlist: ALLOWLIST };
+  const target = element({ accessibleName: 'Log in' });
+
+  it('hashes the environment and path instead of the address', () => {
+    const assign = createElementIdAssigner(scope);
+
+    expect(assign('https://staging.example.com/login', target)).toBe(
+      computeElementId('staging /login', target),
+    );
+  });
+
+  it('counts repeated elements per page, as the id with the origin did', () => {
+    const assign = createElementIdAssigner(scope);
+    const assignLegacy = createLegacyElementIdAssigner();
+    const url = 'https://staging.example.com/items';
+
+    expect(assign(url, target)).toBe(computeElementId('staging /items', target, 0));
+    expect(assign(url, target)).toBe(computeElementId('staging /items', target, 1));
+    expect(assignLegacy(url, target)).toBe(computeElementId(url, target, 0));
+    expect(assignLegacy(url, target)).toBe(computeElementId(url, target, 1));
+  });
+});
+
 describe('buildSelectorRegistry', () => {
   it('assigns the same elementId across two runs against the same page model', async () => {
     const url = 'https://staging.example.com/login';
@@ -95,12 +120,14 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const first = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
     });
     const second = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -108,6 +135,43 @@ describe('buildSelectorRegistry', () => {
     });
 
     expect(first.registry.elements[0]?.elementId).toBe(second.registry.elements[0]?.elementId);
+  });
+
+  it('names an element by its environment and path, so another port keeps its id (ADR-0020)', async () => {
+    const element1 = element({ accessibleName: 'Log in' });
+    const build = (baseUrl: string) =>
+      buildSelectorRegistry({
+        environmentName: 'staging',
+        pageModelSet: pageModelSet([pageModel(`${baseUrl}login`, [element1])]),
+        allowlist: ['localhost'],
+        baseUrl,
+        browserLauncher: createFakeCrawlBrowserLauncher(),
+      });
+
+    const first = await build('http://localhost:4200/');
+    const second = await build('http://localhost:4201/');
+
+    expect(second.registry.elements[0]?.elementId).toBe(first.registry.elements[0]?.elementId);
+  });
+
+  it('maps the id each element had before ids left out the origin to its new id', async () => {
+    const url = 'https://staging.example.com/items';
+    const target = element({ accessibleName: 'Delete' });
+    const model = pageModelSet([pageModel(url, [target, target])]);
+
+    const { registry, legacyElementIds } = await buildSelectorRegistry({
+      environmentName: 'staging',
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher: createFakeCrawlBrowserLauncher(),
+    });
+
+    expect([...legacyElementIds]).toEqual([
+      [computeElementId(url, target), registry.elements[0]?.elementId],
+      [computeElementId(url, target, 1), registry.elements[1]?.elementId],
+    ]);
+    expect(registry.elements[0]?.elementId).not.toBe(computeElementId(url, target));
   });
 
   it('assigns different elementIds to elements with different names on the same page', async () => {
@@ -118,6 +182,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -135,6 +200,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -156,6 +222,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -181,6 +248,7 @@ describe('buildSelectorRegistry', () => {
     });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -226,8 +294,12 @@ describe('buildSelectorRegistry', () => {
       identity,
     };
 
-    await buildSelectorRegistry({ ...common, browserLauncher: rotating });
-    const rejection = buildSelectorRegistry({ ...common, browserLauncher: signedOut });
+    await buildSelectorRegistry({ environmentName: 'staging', ...common, browserLauncher: rotating });
+    const rejection = buildSelectorRegistry({
+      environmentName: 'staging',
+      ...common,
+      browserLauncher: signedOut,
+    });
 
     expect(rotating.newContextCalls.map((call) => call.storageState)).toEqual([initial, afterFirst]);
     await expect(rejection).rejects.toMatchObject({ code: 'EXPLORE_SIGNED_OUT' });
@@ -248,6 +320,7 @@ describe('buildSelectorRegistry', () => {
     });
 
     await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: pageModelSet(urls.map((url) => pageModel(url, [element({ testId: 'filter' })]))),
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -266,6 +339,7 @@ describe('buildSelectorRegistry', () => {
     });
 
     await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: pageModelSet([pageModel(url, [element({ testId: 'filter' })])]),
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -281,6 +355,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -309,6 +384,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -327,6 +403,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [1] });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -344,6 +421,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -361,6 +439,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -376,6 +455,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -397,6 +477,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ locatorCounts: [0, 1, 1, 1, 0, 1, 1] });
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -420,6 +501,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher({ authStorageState: storageState });
 
     await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -440,6 +522,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -456,6 +539,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -472,6 +556,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -489,6 +574,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -505,6 +591,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -520,6 +607,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -537,6 +625,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -555,6 +644,7 @@ describe('buildSelectorRegistry', () => {
     });
 
     const { blockedRequestCount } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -575,12 +665,14 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const first = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: before,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
       browserLauncher,
     });
     const second = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: after,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,
@@ -601,6 +693,7 @@ describe('buildSelectorRegistry', () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 
     const { registry } = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet: model,
       allowlist: ALLOWLIST,
       baseUrl: BASE_URL,

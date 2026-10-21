@@ -52,6 +52,7 @@ import {
 } from '../component-library-profile.js';
 import { crawl } from '../crawl.js';
 import { generateLocatorModule } from '../generate-locator-module.js';
+import { migrateElementIds } from '../migrate-element-ids.js';
 import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
 import { readPackageVersion } from '../package-version.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from '../safe-mode.js';
@@ -319,6 +320,7 @@ async function runCrawlAndBuild(
   options: ExploreOptions,
 ): Promise<{
   elements: SelectorElement[];
+  legacyElementIds: ReadonlyMap<string, string>;
   blockedRequestCount: number;
   requestLogHar: string;
   requests: SafeModeRequestSummaries;
@@ -370,8 +372,13 @@ async function runCrawlAndBuild(
     ...(profile !== undefined ? { profile } : {}),
     ...(identity !== undefined ? { identity } : {}),
   });
-  const { registry, blockedRequestCount: buildBlocked } = await buildSelectorRegistry({
+  const {
+    registry,
+    blockedRequestCount: buildBlocked,
+    legacyElementIds,
+  } = await buildSelectorRegistry({
     pageModelSet,
+    environmentName: environment.name,
     revealCollapsed,
     allowlist: environment.config.allowlist,
     baseUrl: environment.config.baseUrl,
@@ -410,6 +417,7 @@ async function runCrawlAndBuild(
 
   return {
     elements,
+    legacyElementIds,
     blockedRequestCount: crawlResult.blockedRequestCount + analyzeBlocked + buildBlocked,
     requestLogHar: crawlResult.requestLogHar,
     requests: tally.summary(),
@@ -559,8 +567,9 @@ async function persistExploreResultLocked(
   store: QaStore,
   manifest: ManifestStore,
   scope: EnvironmentScope | undefined,
-  previous: SelectorRegistry | undefined,
+  storedRegistry: SelectorRegistry | undefined,
   elements: readonly SelectorElement[],
+  legacyElementIds: ReadonlyMap<string, string>,
   blockedRequestCount: number,
   requestLogHar: string,
   requests: SafeModeRequestSummaries = new SafeModeRequestTally().summary(),
@@ -568,6 +577,10 @@ async function persistExploreResultLocked(
   expandedPanelCount?: number,
 ): Promise<ExploreReport> {
   const generatedAt = context.clock.now().toISOString();
+  const previous =
+    storedRegistry === undefined || scope === undefined
+      ? storedRegistry
+      : migrateElementIds(storedRegistry, legacyElementIds, scope);
   const fresh: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements: [...elements] };
   const merged =
     previous === undefined
@@ -647,6 +660,7 @@ export async function persistExploreResult(
   manifest: ManifestStore,
   scope: EnvironmentScope | undefined,
   elements: readonly SelectorElement[],
+  legacyElementIds: ReadonlyMap<string, string>,
   blockedRequestCount: number,
   requestLogHar: string,
   requests: SafeModeRequestSummaries = new SafeModeRequestTally().summary(),
@@ -666,6 +680,7 @@ export async function persistExploreResult(
       scope,
       previous,
       elements,
+      legacyElementIds,
       blockedRequestCount,
       requestLogHar,
       requests,
@@ -696,8 +711,15 @@ export async function runExplore(
     return runVerify(context, store, config, options);
   }
 
-  const { elements, blockedRequestCount, requestLogHar, requests, probeCount, expandedPanelCount } =
-    await runCrawlAndBuild(context, config, options);
+  const {
+    elements,
+    legacyElementIds,
+    blockedRequestCount,
+    requestLogHar,
+    requests,
+    probeCount,
+    expandedPanelCount,
+  } = await runCrawlAndBuild(context, config, options);
 
   const environment = resolveEnvironment(config, options.environment);
   return persistExploreResult(
@@ -706,6 +728,7 @@ export async function runExplore(
     manifest,
     scopeOfEnvironment(environment.name, environment.config),
     elements,
+    legacyElementIds,
     blockedRequestCount,
     requestLogHar,
     requests,

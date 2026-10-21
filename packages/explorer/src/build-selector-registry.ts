@@ -3,6 +3,7 @@
 
 import {
   hashText,
+  pageKeyInEnvironment,
   partitionByEnvironment,
   systemClock,
   withEnvironment,
@@ -36,6 +37,8 @@ export interface BuildSelectorRegistryOptions {
   readonly allowlist: readonly string[];
   /** The environment's configured URL; an allowed request must also share its scheme and port. */
   readonly baseUrl: string;
+  /** The environment's name; element ids are made from it and the page path (ADR-0020). */
+  readonly environmentName: string;
   readonly browserLauncher: BrowserLauncher;
   /** Signs in before re-navigating to score candidates. Omit to score anonymously. */
   readonly identity?: ExplorerIdentity;
@@ -65,6 +68,8 @@ export interface BuildSelectorRegistryResult {
   readonly registry: SelectorRegistry;
   /** Every non-GET request safe mode intercepted and cancelled; always 0 unless something is broken. */
   readonly blockedRequestCount: number;
+  /** Each id the elements had before ids left out the origin, mapped to the id they have now (`migrateElementIds`). */
+  readonly legacyElementIds: ReadonlyMap<string, string>;
 }
 
 // A bare number or a lone letter plus digits ("V11102") makes a function name nobody can tell from
@@ -101,31 +106,52 @@ function elementIdentitySignal(element: InteractiveElement): string {
 }
 
 /**
- * A stable id for `element` as found on `url`. `occurrenceIndex` disambiguates two elements that
- * resolve to the same identity signal on the same page (#282, e.g. two "Delete" buttons in a
- * list): pass the number of elements with the same `(url, kind, signal)` already assigned an id
- * before this one, 0 for the first. `createElementIdAssigner()` tracks this automatically across
- * a batch of elements; call this directly only to recompute a specific element's id in isolation.
+ * A stable id for `element` as found on the page `pageKey` names (`pageKeyInEnvironment`).
+ * `occurrenceIndex` disambiguates two elements that resolve to the same identity signal on the same
+ * page (#282, e.g. two "Delete" buttons in a list): pass the number of elements with the same
+ * `(page, kind, signal)` already assigned an id before this one, 0 for the first.
+ * `createElementIdAssigner()` tracks this automatically across a batch of elements; call this
+ * directly only to recompute a specific element's id in isolation.
  */
-export function computeElementId(url: string, element: InteractiveElement, occurrenceIndex = 0): string {
+export function computeElementId(pageKey: string, element: InteractiveElement, occurrenceIndex = 0): string {
   const disambiguator = occurrenceIndex === 0 ? '' : ` #${String(occurrenceIndex)}`;
-  return hashText(`${url} ${element.kind} ${elementIdentitySignal(element)}${disambiguator}`);
+  return hashText(`${pageKey} ${element.kind} ${elementIdentitySignal(element)}${disambiguator}`);
+}
+
+function createAssigner(
+  pageKeyOf: (url: string) => string,
+): (url: string, element: InteractiveElement) => string {
+  const seenCounts = new Map<string, number>();
+  return (url, element) => {
+    const pageKey = pageKeyOf(url);
+    const key = `${pageKey}\u0000${element.kind}\u0000${elementIdentitySignal(element)}`;
+    const occurrenceIndex = seenCounts.get(key) ?? 0;
+    seenCounts.set(key, occurrenceIndex + 1);
+    return computeElementId(pageKey, element, occurrenceIndex);
+  };
 }
 
 /**
  * Assigns every element from one crawl or pick-mode capture batch a stable id via
- * `computeElementId`, tracking how many elements sharing the same `(url, kind, signal)` were
+ * `computeElementId`, tracking how many elements sharing the same `(page, kind, signal)` were
  * already assigned one so duplicates (#282, e.g. two same-named buttons on one page) never
- * collide. Create one instance per batch; instances never share state.
+ * collide. The page is named by environment and path, not by origin (ADR-0020), so the same
+ * environment served on another port keeps its ids. Without a `scope` the whole address is used.
+ * Create one instance per batch; instances never share state.
  */
-export function createElementIdAssigner(): (url: string, element: InteractiveElement) => string {
-  const seenCounts = new Map<string, number>();
-  return (url, element) => {
-    const key = `${url}\u0000${element.kind}\u0000${elementIdentitySignal(element)}`;
-    const occurrenceIndex = seenCounts.get(key) ?? 0;
-    seenCounts.set(key, occurrenceIndex + 1);
-    return computeElementId(url, element, occurrenceIndex);
-  };
+export function createElementIdAssigner(
+  scope?: EnvironmentScope,
+): (url: string, element: InteractiveElement) => string {
+  return createAssigner((url) => (scope === undefined ? url : pageKeyInEnvironment(url, scope)));
+}
+
+/**
+ * Assigns the ids a batch had before they left out the origin, so a registry written then can be
+ * recognised and migrated (`migrateElementIds`). Call it for the same elements, in the same order,
+ * as `createElementIdAssigner()`.
+ */
+export function createLegacyElementIdAssigner(): (url: string, element: InteractiveElement) => string {
+  return createAssigner((url) => url);
 }
 
 // Promotes whichever synthesized candidate actually scored highest to primary (`locatorCandidates[0]`,
@@ -219,7 +245,13 @@ export async function buildSelectorRegistry(
     const generatedAt = clock.now().toISOString();
     const elements: SelectorElement[] = [];
     const nameFor = createElementNamer();
-    const assignElementId = createElementIdAssigner();
+    const assignElementId = createElementIdAssigner({
+      name: options.environmentName,
+      baseUrl: options.baseUrl,
+      allowlist: options.allowlist,
+    });
+    const assignLegacyElementId = createLegacyElementIdAssigner();
+    const legacyElementIds = new Map<string, string>();
 
     for (const pageModel of options.pageModelSet.pages) {
       const session = sharedSession ?? (await openSession());
@@ -261,8 +293,10 @@ export async function buildSelectorRegistry(
           const { primaryCandidates, stabilityScore } = selectPrimaryCandidate(scoredCandidates);
 
           const kind = interactiveElement.widgetKind ?? interactiveElement.kind;
+          const elementId = assignElementId(pageModel.url, interactiveElement);
+          legacyElementIds.set(assignLegacyElementId(pageModel.url, interactiveElement), elementId);
           elements.push({
-            elementId: assignElementId(pageModel.url, interactiveElement),
+            elementId,
             name: nameFor(elementNameForId(interactiveElement), kind),
             kind,
             ...(interactiveElement.widgetKind !== undefined && options.profile !== undefined
@@ -284,7 +318,7 @@ export async function buildSelectorRegistry(
     }
 
     const registry: SelectorRegistry = { schemaVersion: SCHEMA_VERSION, generatedAt, elements };
-    return { registry, blockedRequestCount };
+    return { registry, blockedRequestCount, legacyElementIds };
   } finally {
     await browser.close();
   }

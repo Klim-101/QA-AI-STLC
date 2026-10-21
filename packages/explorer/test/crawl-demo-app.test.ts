@@ -320,12 +320,14 @@ describe('buildSelectorRegistry (demo app)', () => {
     });
 
     const first = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet,
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
       browserLauncher: playwrightBrowserLauncher,
     });
     const second = await buildSelectorRegistry({
+      environmentName: 'staging',
       pageModelSet,
       allowlist: ['localhost'],
       baseUrl: BASE_URL,

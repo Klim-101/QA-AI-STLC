@@ -329,12 +329,29 @@ describe('capturePickModeElements', () => {
     expect(element).toEqual<PickModeElement>({
       pickId: 'pick-1',
       elementId: computeElementId('https://example.com/login', interactiveElement),
+      legacyElementId: computeElementId('https://example.com/login', interactiveElement),
       kind: 'button',
       defaultNameText: 'Log in',
       locatorCandidates: synthesizeLocatorCandidates(interactiveElement, 'playwright-default'),
       stabilityScore: 1,
       pageUrl: 'https://example.com/login',
     });
+  });
+
+  it('names the page by environment and path when the environment is known (ADR-0020)', async () => {
+    const page = fakeScoringPage({ locatorCounts: [1] });
+    const scope = { name: 'staging', baseUrl: 'https://example.com/', allowlist: ['example.com'] };
+    const interactiveElement: InteractiveElement = {
+      kind: 'button',
+      tagName: 'button',
+      nthOfType: 1,
+      accessibleName: 'Log in',
+    };
+
+    const [element] = await capturePickModeElements(page, 'https://example.com/login', [CAPTURE], { scope });
+
+    expect(element?.elementId).toBe(computeElementId('staging /login', interactiveElement));
+    expect(element?.legacyElementId).toBe(computeElementId('https://example.com/login', interactiveElement));
   });
 
   it('assigns the same elementId a crawl would assign the same element on the same page', async () => {
@@ -432,6 +449,7 @@ describe('finalizeManualSelectorEntries', () => {
     return {
       pickId: 'pick-1',
       elementId: 'element-1',
+      legacyElementId: 'legacy-element-1',
       kind: 'button',
       defaultNameText: 'Log in',
       locatorCandidates: [],

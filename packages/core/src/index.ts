@@ -31,6 +31,7 @@ export * from './api-auth-module.js';
 export * from './api-auth-redaction.js';
 export * from './allowlist-entry.js';
 export * from './environment-scope.js';
+export * from './element-id-page.js';
 export * from './browser-allowlist.js';
 export * from './browser-busy-wait.js';
 export * from './browser-timeouts.js';

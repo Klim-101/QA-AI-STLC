@@ -8,8 +8,11 @@ import {
   type SelectorElement,
 } from '@qa-ai-stlc/schemas';
 import type { BrowserOperationContext } from './browser-context.js';
+import { resolveBrowserEnvironment } from './browser-open.js';
+import { loadConfig } from '../config-loader.js';
 import { QaError } from '../errors.js';
-import { hashText } from '../hash.js';
+import { executedElementId, legacyExecutedElementId } from '../element-id-page.js';
+import { scopeOfEnvironment } from '../environment-scope.js';
 import { toCanonicalJson } from '../json-file.js';
 import { ManifestStore } from '../manifest-store.js';
 import { QaStore } from '../qa-store.js';
@@ -47,6 +50,7 @@ export interface RegisterExecutedElementResult {
  * `packages/core` cannot import (AGENTS.md 3: `core` and `explorer` are dependency siblings). An
  * `execute`-sourced element may therefore get a different id than a later crawl assigns to the
  * same real DOM element — a known v0 limitation, not required by this capability's exit criteria.
+ * The id leaves out the page's origin (ADR-0020); an entry registered under the old id is replaced.
  */
 export async function runRegisterExecutedElement(
   context: BrowserOperationContext,
@@ -63,7 +67,11 @@ export async function runRegisterExecutedElement(
   }
 
   const url = session.page.url();
-  const elementId = hashText(`${url} ${options.kind} ${options.selector}`);
+  const config = await loadConfig(context.engine);
+  const environment = resolveBrowserEnvironment(config, session.environmentName);
+  const scope = scopeOfEnvironment(environment.name, environment.config);
+  const elementId = executedElementId(url, options.kind, options.selector, scope);
+  const legacyElementId = legacyExecutedElementId(url, options.kind, options.selector);
   const now = context.engine.clock.now().toISOString();
   const element: SelectorElement = {
     elementId,
@@ -84,7 +92,9 @@ export async function runRegisterExecutedElement(
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : { schemaVersion: SCHEMA_VERSION, generatedAt: now, elements: [] };
 
-  const index = registry.elements.findIndex((candidate) => candidate.elementId === elementId);
+  const index = registry.elements.findIndex(
+    (candidate) => candidate.elementId === elementId || candidate.elementId === legacyElementId,
+  );
   const elements =
     index === -1
       ? [...registry.elements, element]

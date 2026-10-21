@@ -87,6 +87,7 @@ describe('explore a page with collapsed panels (demo app)', () => {
     const { pageModelSet } = await analyze(true);
     const scoreOf = async (revealCollapsed: boolean): Promise<number | undefined> => {
       const { registry } = await buildSelectorRegistry({
+        environmentName: 'staging',
         pageModelSet,
         allowlist: ['localhost'],
         baseUrl: `${BASE_URL}/`,
