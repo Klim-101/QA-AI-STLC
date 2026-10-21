@@ -17,6 +17,26 @@ describe('toCamelCaseIdentifier', () => {
     expect(toCamelCaseIdentifier('2fa code', 'input')).toBe('element2faCode');
   });
 
+  it.each([
+    ['Iniciar sesión', 'iniciarSesion'],
+    ['Categorías', 'categorias'],
+    ['Herramientas eléctricas', 'herramientasElectricas'],
+    ['Crème brûlée', 'cremeBrulee'],
+    ['Вход в систему', 'входВСистему'],
+    ['Край', 'край'],
+    ['ログイン', 'ログイン'],
+  ])('keeps the letters of %j', (text, expected) => {
+    expect(toCamelCaseIdentifier(text, 'button')).toBe(expected);
+  });
+
+  it('drops a combining mark that starts a word', () => {
+    expect(toCamelCaseIdentifier('́abc', 'button')).toBe('abc');
+  });
+
+  it('prefixes a name that starts with a non-ASCII digit', () => {
+    expect(toCamelCaseIdentifier('٣ items', 'link')).toBe('element٣Items');
+  });
+
   it('never returns a bare reserved word', () => {
     expect(toCamelCaseIdentifier('Delete', 'link')).toBe('deleteElement');
   });
@@ -50,6 +70,10 @@ describe('createElementNamer', () => {
 describe('toLocatorFunctionName', () => {
   it('keeps a name that is already an identifier', () => {
     expect(toLocatorFunctionName('loginButton', 'button')).toBe('loginButton');
+  });
+
+  it('keeps a registered name written in another script', () => {
+    expect(toLocatorFunctionName('кнопкаВход', 'button')).toBe('кнопкаВход');
   });
 
   it.each([

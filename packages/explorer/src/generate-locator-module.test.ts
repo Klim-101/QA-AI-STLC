@@ -278,7 +278,7 @@ describe('generateLocatorModule', () => {
       ['Last GW ID', 'lastGwId'],
       ['Save & Close', 'saveClose'],
       ['1st column', 'element1stColumn'],
-      ['Ünïcode', 'nCode'],
+      ['Ünïcode', 'Ünïcode'],
       ['→', 'button'],
       ['export', 'exportElement'],
       ['loginButton', 'loginButton'],
