@@ -32,7 +32,7 @@ before. The browser safe-mode handler and the security probe both use this defin
   methods, and a method written in another case is not one the definition vouches for.
 - `TRACE` is not on the list although it is a safe method in RFC 9110: it reflects a request back
   to the page and has no use in testing an application.
-- `safeNonGetRequests` stays `POST` only (ADR-0014), and `allowMutations` (ADR-0009) is unchanged.
+- `safeNonGetRequests` stays `POST` only (ADR-0014), and execution mode (`caseId`, ADR-0009) is unchanged.
   Neither is needed for a safe method.
 - Applications that depend on a safe method other than these four are not served until the
   definition is extended by a new decision.

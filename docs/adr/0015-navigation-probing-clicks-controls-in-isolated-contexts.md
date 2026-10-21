@@ -5,7 +5,7 @@ Date: 2026-10-12
 
 ## Context
 
-The crawler finds pages through `<a href>` links only (development plan section 6.3 step 2). A
+The crawler finds pages through `<a href>` links only. A
 single-page application often navigates with something else: a button whose click handler calls the
 router, an element with a router directive, a route pushed through the History API. On a real Angular
 application `qa explore` visited `/`, `/version` and `/dashboard`, and the page behind a "To Node

@@ -17,4 +17,4 @@ Generated tests reference locators through a single generated module (`tests/qa/
 
 Selector drift is fixed by regenerating one file, not by touching every test that happens to use the affected element. This is the framework's first-order self-healing mechanism, and it costs nothing extra at generation time since the registry already tracks `elementId` stability. It also gives generated tests a natural place for a human to read what locator strategy is actually in use, without opening every spec file.
 
-The cost is one more generated artifact to keep in sync with the registry, with its own version stamp (see the upgrade path in the development plan) so a stale locator module is detected rather than silently used.
+The cost is one more generated artifact to keep in sync with the registry, with its own version stamp (`qa upgrade`, P7-01) so a stale locator module is detected rather than silently used.
