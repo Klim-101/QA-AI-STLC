@@ -34,11 +34,11 @@ flowchart TB
 
 ```
 
-**No model calls in the engine (ADR-001).** The box labelled "Model" is the only place in this
+**No model calls in the engine (ADR-0001).** The box labelled "Model" is the only place in this
 picture that calls an LLM. `core`, `explorer`, `cli` and `mcp-server` depend on no LLM SDK and make
 no network call to one — verified in CI by `npm run lint`'s LLM-dependency denylist check.
 
-**The engine owns the browser (ADR-004).** Neither the model nor a skill drives Playwright
+**The engine owns the browser (ADR-0004).** Neither the model nor a skill drives Playwright
 directly; every interaction with the application under test goes through an engine tool that
 registers evidence, navigates only inside the configured allowlist, and defaults to safe mode (no
 form submission, no request that is not a safe read).
@@ -121,19 +121,19 @@ flowchart LR
 
     pick["qa explore --pick &lt;url&gt;<br/>CLI-only: a human clicks a<br/>headed browser window"] -. "shares only the registry-write tail" .-> explore
 
-    mcpBrowser["qa.browser_open / _navigate /<br/>_click / _fill / _snapshot / _close<br/>MCP-only: ADR-005"] --> browser
+    mcpBrowser["qa.browser_open / _navigate /<br/>_click / _fill / _snapshot / _close<br/>MCP-only: ADR-0005"] --> browser
     browser --> evidence["EvidenceStore<br/>hashed, registered in manifest.json"]
 ```
 
 The `browser.*` tools have no CLI counterpart on purpose: an exploratory session is a sequence of
-calls an agent makes, and ADR-005 exists so that sequence is the only way an agent reaches a
+calls an agent makes, and ADR-0005 exists so that sequence is the only way an agent reaches a
 browser at all.
 
 The rule holds for the whole engine surface: a capability without a CLI command has no MCP tool
 either, except the `browser.*` tools above and pick mode, whose reasons are stated where they are
 made.
 
-## Pipeline state and gates (ADR-003)
+## Pipeline state and gates (ADR-0003)
 
 `state.json` is never trusted as cached truth: `qa validate` (and its MCP counterpart) always
 recomputes every gate's status from the approval ledger plus each approved artifact's current

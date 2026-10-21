@@ -1,7 +1,8 @@
-# ADR-0NN: Title
+# ADR-0NNN: Title
 
-Status: Proposed | Accepted | Superseded by ADR-0NN
+Status: Proposed | Accepted | Superseded by ADR-0NNN
 Date: YYYY-MM-DD
+Amended: YYYY-MM-DD (#issue): what changed. Only after the ADR was accepted; one line per amendment.
 
 ## Context
 

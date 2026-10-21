@@ -1,4 +1,4 @@
-# ADR-001: No model calls in the engine
+# ADR-0001: No model calls in the engine
 
 Status: Accepted
 Date: 2026-09-16

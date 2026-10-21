@@ -1,4 +1,4 @@
-# ADR-004: The engine owns the browser
+# ADR-0004: The engine owns the browser
 
 Status: Accepted
 Date: 2026-09-16
@@ -15,6 +15,6 @@ A user's project may or may not already have Playwright installed, at a version 
 
 ## Consequences
 
-There is exactly one place to look when browser automation fails, and one preflight command (`qa doctor`) that catches the failure before a run starts rather than mid-run with a cryptic `spawn EPERM`. Evidence capture, tracing and screenshots all go through the same owned browser instance, so evidence integrity (ADR-005) has a single enforcement point instead of one per integration path.
+There is exactly one place to look when browser automation fails, and one preflight command (`qa doctor`) that catches the failure before a run starts rather than mid-run with a cryptic `spawn EPERM`. Evidence capture, tracing and screenshots all go through the same owned browser instance, so evidence integrity (ADR-0005) has a single enforcement point instead of one per integration path.
 
 The cost is a Playwright version the engine controls, which can diverge from a version the project team already standardized on. The explicit reuse option exists for that case, but it is opt-in and validated, so a mismatch is reported rather than silently tolerated.

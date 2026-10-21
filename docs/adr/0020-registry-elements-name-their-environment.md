@@ -2,6 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-19
+Amended: 2026-10-21 (#785): element ids leave out the page origin.
 
 ## Context
 

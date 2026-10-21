@@ -1,4 +1,4 @@
-# ADR-002: JSON is canonical, Markdown is rendered
+# ADR-0002: JSON is canonical, Markdown is rendered
 
 Status: Accepted
 Date: 2026-09-16

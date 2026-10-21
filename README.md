@@ -387,7 +387,7 @@ Run "qa scope" to register the requirement first, or fix the case's requirementI
 ```
 
 `qa approve <gate> --artifact <path> --approved-by <name>` hashes the artifact's exact content into
-an append-only ledger (ADR-003). `qa validate` recomputes every gate from that ledger — never from a
+an append-only ledger (ADR-0003). `qa validate` recomputes every gate from that ledger — never from a
 cached status field — so an edit after approval reopens the gate automatically, and re-sweeps every
 registered case's requirement links on every call, catching a link broken later by editing
 `scope.json`, not just one broken at `cases add` time:
@@ -458,7 +458,7 @@ general is the right place for questions and ideas that aren't a specific bug or
 
 ![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
-The plugin/engine version handshake (ADR-007) shipped in P2-12: the generated `.mcp.json` pins the
+The plugin/engine version handshake (ADR-0007) shipped in P2-12: the generated `.mcp.json` pins the
 `mcp-server` version it launches, and the server checks it against the engine's own version at
 startup. What the generator produces today: a `.claude-plugin/plugin.json` manifest, the skills
 under `skills/` (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
@@ -535,7 +535,7 @@ And one of the 10 registered test cases, grounded in real registry locators, not
 
 That case can now be handed to a stakeholder as a presentable document instead of raw JSON: `qa
 cases render login-invalid-credentials` (or the matching `qa.cases_render` MCP tool) renders it
-through a reusable JSON-to-Markdown artifact registry (ADR-002) also used by `qa report`'s Markdown
+through a reusable JSON-to-Markdown artifact registry (ADR-0002) also used by `qa report`'s Markdown
 output; `qa report`'s run summary and traceability matrix also render to HTML, but `qa cases
 render`'s own HTML output is still open work. The case can be proved live with `qa-execute` first
 (a headed browser session against the running app, with no code written yet), then turned into a

@@ -5,7 +5,7 @@ Date: 2026-10-19
 
 ## Context
 
-Safe mode (AGENTS.md 12.4, ADR-005) aborts every request a browser session or an exploration makes
+Safe mode (AGENTS.md 12.4, ADR-0005) aborts every request a browser session or an exploration makes
 unless its method is `GET`. The rule is meant to stop a click from changing the application under
 test, and a `GET` is the method everyone expects to read only.
 

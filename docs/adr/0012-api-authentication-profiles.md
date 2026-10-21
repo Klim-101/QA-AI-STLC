@@ -2,6 +2,7 @@
 
 Status: Accepted
 Date: 2026-09-29
+Amended: 2026-10-21 (#782): a scripted sign-in is the one step outside safe mode, and its `loginUrl` must pass the allowlist.
 
 ## Context
 
@@ -23,10 +24,10 @@ without the agent ever seeing a secret:
   developer tools (a cookie, a `localStorage` or `sessionStorage` entry, or the `Authorization`
   header of a request the page made).
 
-Two facts shape the design. The engine already owns the browser (ADR-004) and already enforces the
+Two facts shape the design. The engine already owns the browser (ADR-0004) and already enforces the
 environment allowlist on every navigation and HTTP call (AGENTS.md 12.4), so it can read a token
 from a session and refuse to send a credential to a host outside the allowlist. And configuration is
-layered (ADR-011): some sections are team decisions that every machine must agree on, and some are
+layered (ADR-0011): some sections are team decisions that every machine must agree on, and some are
 machine facts.
 
 Options considered for how an agent authenticates a call: keep passing raw headers and rely on the
@@ -87,7 +88,7 @@ at request time and adds the credential itself.
 environment's allowlist, the same unconditional check as any other call. An OAuth token URL is
 checked against the allowlist too. The token request is fixed by configuration (URL, form fields,
 scope) and is not shaped by the agent, so it is permitted from any call that resolves a profile;
-this does not reopen the safe-mode rules of exploration and pick mode, and ADR-009 is unaffected.
+this does not reopen the safe-mode rules of exploration and pick mode, and ADR-0009 is unaffected.
 
 **Token from the browser session.** The `from-browser` profile names a source the engine reads from
 a live session, the way an operator would in developer tools: a cookie, a `localStorage` key with an

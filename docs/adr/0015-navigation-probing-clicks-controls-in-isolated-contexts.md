@@ -2,6 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-12
+Amended: 2026-10-21 (ADR-0017): `role="button"` controls are probed too.
 
 ## Context
 
@@ -11,7 +12,7 @@ router, an element with a router directive, a route pushed through the History A
 application `qa explore` visited `/`, `/version` and `/dashboard`, and the page behind a "To Node
 Overview" button was never reached, so its elements never entered the registry.
 
-Safe mode (AGENTS.md 12.4, ADR-005) lets an exploration session load pages and nothing else. The
+Safe mode (AGENTS.md 12.4, ADR-0005) lets an exploration session load pages and nothing else. The
 question this ADR settles is whether exploration may _click_, which no exploration session has done
 before. A click can run any code of the application. Safe mode aborts every non-GET request (and
 every request off the allowlist), but a click can still reach a server through a GET that changes

@@ -1,4 +1,4 @@
-# ADR-007: Engine and plugin share one version
+# ADR-0007: Engine and plugin share one version
 
 Status: Accepted
 Date: 2026-09-16
