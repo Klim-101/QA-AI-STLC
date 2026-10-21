@@ -57,7 +57,7 @@ import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
 import { readPackageVersion } from '../package-version.js';
 import { createSafeModeRouteHandler, type SafeModeRequests } from '../safe-mode.js';
 import { settlePage, type PageSettleOptions } from '../settle-page.js';
-import { scoreLocatorStability } from '../stability-scoring.js';
+import { scorePageCandidates } from '../stability-scoring.js';
 import type { DegradedSelectorElement } from '../build-selector-registry.js';
 
 const REGISTRY_PATH = 'selectors/registry.json';
@@ -510,13 +510,19 @@ async function runVerify(
         }
       };
       await reveal();
-      for (const element of elements) {
-        // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- filtered above
-        const primary = element.locatorCandidates[0] as SelectorElement['locatorCandidates'][number];
-        const currentScore = await scoreLocatorStability(page, primary, {
-          viewports: config.selectors.stabilityViewports,
-          afterReload: reveal,
-        });
+      // One reload and one resize per viewport for the whole page, not per element: a page with
+      // many elements otherwise reloads once for each of them (#283).
+      const scored = await scorePageCandidates(
+        page,
+        elements.map((element) => ({
+          element,
+          // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- filtered above
+          candidates: [element.locatorCandidates[0] as SelectorElement['locatorCandidates'][number]],
+        })),
+        { viewports: config.selectors.stabilityViewports, afterReload: reveal },
+      );
+      for (const { element, scoredCandidates } of scored) {
+        const currentScore = Math.max(0, ...scoredCandidates.map((candidate) => candidate.stabilityScore));
         if (currentScore < element.stabilityScore) {
           degraded.push({
             elementId: element.elementId,
