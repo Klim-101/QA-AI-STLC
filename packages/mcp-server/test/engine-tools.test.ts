@@ -1164,6 +1164,8 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     expect(rejected).toMatchObject({ code: 'RUN_TEST_TYPE_UNSUPPORTED' });
   });
 
+  // Spawns a real `tsc`: a cold, loaded CI runner needs more than the 5 s default, and a test that
+  // times out keeps running and changes the working directory under the next one.
   it('qa.generation_verify reports typecheck_failed for a real type error, without touching the project', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
@@ -1204,7 +1206,7 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       expect(outcome.verificationId).toMatch(/^verification-/);
       expect(rejected).toMatchObject({ code: 'core.verification.not_verified' });
     });
-  });
+  }, 30_000);
 
   // The P4-13 live repro: invalid TypeScript for a test case that does not exist, registered with
   // no verification ever having run. The caller can no longer supply a result or hash at all.

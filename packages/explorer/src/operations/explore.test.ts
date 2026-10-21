@@ -515,6 +515,22 @@ describe('runExplore', () => {
     expect(report).toEqual(expect.objectContaining({ mode: 'verify', degraded: [] }));
   });
 
+  it('resizes once per viewport for a page, however many of its elements it verifies', async () => {
+    const elements = ['el-1', 'el-2', 'el-3'].map((elementId) => ({ ...storedElement(), elementId }));
+    const context = fakeContext(
+      { locatorCount: 1 },
+      { extraSelectorsFields: 'stabilityViewports: [{ width: 400, height: 300 }]' },
+      {
+        [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify({ ...storedRegistry(), elements }),
+      },
+    );
+
+    await runExplore(context, { verify: true });
+
+    const page = (context.browserLauncher as ReturnType<typeof createFakeExploreBrowserLauncher>).page;
+    expect(page.viewportSizeCalls).toEqual([{ width: 400, height: 300 }]);
+  });
+
   it('warns when the crawled environment has tlsInsecure enabled (P2-18)', async () => {
     const warn = vi.fn();
     const context = fakeContext(
