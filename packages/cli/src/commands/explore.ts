@@ -99,6 +99,7 @@ async function runPickModeSession(
   options: ExploreOptions & { readonly pick: string },
 ): Promise<{
   elements: SelectorElement[];
+  legacyElementIds: ReadonlyMap<string, string>;
   blockedRequestCount: number;
   requests: SafeModeRequestSummaries;
   scope: EnvironmentScope | undefined;
@@ -126,7 +127,9 @@ async function runPickModeSession(
     const captures = await waitForPickModeCompletion(page, {
       testIdAttribute: config.selectors.testIdAttribute,
     });
+    const scope = resolvePickModeScope(config, options.environment);
     const pickModeElements = await capturePickModeElements(page, options.pick, captures, {
+      ...(scope === undefined ? {} : { scope }),
       policy,
       viewports: config.selectors.stabilityViewports,
       generatedIdPatterns: mergeGeneratedIdPatterns(
@@ -139,9 +142,12 @@ async function runPickModeSession(
     const requests = tally.summary();
     return {
       elements,
+      legacyElementIds: new Map(
+        pickModeElements.map((element) => [element.legacyElementId, element.elementId] as const),
+      ),
       blockedRequestCount: Object.values(requests.blockedCounts).reduce((total, count) => total + count, 0),
       requests,
-      scope: resolvePickModeScope(config, options.environment),
+      scope,
     };
   } finally {
     await browser.close();
@@ -165,10 +171,13 @@ export async function runExplore(
 
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const manifest = new ManifestStore({ store, clock: context.clock });
-  const { elements, blockedRequestCount, requests, scope } = await runPickModeSession(context, {
-    ...options,
-    pick: options.pick,
-  });
+  const { elements, legacyElementIds, blockedRequestCount, requests, scope } = await runPickModeSession(
+    context,
+    {
+      ...options,
+      pick: options.pick,
+    },
+  );
 
   // Pick mode is a human clicking through a headed browser, not a crawl: there is no request log
   // to derive `endpoints.json` from, so an empty one is passed through the same persistence tail
@@ -180,6 +189,7 @@ export async function runExplore(
     manifest,
     scope,
     elements,
+    legacyElementIds,
     blockedRequestCount,
     emptyRequestLogHar,
     requests,

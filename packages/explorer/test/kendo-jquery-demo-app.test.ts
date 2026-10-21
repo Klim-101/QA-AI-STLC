@@ -37,6 +37,7 @@ async function exploreKendoPage(): Promise<Awaited<ReturnType<typeof buildSelect
     profile: KENDO_JQUERY_PROFILE,
   });
   const { registry } = await buildSelectorRegistry({
+    environmentName: 'staging',
     ...common,
     pageModelSet,
     profile: KENDO_JQUERY_PROFILE,

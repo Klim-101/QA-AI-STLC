@@ -18,9 +18,12 @@ Everything that reads the registry has the same blind spot. Generation offered a
 of every environment, verification looked up an expectation in all of them, and `--verify` opened
 the pages of other environments with a browser whose safe mode then refused them.
 
-An element id already includes the full page address, origin included, so elements of two
-environments on different origins never collide. What is missing is only a record of which
-environment an element belongs to.
+An element id was a hash of the full page address, origin included, so elements of two
+environments on different origins never collided. That also made it depend on the machine: a local
+layer that serves the same environment on another port (ADR-0011) gave every element another id, and
+the ids reach the committed registry, the comments of the locator module and the input hash of
+generation. What is missing is a record of which environment an element belongs to, and an id that
+does not change with the port.
 
 ## Decision
 
@@ -46,6 +49,15 @@ element found in the source or an endpoint, belongs to every environment. One fu
   through `readRegistryForEnvironment`, which returns one environment's elements. `qa api-diff`
   compares the contract with the endpoints of its environment. Several environments and none named is
   an error, as it already is for the other operations that act on one.
+- **Ids.** An element id hashes the environment's name and the page's path, query and fragment
+  instead of its address, when the page is on the origin of the environment's `baseUrl`
+  (`pageKeyInEnvironment`). The name is in the committed configuration, so it is the same on every
+  machine and two environments with one path still get two ids. A page on any other origin keeps its
+  whole address. `elementId` stays a string, so no schema changes. An id is migrated when its
+  environment is explored again (`migrateElementIds`): an element the crawl or pick mode finds under
+  its old id is re-keyed before the merge, with its name and history, and one registered from a
+  session is re-keyed by recomputing its old id from what it stores. A registered element whose id is
+  taken is left as it is. Locator modules and generation stamps change once, at that run.
 - **Not split.** The locator module and the missing-test-id report stay project-wide: a spec is
   generated for a case, not for an environment, and imports a function by name. They list every
   environment's elements, and names stay unique across all of them.
@@ -72,6 +84,5 @@ leave the deprecation and every reader as they are.
 
 Not covered: `selectors/api-diff.json` is the report of the last run and is not kept per
 environment, and the missing-test-id report is project-wide. A change to the registry schema that
-would make the environment required is not made. An element id includes the origin, so a local layer
-that changes the port of `baseUrl` gives the same page another id; fixing that needs a schema change
-and a migration, and is tracked separately.
+would make the environment required is not made. Two pages of one environment on different origins
+with the same path keep their addresses, so only the base origin is port-independent.

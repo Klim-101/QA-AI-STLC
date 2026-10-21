@@ -1,14 +1,24 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QaError, SafeModeRequestTally, type AuthPage, type ViewportSize } from '@qa-ai-stlc/core';
+import {
+  QaError,
+  SafeModeRequestTally,
+  type AuthPage,
+  type EnvironmentScope,
+  type ViewportSize,
+} from '@qa-ai-stlc/core';
 import type {
   InteractiveElement,
   LocatorCandidate,
   SafeNonGetRequest,
   SelectorElement,
 } from '@qa-ai-stlc/schemas';
-import { createElementIdAssigner, elementNameForId } from './build-selector-registry.js';
+import {
+  createElementIdAssigner,
+  createLegacyElementIdAssigner,
+  elementNameForId,
+} from './build-selector-registry.js';
 import { createElementNamer } from './naming.js';
 import { createSafeModeRouteHandler } from './safe-mode.js';
 import { scoreLocatorStability } from './stability-scoring.js';
@@ -381,6 +391,8 @@ export async function waitForPickModeCompletion(
 export interface PickModeElement {
   readonly pickId: string;
   readonly elementId: string;
+  /** The id this element had before ids left out the page origin; see `migrateElementIds`. */
+  readonly legacyElementId: string;
   readonly kind: string;
   /** The human-meaningful text a confirmed name is derived from, before camelCasing (naming.ts). */
   readonly defaultNameText: string;
@@ -390,6 +402,8 @@ export interface PickModeElement {
 }
 
 export interface CapturePickModeElementsOptions {
+  /** The environment the page belongs to; its name and path make the element ids (ADR-0020). */
+  readonly scope?: EnvironmentScope;
   readonly policy?: LocatorPolicy;
   readonly viewports?: readonly ViewportSize[];
   /**
@@ -443,7 +457,8 @@ export async function capturePickModeElements(
   const policy = options.policy ?? 'playwright-default';
   const generatedIdPatterns = (options.generatedIdPatterns ?? []).map((source) => new RegExp(source));
   const elements: PickModeElement[] = [];
-  const assignElementId = createElementIdAssigner();
+  const assignElementId = createElementIdAssigner(options.scope);
+  const assignLegacyElementId = createLegacyElementIdAssigner();
 
   for (const capture of captures) {
     const interactiveElement = toInteractiveElement(capture);
@@ -461,6 +476,7 @@ export async function capturePickModeElements(
     elements.push({
       pickId: capture.pickId,
       elementId: assignElementId(url, interactiveElement),
+      legacyElementId: assignLegacyElementId(url, interactiveElement),
       kind: interactiveElement.kind,
       defaultNameText: elementNameForId(interactiveElement),
       locatorCandidates: candidates,

@@ -4,6 +4,7 @@
 import { join } from 'node:path';
 import type { SelectorRegistry } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
+import { executedElementId, legacyExecutedElementId } from '../element-id-page.js';
 import { createBrowserTestHarness } from '../test-support/browser-session-harness.js';
 import { runBrowserNavigate } from './browser-navigate.js';
 import { runBrowserOpen } from './browser-open.js';
@@ -39,6 +40,64 @@ describe('runRegisterExecutedElement', () => {
         environment: 'staging',
       },
     ]);
+  });
+
+  it('gives the element an id that does not depend on the origin of the page (ADR-0020)', async () => {
+    const harness = createBrowserTestHarness();
+    const { sessionId } = await runBrowserOpen(harness.context);
+    await runBrowserNavigate(harness.context, { sessionId, url: 'https://staging.example.test/login' });
+
+    const result = await runRegisterExecutedElement(harness.context, {
+      sessionId,
+      selector: 'text=Log in',
+      kind: 'button',
+    });
+
+    const scope = {
+      name: 'staging',
+      baseUrl: 'https://staging.example.test/',
+      allowlist: ['staging.example.test'],
+    };
+    expect(result.elementId).toBe(
+      executedElementId('https://staging.example.test/login', 'button', 'text=Log in', scope),
+    );
+    expect(result.elementId).not.toBe(
+      legacyExecutedElementId('https://staging.example.test/login', 'button', 'text=Log in'),
+    );
+  });
+
+  it('replaces an element registered under the id it had before ids left out the origin', async () => {
+    const harness = createBrowserTestHarness();
+    const { sessionId } = await runBrowserOpen(harness.context);
+    const url = 'https://staging.example.test/login';
+    await runBrowserNavigate(harness.context, { sessionId, url });
+    const registry: SelectorRegistry = {
+      schemaVersion: 1,
+      generatedAt: '2026-09-20T10:00:00.000Z',
+      elements: [
+        {
+          elementId: legacyExecutedElementId(url, 'button', 'text=Log in'),
+          kind: 'button',
+          locatorCandidates: [{ strategy: 'execute', value: 'text=Log in', fragile: true }],
+          stabilityScore: 1,
+          lastVerifiedAt: '2026-09-20T10:00:00.000Z',
+          source: 'execute',
+          pageUrl: url,
+        },
+      ],
+    };
+    await harness.context.engine.fs.mkdir(join('project', '.qa', 'selectors'));
+    await harness.context.engine.fs.writeFile(REGISTRY_FILE_PATH, JSON.stringify(registry));
+
+    const result = await runRegisterExecutedElement(harness.context, {
+      sessionId,
+      selector: 'text=Log in',
+      kind: 'button',
+    });
+
+    const stored = JSON.parse(String(harness.fs.getRawFile(REGISTRY_FILE_PATH))) as SelectorRegistry;
+    expect(stored.elements.map((element) => element.elementId)).toEqual([result.elementId]);
+    expect(result.created).toBe(false);
   });
 
   it('registers the updated registry in the manifest', async () => {

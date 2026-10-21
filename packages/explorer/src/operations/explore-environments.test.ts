@@ -17,6 +17,7 @@ import {
 import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
 import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
+import { computeElementId } from '../build-selector-registry.js';
 import { buildRequestLogHar } from '../request-log.js';
 import { persistExploreResult, runExplore } from './explore.js';
 
@@ -106,6 +107,49 @@ function registryFile(elements: readonly SelectorElement[]): Record<string, stri
   };
   return { [REGISTRY_PATH]: JSON.stringify(registry) };
 }
+
+// An element id leaves out the page origin (ADR-0020), so the same environment served on another
+// port keeps its ids, and a registry written with the origin in them is migrated as it is explored.
+describe('runExplore element ids (ADR-0020)', () => {
+  const MOVED_URL = 'https://staging.example.com:8443/login';
+
+  it('gives the same ids when the environment is served on another port', async () => {
+    const first = contextOf();
+    await runExplore(first, { environment: 'staging' });
+    const moved = contextOf(
+      { elementsByUrl: { [MOVED_URL]: ONE_BUTTON } },
+      { [join(QA_DIR, 'config.yaml')]: CONFIG_YAML.replace(STAGING_URL, MOVED_URL) },
+    );
+
+    await runExplore(moved, { environment: 'staging' });
+
+    expect((await readRegistry(moved)).elements.map((element) => element.elementId)).toEqual(
+      (await readRegistry(first)).elements.map((element) => element.elementId),
+    );
+  });
+
+  it('re-keys an element stored under its old id and keeps its name and history', async () => {
+    const legacyId = computeElementId(STAGING_URL, {
+      kind: 'button',
+      accessibleName: 'Log in',
+      tagName: 'button',
+      nthOfType: 1,
+    });
+    const context = contextOf(
+      {},
+      registryFile([storedElement({ elementId: legacyId, name: 'signInButton' })]),
+    );
+
+    const report = await runExplore(context, { environment: 'staging' });
+
+    const elements = (await readRegistry(context)).elements;
+    expect(elements).toHaveLength(1);
+    expect(elements[0]).toEqual(expect.objectContaining({ name: 'signInButton', environment: 'staging' }));
+    expect(elements[0]?.elementId).not.toBe(legacyId);
+    expect(elements[0]?.deprecatedAt).toBeUndefined();
+    expect(report).toEqual(expect.objectContaining({ elementCount: 1, added: 0, removed: 0 }));
+  });
+});
 
 // A project with two environments on different origins shares one registry (ADR-0020): exploring or
 // verifying one must not touch what the other found.
@@ -306,6 +350,7 @@ describe('persistExploreResult without an environment (ADR-0020)', () => {
       manifest,
       undefined,
       elements,
+      new Map(),
       0,
       buildRequestLogHar([], '2026-09-20T12:00:00.000Z'),
     );

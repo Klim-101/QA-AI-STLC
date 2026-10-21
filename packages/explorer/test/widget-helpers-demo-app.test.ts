@@ -58,7 +58,12 @@ async function loadLocatorModule(
     testIdAttribute: 'data-testid',
     profile,
   });
-  const { registry } = await buildSelectorRegistry({ ...common, pageModelSet, profile });
+  const { registry } = await buildSelectorRegistry({
+    environmentName: 'staging',
+    ...common,
+    pageModelSet,
+    profile,
+  });
   const { source } = generateLocatorModule(registry, { generatorVersion: '0.0.0-test' });
 
   const names: Record<string, string> = {};
