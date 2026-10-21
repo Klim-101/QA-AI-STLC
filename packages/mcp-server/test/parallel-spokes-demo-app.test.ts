@@ -185,34 +185,31 @@ describe('parallel spokes (demo app, no LLM)', () => {
     STARTUP_TIMEOUT_MS,
   );
 
-  it(
-    'keeps what both of two parallel explorer spokes found',
-    async () => {
-      const [tasks, dashboard] = await Promise.all([
-        exploreTool.handler({ environment: 'staging', startUrls: ['/tasks'] }),
-        exploreTool.handler({ environment: 'staging', startUrls: ['/dashboard'] }),
-      ]);
-      const readIds = async (): Promise<readonly string[]> =>
-        (
-          JSON.parse(await readFile(join(PROJECT_ROOT, '.qa', 'selectors', 'registry.json'), 'utf-8')) as {
-            elements: { elementId: string }[];
-          }
-        ).elements.map((element) => element.elementId);
-      const afterParallel = await readIds();
+  // About 42 s alone on a 16-core Windows machine.
+  it('keeps what both of two parallel explorer spokes found', async () => {
+    const [tasks, dashboard] = await Promise.all([
+      exploreTool.handler({ environment: 'staging', startUrls: ['/tasks'] }),
+      exploreTool.handler({ environment: 'staging', startUrls: ['/dashboard'] }),
+    ]);
+    const readIds = async (): Promise<readonly string[]> =>
+      (
+        JSON.parse(await readFile(join(PROJECT_ROOT, '.qa', 'selectors', 'registry.json'), 'utf-8')) as {
+          elements: { elementId: string }[];
+        }
+      ).elements.map((element) => element.elementId);
+    const afterParallel = await readIds();
 
-      // The same crawls one after the other add nothing the parallel pair had lost.
-      await exploreTool.handler({ environment: 'staging', startUrls: ['/tasks'] });
-      await exploreTool.handler({ environment: 'staging', startUrls: ['/dashboard'] });
-      const afterSequential = await readIds();
+    // The same crawls one after the other add nothing the parallel pair had lost.
+    await exploreTool.handler({ environment: 'staging', startUrls: ['/tasks'] });
+    await exploreTool.handler({ environment: 'staging', startUrls: ['/dashboard'] });
+    const afterSequential = await readIds();
 
-      expect(afterParallel.toSorted()).toEqual(afterSequential.toSorted());
-      expect(tasks.elementCount).toBeGreaterThan(0);
-      expect(dashboard.elementCount).toBeGreaterThan(0);
-      const report = await validateTool.handler({});
-      expect(report.tamperedArtifacts).toEqual([]);
-    },
-    STARTUP_TIMEOUT_MS * 2,
-  );
+    expect(afterParallel.toSorted()).toEqual(afterSequential.toSorted());
+    expect(tasks.elementCount).toBeGreaterThan(0);
+    expect(dashboard.elementCount).toBeGreaterThan(0);
+    const report = await validateTool.handler({});
+    expect(report.tamperedArtifacts).toEqual([]);
+  }, 150_000);
 
   it(
     'verifies and registers specs from parallel generation spokes',

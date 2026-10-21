@@ -53,6 +53,7 @@ describe('crawl (demo app)', () => {
     expect(result.blockedRequestCount).toBe(0);
   }, 30_000);
 
+  // About 12 s alone on a 16-core Windows machine.
   it('signs in as admin and discovers every reachable page without sending a non-GET request', async () => {
     const identityConfig: IdentityConfig = {
       auth: 'storage-state',
@@ -79,11 +80,12 @@ describe('crawl (demo app)', () => {
     );
     expect(result.routeMap.routes.every((route) => route.httpStatus === 200)).toBe(true);
     expect(result.blockedRequestCount).toBe(0);
-  }, 30_000);
+  }, 45_000);
 
   // P6-01's exit criterion, against the real app rather than a fixture: the seeded tasks
   // (`t-1`, `t-2`, `t-3`) each get their own `/tasks/:id` page, so a real crawl's request log
   // must collapse them into one `/tasks/{id}` endpoint while keeping the raw paths it collapsed.
+  // About 12 s alone on a 16-core Windows machine.
   it("collapses the seeded tasks' detail pages into one endpoint and keeps their raw paths", async () => {
     const identityConfig: IdentityConfig = {
       auth: 'storage-state',
@@ -113,7 +115,7 @@ describe('crawl (demo app)', () => {
     expect(apiSurface.endpoints).toContainEqual(
       expect.objectContaining({ method: 'GET', path: '/tasks/new' }),
     );
-  }, 30_000);
+  }, 45_000);
 });
 
 // P6-78 against a real browser: the in-page functions that read router attributes, record History
@@ -161,6 +163,7 @@ describe('crawl of a page with no link href (demo app)', () => {
 // contract at /openapi.json, so a diff of a real crawl must produce a matched finding under a
 // differently named path parameter and one undocumented and one unobserved finding.
 describe('API diff (demo app)', () => {
+  // About 13 s alone on a 16-core Windows machine.
   it('discovers the served contract and classifies its discrepancies against a real crawl', async () => {
     const result = await crawl({
       startUrl: `${BASE_URL}/dashboard`,
@@ -191,7 +194,7 @@ describe('API diff (demo app)', () => {
     );
     expect(findings).toContainEqual({ kind: 'unobserved', method: 'POST', path: '/oauth/revoke-all' });
     expect(findings).toContainEqual(expect.objectContaining({ kind: 'undocumented', path: '/tasks' }));
-  }, 30_000);
+  }, 45_000);
 });
 
 // Exercises page analysis against the same real browser and application: a real
@@ -310,6 +313,7 @@ describe('scoreLocatorStability (demo app)', () => {
 // twice in a row to demonstrate the exit criterion that a diff between two crawls of an unchanged
 // application reports nothing new, removed or degraded.
 describe('buildSelectorRegistry (demo app)', () => {
+  // About 11 s alone on a 16-core Windows machine.
   it('produces a stable registry with no diff between two runs against an unchanged page', async () => {
     const { pageModelSet } = await analyzePages({
       urls: [`${BASE_URL}/login`],
@@ -341,5 +345,5 @@ describe('buildSelectorRegistry (demo app)', () => {
 
     const diff = diffSelectorRegistry(first.registry, second.registry);
     expect(diff).toEqual({ added: [], removed: [], degraded: [] });
-  }, 30_000);
+  }, 45_000);
 });

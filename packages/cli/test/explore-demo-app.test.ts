@@ -105,5 +105,5 @@ describe('runExplore (demo app)', () => {
         true,
       );
     });
-  }, 180_000);
+  }, 240_000);
 });
