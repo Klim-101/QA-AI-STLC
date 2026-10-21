@@ -15,6 +15,12 @@ const InputSchema = z.object({
     .describe('Environment name from config.yaml. Required when there is more than one.'),
   url: z.string().describe("The URL to call. Must be on the resolved environment's domain allowlist."),
   method: z.string().optional().describe('HTTP method. Defaults to GET.'),
+  caseId: z
+    .string()
+    .optional()
+    .describe(
+      'The id of the case being executed. Required for any method other than GET, HEAD, OPTIONS or QUERY, and refused with EXECUTION_CASE_NOT_APPROVED until the operator approves the cases gate (ADR-0009).',
+    ),
   headers: z
     .record(z.string(), z.string())
     .optional()
@@ -57,8 +63,8 @@ const OutputSchema = z.object({
  * `qa.http_execute` (P3-14/P3-15): makes one real HTTP call for the "api" test type, no browser
  * involved, and registers the request/response as evidence. `url` is checked against the resolved
  * environment's domain allowlist first (#364) — the same unconditional check every `qa.browser_*`
- * tool applies — but any HTTP method is allowed against an allowed host, including a real
- * POST/PUT/DELETE. The response body is stored as a capped preview; the engine never decides pass
+ * tool applies — and a method other than a safe read (a real POST/PUT/DELETE) is
+ * sent only for a case of an approved case set (ADR-0009). The response body is stored as a capped preview; the engine never decides pass
  * or fail — compare the status and body against the case's expected result yourself. There is
  * deliberately no TLS input: certificate validation follows the environment's `tlsInsecure` in
  * config.yaml only (ADR-011).
@@ -72,9 +78,9 @@ export function createHttpExecuteTool(
   return {
     name: 'qa.http_execute',
     description:
-      'Makes one real HTTP call — any method, including a real POST/PUT/DELETE — to a URL on the ' +
+      'Makes one real HTTP call to a URL on the ' +
       "resolved environment's domain allowlist, and registers the request/response as evidence, " +
-      'for the "api" test type. Returns the status code only — compare it and the recorded ' +
+      'for the "api" test type. A GET, HEAD, OPTIONS or QUERY needs no case; a POST, PUT, PATCH or DELETE needs caseId, the id of a case in the approved case set. Returns the status code only — compare it and the recorded ' +
       "evidence against the case's expected result yourself; the engine never decides pass or fail. " +
       'To call a protected API pass auth (an apiAuth profile name); credentials are never accepted in headers or the URL. ' +
       'A profile that reads its token from the browser also needs sessionId (an open, signed-in qa.browser_open session) or identity.',
@@ -87,6 +93,7 @@ export function createHttpExecuteTool(
         url: input.url,
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
         ...(input.method !== undefined ? { method: input.method } : {}),
+        ...(input.caseId !== undefined ? { caseId: input.caseId } : {}),
         ...(input.headers !== undefined ? { headers: input.headers } : {}),
         authTokenCache,
         ...(input.auth !== undefined ? { auth: input.auth } : {}),

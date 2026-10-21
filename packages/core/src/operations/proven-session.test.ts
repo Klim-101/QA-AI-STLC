@@ -63,7 +63,6 @@ async function executeAndRegister(
   const first = await runHttpExecute(contextWithHttp, {
     runId,
     url: 'https://staging.example.test/login',
-    method: 'POST',
     stepId: 'step-1',
     idGenerator: createSequentialIdGenerator(`${runId}-evidence-a`),
   });
@@ -129,7 +128,6 @@ describe('findLatestProvenSession', () => {
     const result = await runHttpExecute(contextWithHttp, {
       runId: 'run-1',
       url: 'https://staging.example.test/login',
-      method: 'POST',
     });
     // Written directly: `runRegisterCaseResult` now refuses a `passed` result whose evidence carries
     // no step id, which is exactly the situation this test needs to exist.

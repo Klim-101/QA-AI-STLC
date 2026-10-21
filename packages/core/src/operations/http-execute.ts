@@ -18,9 +18,12 @@ import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { EvidenceStore } from '../evidence-store.js';
 import { resolveBrowserTokenOrigin, type BrowserOriginOptions } from './http-execute-browser-origin.js';
+import { QaError } from '../errors.js';
 import { registerEvidenceOrThrow } from './browser-evidence.js';
+import { assertCaseApprovedForExecution } from './case-execution-approval.js';
 import { resolveBrowserEnvironment } from './browser-open.js';
 import { toCanonicalJson } from '../json-file.js';
+import { isSafeHttpMethod } from '../safe-http-methods.js';
 import { ManifestStore } from '../manifest-store.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
@@ -31,6 +34,11 @@ export interface HttpExecuteOptions extends BrowserOriginOptions {
   readonly environment?: string;
   readonly url: string;
   readonly method?: string;
+  /**
+   * The case being executed. Required for a method that is not a safe read (ADR-0018), and then it
+   * must belong to an approved case set (`EXECUTION_CASE_NOT_APPROVED`, ADR-0009).
+   */
+  readonly caseId?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly body?: string;
   /** An `apiAuth` profile name from config.yaml; the environment's default profile when omitted. */
@@ -57,8 +65,9 @@ export interface HttpExecuteResult {
  *
  * `url` is checked against the resolved environment's domain allowlist first (#364), the same
  * unconditional check every `qa.browser_*` tool already applies — this only restricts which host
- * can be called, never which method: a real POST/PUT/DELETE against an allowed host is exactly
- * what proving the `api` test type actually works requires (ADR-0009's reasoning, applied here).
+ * can be called, never which host. A method that is not a safe read (a real POST/PUT/DELETE, which proving
+ * the `api` test type actually works requires) is sent only for a case of an approved case set, the
+ * rule an execution browser session follows (ADR-0009, ADR-0021).
  *
  * A raw credential in `headers` or in the URL query is rejected (`HTTP_CREDENTIAL_INPUT_REJECTED`): the
  * credential must come from a profile, so it never crosses the tool boundary.
@@ -82,6 +91,8 @@ export async function runHttpExecute(
   const config = await loadConfig(context);
   const environment = resolveBrowserEnvironment(config, options.environment);
   assertUrlAllowed(options.url, environment.config.allowlist, environment.config.baseUrl);
+  const method = options.method ?? 'GET';
+  await assertMethodMayBeSent(context, method, options.caseId);
   const sensitiveNames = collectSensitiveNames(config.apiAuth);
   assertNoCredentialInputs(options.url, options.headers, sensitiveNames);
 
@@ -96,7 +107,6 @@ export async function runHttpExecute(
   const tokenCache = options.authTokenCache ?? createApiAuthTokenCache();
   const profileName = selectApiAuthProfileName(config.apiAuth, environment.name, options.auth);
   const idGenerator = options.idGenerator ?? randomIdGenerator;
-  const method = options.method ?? 'GET';
 
   const isBrowserProfile =
     profileName !== undefined && config.apiAuth.profiles[profileName]?.type === 'from-browser';
@@ -193,4 +203,25 @@ function mergeHeaders(
 
 function credentialsOf(attempt: { readonly auth: ResolvedApiAuth | undefined }): readonly string[] {
   return attempt.auth?.secretValues ?? [];
+}
+
+async function assertMethodMayBeSent(
+  context: EngineContext,
+  method: string,
+  caseId: string | undefined,
+): Promise<void> {
+  if (isSafeHttpMethod(method)) {
+    return;
+  }
+  if (caseId === undefined) {
+    throw new QaError(
+      'HTTP_EXECUTE_CASE_REQUIRED',
+      `${method} is not a safe read, so it is sent only for an approved case`,
+      {
+        remediation:
+          'Pass the caseId of the case being executed, after the operator has approved the "cases" gate. A GET, HEAD, OPTIONS or QUERY needs no case.',
+      },
+    );
+  }
+  await assertCaseApprovedForExecution(context, caseId);
 }
