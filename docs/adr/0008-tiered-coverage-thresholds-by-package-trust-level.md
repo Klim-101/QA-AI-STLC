@@ -1,4 +1,4 @@
-# ADR-008: Tiered coverage thresholds by package trust level
+# ADR-0008: Tiered coverage thresholds by package trust level
 
 Status: Accepted
 Date: 2026-09-20

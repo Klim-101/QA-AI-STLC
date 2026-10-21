@@ -1,4 +1,4 @@
-# ADR-005: The agent has no browser outside engine tools
+# ADR-0005: The agent has no browser outside engine tools
 
 Status: Accepted
 Date: 2026-09-16

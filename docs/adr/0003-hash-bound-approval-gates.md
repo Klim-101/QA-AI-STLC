@@ -1,4 +1,4 @@
-# ADR-003: Hash-bound approval gates
+# ADR-0003: Hash-bound approval gates
 
 Status: Accepted
 Date: 2026-09-16

@@ -5,7 +5,7 @@ Date: 2026-10-19
 
 ## Context
 
-An environment's allowlist (AGENTS.md 12.4, ADR-005) names the hosts the engine may reach. A request
+An environment's allowlist (AGENTS.md 12.4, ADR-0005) names the hosts the engine may reach. A request
 is admitted when its host is listed, its scheme is the scheme of the environment's `baseUrl` and
 its port is the port of `baseUrl` (#306). An entry is a bare host name; one with a port was rejected
 on purpose (#329), because it matched nothing and failed silently.

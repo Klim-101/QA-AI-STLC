@@ -5,7 +5,7 @@ Date: 2026-10-05
 
 ## Context
 
-Safe mode (AGENTS.md 12.4, ADR-005) aborts every non-GET request a browser session makes. ADR-0009
+Safe mode (AGENTS.md 12.4, ADR-0005) aborts every non-GET request a browser session makes. ADR-0009
 relaxes that rule for one case only: an interactive case-execution session that opts in with
 a `caseId` (earlier an `executionMode` flag), which lets every non-GET request through. Exploration, page analysis, pick mode and
 verification never relax it.

@@ -2,6 +2,7 @@
 
 Status: Accepted
 Date: 2026-09-28
+Amended: 2026-10-21 (#785): the invariant is limited to the committed configuration and artifacts.
 
 ## Context
 
@@ -11,7 +12,7 @@ kinds of values:
 
 - **Team decisions** that every machine must agree on: the testing scope, the API contract, the
   selector policy, the test-data strategy, the flaky-detection thresholds. The `cases` gate
-  (ADR-003) reads the testing scope, and generated locator modules (ADR-006) depend on the selector
+  (ADR-0003) reads the testing scope, and generated locator modules (ADR-0006) depend on the selector
   policy, so two machines that disagree on these produce different gate results and different
   generated code from the same artifacts.
 - **Machine facts** that legitimately differ per operator or per CI runner: a local dev server on

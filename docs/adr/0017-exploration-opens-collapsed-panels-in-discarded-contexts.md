@@ -2,6 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-15
+Amended: 2026-10-21 (#783): the state carried to the next context is taken before any click.
 
 ## Context
 

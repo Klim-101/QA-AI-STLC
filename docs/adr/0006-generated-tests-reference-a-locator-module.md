@@ -1,4 +1,4 @@
-# ADR-006: Generated tests reference a locator module
+# ADR-0006: Generated tests reference a locator module
 
 Status: Accepted
 Date: 2026-09-16
