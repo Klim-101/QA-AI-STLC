@@ -32,6 +32,7 @@
     "@qa-ai-stlc/schemas": "1.12.1"
   },
   "devDependencies": {
-    "@qa-ai-stlc/test-utils": "0.0.0"
+    "@qa-ai-stlc/test-utils": "0.0.0",
+    "playwright-core": "1.63.0"
   }
 }
