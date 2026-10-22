@@ -14,10 +14,10 @@ Live task status is on the [project board](https://github.com/users/Klim-101/pro
 | Phase 3 — Runner and generation                      | done        | 20 / 20   |
 | Phase 4 — Hub-and-spoke                              | in progress | 17 / 18   |
 | Phase 5 — Codex                                      | planned     | 0 / 6     |
-| Phase 6 — API, accessibility, defects, RCA, security | in progress | 113 / 120 |
+| Phase 6 — API, accessibility, defects, RCA, security | in progress | 114 / 120 |
 | Phase 7 — General availability                       | planned     | 0 / 11    |
 
-_Last synchronized: 2026-10-21._
+_Last synchronized: 2026-10-22._
 <!-- roadmap:progress:end -->
 
 ## Phase 0 — Foundation
