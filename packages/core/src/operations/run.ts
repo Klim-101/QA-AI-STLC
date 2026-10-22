@@ -138,6 +138,7 @@ export async function executeRunner(context: EngineContext, options: RunOptions)
     specFiles: absoluteSpecFiles,
     idGenerator,
     testIdAttribute: config.selectors.testIdAttribute,
+    ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     ...(runnerIdentity !== undefined ? { identity: runnerIdentity } : {}),
   });
 

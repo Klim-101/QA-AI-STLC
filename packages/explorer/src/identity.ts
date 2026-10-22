@@ -17,6 +17,7 @@ export async function resolveStorageState(
   identity: ExplorerIdentity | undefined,
   boundary: { readonly allowlist: readonly string[]; readonly baseUrl: string },
   tlsInsecure = false,
+  locale?: string,
 ): Promise<StorageState | undefined> {
   if (identity === undefined) {
     return undefined;
@@ -26,5 +27,6 @@ export async function resolveStorageState(
     baseUrl: boundary.baseUrl,
     ...(identity.cdpEndpointUrl !== undefined ? { cdpEndpointUrl: identity.cdpEndpointUrl } : {}),
     ...(tlsInsecure ? { tlsInsecure: true } : {}),
+    ...(locale !== undefined ? { locale } : {}),
   });
 }

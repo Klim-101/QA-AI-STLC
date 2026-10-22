@@ -41,6 +41,7 @@ export interface ExploreOptions extends ExploreOperationOptions {
 
 interface PickModeEnvironment {
   readonly tlsInsecure: boolean;
+  readonly locale?: string;
   readonly allowlist: readonly string[];
   readonly baseUrl: string;
   readonly safeRequests?: readonly SafeNonGetRequest[];
@@ -68,6 +69,7 @@ function resolvePickModeEnvironment(
     }
     return {
       tlsInsecure: environment.tlsInsecure === true,
+      ...(environment.locale === undefined ? {} : { locale: environment.locale }),
       allowlist: environment.allowlist,
       baseUrl: environment.baseUrl,
       ...(environment.safeNonGetRequests === undefined
@@ -107,9 +109,19 @@ async function runPickModeSession(
   const config = await loadConfig(context);
   const identity = resolveIdentity(context, config, options);
   const policy = resolvePolicy(config, options.policy);
-  const { tlsInsecure, ...guard } = resolvePickModeEnvironment(config, options.environment, options.pick);
+  const { tlsInsecure, locale, ...guard } = resolvePickModeEnvironment(
+    config,
+    options.environment,
+    options.pick,
+  );
   configureTestIdAttribute(config.selectors.testIdAttribute);
-  const storageState = await resolveStorageState(context.browserLauncher, identity, guard, tlsInsecure);
+  const storageState = await resolveStorageState(
+    context.browserLauncher,
+    identity,
+    guard,
+    tlsInsecure,
+    locale,
+  );
 
   // Headed: a human clicks the elements in this window, unlike every other launch() call here.
   const browser = await context.browserLauncher.launch({ headless: false });
@@ -117,6 +129,7 @@ async function runPickModeSession(
     const browserContext = await browser.newContext({
       ...(storageState === undefined ? {} : { storageState }),
       ...(tlsInsecure ? { ignoreHttpsErrors: true } : {}),
+      ...(locale === undefined ? {} : { locale }),
     });
     const tally = await guardPickModeSession(browserContext, guard);
     const page = await browserContext.newPage();

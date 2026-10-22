@@ -199,6 +199,8 @@ export interface NewContextOptions {
   readonly storageState?: StorageState;
   /** Bypasses TLS certificate validation for this context (P2-18); off by default. */
   readonly ignoreHttpsErrors?: boolean;
+  /** A BCP 47 tag the context asks for; omitted, the host's own locale applies (P6-114). */
+  readonly locale?: string;
 }
 
 export interface AuthBrowser {
@@ -236,6 +238,7 @@ function wrapBrowser(browser: PlaywrightBrowser): AuthBrowser {
       browser.newContext({
         ...(options?.storageState !== undefined ? { storageState: options.storageState } : {}),
         ...(options?.ignoreHttpsErrors !== undefined ? { ignoreHTTPSErrors: options.ignoreHttpsErrors } : {}),
+        ...(options?.locale !== undefined ? { locale: options.locale } : {}),
       }),
     contexts: () => browser.contexts(),
     close: () => browser.close(),

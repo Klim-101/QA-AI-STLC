@@ -40,6 +40,8 @@ export interface CrawlOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this crawl (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** The environment's `locale` (BCP 47) every context asks for; omitted, the host's applies. */
+  readonly locale?: string;
   /** The environment's `safeNonGetRequests` and where to tally what safe mode did (ADR-0014). */
   readonly safeMode?: Omit<SafeModeRequests, 'onAllowed'>;
   /** What to wait for after each navigation before the page is read (P6-63). */
@@ -84,6 +86,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
     options.identity,
     { allowlist: options.allowlist, baseUrl: options.startUrl },
     options.tlsInsecure,
+    options.locale,
   );
 
   const browser = await options.browserLauncher.launch();
@@ -91,6 +94,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
     const context = await browser.newContext({
       ...(storageState === undefined ? {} : { storageState }),
       ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+      ...(options.locale !== undefined ? { locale: options.locale } : {}),
     });
     const page = await context.newPage();
 
@@ -119,6 +123,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
       const probeContext = await browser.newContext({
         ...(storageState === undefined ? {} : { storageState }),
         ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+        ...(options.locale !== undefined ? { locale: options.locale } : {}),
       });
       await probeContext.route('**/*', createRouteHandler(onBlocked));
       return probeContext;

@@ -127,6 +127,19 @@ describe('loginWithCredentials', () => {
     expect(launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
   });
 
+  it('passes the locale to newContext() for the login session (P6-114)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+
+    await loginWithCredentials(launcher, {
+      loginUrl: 'https://example.com/login',
+      username: 'qa.admin@example.com',
+      password: 'hunter2',
+      locale: 'es-ES',
+    });
+
+    expect(launcher.newContextCalls).toEqual([{ locale: 'es-ES' }]);
+  });
+
   it('omits ignoreHttpsErrors from newContext() when tlsInsecure is not set', async () => {
     const launcher = createFakeBrowserLauncher({ storageState: SESSION });
 
@@ -266,6 +279,19 @@ describe('authenticate', () => {
     );
 
     expect(launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
+  });
+
+  it('forwards the locale to loginWithCredentials for a storage-state identity (P6-114)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+
+    await authenticate(
+      launcher,
+      loginIdentity,
+      { QA_ADMIN_PASSWORD: 'hunter2' },
+      { ...boundary, locale: 'es-ES' },
+    );
+
+    expect(launcher.newContextCalls).toEqual([{ locale: 'es-ES' }]);
   });
 
   it('refuses a sign-in page outside the allowlist before any browser is launched (P6-115)', async () => {

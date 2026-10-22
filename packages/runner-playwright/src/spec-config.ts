@@ -43,6 +43,8 @@ export interface SpecConfigOptions {
   readonly outputDir: string;
   /** The attribute `getByTestId()` resolves against; defaults to Playwright's own `'data-testid'`. */
   readonly testIdAttribute?: string;
+  /** A BCP 47 tag every browser context starts with; omitted, the host's own locale applies. */
+  readonly locale?: string;
   /**
    * Whether a failing test keeps a Playwright trace (default true). A trace is a zip of every request
    * with its headers, so a run that carries a credential turns it off: the evidence scan cannot see
@@ -88,6 +90,7 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
     use: {
       baseURL: options.baseUrl,
       testIdAttribute: options.testIdAttribute ?? DEFAULT_TEST_ID_ATTRIBUTE,
+      ...(options.locale === undefined ? {} : { locale: options.locale }),
       ...(options.storageStatePath === undefined ? {} : { storageState: options.storageStatePath }),
       screenshot: 'only-on-failure',
       trace: options.isTraceEnabled === false ? 'off' : 'retain-on-failure',

@@ -24,6 +24,12 @@ export interface RunnerInput {
    */
   readonly testIdAttribute?: string;
   /**
+   * The environment's `locale` (BCP 47) a browser-driving runner starts every context with, so a
+   * text locator resolves against the same language the registry was built in; omitted, the
+   * host's own locale applies. Ignored by a runner with no browser.
+   */
+  readonly locale?: string;
+  /**
    * The canonical step/expected-result ids (`canonicalStepIds`, P3-20) every result this call
    * produces must cover, when the caller knows the exact one `TestCase` behind this spec set (the
    * generation verification loop, `verifyGeneratedTestSpec`). When given, a runner that supports

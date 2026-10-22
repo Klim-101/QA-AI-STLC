@@ -531,6 +531,42 @@ describe('runExplore', () => {
     expect(page.viewportSizeCalls).toEqual([{ width: 400, height: 300 }]);
   });
 
+  it('opens every context of a crawl in the environment locale (P6-114)', async () => {
+    const context = fakeContext(
+      { elementsByUrl: { [START_URL]: ONE_ELEMENT }, locatorCount: 1 },
+      {
+        environments: `environments:
+  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"], locale: es-ES }`,
+      },
+    );
+
+    await runExplore(context);
+
+    const { newContextCalls } = context.browserLauncher as ReturnType<
+      typeof createFakeExploreBrowserLauncher
+    >;
+    expect(newContextCalls.length).toBeGreaterThan(0);
+    expect(newContextCalls.every((call) => call.locale === 'es-ES')).toBe(true);
+  });
+
+  it('opens the verification context in the environment locale (P6-114)', async () => {
+    const context = fakeContext(
+      { locatorCount: 1 },
+      {
+        environments: `environments:
+  staging: { baseUrl: "${START_URL}", allowlist: ["staging.example.com"], locale: es-ES }`,
+      },
+      { [join(QA_DIR, 'selectors', 'registry.json')]: JSON.stringify(storedRegistry()) },
+    );
+
+    await runExplore(context, { verify: true });
+
+    const { newContextCalls } = context.browserLauncher as ReturnType<
+      typeof createFakeExploreBrowserLauncher
+    >;
+    expect(newContextCalls).toEqual([{ locale: 'es-ES' }]);
+  });
+
   it('warns when the crawled environment has tlsInsecure enabled (P2-18)', async () => {
     const warn = vi.fn();
     const context = fakeContext(

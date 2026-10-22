@@ -36,6 +36,7 @@ function configYaml(identityLines: readonly string[]): string {
     'environments:',
     '  staging: { baseUrl: "https://staging.example.test/", allowlist: ["staging.example.test"], tlsInsecure: true }',
     '  plain: { baseUrl: "https://plain.example.test/", allowlist: ["plain.example.test"] }',
+    '  spanish: { baseUrl: "https://spanish.example.test/", allowlist: ["spanish.example.test"], locale: es-ES }',
     'identities:',
     ...identityLines,
     'data: { strategy: manual, ownerMarker: qa-ai-stlc }',
@@ -95,6 +96,20 @@ describe('signInForRun', () => {
     await signInForRun(engine, 'plainuser', 'plain');
 
     expect(launcher.newContextCalls).toEqual([{}]);
+  });
+
+  it('logs in with the environment locale (P6-114)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: SESSION });
+    const engine = createEngine({
+      launcher,
+      identityLines: [
+        '  spanishuser: { auth: storage-state, secret: QA_TESTER_PASSWORD, loginUrl: "https://spanish.example.test/login", username: "tester@example.test" }',
+      ],
+    });
+
+    await signInForRun(engine, 'spanishuser', 'spanish');
+
+    expect(launcher.newContextCalls).toEqual([{ locale: 'es-ES' }]);
   });
 
   it('rejects an unknown identity', async () => {

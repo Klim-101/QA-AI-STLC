@@ -345,6 +345,7 @@ async function runCrawlAndBuild(
     allowlist: environment.config.allowlist,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
+    ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     settle,
     safeMode,
     ...(options.probeNavigation === true ? { probeNavigation: true } : {}),
@@ -365,6 +366,7 @@ async function runCrawlAndBuild(
     baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
+    ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     testIdAttribute: config.selectors.testIdAttribute,
     extraStableAttributes: config.selectors.extraStableAttributes,
     settle,
@@ -384,6 +386,7 @@ async function runCrawlAndBuild(
     baseUrl: environment.config.baseUrl,
     browserLauncher: context.browserLauncher,
     tlsInsecure,
+    ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     ...(identity !== undefined ? { identity } : {}),
     policy,
     viewports: config.selectors.stabilityViewports,
@@ -449,6 +452,7 @@ async function runVerify(
     identity,
     { allowlist: environment.config.allowlist, baseUrl: environment.config.baseUrl },
     tlsInsecure,
+    environment.config.locale,
   );
   const profile = resolveComponentLibraryProfile(config.ui.componentLibrary, options.profiles);
   const settle = resolveSettleOptions(context, config, profile);
@@ -481,6 +485,7 @@ async function runVerify(
     const browserContext = await browser.newContext({
       ...(storageState === undefined ? {} : { storageState }),
       ...(tlsInsecure ? { ignoreHttpsErrors: true } : {}),
+      ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     });
     const page = await browserContext.newPage();
     // On the context, so a popup a revealing click opens is covered as well.

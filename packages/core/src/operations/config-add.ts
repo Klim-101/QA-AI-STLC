@@ -18,6 +18,8 @@ export interface ConfigAddEnvironmentOptions {
   readonly name: string;
   readonly baseUrl: string;
   readonly allowlist: readonly string[];
+  /** A BCP 47 tag every browser context of the environment asks for (P6-114); validated by the schema. */
+  readonly locale?: string;
   /**
    * Non-GET requests safe mode lets through for this environment (ADR-0014). Validated by
    * `EnvironmentConfigSchema`, so a method other than POST or a pattern in the path is rejected.
@@ -73,6 +75,7 @@ export async function runConfigAddEnvironment(
   const parsed = EnvironmentConfigSchema.safeParse({
     baseUrl: options.baseUrl,
     allowlist: options.allowlist,
+    ...(options.locale === undefined ? {} : { locale: options.locale }),
     ...(options.safeNonGetRequests === undefined || options.safeNonGetRequests.length === 0
       ? {}
       : { safeNonGetRequests: options.safeNonGetRequests }),
@@ -83,7 +86,7 @@ export async function runConfigAddEnvironment(
       `The environment is not valid:\n${z.prettifyError(parsed.error)}`,
       {
         remediation:
-          'Provide a non-empty --base-url and at least one --allowlist entry; an --allow-request must be a POST to an exact path, with a --allow-request-reason.',
+          'Provide a non-empty --base-url and at least one --allowlist entry; an --allow-request must be a POST to an exact path, with a --allow-request-reason; a --locale must be a BCP 47 tag such as "en-US".',
         cause: parsed.error,
       },
     );

@@ -211,6 +211,25 @@ describe('init and config tools (real filesystem, temp project directory)', () =
     });
   });
 
+  it('qa.config_add writes an environment locale and rejects a malformed tag (P6-114)', async () => {
+    await withProject(async (projectRoot) => {
+      await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });
+      const environment: z.infer<typeof configAddTool.inputSchema> = {
+        kind: 'environment',
+        name: 'staging',
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+      };
+
+      await expect(configAddTool.handler({ ...environment, locale: 'en_US' })).rejects.toMatchObject({
+        code: 'CONFIG_ADD_VALUE_INVALID',
+      });
+      await configAddTool.handler({ ...environment, locale: 'es-ES' });
+
+      expect(await readFile(join(projectRoot, '.qa', 'config.yaml'), 'utf-8')).toContain('locale: es-ES');
+    });
+  });
+
   it('qa.config_add adds an identity whatever the allowlist argument is', async () => {
     await withProject(async (projectRoot) => {
       await initTool.handler({ testing: OUT_OF_SCOPE, confirmedRoot: projectRoot });

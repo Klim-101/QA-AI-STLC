@@ -193,6 +193,24 @@ describe('runBrowserOpen with an identity (P6-74)', () => {
     expect(harness.launcher.newContextCalls.map((call) => call.ignoreHttpsErrors)).toEqual([true, true]);
   });
 
+  it('signs in and opens the session in the environment locale (P6-114)', async () => {
+    const harness = createBrowserTestHarness({
+      configYaml: LOGIN_CONFIG_YAML.replace(
+        'allowlist: ["staging.example.test"] }',
+        'allowlist: ["staging.example.test"], locale: es-ES }',
+      ),
+      launcherOptions: { storageState: SIGNED_IN_STATE },
+    });
+    const context = {
+      ...harness.context,
+      engine: { ...harness.context.engine, env: { QA_ADMIN_PASSWORD: 'x' } },
+    };
+
+    await runBrowserOpen(context, { identity: 'admin' });
+
+    expect(harness.launcher.newContextCalls.map((call) => call.locale)).toEqual(['es-ES', 'es-ES']);
+  });
+
   it('passes the CDP endpoint through for a cdp-attach identity', async () => {
     const attached: AuthBrowserContext = {
       newPage: () => Promise.reject(new Error('not used')),

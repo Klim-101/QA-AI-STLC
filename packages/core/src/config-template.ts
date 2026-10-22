@@ -137,6 +137,10 @@ export const CONFIG_LOCAL_EXAMPLE = `# Example local configuration layer (ADR-01
 #         reason: Exchanges the refresh cookie for an access token; creates no record.
 #     navigationTimeoutMs: 30000
 #     actionTimeoutMs: 30000
+#     # The language every browser context asks for (a BCP 47 tag), so the application's text, and with
+#     # it element names and text locators, does not depend on the machine running the engine. Omitted,
+#     # the machine's own language applies.
+#     locale: en-US
 #     # How long "qa doctor" waits for this environment, and for an API contract served from its host,
 #     # to answer (5000 when omitted; 1000 to 120000). Raise it for an endpoint that is slow to answer.
 #     reachabilityTimeoutMs: 5000

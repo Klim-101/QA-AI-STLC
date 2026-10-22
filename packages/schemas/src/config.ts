@@ -80,6 +80,19 @@ export const SafeNonGetRequestSchema = z.object({
 });
 export type SafeNonGetRequest = z.infer<typeof SafeNonGetRequestSchema>;
 
+// A BCP 47 language tag ("en-US", "es", "zh-Hant-TW"). `Intl.getCanonicalLocales` is the platform's
+// own parser, so the engine accepts exactly the tags Playwright and the browser will accept.
+export const LocaleTagSchema = z.string().refine(
+  (tag) => {
+    try {
+      return Intl.getCanonicalLocales(tag).length === 1;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'must be a BCP 47 language tag such as "en-US" or "es"' },
+);
+
 export const EnvironmentConfigSchema = z.object({
   baseUrl: z.string().min(1),
   allowlist: z.array(AllowlistEntrySchema).min(1),
@@ -104,6 +117,10 @@ export const EnvironmentConfigSchema = z.object({
   // operator who watches a run; a session can still choose either way. A machine setting, so the
   // local layer may turn it on without touching the committed file.
   headed: z.boolean().optional(),
+  // The language every browser context of this environment asks for, so the application's text (and
+  // with it element names and text locators) does not depend on the machine's own locale. Omitted
+  // means the host's locale applies, as before (P6-114).
+  locale: LocaleTagSchema.optional(),
 });
 export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
 

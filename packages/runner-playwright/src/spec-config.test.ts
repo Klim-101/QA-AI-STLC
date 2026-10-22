@@ -54,6 +54,18 @@ describe('generateSpecConfigSource', () => {
     expect(source).toContain('"testIdAttribute": "data-ui-id"');
   });
 
+  it('starts every browser context in the given locale, and in the host locale when none is given (P6-114)', () => {
+    const options = {
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+    };
+
+    expect(generateSpecConfigSource({ ...options, locale: 'es-ES' }).source).toContain('"locale": "es-ES"');
+    expect(generateSpecConfigSource(options).source).not.toContain('locale');
+  });
+
   it.each([
     [undefined, 'retain-on-failure'],
     [true, 'retain-on-failure'],

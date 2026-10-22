@@ -215,6 +215,23 @@ describe('withRunTokenOrigin', () => {
     expect(launcher.closedBrowsers).toBe(0);
   });
 
+  it('opens the session with the environment locale (P6-114)', async () => {
+    const yaml = CONFIG_YAML.replace('identity: tester }', 'identity: tester, locale: es-ES }');
+    const { engine, launcher } = createEngine(yaml);
+    const config = await loadConfig(engine);
+
+    await withRunTokenOrigin(
+      engine,
+      config,
+      { environment: undefined, identity: 'tester', profileName: 'stage-api' },
+      () => Promise.resolve(undefined),
+    );
+
+    expect(launcher.newContextCalls.at(-1)).toEqual(
+      expect.objectContaining({ locale: 'es-ES', storageState: SESSION }),
+    );
+  });
+
   it('opens the session with the environment TLS setting', async () => {
     const yaml = CONFIG_YAML.replace('identity: tester }', 'identity: tester, tlsInsecure: true }');
     const { engine, launcher } = createEngine(yaml);

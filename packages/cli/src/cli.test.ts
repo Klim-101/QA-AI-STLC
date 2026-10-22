@@ -1289,6 +1289,29 @@ describe('runCli', () => {
     expect(written).toContain('Exchanges the refresh cookie and reads data.');
   });
 
+  it('writes --locale into the new environment and rejects a malformed tag (P6-114)', async () => {
+    const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML });
+    const deps = dependencies({ fs });
+    const args = [
+      'config',
+      'add',
+      'environment',
+      'qa',
+      '--base-url',
+      'https://qa.example.com',
+      '--allowlist',
+      'qa.example.com',
+    ];
+
+    const rejected = await runCli([...args, '--locale', 'en_US'], deps);
+    expect(rejected).toBe(EXIT_FAILURE);
+    expect(deps.stderr.join('\n')).toContain('BCP 47');
+
+    const exitCode = await runCli([...args, '--locale', 'es-ES'], deps);
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(await fs.readFile(CONFIG_PATH)).toContain('locale: es-ES');
+  });
+
   it('refuses --allow-request without a reason', async () => {
     const deps = dependencies({ fs: createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML }) });
 
