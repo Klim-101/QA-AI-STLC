@@ -40,12 +40,15 @@ describe('playwrightRunner (a project with its own @playwright/test)', () => {
     const modulesDirectory = join(projectRoot, 'node_modules');
     await mkdir(join(modulesDirectory, '@playwright'), { recursive: true });
     await cp(testPackage, join(modulesDirectory, '@playwright', 'test'), { recursive: true });
-    await cp(packageDirectory('playwright', [testPackage]), join(modulesDirectory, 'playwright'), {
-      recursive: true,
-    });
-    await cp(packageDirectory('playwright-core', [testPackage]), join(modulesDirectory, 'playwright-core'), {
-      recursive: true,
-    });
+    // `playwright-core` is a dependency of `playwright`, not of `@playwright/test`, so npm may nest it
+    // under `playwright`; resolving it from there finds it wherever npm placed it.
+    const playwrightPackage = packageDirectory('playwright', [testPackage]);
+    await cp(playwrightPackage, join(modulesDirectory, 'playwright'), { recursive: true });
+    await cp(
+      packageDirectory('playwright-core', [playwrightPackage]),
+      join(modulesDirectory, 'playwright-core'),
+      { recursive: true },
+    );
     await mkdir(join(projectRoot, 'tests'), { recursive: true });
   }, SPEC_TIMEOUT_MS);
 
