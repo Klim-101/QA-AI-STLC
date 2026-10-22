@@ -2,6 +2,8 @@
 
 Status: Accepted
 Date: 2026-10-13
+Amended: 2026-10-14 (#659): generated specs must assert what the case declares.
+Amended: 2026-10-22 (#723): a declared assertion counts only where it always runs, read from the parsed spec rather than its text.
 
 ## Context
 
@@ -50,6 +52,23 @@ evidence a `passed` result cites. The caller supplies no comparison.
 - **Compatibility.** The fields are additive and optional, so a case written before this ADR
   validates and keeps the #603 rule unchanged; no schema version bump or migration is needed.
   `qa-design-cases` writes the structure for new cases.
+- **Generated specs assert what the case declares.** `qa.generation_spoke_input` renders each
+  declared expectation as the assertion statement a spec needs. Before it runs the spec,
+  `qa.generation_verify` derives those statements again from the registered case, the registry and
+  the locator module on disk (not from what the caller handed in) and answers
+  `expectations_missing` for each one the spec lacks. Selectors reach the spec only as
+  locator-module functions: an expectation whose selector matches no registry element (by CSS or
+  `execute` value, `data-testid` attribute or `role=` form), or whose element has no function, is
+  listed as unresolved and not asserted.
+- **Only an assertion that always runs counts.** The spec is parsed with the TypeScript compiler,
+  and an assertion is found only as a statement that runs every time its `test` runs: directly in
+  the callback of a top-level `test(...)`, or in an awaited `test.step` inside it, through plain
+  blocks and literal `if (true)`/`if (false)` branches. A statement in any other condition, a loop, a
+  `try`, a function, an un-awaited or skipped step, or after a `return` or `throw` does not count. The
+  statement has to be the assertion and nothing more, so a chained `.catch(...)` does not count
+  either; comments and whitespace are ignored. A step's assertion has to sit in that step's
+  `test.step`; a result assertion may sit anywhere that always runs. An assertion that is written but
+  may never run gets its own message, which says where to move it.
 
 **Not adopted:**
 
@@ -61,6 +80,11 @@ evidence a `passed` result cites. The caller supplies no comparison.
   tool: the agent runs the existing check with the declared parameters and cites it.
 - JSON-path or regular-expression body matching. A plain fragment is checkable by anyone reading the
   case; richer matching can be added to the union when a real case needs it.
+- Finding a declared assertion by searching the spec's text. Text in a branch that is never taken,
+  after a `return` or in a skipped step would pass the search without ever running.
+- Deciding reachability from values (a condition on a variable, a loop that runs at least once). The
+  check would have to evaluate the spec; it refuses what it cannot prove instead, and the generator
+  writes the assertion where it always runs.
 
 ## Consequences
 
@@ -79,18 +103,7 @@ declared checks for exactly that purpose.
 
 A body fragment is searched in the capped preview only, so a fragment beyond the cap is `unmet`.
 
-## Amendment: generated specs assert what the case declares (P6-86)
-
-`qa.generation_spoke_input` renders each declared expectation as the assertion line a spec needs, and
-`qa.generation_verify` looks for that line before it runs the spec, answering `expectations_missing`
-for what is absent. The lines are derived again from the registered case, the registry and the
-locator module on disk, so the list the verification uses is not the one the caller handed in. A
-step's line has to sit in that step's `test.step`; a result expectation may sit in any. Comments and
-whitespace do not count. Selectors reach the spec only as locator-module functions: an expectation
-whose selector matches no registry element (by CSS or `execute` value, `data-testid` attribute or
-`role=` form), or whose element has no function, is listed as unresolved and not asserted.
-
-This checks that the assertion is written, not that it is reached: the run that follows proves it
-passes, and the per-step work check proves each step did something, but a line inside code that never
-runs would satisfy the text check. The case review stays the place a person judges whether the
-declared checks are the right ones.
+For a generated spec, the declared checks are in code that runs whenever its test runs, and the run
+that follows proves they pass. An assertion behind a condition the generator cannot avoid is refused
+even when it would run, so the generator, not the check, adapts. The structural check says the
+assertion runs, not that it is the right one: the case review stays the place a person judges that.
