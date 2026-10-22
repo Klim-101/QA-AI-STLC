@@ -251,7 +251,36 @@ describe('findLatestProvenSession', () => {
     expect(session).toBeUndefined();
   });
 
-  it('throws when a stepId does not follow the "step-<N>" convention', async () => {
+  it.each(['first-step', 'expected-result', 'step-01', 'step-0', 'step-x'])(
+    'leaves out evidence whose stepId "%s" is not a "step-<N>" id',
+    async (stepId) => {
+      const { context } = await createContext();
+      await seedRunResult(context, 'run-1', ['evidence-1', 'evidence-2']);
+      await seedEvidenceFile(
+        context,
+        'run-1',
+        'evidence-1',
+        JSON.stringify({ type: 'click', sessionId: 'session-1', stepId, at: '2026-09-25T09:59:30.000Z' }),
+      );
+      await seedEvidenceFile(
+        context,
+        'run-1',
+        'evidence-2',
+        JSON.stringify({
+          type: 'click',
+          sessionId: 'session-1',
+          stepId: 'step-2',
+          at: '2026-09-25T09:59:31.000Z',
+        }),
+      );
+
+      const session = await findLatestProvenSession(context, testCase, { testCaseId: testCase.id });
+
+      expect(session?.steps.map((step) => step.stepId)).toEqual(['step-2']);
+    },
+  );
+
+  it('finds no session when no evidence carries a "step-<N>" id', async () => {
     const { context } = await createContext();
     await seedRunResult(context, 'run-1', ['evidence-1']);
     await seedEvidenceFile(
@@ -261,34 +290,14 @@ describe('findLatestProvenSession', () => {
       JSON.stringify({
         type: 'click',
         sessionId: 'session-1',
-        stepId: 'first-step',
+        stepId: 'expected-result',
         at: '2026-09-25T09:59:30.000Z',
       }),
     );
 
     await expect(
       findLatestProvenSession(context, testCase, { testCaseId: testCase.id }),
-    ).rejects.toBeInstanceOf(QaError);
-  });
-
-  it('throws when a stepId has a non-canonical numeric suffix', async () => {
-    const { context } = await createContext();
-    await seedRunResult(context, 'run-1', ['evidence-1']);
-    await seedEvidenceFile(
-      context,
-      'run-1',
-      'evidence-1',
-      JSON.stringify({
-        type: 'click',
-        sessionId: 'session-1',
-        stepId: 'step-01',
-        at: '2026-09-25T09:59:30.000Z',
-      }),
-    );
-
-    await expect(
-      findLatestProvenSession(context, testCase, { testCaseId: testCase.id }),
-    ).rejects.toBeInstanceOf(QaError);
+    ).resolves.toBeUndefined();
   });
 });
 

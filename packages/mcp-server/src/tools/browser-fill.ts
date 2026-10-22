@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserFill } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
@@ -29,12 +29,9 @@ const InputSchema = SessionIdInputSchema.extend({
         'credential: the value never appears in this call or its result. Give this or `value`. Never ' +
         'read the variable yourself.',
     ),
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this fill performs, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this fill performs, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({

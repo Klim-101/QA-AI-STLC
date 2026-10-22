@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserWaitFor } from '@qa-ai-stlc/core';
-import { BrowserWaitConditionSchema, EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { BrowserWaitConditionSchema, EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
@@ -34,12 +34,9 @@ const InputSchema = SessionIdInputSchema.extend({
     .nonnegative()
     .optional()
     .describe('How long to wait, at most the environment action timeout, which is the default.'),
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this wait belongs to, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this wait belongs to, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({

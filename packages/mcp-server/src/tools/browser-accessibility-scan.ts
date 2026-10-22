@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserAccessibilityScan } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   SessionIdInputSchema,
@@ -12,12 +12,9 @@ import {
 import type { ToolDefinition } from '../tool.js';
 
 const InputSchema = SessionIdInputSchema.extend({
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this scan performs, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this scan performs, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({

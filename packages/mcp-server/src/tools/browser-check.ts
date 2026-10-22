@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserCheck } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
@@ -17,12 +17,9 @@ import type { ToolDefinition } from '../tool.js';
 const InputSchema = SessionIdInputSchema.extend({
   ...ELEMENT_TARGET_FIELDS,
   checked: z.boolean().optional().describe('The state to leave the box in: true (default) or false.'),
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({
