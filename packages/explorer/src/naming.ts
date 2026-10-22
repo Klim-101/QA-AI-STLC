@@ -1,10 +1,19 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Splits on anything that is not a letter or digit, dropping empty segments, so accented and
-// non-Latin text collapses to nothing rather than surviving as invalid identifier characters.
+// Accents on a Latin letter fold into the base letter ("sesión" gives "sesion"), so a name stays
+// readable ASCII where it can. Marks on any other script are part of the letter ("й" is "и" plus a
+// breve) and stay, as does every Unicode letter and decimal digit: they are all valid in a
+// JavaScript identifier, while other symbols and punctuation separate words.
 function wordsOf(text: string): string[] {
-  return text.split(/[^A-Za-z0-9]+/u).filter((word) => word.length > 0);
+  const folded = text
+    .normalize('NFD')
+    .replace(/(\p{Script=Latin})\p{M}+/gu, '$1')
+    .normalize('NFC');
+  return folded
+    .split(/[^\p{L}\p{Nd}\p{M}]+/u)
+    .map((word) => word.replace(/^\p{M}+/u, ''))
+    .filter((word) => word.length > 0);
 }
 
 // An accessible name equal to a reserved word ("Export", "Delete") would otherwise produce a
@@ -75,7 +84,7 @@ export function toCamelCaseIdentifier(text: string, fallback: string): string {
   const identifier = source
     .map((word, index) => (index === 0 ? word.toLowerCase() : upperFirst(word.toLowerCase())))
     .join('');
-  if (/^[0-9]/u.test(identifier)) {
+  if (/^\p{Nd}/u.test(identifier)) {
     return `element${upperFirst(identifier)}`;
   }
   return RESERVED_WORDS.has(identifier) ? `${identifier}Element` : identifier;
@@ -87,7 +96,7 @@ export function toCamelCaseIdentifier(text: string, fallback: string): string {
  * label (a session agent fills it with a column header's text), never an identifier.
  */
 export function toLocatorFunctionName(name: string, fallback: string): string {
-  const isIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(name) && !RESERVED_WORDS.has(name);
+  const isIdentifier = /^[\p{ID_Start}_$][\p{ID_Continue}$]*$/u.test(name) && !RESERVED_WORDS.has(name);
   return isIdentifier ? name : toCamelCaseIdentifier(name, fallback);
 }
 
