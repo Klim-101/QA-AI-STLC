@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DEFAULT_LOG_READ_LIMIT, MAX_LOG_READ_LIMIT, runBrowserConsole } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   SessionIdInputSchema,
@@ -29,12 +29,9 @@ export const LOG_READ_INPUT_FIELDS = {
     .describe(
       `How many entries to return, at most ${String(MAX_LOG_READ_LIMIT)}; ${String(DEFAULT_LOG_READ_LIMIT)} by default.`,
     ),
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this read belongs to, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this read belongs to, when executing a registered case.",
+  ),
 };
 
 const InputSchema = SessionIdInputSchema.extend({

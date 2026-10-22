@@ -24,22 +24,16 @@ const STEP_ID_PREFIX = 'step-';
 // `string | undefined` regardless of the pattern, forcing an unreachable fallback for a group the
 // pattern already guarantees (the same reasoning `verification.ts`'s `tsc` diagnostic parser
 // documents). Plain string operations keep every branch here real and testable.
-function parseStepIndex(stepId: Identifier): number {
+//
+// Evidence written before the tools validated `stepId` can carry an id that is not a step, such as
+// `expected-result`; it belongs to no step, so it is left out instead of failing the whole session.
+function parseStepIndex(stepId: Identifier): number | undefined {
   if (!stepId.startsWith(STEP_ID_PREFIX)) {
-    throw new QaError(
-      'core.proven_session.invalid_step_id',
-      `Evidence step id "${stepId}" does not follow the "step-<N>" convention.`,
-    );
+    return undefined;
   }
   const numeric = stepId.slice(STEP_ID_PREFIX.length);
   const index = Number.parseInt(numeric, 10);
-  if (Number.isNaN(index) || index < 1 || String(index) !== numeric) {
-    throw new QaError(
-      'core.proven_session.invalid_step_id',
-      `Evidence step id "${stepId}" does not follow the "step-<N>" convention.`,
-    );
-  }
-  return index;
+  return index >= 1 && String(index) === numeric ? index : undefined;
 }
 
 async function findLatestPassingRunResult(
@@ -103,37 +97,36 @@ export async function findLatestProvenSession(
     return undefined;
   }
 
-  const actionsByStepId = new Map<Identifier, ProvenAction[]>();
+  const actionsByStepIndex = new Map<number, ProvenAction[]>();
   for (const evidenceId of latest.evidenceIds) {
     const filePath = await findEvidenceFilePath(store, latest.runId, evidenceId);
     if (filePath === undefined) {
       continue;
     }
     const action = await readProvenAction(store, filePath);
-    if (action?.stepId === undefined) {
+    const index = action?.stepId === undefined ? undefined : parseStepIndex(action.stepId);
+    if (action === undefined || index === undefined) {
       continue;
     }
-    const existing = actionsByStepId.get(action.stepId) ?? [];
-    actionsByStepId.set(action.stepId, [...existing, action]);
+    actionsByStepIndex.set(index, [...(actionsByStepIndex.get(index) ?? []), action]);
   }
 
-  if (actionsByStepId.size === 0) {
+  if (actionsByStepIndex.size === 0) {
     return undefined;
   }
 
-  const steps = Array.from(actionsByStepId.entries())
-    .sort(([a], [b]) => parseStepIndex(a) - parseStepIndex(b))
-    .map(([stepId, actions]) => {
-      const index = parseStepIndex(stepId);
+  const steps = Array.from(actionsByStepIndex.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([index, actions]) => {
       const step = testCase.steps[index - 1];
       if (step === undefined) {
         throw new QaError(
           'core.proven_session.step_out_of_range',
-          `Evidence references "${stepId}", but test case "${testCase.id}" has only ` +
+          `Evidence references "step-${String(index)}", but test case "${testCase.id}" has only ` +
             `${String(testCase.steps.length)} step(s). Re-run qa-execute after the case changed.`,
         );
       }
-      return { stepId, description: step.description, actions };
+      return { stepId: `step-${String(index)}`, description: step.description, actions };
     });
 
   return ProvenSessionSchema.parse({

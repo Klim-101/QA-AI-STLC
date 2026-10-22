@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserTabs } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   SessionIdInputSchema,
@@ -17,12 +17,9 @@ const InputSchema = SessionIdInputSchema.extend({
     .string()
     .optional()
     .describe('The id of the tab to make active, such as tab-2. Omit to only list the tabs.'),
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this switch belongs to, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this switch belongs to, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({

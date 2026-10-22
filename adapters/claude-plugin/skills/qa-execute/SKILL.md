@@ -143,7 +143,8 @@ linked to its `stepId`, and the expected result has a successful check of the ca
 `qa.browser_expect` that passed; api: a response below 400; a11y: a scan with no violations and
 nothing uncertain). Otherwise the call fails with `RUN_RESULT_STEP_NOT_PROVEN` or
 `RUN_RESULT_EXPECTED_RESULT_UNCHECKED`: perform or re-check what is missing, or register `partial` or
-`failed`. A run belongs to one case: execute each case in a session of its own. A screenshot proves
+`failed`. Evidence is linked only to `step-<N>`; the engine refuses any other `stepId`, so link the check of
+the expected result to the case's last step. A run belongs to one case: execute each case in a session of its own. A screenshot proves
 nothing here, and an api case that expects an error status cannot be `passed` yet.
 
 Register `partial`, not `uncertain`, when you did some of the case's steps and could not do the

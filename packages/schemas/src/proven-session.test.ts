@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { ProvenActionSchema, ProvenSessionSchema, ProvenStepSchema } from './proven-session.js';
+import { ProvenActionSchema, ProvenSessionSchema, ProvenStepSchema, StepIdSchema } from './proven-session.js';
 
 describe('ProvenActionSchema', () => {
   it('accepts a browser action', () => {
@@ -89,4 +89,17 @@ describe('ProvenSessionSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+});
+
+describe('StepIdSchema', () => {
+  it.each(['step-1', 'step-12'])('accepts "%s"', (value) => {
+    expect(StepIdSchema.safeParse(value).success).toBe(true);
+  });
+
+  it.each(['expected-result', 'step-0', 'step-01', 'step-', 'step-1a', 'Step-1', ''])(
+    'refuses "%s"',
+    (value) => {
+      expect(StepIdSchema.safeParse(value).success).toBe(false);
+    },
+  );
 });

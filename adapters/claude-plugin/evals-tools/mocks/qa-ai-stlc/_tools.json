@@ -109,7 +109,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this navigation performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -140,7 +141,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this click performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -178,7 +180,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this fill performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -213,7 +216,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this key press performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -244,7 +248,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this hover performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -278,7 +283,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -308,7 +314,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           },
           "optionText": {
             "type": "string",
@@ -344,7 +351,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           },
           "value": {
             "type": "string",
@@ -380,7 +388,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -410,7 +419,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -440,7 +450,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           },
           "column": {
             "type": "string",
@@ -488,7 +499,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this action performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           },
           "column": {
             "type": "string",
@@ -603,7 +615,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position whose expected result this checks, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -661,7 +674,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this wait belongs to, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -688,7 +702,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this switch belongs to, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -725,7 +740,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this upload performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [
@@ -760,7 +776,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this read belongs to, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           },
           "errorsOnly": {
             "description": "Only errors, uncaught exceptions and warnings.",
@@ -798,7 +815,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this read belongs to, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           },
           "errorsOnly": {
             "description": "Only requests that failed before a response or got a status of 400 or more.",
@@ -824,7 +842,8 @@
           },
           "stepId": {
             "description": "'step-<N>', N the case step's 1-based position this scan performs, when executing a registered case.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^step-[1-9]\\d*$"
           }
         },
         "required": [

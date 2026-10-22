@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBrowserPress } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import {
   ELEMENT_TARGET_FIELDS,
@@ -17,12 +17,9 @@ import type { ToolDefinition } from '../tool.js';
 const InputSchema = SessionIdInputSchema.extend({
   key: z.string().min(1).describe('A key or chord in Playwright spelling: Enter, Escape, Tab, Control+a.'),
   ...ELEMENT_TARGET_FIELDS,
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this key press performs, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this key press performs, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createApiAuthTokenCache, runHttpExecute } from '@qa-ai-stlc/core';
-import { EvidenceSchema } from '@qa-ai-stlc/schemas';
+import { EvidenceSchema, StepIdSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import type { ToolDefinition } from '../tool.js';
 import type { BrowserToolDependencies } from './browser-dependencies.js';
@@ -46,12 +46,9 @@ const InputSchema = z.object({
       'For a cookie or localStorage token profile: a configured identity whose saved storage state is read instead of a live session. Use sessionId for any other source.',
     ),
   body: z.string().optional(),
-  stepId: z
-    .string()
-    .optional()
-    .describe(
-      "'step-<N>', N the case step's 1-based position this call performs, when executing a registered case.",
-    ),
+  stepId: StepIdSchema.optional().describe(
+    "'step-<N>', N the case step's 1-based position this call performs, when executing a registered case.",
+  ),
 });
 
 const OutputSchema = z.object({

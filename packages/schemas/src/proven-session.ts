@@ -6,6 +6,13 @@ import { BrowserActionSchema, HttpRequestRecordSchema } from './evidence.js';
 import { IdentifierSchema } from './primitives.js';
 import { SCHEMA_VERSION, SchemaVersionSchema } from './version.js';
 
+// The id a case step's evidence is linked to: `step-<N>`, `N` the step's 1-based position. The
+// expected result has no id of its own; its checks are linked to the last step.
+export const StepIdSchema = z
+  .string()
+  .regex(/^step-[1-9]\d*$/u, "Expected 'step-<N>', N the case step's 1-based position.");
+export type StepId = z.infer<typeof StepIdSchema>;
+
 // What one `qa.browser_*`/`qa.http_execute` call actually did during a case step (P3-15), read
 // back from the evidence content it wrote — `stepId` is what groups these by the case step they
 // proved. Not a new evidence kind: the same `BrowserActionSchema`/`HttpRequestRecordSchema` content
