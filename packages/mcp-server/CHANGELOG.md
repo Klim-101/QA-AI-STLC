@@ -1,5 +1,31 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.13.0
+
+### Minor Changes
+
+- b1c61d1: An environment can pin the language of its browser contexts with `locale`, a BCP 47 tag such as `en-US`. Exploring, picking, the interactive browser session, signing in, and running or verifying a generated spec all use it, so the text of the application, and with it element names and text locators, no longer depends on the machine running the engine. Set it with `qa config add environment --locale <tag>` or the `locale` input of `qa.config_add`; an invalid tag is rejected. Leaving it out keeps today's behavior: the machine's own language applies, so existing projects are unchanged. The security audit's sign-in still uses the machine's language.
+- 5cc4ac7: `qa.browser_open` and `qa.browser_attach` take `caseId` instead of the `executionMode` flag. Real (non-GET) requests are allowed in a session only for a case of an approved case set: the engine refuses with `EXECUTION_CASE_NOT_APPROVED` until the operator approves the `cases` gate, and again once the case is edited. Callers that passed `executionMode: true` must pass the id of the case they execute.
+- 626f41c: `qa.http_execute` sends a method other than GET, HEAD, OPTIONS or QUERY only for a case of an approved case set: it takes `caseId` and refuses with `HTTP_EXECUTE_CASE_REQUIRED` without one and `EXECUTION_CASE_NOT_APPROVED` until the operator approves the `cases` gate. Reads need no case. Callers that sent a POST, PUT, PATCH or DELETE must now pass the id of the case they execute.
+
+### Patch Changes
+
+- Updated dependencies [ad5e756]
+- Updated dependencies [b1c61d1]
+- Updated dependencies [5cc4ac7]
+- Updated dependencies [626f41c]
+- Updated dependencies [9f40a76]
+- Updated dependencies [f114d37]
+- Updated dependencies [4a5d087]
+- Updated dependencies [df9e6bf]
+  - @qa-ai-stlc/core@1.13.0
+  - @qa-ai-stlc/explorer@1.13.0
+  - @qa-ai-stlc/schemas@1.13.0
+  - @qa-ai-stlc/runner-playwright@1.13.0
+  - @qa-ai-stlc/runner-security@1.13.0
+  - @qa-ai-stlc/runner-a11y@1.13.0
+  - @qa-ai-stlc/runner-api@1.13.0
+
 ## 1.12.1
 
 ### Patch Changes

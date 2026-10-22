@@ -1,5 +1,26 @@
 # @qa-ai-stlc/explorer
 
+## 1.13.0
+
+### Minor Changes
+
+- ad5e756: An element id no longer contains the origin of its page: it is made from the environment's name and the page's path. The same environment served on another port, for example through a local configuration file, now gets the same ids, so the registry, the locator module and the generation stamps stop differing between machines. Elements already in the registry are re-keyed, with their names and history, the next time their environment is explored. The locator module and the generation stamps change once, in that run.
+- b1c61d1: An environment can pin the language of its browser contexts with `locale`, a BCP 47 tag such as `en-US`. Exploring, picking, the interactive browser session, signing in, and running or verifying a generated spec all use it, so the text of the application, and with it element names and text locators, no longer depends on the machine running the engine. Set it with `qa config add environment --locale <tag>` or the `locale` input of `qa.config_add`; an invalid tag is rejected. Leaving it out keeps today's behavior: the machine's own language applies, so existing projects are unchanged. The security audit's sign-in still uses the machine's language.
+
+### Patch Changes
+
+- 9f40a76: A scripted sign-in now checks its login page against the environment allowlist on every path. Before, only `qa run` and the security audit did, so exploring or opening a browser session could send an identity's password to a page outside the allowlist.
+- f114d37: `qa explore --expand-collapsed` hands the next page the browser state its page had when it finished loading, before any panel was opened. Before, it handed over the state after the clicks, so something a click stored in the browser reached the following pages.
+- 4a5d087: Element names derived from an accessible name keep accented and non-Latin letters. A Latin accent folds into its base letter ("Iniciar sesión" gives `iniciarSesion`), and a name in another script such as Cyrillic keeps its letters instead of losing them. A name already stored in a registry is not renamed, because generated code references it; only elements registered from now on get the new rule.
+- df9e6bf: `qa explore --verify` reloads a page and resizes its viewport once per page instead of once per stored element, as building the registry already did. A page with many elements no longer takes a reload for each of them to verify.
+- Updated dependencies [ad5e756]
+- Updated dependencies [b1c61d1]
+- Updated dependencies [5cc4ac7]
+- Updated dependencies [626f41c]
+- Updated dependencies [9f40a76]
+  - @qa-ai-stlc/core@1.13.0
+  - @qa-ai-stlc/schemas@1.13.0
+
 ## 1.12.1
 
 ### Patch Changes
