@@ -2,41 +2,11 @@
 
 Open-source, model-agnostic QA framework that runs inside the agent host you already use: Claude Code or Codex.
 
-> **Status: alpha.** The engine packages (`schemas`, `core`, `explorer`, `cli`, `mcp-server`,
-> `runner-playwright`, `runner-api`, `runner-a11y`, `runner-security`) are published to npm and covered by tests. Phases 0, 1, 3 and 4 of the
-> [roadmap](docs/public/ROADMAP.md) are done (Phase 4 apart from `qa-aggregate`, an internal spoke deliberately not built until a skill needs interpretation beyond what the engine's own aggregation gives) and Phase 2 has one task left (running the skill triggering evaluations in CI, which costs real model calls and waits for an owner decision): `qa explore` runs end to end — crawl, static source
-> analysis, locator synthesis, selector registry, stale-selector detection — against a real running
-> application (see the example below). Requirements, test cases and hash-bound approval gates
-> (`qa scope`, `qa cases add`, `qa approve`, `qa validate`) work end to end too, with the same core
-> logic exposed as MCP tools (`qa-mcp-server`) for any MCP-capable agent host. Every test case
-> carries an explicit `feature` (its artifact lives under that feature's own folder) and can
-> reference a reusable, non-secret test-data set instead of inlining repeated values. An approved
-> case can be executed live — a headed browser for the web, a real HTTP call for API, an axe-core
-> scan for accessibility, limited to the configured WCAG version and level — to prove it actually works before any code is generated, promoting every
-> locator it used into the selector registry. `qa run` runs a hand-written or generated Playwright
-> spec and records every result under `.qa/runs/<run-id>/`, including an honest `partial` status
-> when execution did not reach every declared step, plus a screenshot and a trace captured for every
-> failure and registered as hashed, secret-scanned evidence. `qa-generate-tests` turns a proven
-> execution session into a deterministic Playwright spec, verified by typecheck and real execution
-> against the running application, cross-checked against the case's own steps, before it is kept;
-> the engine-side plumbing for this is fully tested, and a real agent host has driven the
-> skill end to end against a live application. `qa report` renders a run's summary and the
-> requirement → case → result → evidence traceability matrix as Markdown or HTML. The agent layer
-> (thirteen skills: `qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
-> `qa-report`, `qa-rca`, `qa-security`, `qa-regression`, `qa-metrics`, `qa-api`, `qa-accessibility`, `qa-triage`) and a generated Claude Code plugin (`adapters/claude-plugin/`, see
-> [below](#claude-code-plugin)) both exist, including the plugin/engine version handshake.
-> Installing it from a local marketplace is verified by an automated Windows/macOS CI smoke test
-> (P2-13), and this repository is itself a real, installable marketplace. Phase 6 is under way: `qa
-api-diff` compares your OpenAPI contract with the endpoints a crawl observed, and `qa run
---test-type api` runs API specs through `runner-api`, which rejects any case for an operation the
-> contract lacks. The engine now also drives the browser with its own tools (compact snapshots and diffs, refs, expectations, waits, dialogs and tabs, file upload, console and network read-back), all under safe mode and the domain allowlist (ADR-0013). `qa run --test-type a11y` runs accessibility specs through `runner-a11y` and records each axe-core scan as evidence. Defect drafts with an acceptance gate and root cause analyses for accepted defects can be registered (`qa defect`, `qa rca`).
-> A case can declare structured expectations the engine judges from the evidence, and a case result is registered as `passed` only when that evidence proves it (ADR-0016). `qa status` names what to do next after the last gate. The crawl can start from pages you name and finds single-page-application routes that have no link. The security audit runs on demand (`qa security authorize`, `approve`, `audit` and the `qa-security` skill): an authorization gate, a rate-limited probe and passive, identity-based and code-assisted checks in `runner-security`. Phase 4 (hub and spokes) delivered: the engine enforces the `agents` budgets on spoke dispatch, parallel spokes on Claude Code write under store locks, a triage spoke classifies the failures of a run and drafts defects for the product bugs, a reviewer spoke checks generated specs without file or shell tools, `qa regression plan` selects a regression pack by tier, and `qa metrics` reports how a run of the agent layer was carried out (never tokens or cost, which the engine does not measure). An agent-layer eval set (`npm run eval`) scores a run against the demo app's catalogued bugs and compares a sequential with a parallel baseline.
->
-> **Real-application validation.** The whole chain (explore, case design, live execution, defects, root cause analysis, report, generation and `qa run`) has been run in five iterations against a live, sign-in protected Kendo UI for Angular application, driven by a real agent host through the Claude Code plugin. Each iteration found bugs that were fixed and closed before the next one: generation verification on Windows, signing the runner in with an identity, locator deduplication, pick mode behind a collapsed panel, collapsed panels and header cells in explore, defect and RCA input, and the first-session start. The fifth iteration generated specs that passed against that application and left four open items: locator names derived from session-registered elements ([#713](https://github.com/Klim-101/QA-AI-STLC/issues/713)), exploring collapsed panels behind sign-in ([#714](https://github.com/Klim-101/QA-AI-STLC/issues/714)), a saved Markdown run-result report ([#715](https://github.com/Klim-101/QA-AI-STLC/issues/715)) and a visible browser window for interactive sessions ([#717](https://github.com/Klim-101/QA-AI-STLC/issues/717)). Three are fixed; the fix for #714 (a context that starts from the state the previous one ended with) was reproduced on a demo-app fixture and is not yet confirmed on that application. This is a statement about the runs made so far, not a guarantee for your application; report what you find.
->
-> **Release and `main`.** This README describes `main`. `npm install` gives the latest published release;
-> fixes merged since then are listed in the pending files under `.changeset/` and reach npm with the next
-> release. To try `main` itself, build from source (`npm ci && npm run build`).
+> **Status: alpha.** The engine packages are published to npm and covered by tests on Windows, macOS
+> and Linux, and the Claude Code plugin installs from this repository. Progress per phase is in the
+> [roadmap](docs/public/ROADMAP.md); Codex support is planned. This README describes `main`: fixes
+> merged since the last release are listed under `.changeset/` and reach npm with the next one. To
+> try `main` itself, build from source (`npm ci && npm run build`).
 
 ## Why
 
@@ -46,31 +16,21 @@ QA-AI-STLC turns that into a deterministic pipeline instead of a conversation. T
 
 ## What it does
 
-A deterministic TypeScript engine does the work that must be reliable. A thin layer of skills lets the agent in your host drive it. This project is alpha (see the status note above): the table below is the actual boundary between what runs today and what is still planned — don't take a capability as shipped just because it's described here.
+A deterministic TypeScript engine does the work that must be reliable; a thin layer of skills lets
+the agent in your host drive it.
 
-| Capability                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Status                                                           | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Asks what is in scope** for the project: Web E2E, API, accessibility and security testing are each decided by you, and the pipeline enforces the answer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Available                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Explores your application** and builds a stable selector registry and an API-surface map before any test is written.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Available                                                        | The crawl can start from pages you name (`--url`), finds single-page-application routes without a link (`routerLink`, History API) and, with `--probe-navigation`, clicks navigation-only buttons in throwaway contexts (ADR-0015). `qa api-diff` compares the OpenAPI contract named by `api.source` (a file, an allowlisted URL, or `discover`, which probes well-known spec paths with GET requests) with the observed endpoints and classifies each discrepancy.                                                                                                  |
-| **Extracts requirements** from a local Markdown source and keeps them in `artifacts/scope.json`, never from a tracker or wiki.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Available                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Designs test cases** with the agent in your host, each one required to link back to a real requirement — a link to something that doesn't exist is rejected, not silently accepted. Every case declares a `feature` (its own artifact folder) and can reference a reusable, non-secret test-data set instead of duplicating values across cases. A case can declare structured expectations per step and for its final result, and every case gets a readable Markdown copy.                                                                                                                                                                                       | Available                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Gates every phase behind a hash-bound approval**: an artifact's exact content, not just its existence, is what gets approved, so editing it afterward reopens the gate automatically.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Available                                                        | Currently `scope` and `cases`; later phases add their own gates as they ship.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Executes an approved case live** to prove it actually works before any code is generated: a headed browser for the web, a real HTTP call for API, a real axe-core scan for accessibility. Works even with no stable locator yet — it reads the page the way a manual tester would, and promotes whatever locator it used into the selector registry.                                                                                                                                                                                                                                                                                                               | Available                                                        | Phase 3 (`qa-execute`). A result is registered as `passed` only when the evidence proves every step and every declared expectation. One live proof run, not a repeatable regression check — that's `qa run` below, or the Phase 6 accessibility/API/security runners.                                                                                                                                                                                                                                                                                                 |
-| **Generates Playwright tests for the UI**, verified by typecheck and real execution against the running application before they are kept, cross-checked against the case's own steps (not just what the candidate spec itself claims to cover) so an incomplete spec is rejected, not registered. A step counts only if the Playwright process saw an action or assertion inside it, and the expected result needs a real check, so a spec made of empty named steps is not `verified`. Whether the checks are the right ones stays a review decision. Codifies a proven `qa-execute` session when one exists, instead of authoring from the case description alone. | Available                                                        | Phase 3 (`qa-generate-tests`). The engine-side plumbing — verification loop, proven-session recovery, staleness detection — is fully tested against the demo app in CI with no model call; a real agent host driving the skill end to end has not been exercised yet. A first real run found gaps on Windows and behind a sign-in (#661, #662, #663).                                                                                                                                                                                                                 |
-| **Generates API tests from your OpenAPI contract**, through the same verification loop as UI generation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Available                                                        | Phase 6; an `api` case names the contract operations it exercises, and its spec is a Playwright `APIRequestContext` spec that must declare the contract hash it was generated against (`CONTRACT_SHA256`). Verification rejects a spec without the matching hash, and `qa run` rejects one once the contract changes. Driven through the `qa-generate-tests` skill, which has not been exercised end to end by a real agent host yet.                                                                                                                                 |
-| **Runs a spec set and records the result** (`qa run` / `qa.run`), honestly reporting a case as `partial`, not `passed` or `failed`, if its execution did not reach every declared step, and failing outright — instead of a silent zero-count success — if the spec set matched nothing.                                                                                                                                                                                                                                                                                                                                                                             | Available                                                        | Phase 3; `e2e` (Playwright), `api` (`--test-type api`) and `a11y` (`--test-type a11y`, Phase 6) have runners. An `api` run first checks every case the specs declare against the configured OpenAPI contract and rejects one for an operation the contract lacks before any request is sent. Runs a hand-written or a generated spec the same way; `qa run` has no notion of where a spec file came from.                                                                                                                                                             |
-| **Records evidence** (a screenshot and a trace on failure, browser actions, HTTP calls and axe-core scans) that only the engine can create, hashed and secret-scanned before it is ever written, so results cannot be invented.                                                                                                                                                                                                                                                                                                                                                                                                                                      | Available                                                        | Phase 3; a `passed`/`failed` result with no registered evidence, or one referencing evidence not actually registered for that run, is rejected at registration time. The browser tools register what they did (clicks, dialogs, uploads, expectations) and what the page logged (`qa.browser_console`, `qa.browser_network`: redacted, capped, never headers, cookies or bodies). A full redacted HAR capture is not wired in yet.                                                                                                                                    |
-| **Renders reports** (`qa report` / `qa.report`): a run summary and the requirement → case → result → evidence traceability matrix, as Markdown or HTML, from canonical JSON already recorded under `.qa/` — no hand-written report path exists.                                                                                                                                                                                                                                                                                                                                                                                                                      | Available                                                        | `qa link <spec> <requirement-id> --feature <name>` / `qa.link` folds an already-existing, hand-written spec into the matrix without regeneration. The report also lists the results registered by live case execution, one row per case, apart from the `qa run` summary.                                                                                                                                                                                                                                                                                             |
-| **Adapts to your project**: layered configuration overrides (a committed `config.yaml` plus an optional local layer), and a configurable WCAG version and conformance level for accessibility checks (default 2.1 AA) that drives which axe-core rules run, with exceptions kept visible as excepted. A WCAG success-criteria catalogue derives the manual checklist of criteria automation cannot decide, and `qa report` turns the recorded scans into a per-criterion conformance section.                                                                                                                                                                        | Available                                                        | Phase 6 (P6-20..28). `qa report` adds a per-criterion accessibility conformance section (passed, failed, needs manual check, not applicable, excepted, with evidence links). Automated axe-core results alone never establish conformance, and the section says so.                                                                                                                                                                                                                                                                                                   |
-| **Drives the browser only through engine tools**, never a third-party browser server: a compact page outline with a ref on every actionable element (and a diff of what a step changed), actions by ref or selector, keys, hover, checkboxes, native selects, explicit waits, file upload from project files, dialogs and new tabs under the same safe mode and domain allowlist, expectations the engine checks and records instead of the agent describing them, and read-back of console messages and requests.                                                                                                                                                   | Available                                                        | Phase 6 (P6-51..61, ADR-0013). Every action registers evidence and takes the case step it performs; safe mode (no non-GET request) is the default and the allowlist always applies. Skill guidance for choosing between these tools is the last open piece (P6-62). `qa.browser_open` can sign in through an identity, and `qa.browser_fill` can type a `QA_*` variable the engine reads itself.                                                                                                                                                                      |
-| **Authenticates against protected APIs** through named auth profiles, including taking a token from the live browser session, not just a static secret.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Available                                                        | Phase 6 (P6-29..35). Named auth profiles on `qa.http_execute`, in the API runner and in generated API specs: static secret, OAuth2 client credentials, and a token read from the live browser session (cookie, local or session storage, or a request header), which is never stored. A profile is written into `config.yaml` by hand today; creating one through the agent is planned (#666).                                                                                                                                                                        |
-| **Understands Kendo UI widgets** (jQuery and Angular) when locating elements and interacting with dropdowns, grids and popups, instead of only generic DOM roles.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Available                                                        | Phase 6 (P6-36..44). Component-library profiles for Kendo UI for jQuery and Angular, busy and animation waits, widget actions (`qa.browser_select_option`, `qa.browser_set_date`, `qa.browser_open_popup`/`_close_popup`) and grid search (`qa.browser_grid_find_row`, `qa.browser_grid_read_cell`), against fixtures in the demo app. Skill guidance (P6-45) is in place, and the profiles were validated over four runs on a real Kendo for Angular application (P6-46), whose bugs are all fixed; the profile mechanism is the same for other component libraries. |
-| **Prepares defect drafts** in a tracker-neutral format for you to file, and a root cause analysis for every defect you accept.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Available                                                        | Phases 4 and 6. A draft is registered with `qa defect add` and accepted with `qa defect accept`, an approval bound to its exact content; a root cause analysis exists only for an accepted defect (`qa rca add`, `qa rca approve`). The triage spoke (`qa triage add`) classifies every failure of a run, and a draft that names its source failure (`source: { runId, resultId }`) is accepted only if that failure was triaged as a product bug and cites evidence the triage cited. See [Filing defect drafts](docs/public/filing-defect-drafts.md).               |
-| **Runs a security audit on demand**: non-destructive checks against the running application, and code-assisted checks when you point it at the source.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Available                                                        | Phase 6; `qa security authorize` validates an authorization, `qa security approve` records your consent bound to its exact content, and `qa security audit` runs the checks of `runner-security` and writes findings as defect drafts. Only the `qa-security` skill or you start an audit; the pipeline never does.                                                                                                                                                                                                                                                   |
-| **Coordinates spokes under budgets** (Phase 4): triage of a failed run, an independent reviewer of generated specs, a regression pack selected by tier, and run metrics.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Available                                                        | `agents.parallelism`, `agents.retries` and `agents.spokeTimeoutSeconds` are enforced on dispatch by the engine, not by the prompt; `qa agents generate` writes one Claude Code subagent per spoke with the model you route to it. `qa spec check` runs a spec without recording a run, which is how the reviewer checks one. Only Claude Code is supported; the comparison of a sequential and a parallel run is a scripted baseline on the demo app (`npm run eval`), not yet a measurement with a real agent host.                                                  |
-| **Exposes every one of the above as an MCP tool** (`qa-mcp-server`, local, stdio, no Docker, no hosted service) so any MCP-capable agent host can drive the exact same engine logic the CLI does.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Available for the capabilities marked Available or Partial above | MCP coverage tracks engine coverage — a planned capability has no MCP tool yet either.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-
-See the [roadmap](docs/public/ROADMAP.md) for phase-by-phase detail on what "Planned" covers.
+- **Scope you decide.** Web E2E, API, accessibility and security testing are each in or out of scope per project, and the pipeline enforces the answer.
+- **Exploration.** A safe-mode crawl, optional static source analysis and a manual pick mode build a selector registry with scored locators and an API-surface map, and `qa explore --verify` catches a selector that stopped working.
+- **Requirements and test cases.** Requirements come from a local Markdown source; every case must link to a real requirement and can declare expectations the engine checks.
+- **Hash-bound approvals.** Scope, cases, accepted defects, root cause analyses and security audits are approved against their exact content, so an edit afterwards reopens the approval.
+- **Live execution.** An approved case runs live, in a browser, as an HTTP call or as an axe-core scan, before any code is written; a result is `passed` only when the recorded evidence proves it.
+- **Verified generation.** Playwright UI specs and API specs from your OpenAPI contract are kept only after they typecheck, run against the application and cover the case's own steps. API spec generation has not yet been driven end to end by a real agent host.
+- **Runs and evidence.** `qa run` runs E2E, API and accessibility specs and records each result with hashed, secret-scanned evidence, and honest statuses such as `partial`.
+- **Reports.** Run summaries and a requirement → case → result → evidence traceability matrix as Markdown or HTML, plus a per-criterion WCAG conformance section.
+- **Defects, triage and RCA.** Failures are classified, product bugs become tracker-neutral defect drafts for you to file, and an accepted defect can get a root cause analysis.
+- **Security audit on demand.** Non-destructive checks, run only after an authorization you approve, never as part of the pipeline.
+- **Adapts to your application.** Layered configuration, named API auth profiles (including a token read from the live browser session), Kendo UI for jQuery and Angular widgets, and a pinned browser language.
+- **Same engine over MCP.** The local `qa-mcp-server` exposes one tool per engine operation, so any MCP-capable host gets the same results as the CLI.
 
 ## Supported hosts
 
@@ -94,40 +54,24 @@ Read this before adopting the framework.
 
 ## Quick start
 
-The full walkthrough, from prerequisites to a first run on the demo app, is in [How to install and run](docs/public/how-to-install-and-run.md). The short version follows.
+The full walkthrough, from prerequisites to a first run on the demo app, is in
+[How to install and run](docs/public/how-to-install-and-run.md).
 
-In Claude Code, install the plugin and ask: "set up QA-AI-STLC for this repo". The `qa-start` skill
-states the project root it will use, asks you whether Web E2E, API, accessibility and security
-testing are in scope, writes `.qa/config.yaml` through the engine, offers to add an environment and
-an identity (you name a `QA_*` variable; you set its value yourself) and runs `qa.doctor`. No
-terminal command is needed.
+In Claude Code, install the plugin:
+
+```sh
+claude plugin marketplace add Klim-101/QA-AI-STLC
+claude plugin install qa-ai-stlc@qa-ai-stlc
+```
+
+then ask: "set up QA-AI-STLC for this repo". The `qa-start` skill asks which kinds of testing are in
+scope, writes `.qa/config.yaml` through the engine, offers to add an environment and an identity (you
+name a `QA_*` variable and set its value yourself) and checks the setup with `qa.doctor`.
 
 For CI or a shell, the CLI does the same with flags:
 
 ```sh
 npx @qa-ai-stlc/cli init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope
-npx @qa-ai-stlc/cli doctor
-```
-
-`qa init` takes no interactive prompts: each of Web E2E, API, accessibility and security testing must
-be given as `in-scope` or `out-of-scope` (or `undecided` with `--defer-scope`); without the flags it
-fails with `INIT_SCOPE_UNDECIDED`. Change a decision later with `qa config set testing.<type>
-<value>`. When a11y is `in-scope`, `--a11y-wcag-version` (2.0, 2.1 or 2.2), `--a11y-level` (A, AA or AAA, cumulative) and `--a11y-best-practices` set the accessibility target; the default is WCAG 2.1 AA with best-practice rules off, and it is written to the `a11y` block of `.qa/config.yaml`. `--component-library` (none, kendo-jquery or kendo-angular) records the UI component library of the application under test as `ui.componentLibrary`; change it later with `qa config set ui.componentLibrary <value>`. `qa doctor` checks Node, installed browsers, identities and environment reachability.
-
-![qa explore --verify catching a stale selector, from a real run against examples/demo-app](docs/public/media/qa-explore-demo.svg)
-
-Recorded from a real run against [`examples/demo-app`](examples/demo-app): `qa init`, then `qa config
-add` for an environment and identity, then `qa explore` building a 78-element selector registry, then
-a teammate renaming a `data-testid` on the live page, then `qa explore --verify` catching it and
-exiting non-zero. Waiting time between commands is sped up; every command and every line of output is
-real, except the blocked-request summary line of the first `qa explore`, which was updated in place when
-its wording changed (a test asserts it).
-
-`qa status` (or `qa.status`) shows the gates and what to do next: after the last gate it names exploring, executing approved cases and generating tests.
-
-Add an environment and an identity — validated against the schema, no hand-editing `.qa/config.yaml` — then explore it:
-
-```sh
 npx @qa-ai-stlc/cli config add environment staging \
   --base-url https://staging.example.com/dashboard --allowlist staging.example.com
 npx @qa-ai-stlc/cli config add identity admin \
@@ -136,8 +80,7 @@ npx @qa-ai-stlc/cli config add identity admin \
 npx @qa-ai-stlc/cli explore --environment staging --identity admin
 ```
 
-This is the actual output of that command against [`examples/demo-app`](examples/demo-app), a
-small task tracker used to validate the explorer against a real, running application:
+Against [`examples/demo-app`](examples/demo-app), a small task tracker with catalogued bugs:
 
 ```
 Wrote selectors/registry.json: 78 element(s) (78 added, 0 removed, 0 degraded).
@@ -145,26 +88,20 @@ Wrote selectors/registry.json: 78 element(s) (78 added, 0 removed, 0 degraded).
 0 request(s) blocked by safe mode.
 ```
 
-`--json` gives the same result as data instead of text:
+Every command takes `--json`, and `qa status` names what to do next. For applications that do not
+fit the defaults (a session opened with a POST, an API on another port, several environments, a
+multilingual UI, controls in collapsed panels), see
+[Configuring and exploring](docs/public/configuring-and-exploring.md).
 
-```json
-{
-  "command": "explore",
-  "data": {
-    "mode": "explore",
-    "registryPath": "selectors/registry.json",
-    "elementCount": 78,
-    "added": 78,
-    "removed": 0,
-    "degraded": [],
-    "missingLocatorCount": 0,
-    "blockedRequestCount": 0
-  }
-}
-```
+## What it looks like
 
-Everything the framework creates lives in `.qa/`, plus a generated locator module in
-`tests/qa/locators.ts`. A couple of real entries from each, unedited:
+![qa explore --verify catching a stale selector, from a real run against examples/demo-app](docs/public/media/qa-explore-demo.svg)
+
+Recorded from a real run against the demo app: `qa explore` builds the registry, a teammate renames a
+`data-testid` on the live page, and `qa explore --verify` catches it and exits non-zero.
+
+Everything the framework creates lives in `.qa/`, as canonical JSON, plus a generated locator module
+that generated tests use by name instead of literal selectors:
 
 ```json
 {
@@ -188,374 +125,36 @@ export function apply(page: Page): Locator {
 }
 ```
 
-Generated tests reference locators through this module by name (`apply(page)`), never through a
-literal selector, so a selector change is a one-line diff here instead of a search-and-replace
-across every test file.
-
-### Configuration layers
-
-`.qa/config.yaml` is committed and every machine reads the same one. A second, optional layer —
-`.qa/config.local.yaml`, or the file the `QA_CONFIG_LOCAL` environment variable names — lets one
-operator or one CI runner point at its own server, identity, source checkout or parallelism
-budget without touching the committed file. `qa init` adds `/config.local.yaml` to
-`.qa/.gitignore` and writes a commented `config.local.yaml.example` showing the syntax; copy the
-lines you need into a real `config.local.yaml`.
-
-Only `environments`, `identities`, `source` and `agents` may be set locally — everything that
-feeds a gate, a hash or generated code (`testing`, `selectors`, `data`, `api`, `flaky`,
-`evidence`) stays committed-only, so two machines never produce different pipeline results from
-the same artifacts. Objects merge key by key; arrays and scalars replace. If the local layer
-widens an environment's allowlist or sets `tlsInsecure: true`, every command that loads the
-configuration — including `qa doctor`, which `qa-start` runs first — prints a warning naming
-exactly what changed and which file did it, so a relaxation is never silent:
-
-```
-warning: CONFIG_RELAXATION .qa/config.local.yaml adds "localhost" to the allowlist of environment "dev", which .qa/config.yaml does not list
-```
-
-`qa config show --explain` (or the `qa.config_show` MCP tool) prints the effective configuration
-with the source of every value — `.qa/config.yaml`, the local layer, or a schema default — and
-every relaxation. See [ADR-0011](docs/adr/0011-layered-project-configuration.md) for the full
-design.
-
-### Applications that open their session with a POST
-
-Safe mode aborts every request an exploration makes that is not a safe read (`GET`, `HEAD`, `OPTIONS` or `QUERY`). An application that gets its access
-token with `POST /auth/refresh-token` on every load therefore never starts, and `qa explore` finds
-nothing past its sign-in page. List the request in the environment, in the committed
-`.qa/config.yaml`:
-
-```yaml
-environments:
-  staging:
-    baseUrl: https://staging.example.com
-    allowlist: [staging.example.com]
-    safeNonGetRequests:
-      - method: POST
-        path: /auth/refresh-token
-        reason: Exchanges the refresh cookie for an access token; creates no record.
-```
-
-or `qa config add environment staging ... --allow-request "POST /auth/refresh-token"
---allow-request-reason "..."`. The entry is narrow on purpose: `POST` only, an exact path (no query,
-no pattern), a written reason, and only on a host the allowlist already permits. Every other
-request that is not a safe read is still blocked. `qa explore` and `qa.browser_close` list what was let through and
-what was blocked, by method and path, so an application that stalls shows which request it was
-waiting for. Each blocked request carries its reason: its method (the only kind this list can answer),
-or its host, scheme or port when it left the environment's allowlist or `baseUrl`, as a GET to an API on
-another port does. An entry added only by the local layer is reported as a relaxation, and no MCP tool can
-add one. See [ADR-0014](docs/adr/0014-environment-allowlist-for-safe-non-get-requests.md).
-
-### Several environments in one project
-
-The selector registry (`.qa/selectors/registry.json`) and the API surface (`endpoints.json`) hold
-every environment of the project, and each element and endpoint names the environment it was found in.
-`qa explore --environment public` replaces, deprecates and counts only the elements of `public` and
-leaves those of `local` as they were; the summary says how many it left
-(`297 element(s) of other environments left as they were.`). `--verify`, `qa api-diff` and
-generation read one environment's elements too, so name the environment when the project has more than
-one. A registry written before the field existed needs no migration: an element is read as belonging
-to the environment whose `baseUrl` and allowlist admit its page, and is recorded under it the next time
-that environment is explored. See [ADR-0020](docs/adr/0020-registry-elements-name-their-environment.md).
-
-### Applications whose API is on another port
-
-An allowlist entry that is a bare host name admits that host on the port of `baseUrl` only. An
-application served from `http://localhost:4200` that reads its data from `http://localhost:8091`
-is therefore explored without its data: every call to the API is blocked, and `qa explore` reports
-them as blocked for their `port`. Name the second port in the environment's allowlist, in the
-committed `.qa/config.yaml`:
-
-```yaml
-environments:
-  local:
-    baseUrl: http://localhost:4200
-    allowlist: [localhost, localhost:8091]
-```
-
-or `qa config add environment local --base-url http://localhost:4200 --allowlist localhost,localhost:8091`.
-`host:port` admits that host on exactly that port; list the application's own host as well, since a
-port entry does not admit the port of `baseUrl`. The scheme of `baseUrl` still applies to every
-entry. An entry is a decision about where the engine may send requests, so no MCP tool can add one
-(`qa.config_add` refuses it), and one that only the local layer adds is reported as a relaxation.
-See [ADR-0019](docs/adr/0019-allowlist-entries-may-name-a-port.md).
-
-### Pages the crawl cannot reach
-
-Pass the pages to start from with `qa explore --url <url-or-path>` (repeatable, each on the environment
-allowlist). A single-page application often moves between pages with buttons that carry no link:
-`--probe-navigation` clicks buttons outside forms, each in a throwaway context under safe mode, and keeps the
-page a click led to (it also clicks `role="button"` elements; a bare `div`, an anchor without `href` and a button
-inside a form are skipped). The route map records how each route was found. Pick mode below remains the fallback.
-
-### Controls hidden in a collapsed panel
-
-A filter inside a "Search Details" panel is not in the page until the panel opens. `qa explore --expand-collapsed`
-opens each page's `aria-expanded="false"` panels (not links, submit buttons or pop-up triggers) in a throwaway
-context under safe mode and registers what appears, and `--verify` reopens them so those controls still resolve
-([ADR-0017](docs/adr/0017-exploration-opens-collapsed-panels-in-discarded-contexts.md)). Sortable headers and
-status chips that carry the test id are registered as `element` entries without the flag.
-
-### Catching a stale selector
-
-`qa explore --verify` re-checks every stored primary candidate against the live page, without
-re-crawling — the only way to actually notice a selector that used to work and no longer does. With
-`examples/demo-app`'s "Apply" filter button renamed from `data-testid="apply-filter"` to
-`apply-filter-renamed` on the live page but not yet re-crawled:
-
-```
-Verified selectors/registry.json: 78 element(s) checked.
-1 degraded selector(s):
-  e4fdfc0102d95678698c91fff17367185e23560634c6d531cf896bdcf554f65b: 1 -> 0
-```
-
-The exit code is non-zero, so this is a real CI gate: a rename ships broken tests only if nobody
-looks, and `--verify` catches it before that happens.
-
-### Static source analysis
-
-`qa explore --static` (with `source.path` set in `config.yaml`) merges a lightweight scan of your
-source into the same registry — elements a crawl alone would miss, and every field with no
-`data-testid`, `aria-label` or `role` to name it, recorded in
-`.qa/selectors/missing-test-ids.json` with its file and line. Against the same demo app's real,
-unmodified views: 26 of its 105 elements have no locator candidate at all — a login form and a
-"new task" form, neither with a `data-testid` on any field, a deliberately catalogued gap.
-
-Static route extraction is also available as a library function ahead of its own CLI flag (see the
-[roadmap](docs/public/ROADMAP.md)) — React Router, Vue Router and Angular route configs, with file
-and line:
-
-```ts
-import { analyzeStaticRoutes } from '@qa-ai-stlc/explorer';
-
-const { routes } = analyzeStaticRoutes({
-  files: [
-    {
-      filePath: 'src/App.tsx',
-      content:
-        '<Routes>\n  <Route path="/dashboard" element={<Dashboard />}>\n    <Route path="/dashboard/tasks" element={<Tasks />} />\n  </Route>\n</Routes>',
-    },
-  ],
-});
-```
-
-```json
-[
-  { "path": "/dashboard", "filePath": "src/App.tsx", "line": 2 },
-  { "path": "/dashboard/tasks", "filePath": "src/App.tsx", "line": 3 }
-]
-```
-
-### Pick mode
-
-When a crawl can't reach an element (behind a multi-step flow, a modal, a canvas widget), record it
-by hand instead: `qa explore --pick <url>` opens the page, lets you click the element, and writes a
-registry entry with `"source": "manual"` — same schema, same downstream locator generation, honestly
-labelled as not crawler-discovered:
-
-```json
-{ "elementId": "element-1", "source": "manual", "pii": false, "dynamicText": false }
-```
-
-## Requirements, test cases and gates
-
-Independent of the registry above, extract requirements from a local Markdown file — one
-`## Heading` per requirement — and register test cases against them:
-
-```sh
-npx @qa-ai-stlc/cli scope --from file --path requirements.md
-npx @qa-ai-stlc/cli cases add --path cases/login.json
-npx @qa-ai-stlc/cli approve scope --artifact artifacts/scope.json --approved-by operator
-npx @qa-ai-stlc/cli validate
-```
+Requirements, cases and approvals are checked the same way:
 
 ![qa validate catching a gate reopened by a hand-edited artifact and a test case whose requirement disappeared, from a real run](docs/public/media/qa-pipeline-demo.svg)
 
-Recorded from a real run: `qa scope` extracts two requirements from a Markdown file; `qa cases add`
-registers a case linked to a real requirement, then rejects a second case whose `requirementIds`
-names a requirement that was never scoped in; `qa approve scope` hash-binds the approval to
-`scope.json`'s exact content; `qa validate` reports a clean pipeline — then, after a teammate edits
-`scope.json` by hand to remove the requirement the first case relied on, `qa validate` catches both
-the reopened gate and the now-unlinked case in the same run. Waiting time between commands is sped
-up; every command and every line of output is real.
+`qa approve` hashes an artifact's exact content into an append-only ledger
+([ADR-0003](docs/adr/0003-hash-bound-approval-gates.md)), and `qa validate` recomputes every gate from it, so a hand edit
+after approval reopens the gate and a case whose requirement disappeared is reported as unlinked.
 
-A case is rejected up front if any `requirementIds` entry does not resolve in `artifacts/scope.json`:
+## Tested on a real application
 
-```
-error: Case "reset-password-case" links to requirement(s) not in artifacts/scope.json: reset-password
-Run "qa scope" to register the requirement first, or fix the case's requirementIds.
-```
-
-`qa approve <gate> --artifact <path> --approved-by <name>` hashes the artifact's exact content into
-an append-only ledger (ADR-0003). `qa validate` recomputes every gate from that ledger — never from a
-cached status field — so an edit after approval reopens the gate automatically, and re-sweeps every
-registered case's requirement links on every call, catching a link broken later by editing
-`scope.json`, not just one broken at `cases add` time:
-
-```
-[open] scope (reopened since last approval)
-[open] cases
-Current phase: scope.
-1 unlinked case(s):
-  artifacts/cases/login-case.json: login
-```
-
-A defect draft has its own gate. `qa defect add --path <path>` registers a draft (it must cite scoped requirements and evidence the engine registered), and `qa defect accept <id> --approved-by <name>` accepts it with an approval bound to the draft's exact content, so a draft that merely claims `accepted`, or is edited after acceptance, reads as `draft`. Publishing the defect stays with the operator.
-
-A root cause analysis exists only for an accepted defect: `qa rca add --path <path>` registers it, and `qa rca approve <defect-id> --approved-by <name>` records the review. The approval is bound to the analysis's exact content and to the defect it was written against, so an approved RCA reads as `draft` again once that defect changes.
-
-### Local MCP server
-
-`npx @qa-ai-stlc/mcp-server` (bin: `qa-mcp-server`) starts a local server over stdio — the same
-process model any MCP-capable agent host already uses for a local tool, no Docker, no port, no
-process that outlives the session. It exposes one MCP tool per engine operation, each calling the
-exact same `packages/core`/`packages/explorer` function its CLI command calls, so a result from one
-is a result from the other: pipeline commands (`qa.doctor`, `qa.config_show`, `qa.explore`, `qa.scope`,
-`qa.cases_add`, `qa.approve`, `qa.validate`, `qa.status`, `qa.run`, `qa.report`, `qa.link`, `qa.api_diff`, `qa.defect_add`/`_accept`/`_draft_input`, `qa.rca_input`/`_add`/`_approve`, `qa.security_authorize`/`_approve`/`_audit`, `qa.triage_input`/`_add`, `qa.review_input`/`_add`, `qa.spec_check`, `qa.regression_plan`, `qa.run_metrics`, `qa.spoke_record_input`/`_output`), project setup (`qa.init`, `qa.config_set`, `qa.config_add`), interactive execution
-and generation
-(`qa.browser_open`/`_attach`/`_navigate`/`_snapshot`/`_close`, the actions `qa.browser_click`/`_fill`/`_press`/`_hover`/`_check`/`_select_option`/`_set_date`/`_upload`, `qa.browser_open_popup`/`_close_popup`, `qa.browser_grid_find_row`/`_grid_read_cell`, `qa.browser_expect`/`_wait_for`, `qa.browser_tabs`, `qa.browser_console`/`_network`, `qa.browser_accessibility_scan`,
-`qa.http_execute`, `qa.registry_execute_register`, `qa.case_result_register`,
-`qa.generation_spoke_input`, `qa.generation_proven_session`, `qa.generation_manual_regions_extract`/
-`_apply`, `qa.generation_verify`, `qa.generation_register`), and `qa.cases_render`. Manual pick-mode
-capture (`qa explore --pick <url>`) stays CLI-only: it opens a headed browser for a human to click
-through, which nothing can drive over MCP's stdio transport.
-
-## Claude Code plugin
-
-`npm run generate` produces `adapters/claude-plugin/` from two hand-edited sources — `agents/`
-(the skills, hub definition, phase prompts and shared references every host generates from) and
-`plugin.config.ts` (static metadata: name, description, license) — plus `packages/mcp-server`'s own
-`package.json` version, so the plugin's version and the pinned MCP server it launches can never
-drift apart. The same command also generates this repository's own root
-`.claude-plugin/marketplace.json`, declaring that generated plugin by a path relative to the repo
-root — so this public repository is directly installable as a Claude Code marketplace, with no
-separate marketplace repository to keep in sync. `npm run lint:generated` (`--check` mode) diffs
-every generated file against its source and fails on anything hand-edited directly under
-`adapters/claude-plugin/` or `.claude-plugin/marketplace.json`, the same contract already enforced
-for `.claude/rules/`.
-
-```sh
-claude plugin marketplace add Klim-101/QA-AI-STLC
-claude plugin install qa-ai-stlc@qa-ai-stlc
-```
-
-This is real output from that exact install, against the real public repository, not a local copy:
-
-```
-Adding marketplace…SSH not configured, cloning via HTTPS: https://github.com/Klim-101/QA-AI-STLC.git
-Refreshing marketplace cache (timeout: 120s)…
-Cloning repository (timeout: 120s): https://github.com/Klim-101/QA-AI-STLC.git
-Clone complete, validating marketplace…
-✔ Successfully added marketplace: qa-ai-stlc (declared in local settings)
-Installing plugin "qa-ai-stlc@qa-ai-stlc"...✔ Successfully installed plugin: qa-ai-stlc@qa-ai-stlc (scope: local)
-```
-
-This is a decentralized marketplace — a plain git repository, not a reviewed or centrally listed
-one — so there is no install counter or built-in review system to check. If you've installed it,
-[Show and tell](https://github.com/Klim-101/QA-AI-STLC/discussions/categories/show-and-tell) is the
-place to say how it went; [Discussions](https://github.com/Klim-101/QA-AI-STLC/discussions) in
-general is the right place for questions and ideas that aren't a specific bug or feature request.
-
-![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
-
-The plugin/engine version handshake (ADR-0007) shipped in P2-12: the generated `.mcp.json` pins the
-`mcp-server` version it launches, and the server checks it against the engine's own version at
-startup. What the generator produces today: a `.claude-plugin/plugin.json` manifest, the skills
-under `skills/` (`qa-start`, `qa-explore`, `qa-design-cases`, `qa-execute`, `qa-generate-tests`,
-`qa-report`, `qa-rca`, `qa-security`, `qa-regression`, `qa-metrics`, `qa-api`, `qa-accessibility`, `qa-triage`), a `PreToolUse` hook
-(`hooks/hooks.json`) that blocks any `Write`/`Edit` under `.qa/**` — layer 2 of that protection, on
-top of the engine's own manifest and hash checks — and an `.mcp.json` that launches
-`qa-mcp-server` via `npx -y @qa-ai-stlc/mcp-server@<pinned version>`. Subagent generation is not
-part of this yet: it is added once Phase 4 defines real spoke files to generate from. Installing
-from a local marketplace with the framework source absent from disk is verified by CI on Windows
-and macOS (P2-13); installing directly from this public repository, as above, is verified manually
-against the real repo (P2-15) — `claude plugin list --json` afterward shows the installed plugin's
-`mcpServers` entry launching `npx -y @qa-ai-stlc/mcp-server@<version>`, matching the version pinned
-into the manifest at generate time.
-
-### A real end-to-end session
-
-The plugin installed from a local marketplace this way drives a real Claude Code session against
-[`examples/demo-app`](examples/demo-app), with the engine's own MCP tools providing every result —
-`qa-start` never invents an answer the engine hasn't returned.
-
-![A real qa-start session against examples/demo-app, from a fresh environment with no browsers installed through the scope and cases gates](docs/public/media/hub-session-flow.svg)
-
-Recorded from a real session: `qa.doctor` on a fresh checkout reports all three Playwright browsers
-missing; the operator chooses Chromium-only, and the doctor re-check confirms Firefox/WebKit still
-missing before the hub proceeds. `qa-design-cases` finds no selector registry yet, dispatches
-`qa-explore`, and its own attempt to hand-edit `config.yaml` (to enable static analysis) is blocked
-by the same `PreToolUse` hook shown above — `.qa/` has no back door even for the skill that wants
-in — so it falls back to crawl-only exploration. The admin crawl adds 82 elements; the employee
-crawl adds **zero** new elements — no link into `/admin/users` is reachable from anywhere the
-employee identity's crawl visits. That shows the page is not _discoverable_ under that identity; it
-is not a check that access to it is actually blocked. Confirming the role-based-access requirement
-itself needs a direct request to `/admin/users` as the employee identity and an assertion on the
-response (a 403, a redirect, or an equivalent denial) — a check the pipeline does not yet make on
-its own; it belongs to the on-demand security audit (Phase 6), not to exploration. 10 test cases
-are registered across `auth`, `access-control`, `dashboard` and `tasks`, covering all 7
-requirements, and both the `scope` and `cases` gates are approved. `currentPhase` stays `"cases"`
-afterward: the hash-bound gate pipeline still only tracks `scope`/`cases` (v0) — `qa run` (below)
-executes and records results independently of it, not as a gated phase of its own yet.
-
-A real requirement from that run's `scope.json`:
-
-```json
-{
-  "id": "role-based-access",
-  "title": "Role-based access",
-  "description": "The application supports two roles: admin and employee. The user management section (/admin/users) is accessible only to users with the admin role; an employee must not be able to view the user list.",
-  "source": { "kind": "text", "label": "operator-requirements" },
-  "inScope": true
-}
-```
-
-And one of the 10 registered test cases, grounded in real registry locators, not invented ones:
-
-```json
-{
-  "schemaVersion": 1,
-  "id": "login-invalid-credentials",
-  "feature": "auth",
-  "requirementIds": ["authentication"],
-  "testType": "e2e",
-  "title": "Invalid credentials show an error and stay on the login page",
-  "preconditions": ["The user is on the login page (http://localhost:4310/login)"],
-  "steps": [
-    { "description": "Enter a registered account's email into the \"Email\" field" },
-    { "description": "Enter an incorrect password into the \"Password\" field" },
-    { "description": "Click the \"Log in\" button" }
-  ],
-  "expectedResult": "The login page is redisplayed with the error message \"Invalid email or password.\" shown, and no session is created (the user is not redirected to /dashboard).",
-  "regressionTier": "regression",
-  "status": "draft",
-  "createdAt": "2026-09-24T18:00:00Z"
-}
-```
-
-That case can now be handed to a stakeholder as a presentable document instead of raw JSON: `qa
-cases render login-invalid-credentials` (or the matching `qa.cases_render` MCP tool) renders it
-through a reusable JSON-to-Markdown artifact registry (ADR-0002) also used by `qa report`'s Markdown
-output; `qa report`'s run summary and traceability matrix also render to HTML, but `qa cases
-render`'s own HTML output is still open work. The case can be proved live with `qa-execute` first
-(a headed browser session against the running app, with no code written yet), then turned into a
-deterministic spec with `qa-generate-tests` — verified by typecheck and real execution before it is
-kept — or a hand-written spec covering it can be run directly and its result recorded with `qa run
---spec <path>` (or `qa.run`); `e2e` (Playwright), `api` (`--test-type api`) and `a11y` (`--test-type a11y`) have runners.
+Besides the demo app, the whole chain (explore, case design, live execution, defects, root cause
+analysis, report, generation and `qa run`) has been driven by a real agent host through the Claude
+Code plugin, over several iterations, against a live, sign-in protected Kendo UI for Angular
+application. The bugs each iteration found were fixed before the next. This is a statement about the
+runs made so far, not a guarantee for your application; report what you find.
 
 ## Documentation
 
 - [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
-- [How to install and run](docs/public/how-to-install-and-run.md): prerequisites, the Claude Code plugin, the CLI, the local MCP server, the Phase 4 commands and a first run on the demo app.
-- [CI usage](docs/public/ci-usage.md): the deterministic, no-model pipeline (`qa explore --verify`, `qa link`, `qa run`, `qa validate`) as a copy-pasteable recipe, proven continuously in this repository's own CI.
-- [Filing defect drafts](docs/public/filing-defect-drafts.md): how to turn an accepted draft into a tracker issue with your own tooling, and where the framework's responsibility ends.
+- [How to install and run](docs/public/how-to-install-and-run.md): prerequisites, the Claude Code plugin, the CLI, the local MCP server and a first run on the demo app.
+- [Configuring and exploring](docs/public/configuring-and-exploring.md): configuration layers and recipes for applications that do not fit the defaults.
+- [CI usage](docs/public/ci-usage.md): the deterministic, no-model pipeline (`qa explore --verify`, `qa link`, `qa run`, `qa validate`) as a copy-pasteable recipe.
+- [Filing defect drafts](docs/public/filing-defect-drafts.md): how to turn an accepted draft into a tracker issue with your own tooling.
 - [Architecture diagram](docs/public/architecture-diagram.md): how the agent host, the engine and the pipeline state fit together.
-- [Architecture decision records](docs/adr/README.md): the significant, hard-to-reverse decisions behind the design, and why.
+- [Architecture decision records](docs/adr/README.md): the significant, hard-to-reverse decisions behind the design.
 
 ## Contributing
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
-Questions, ideas and general feedback belong in [Discussions](https://github.com/Klim-101/QA-AI-STLC/discussions); a specific bug or requested feature is still an [issue](https://github.com/Klim-101/QA-AI-STLC/issues/new/choose).
+Questions, ideas and general feedback belong in [Discussions](https://github.com/Klim-101/QA-AI-STLC/discussions); if you've installed the plugin, [Show and tell](https://github.com/Klim-101/QA-AI-STLC/discussions/categories/show-and-tell) is the place to say how it went. A specific bug or requested feature is an [issue](https://github.com/Klim-101/QA-AI-STLC/issues/new/choose).
 
 ## Security
 
