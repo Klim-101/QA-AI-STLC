@@ -7,6 +7,7 @@ import type {
   AuthPageLike,
   BrowserLauncherLike,
   LaunchOptionsLike,
+  NewContextOptionsLike,
   PageLocatorLike,
   PageResponseLike,
   PageRouteLike,
@@ -171,6 +172,8 @@ export interface FakeExploreBrowserLauncher extends BrowserLauncherLike {
   readonly closedBrowsers: { count: number };
   /** Every `options` a caller passed to `launch()`, in call order — asserts headed vs headless. */
   readonly launchCalls: LaunchOptionsLike[];
+  /** Every `options` a caller passed to `newContext()`, in call order. */
+  readonly newContextCalls: NewContextOptionsLike[];
 }
 
 /** A fake `BrowserLauncher` for `qa explore` command/operation tests (AGENTS.md 5.3, 13). */
@@ -180,6 +183,7 @@ export function createFakeExploreBrowserLauncher(
   const page = createFakeExplorePage(options);
   const closedBrowsers = { count: 0 };
   const launchCalls: LaunchOptionsLike[] = [];
+  const newContextCalls: NewContextOptionsLike[] = [];
 
   const context: AuthBrowserContextLike = {
     newPage: () => Promise.resolve(page),
@@ -197,10 +201,14 @@ export function createFakeExploreBrowserLauncher(
     page,
     closedBrowsers,
     launchCalls,
+    newContextCalls,
     launch: (launchOptions = {}) => {
       launchCalls.push(launchOptions);
       const browser: AuthBrowserLike = {
-        newContext: () => Promise.resolve(context),
+        newContext: (newContextOptions = {}) => {
+          newContextCalls.push(newContextOptions);
+          return Promise.resolve(context);
+        },
         contexts: () => [context],
         close: () => {
           closedBrowsers.count += 1;

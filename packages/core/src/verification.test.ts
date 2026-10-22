@@ -283,6 +283,37 @@ describe('verifyGeneratedTestSpec', () => {
     expect(receivedInput?.environment).toBe('staging');
   });
 
+  it('passes the runner the environment locale, and none when the environment sets no locale (P6-114)', async () => {
+    const localeFs = createFakeFileSystem({
+      [join('project', '.qa', 'config.yaml')]: CONFIG_YAML.replace(
+        'allowlist: ["staging.example.test"] }',
+        'allowlist: ["staging.example.test"], locale: es-ES }',
+      ),
+      ...registeredCaseFiles(),
+    });
+    const received: (RunnerInput | undefined)[] = [];
+    const runner = createFakeRunner((input) => {
+      received.push(input);
+      return [{ result: fakeResult({ status: 'passed' }), evidence: [] }];
+    });
+
+    await verifyGeneratedTestSpec(createContext({ fs: localeFs }).context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
+    await verifyGeneratedTestSpec(createContext().context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
+
+    expect(received[0]?.locale).toBe('es-ES');
+    expect(received[1]).not.toHaveProperty('locale');
+  });
+
   describe('declared expectations (P6-86)', () => {
     const REGISTRY_JSON = JSON.stringify({
       schemaVersion: SCHEMA_VERSION,

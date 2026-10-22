@@ -392,6 +392,7 @@ export async function verifyGeneratedTestSpec(
       idGenerator,
       requiredStepIds: canonicalStepIds(registeredTestCase),
       testIdAttribute: config.selectors.testIdAttribute,
+      ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
       ...(runnerIdentity !== undefined ? { identity: runnerIdentity } : {}),
     });
     const [outcome, ...extra] = outcomes;

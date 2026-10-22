@@ -439,6 +439,7 @@ async function dispatchConfigAddEnvironment(
       json: { type: 'boolean', default: false },
       'base-url': { type: 'string' },
       allowlist: { type: 'string' },
+      locale: { type: 'string' },
       'allow-request': { type: 'string', multiple: true },
       'allow-request-reason': { type: 'string' },
       force: { type: 'boolean', default: false },
@@ -450,7 +451,7 @@ async function dispatchConfigAddEnvironment(
   if (name === undefined || typeof values['base-url'] !== 'string' || typeof values.allowlist !== 'string') {
     throw new QaError(
       'CONFIG_ADD_USAGE',
-      'Usage: qa config add environment <name> --base-url <url> --allowlist <a,b,c> [--allow-request "POST /path" --allow-request-reason <why>]',
+      'Usage: qa config add environment <name> --base-url <url> --allowlist <a,b,c> [--locale <tag>] [--allow-request "POST /path" --allow-request-reason <why>]',
       {
         remediation:
           'Example: qa config add environment staging --base-url https://staging.example.com --allowlist staging.example.com',
@@ -471,6 +472,7 @@ async function dispatchConfigAddEnvironment(
     name,
     baseUrl: values['base-url'],
     allowlist,
+    ...(values.locale === undefined ? {} : { locale: values.locale }),
     safeNonGetRequests: parseAllowRequests(values['allow-request'], values['allow-request-reason']),
     force: values.force,
   });

@@ -21,6 +21,12 @@ const InputSchema = z.object({
     .describe(
       'environment: bare host names the browser and HTTP calls may reach. An entry with a port is added by the operator, not through this tool.',
     ),
+  locale: z
+    .string()
+    .optional()
+    .describe(
+      'environment: a BCP 47 language tag such as "en-US" that every browser context asks for, so the application text and element names do not depend on the machine running the engine.',
+    ),
   auth: z.string().optional().describe('identity: "cdp-attach" or "storage-state".'),
   secret: z
     .string()
@@ -81,6 +87,7 @@ export const configAddTool: ToolDefinition<typeof InputSchema, typeof OutputSche
         name: input.name,
         baseUrl: requireField(input.baseUrl, 'baseUrl', 'environment'),
         allowlist: requireField(input.allowlist, 'allowlist', 'environment'),
+        ...(input.locale !== undefined ? { locale: input.locale } : {}),
         force,
       });
     } else {

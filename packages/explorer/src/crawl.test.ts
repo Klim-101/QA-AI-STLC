@@ -368,6 +368,29 @@ describe('crawl', () => {
     expect(browserLauncher.newContextCalls).toEqual([{}]);
   });
 
+  it('asks for the environment locale in every context it opens (P6-114)', async () => {
+    const browserLauncher = createFakeCrawlBrowserLauncher({
+      probeControlIndexesByUrl: { 'https://staging.example.com/': [0] },
+    });
+    const identityConfig: IdentityConfig = {
+      auth: 'storage-state',
+      secret: 'QA_ADMIN_PASSWORD',
+      loginUrl: 'https://staging.example.com/login',
+      username: 'admin@example.com',
+    };
+
+    await crawl({
+      startUrl: 'https://staging.example.com/',
+      allowlist: ['staging.example.com'],
+      browserLauncher,
+      probeNavigation: true,
+      identity: { config: identityConfig, env: { QA_ADMIN_PASSWORD: 'secret' } },
+      locale: 'es-ES',
+    });
+
+    expect(browserLauncher.newContextCalls.map((call) => call.locale)).toEqual(['es-ES', 'es-ES', 'es-ES']);
+  });
+
   it('bypasses TLS certificate validation when tlsInsecure is set (P2-18)', async () => {
     const browserLauncher = createFakeCrawlBrowserLauncher();
 

@@ -65,6 +65,7 @@ export async function withRunTokenOrigin<TResult>(
     const context = await browser.newContext({
       storageState,
       ...(environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+      ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     });
     await context.route('**/*', async (route) => {
       await observeRequestHeaders(

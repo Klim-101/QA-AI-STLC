@@ -41,6 +41,20 @@ describe('resolveStorageState', () => {
     expect(launcher.newContextCalls).toEqual([{ ignoreHttpsErrors: true }]);
   });
 
+  it('signs in in the environment locale (P6-114)', async () => {
+    const launcher = createFakeBrowserLauncher({ storageState: session });
+
+    await resolveStorageState(
+      launcher,
+      identityWithLoginUrl('https://app.example.test/login'),
+      boundary,
+      false,
+      'es-ES',
+    );
+
+    expect(launcher.newContextCalls).toEqual([{ locale: 'es-ES' }]);
+  });
+
   it('refuses a login page outside the allowlist before any page is opened (P6-115)', async () => {
     const launcher = createFakeBrowserLauncher({ storageState: session });
 

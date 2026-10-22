@@ -206,6 +206,34 @@ describe('runExplore', () => {
     expect(report.elementCount).toBe(0);
   });
 
+  it('opens the pick-mode context in the named environment locale (P6-114)', async () => {
+    const context = await fakeContext(
+      { pickModeState: { done: true, captures: [] } },
+      CONFIG_YAML.replace(
+        'allowlist: ["staging.example.com"] }',
+        'allowlist: ["staging.example.com"], locale: es-ES }',
+      ),
+    );
+
+    await runExplore(context, { pick: 'https://staging.example.com/login', environment: 'staging' });
+
+    const { newContextCalls } = context.browserLauncher as ReturnType<
+      typeof createFakeExploreBrowserLauncher
+    >;
+    expect(newContextCalls).toEqual([{ locale: 'es-ES' }]);
+  });
+
+  it('leaves the pick-mode locale to the host when the environment sets none (P6-114)', async () => {
+    const context = await fakeContext({ pickModeState: { done: true, captures: [] } });
+
+    await runExplore(context, { pick: 'https://staging.example.com/login', environment: 'staging' });
+
+    const { newContextCalls } = context.browserLauncher as ReturnType<
+      typeof createFakeExploreBrowserLauncher
+    >;
+    expect(newContextCalls).toEqual([{}]);
+  });
+
   it('runs pick mode without TLS bypass when no environment can be resolved (P2-18)', async () => {
     const configYaml = [
       'schemaVersion: 1',

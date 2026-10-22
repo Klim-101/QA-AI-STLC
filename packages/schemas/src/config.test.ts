@@ -242,6 +242,23 @@ describe('SafeNonGetRequestSchema (ADR-0014)', () => {
   });
 });
 
+describe('EnvironmentConfigSchema locale', () => {
+  const base = { baseUrl: 'https://staging.example.com', allowlist: ['staging.example.com'] };
+
+  it('is optional and kept when given', () => {
+    expect(EnvironmentConfigSchema.parse(base).locale).toBeUndefined();
+    expect(EnvironmentConfigSchema.parse({ ...base, locale: 'es-ES' }).locale).toBe('es-ES');
+  });
+
+  it.each(['en', 'en-US', 'zh-Hant-TW'])('accepts the tag %j', (locale) => {
+    expect(EnvironmentConfigSchema.safeParse({ ...base, locale }).success).toBe(true);
+  });
+
+  it.each(['', 'en_US', 'e', 'en-', 'en US'])('rejects the tag %j', (locale) => {
+    expect(EnvironmentConfigSchema.safeParse({ ...base, locale }).success).toBe(false);
+  });
+});
+
 describe('EnvironmentConfigSchema', () => {
   it('accepts a bare hostname allowlist entry', () => {
     const result = EnvironmentConfigSchema.safeParse({

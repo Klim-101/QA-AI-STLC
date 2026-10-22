@@ -516,6 +516,23 @@ describe('buildSelectorRegistry', () => {
     expect(browserLauncher.newContextCalls).toEqual([{ storageState }]);
   });
 
+  it('asks for the environment locale (P6-114)', async () => {
+    const url = 'https://staging.example.com/login';
+    const model = pageModelSet([pageModel(url, [])]);
+    const browserLauncher = createFakeCrawlBrowserLauncher();
+
+    await buildSelectorRegistry({
+      environmentName: 'staging',
+      pageModelSet: model,
+      allowlist: ALLOWLIST,
+      baseUrl: BASE_URL,
+      browserLauncher,
+      locale: 'es-ES',
+    });
+
+    expect(browserLauncher.newContextCalls).toEqual([{ locale: 'es-ES' }]);
+  });
+
   it('bypasses TLS certificate validation when tlsInsecure is set (P2-18)', async () => {
     const url = 'https://staging.example.com/login';
     const model = pageModelSet([pageModel(url, [])]);

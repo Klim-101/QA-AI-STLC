@@ -164,6 +164,36 @@ describe('runConfigAddEnvironment', () => {
     expect((await readConfig(context)).environments.staging).toMatchObject({ safeNonGetRequests: [request] });
   });
 
+  it('writes the locale it is given and omits it otherwise (P6-114)', async () => {
+    const context = fakeContext();
+    const environment = { baseUrl: 'https://staging.example.com', allowlist: ['staging.example.com'] };
+
+    const withLocale = await runConfigAddEnvironment(context, {
+      name: 'staging',
+      ...environment,
+      locale: 'es-ES',
+    });
+    const withoutLocale = await runConfigAddEnvironment(context, { name: 'plain', ...environment });
+
+    expect(withLocale.environment.locale).toBe('es-ES');
+    expect(withoutLocale.environment.locale).toBeUndefined();
+    expect((await readConfig(context)).environments.staging).toMatchObject({ locale: 'es-ES' });
+  });
+
+  it('rejects a locale that is not a BCP 47 tag with a coded error, writing nothing (P6-114)', async () => {
+    const context = fakeContext();
+
+    await expect(
+      runConfigAddEnvironment(context, {
+        name: 'staging',
+        baseUrl: 'https://staging.example.com',
+        allowlist: ['staging.example.com'],
+        locale: 'en_US',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIG_ADD_VALUE_INVALID' });
+    expect((await readConfig(context)).environments).not.toHaveProperty('staging');
+  });
+
   it('writes no list for an empty one', async () => {
     const context = fakeContext();
 

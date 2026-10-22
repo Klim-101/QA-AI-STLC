@@ -409,3 +409,16 @@ describe('Kendo UI for Angular structure fixture', () => {
     expect(script).toContain("{ class: 'k-window k-window-md', role: 'dialog' }");
   });
 });
+
+describe('localized page (P6-114)', () => {
+  it.each([
+    ['es-ES,es;q=0.9', 'Iniciar sesión'],
+    ['en-US,en;q=0.9', 'Sign in'],
+    ['fr-FR', 'Sign in'],
+  ])('renders the text for Accept-Language %j', async (acceptLanguage, expectedButton) => {
+    const response = await request(createApp()).get('/localized').set('Accept-Language', acceptLanguage);
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain(`<button type="button">${expectedButton}</button>`);
+  });
+});

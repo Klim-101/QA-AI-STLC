@@ -53,6 +53,8 @@ export interface BuildSelectorRegistryOptions {
   readonly clock?: Clock;
   /** Bypasses TLS certificate validation for this scoring session (P2-18); off by default. */
   readonly tlsInsecure?: boolean;
+  /** The environment's `locale` (BCP 47) every context asks for; omitted, the host's applies. */
+  readonly locale?: string;
   /** The environment's `safeNonGetRequests` and where to tally what safe mode did (ADR-0014). */
   readonly safeMode?: SafeModeRequests;
   /** What to wait for after each navigation before the page is read (P6-63). */
@@ -201,6 +203,7 @@ export async function buildSelectorRegistry(
     options.identity,
     { allowlist: options.allowlist, baseUrl: options.baseUrl },
     options.tlsInsecure,
+    options.locale,
   );
 
   const browser = await options.browserLauncher.launch();
@@ -215,6 +218,7 @@ export async function buildSelectorRegistry(
       const context = await browser.newContext({
         ...(sessionState === undefined ? {} : { storageState: sessionState }),
         ...(options.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+        ...(options.locale !== undefined ? { locale: options.locale } : {}),
       });
       await context.route(
         '**/*',

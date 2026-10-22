@@ -81,6 +81,17 @@ describe('playwrightBrowserLauncher', () => {
     expect(rawBrowser.newContext).toHaveBeenCalledWith({ storageState });
   });
 
+  it('passes the locale through to newContext() (P6-114)', async () => {
+    const rawBrowser = fakePlaywrightBrowser();
+    launch.mockResolvedValue(rawBrowser);
+    const { playwrightBrowserLauncher } = await import('./browser-launcher.js');
+    const browser = await playwrightBrowserLauncher.launch();
+
+    await browser.newContext({ locale: 'es-ES' });
+
+    expect(rawBrowser.newContext).toHaveBeenCalledWith({ locale: 'es-ES' });
+  });
+
   it("translates ignoreHttpsErrors to Playwright's own ignoreHTTPSErrors (P2-18)", async () => {
     const rawBrowser = fakePlaywrightBrowser();
     launch.mockResolvedValue(rawBrowser);

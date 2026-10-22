@@ -47,6 +47,7 @@ export async function signInForRun(
         allowlist: environment.config.allowlist,
         baseUrl: environment.config.baseUrl,
         ...(environment.config.tlsInsecure === true ? { tlsInsecure: true } : {}),
+        ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
       },
     );
   } catch (error) {

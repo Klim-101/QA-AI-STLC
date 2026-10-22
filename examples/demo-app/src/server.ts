@@ -8,6 +8,7 @@ import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { createKendoRouter } from './routes/kendo.js';
+import { createLocalizedRouter } from './routes/localized.js';
 import { createOAuthRouter } from './routes/oauth.js';
 import { createOpenApiRouter } from './routes/openapi.js';
 import { createRotatingSessionRouter } from './routes/rotating-session.js';
@@ -40,6 +41,7 @@ export function createApp(): express.Express {
   app.use(adminRouter);
   app.use(createOAuthRouter());
   app.use(createKendoRouter());
+  app.use(createLocalizedRouter());
   app.use(createOpenApiRouter());
   app.use(createSpaRouter());
   app.use(createRotatingSessionRouter());

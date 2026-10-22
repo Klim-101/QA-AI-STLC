@@ -149,6 +149,7 @@ async function signIn(
       baseUrl: environment.baseUrl,
       ...(options.cdpEndpointUrl === undefined ? {} : { cdpEndpointUrl: options.cdpEndpointUrl }),
       ...(environment.tlsInsecure === true ? { tlsInsecure: true } : {}),
+      ...(environment.locale !== undefined ? { locale: environment.locale } : {}),
     },
   );
 }
@@ -193,6 +194,7 @@ export async function runBrowserOpen(
     const browserContext = await browser.newContext({
       ...(storageState === undefined ? {} : { storageState }),
       ...(environment.config.tlsInsecure === true ? { ignoreHttpsErrors: true } : {}),
+      ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     });
     const page = await browserContext.newPage();
     // On the context, not the page: a popup's first request happens before any handler could be

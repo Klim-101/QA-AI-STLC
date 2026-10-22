@@ -241,6 +241,26 @@ describe('runTestRun', () => {
     });
   });
 
+  it('passes the environment locale to the runner, and none when the environment sets no locale (P6-114)', async () => {
+    const fs = createFakeFileSystem({
+      [join('project', '.qa', 'config.yaml')]: CONFIG_YAML.replace(
+        'allowlist: ["prod.example.test"] }',
+        'allowlist: ["prod.example.test"], locale: es-ES }',
+      ),
+    });
+    const context = createFakeEngineContext({ fs, clock: { now: () => NOW } });
+    const { runner, state } = createFakeRunner(() => [
+      fakeOutcome(fakeResult({ id: 'result-1', status: 'passed' })),
+    ]);
+    const base = { runner, specFiles: ['tests/login.playwright-spec.ts'] };
+
+    await runTestRun(context, { ...base, environment: 'prod' });
+    expect(state.receivedInput?.locale).toBe('es-ES');
+
+    await runTestRun(context, { ...base, environment: 'staging' });
+    expect(state.receivedInput).not.toHaveProperty('locale');
+  });
+
   it('generates a random run ID when no idGenerator is given', async () => {
     const { context } = createContext();
     const { runner, state } = createFakeRunner(() => [
