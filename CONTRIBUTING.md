@@ -47,7 +47,21 @@ change against `examples/demo-app` — a machine-specific `.qa/config.local.yaml
 by `QA_CONFIG_LOCAL`) lets you set your own `environments`, `identities`, `source` or `agents`
 without touching the project's committed `config.yaml`; `qa init` writes a commented example at
 `.qa/config.local.yaml.example`. See [ADR-0011](docs/adr/0011-layered-project-configuration.md)
-and the README's ["Configuration layers"](README.md#configuration-layers) section.
+and ["Configuration layers"](docs/public/configuring-and-exploring.md#configuration-layers).
+
+### The generated Claude Code plugin
+
+`npm run generate` produces `adapters/claude-plugin/` from two hand-edited sources, `agents/` (the
+skills, hub definition and shared references) and `plugin.config.ts` (name, description, license),
+plus the `packages/mcp-server` version, so the plugin and the MCP server it launches never drift
+apart. The same command writes the root `.claude-plugin/marketplace.json`, which makes this
+repository installable as a Claude Code marketplace. The generated `.mcp.json` pins the server
+version and the server checks it at startup ([ADR-0007](docs/adr/0007-engine-and-plugin-share-one-version.md)); a `PreToolUse` hook
+blocks `Write`/`Edit` under `.qa/**` on top of the engine's own hash checks. `npm run lint:generated`
+fails on anything edited by hand under `adapters/claude-plugin/`, `.claude-plugin/marketplace.json`
+or `.claude/rules/`: change the source and regenerate.
+
+![How the Claude Code plugin is generated: agents/ and plugin.config.ts flow through generate-claude-plugin.mjs into adapters/claude-plugin/, which Claude Code installs](docs/public/media/claude-plugin-generation.svg)
 
 ## Workflow
 
