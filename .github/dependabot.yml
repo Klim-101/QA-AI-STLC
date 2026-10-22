@@ -48,3 +48,7 @@ updates:
       # kendo-ui-core declares jquery "1.10.0 - 3.6"; a major jQuery release is outside that range.
       - dependency-name: 'jquery'
         update-types: ['version-update:semver-major']
+      # axe-core is MPL-2.0, allowed only as an exception pinned to the exact approved version
+      # (scripts/lib/license-policy.mjs, AGENTS.md 9.3). A bump fails `licenses:check` until the
+      # maintainer approves the new version, so none is proposed automatically.
+      - dependency-name: 'axe-core'
