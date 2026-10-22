@@ -1,5 +1,18 @@
 # @qa-ai-stlc/runner-security
 
+## 1.13.0
+
+### Patch Changes
+
+- 9f40a76: A scripted sign-in now checks its login page against the environment allowlist on every path. Before, only `qa run` and the security audit did, so exploring or opening a browser session could send an identity's password to a page outside the allowlist.
+- Updated dependencies [ad5e756]
+- Updated dependencies [b1c61d1]
+- Updated dependencies [5cc4ac7]
+- Updated dependencies [626f41c]
+- Updated dependencies [9f40a76]
+  - @qa-ai-stlc/core@1.13.0
+  - @qa-ai-stlc/schemas@1.13.0
+
 ## 1.12.1
 
 ### Patch Changes
