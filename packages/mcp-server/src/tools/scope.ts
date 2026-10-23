@@ -21,6 +21,12 @@ const OutputSchema = z.object({
   added: z.number(),
   updated: z.number(),
   total: z.number(),
+  orphaned: z
+    .array(z.string())
+    .readonly()
+    .describe(
+      'Ids still in scope whose section is gone from this source. Ask the operator whether to take them out with qa.scope_set.',
+    ),
 });
 
 /**
@@ -34,8 +40,10 @@ export const scopeTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> 
   description:
     'Extracts requirements from a local Markdown file or literal text (one "## Heading" per ' +
     'requirement) and upserts them by id into artifacts/scope.json. Call again with the same ' +
-    'headings to update requirements instead of duplicating them. Never fetches from an issue ' +
-    'tracker or wiki.',
+    'headings to update requirements instead of duplicating them; an update keeps the in-scope decision ' +
+    'the operator made. Requirements whose section is no longer in the source come back as ' +
+    'orphaned and stay in scope until the operator removes them with qa.scope_set. Never fetches ' +
+    'from an issue tracker or wiki.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   handler: (input) =>

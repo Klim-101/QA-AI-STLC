@@ -51,7 +51,7 @@ export interface TraceabilityMatrix {
 
 /**
  * Builds the requirement → case → result → evidence traceability matrix (P3-08, ADR-002) fresh
- * from the current `.qa/` store: every requirement in `scope.json`, every case that links to it
+ * from the current `.qa/` store: every in-scope requirement in `scope.json`, every case that links to it
  * (`TestCase.requirementIds`), and each case's most recent run result, by `finishedAt`, across
  * every run recorded under `runs/**` — not just the run being reported on, so a case last run
  * yesterday still shows its real last-known status instead of disappearing from today's report.
@@ -66,25 +66,28 @@ export async function buildTraceabilityMatrix(
   const cases = await loadCases(store);
   const resultHistoryByTestCaseId = await loadResultHistoryByTestCaseId(store);
 
-  const requirements = scope.requirements.map((requirement) => {
-    const linkedCases = cases
-      .filter((testCase) => testCase.requirementIds.includes(requirement.id))
-      .map((testCase) => {
-        const history = resultHistoryByTestCaseId.get(testCase.id) ?? [];
-        return {
-          testCaseId: testCase.id,
-          title: testCase.title,
-          latestResult: history.at(-1),
-          flaky: isFlakyHistory(
-            history.map((result) => result.status),
-            flakyConfig,
-          ),
-        };
-      })
-      .sort((a, b) => a.testCaseId.localeCompare(b.testCaseId));
+  // A requirement the operator took out of scope is not a coverage gap, so it is not in the matrix.
+  const requirements = scope.requirements
+    .filter((requirement) => requirement.inScope)
+    .map((requirement) => {
+      const linkedCases = cases
+        .filter((testCase) => testCase.requirementIds.includes(requirement.id))
+        .map((testCase) => {
+          const history = resultHistoryByTestCaseId.get(testCase.id) ?? [];
+          return {
+            testCaseId: testCase.id,
+            title: testCase.title,
+            latestResult: history.at(-1),
+            flaky: isFlakyHistory(
+              history.map((result) => result.status),
+              flakyConfig,
+            ),
+          };
+        })
+        .sort((a, b) => a.testCaseId.localeCompare(b.testCaseId));
 
-    return { requirementId: requirement.id, title: requirement.title, cases: linkedCases };
-  });
+      return { requirementId: requirement.id, title: requirement.title, cases: linkedCases };
+    });
 
   return { generatedAt: clock.now().toISOString(), requirements };
 }

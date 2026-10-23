@@ -30,6 +30,7 @@ import { linkTool } from '../src/tools/link.js';
 import { reportTool } from '../src/tools/report.js';
 import { runTool } from '../src/tools/run.js';
 import { scopeTool } from '../src/tools/scope.js';
+import { scopeSetTool } from '../src/tools/scope-set.js';
 import { statusTool } from '../src/tools/status.js';
 import { testDataAddTool } from '../src/tools/test-data-add.js';
 import { validateTool } from '../src/tools/validate.js';
@@ -289,6 +290,30 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
     });
   });
 
+  it('takes a requirement out of scope and keeps it out when the file is read again', async () => {
+    await withTempDir(async (projectRoot) => {
+      process.chdir(projectRoot);
+      await writeConfig(projectRoot);
+      const requirementsPath = join(projectRoot, 'requirements.md');
+      await writeFile(requirementsPath, '## Login\nbody\n\n## Signup\nbody\n', 'utf-8');
+      await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+
+      const set = await scopeSetTool.handler({ requirementIds: ['signup'], inScope: false });
+      await writeFile(requirementsPath, '## Login\nbody\n', 'utf-8');
+      const again = await scopeTool.handler({ from: 'file', path: 'requirements.md' });
+      process.chdir(originalCwd);
+
+      expect(set).toEqual({
+        scopePath: 'artifacts/scope.json',
+        changed: 1,
+        inScopeCount: 1,
+        outOfScopeCount: 1,
+      });
+      expect(again.orphaned).toEqual([]);
+      expect(again.total).toBe(2);
+    });
+  });
+
   it('drives the whole scope -> cases_add -> approve -> validate pipeline against a real project', async () => {
     await withTempDir(async (projectRoot) => {
       process.chdir(projectRoot);
@@ -296,7 +321,13 @@ describe('engine-operation tools (real filesystem, temp project directory)', () 
       await writeFile(join(projectRoot, 'requirements.md'), '## Login\nA user can log in.\n', 'utf-8');
 
       const scopeResult = await scopeTool.handler({ from: 'file', path: 'requirements.md' });
-      expect(scopeResult).toEqual({ scopePath: 'artifacts/scope.json', added: 1, updated: 0, total: 1 });
+      expect(scopeResult).toEqual({
+        scopePath: 'artifacts/scope.json',
+        added: 1,
+        updated: 0,
+        total: 1,
+        orphaned: [],
+      });
 
       await writeFile(
         join(projectRoot, 'login-case.json'),

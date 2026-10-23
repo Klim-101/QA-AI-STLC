@@ -12,6 +12,7 @@ import { createFakeFileSystem } from '@qa-ai-stlc/test-utils/fake-file-system';
 import { createFakeHttpClient } from '@qa-ai-stlc/test-utils/fake-http-client';
 import { createFakeProcessRunner } from '@qa-ai-stlc/test-utils/fake-process-runner';
 import { runScope } from './scope.js';
+import { runScopeSet } from './scope-set.js';
 
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
@@ -51,7 +52,13 @@ describe('runScope', () => {
 
     const result = await runScope(context, { from: 'file', path: 'docs/requirements.md' });
 
-    expect(result).toEqual({ scopePath: 'artifacts/scope.json', added: 1, updated: 0, total: 1 });
+    expect(result).toEqual({
+      scopePath: 'artifacts/scope.json',
+      added: 1,
+      updated: 0,
+      total: 1,
+      orphaned: [],
+    });
     const scope = JSON.parse(await context.fs.readFile(join(QA_DIR, 'artifacts', 'scope.json'))) as {
       requirements: { id: string; source: unknown }[];
     };
@@ -81,7 +88,13 @@ describe('runScope', () => {
       label: 'operator input',
     });
 
-    expect(result).toEqual({ scopePath: 'artifacts/scope.json', added: 1, updated: 0, total: 1 });
+    expect(result).toEqual({
+      scopePath: 'artifacts/scope.json',
+      added: 1,
+      updated: 0,
+      total: 1,
+      orphaned: [],
+    });
   });
 
   it('merges a second call by id instead of duplicating', async () => {
@@ -93,7 +106,45 @@ describe('runScope', () => {
 
     const result = await runScope(context, { from: 'file', path: 'docs/requirements.md' });
 
-    expect(result).toEqual({ scopePath: 'artifacts/scope.json', added: 0, updated: 1, total: 1 });
+    expect(result).toEqual({
+      scopePath: 'artifacts/scope.json',
+      added: 0,
+      updated: 1,
+      total: 1,
+      orphaned: [],
+    });
+  });
+
+  it('reports a requirement whose section left the file as orphaned, and keeps it in the scope', async () => {
+    const context = fakeContext({
+      [join(PROJECT_ROOT, 'docs', 'requirements.md')]: '## Login\nbody\n\n## Signup\nbody\n',
+    });
+    await runScope(context, { from: 'file', path: 'docs/requirements.md' });
+    await context.fs.writeFile(join(PROJECT_ROOT, 'docs', 'requirements.md'), '## Login\nbody\n');
+
+    const result = await runScope(context, { from: 'file', path: 'docs/requirements.md' });
+
+    expect(result.orphaned).toEqual(['signup']);
+    expect(result.total).toBe(2);
+  });
+
+  it('keeps a requirement out of scope when the file is read again', async () => {
+    const context = fakeContext({
+      [join(PROJECT_ROOT, 'docs', 'requirements.md')]: '## Login\nbody\n\n## Signup\nbody\n',
+    });
+    await runScope(context, { from: 'file', path: 'docs/requirements.md' });
+    await runScopeSet(context, { requirementIds: ['signup'], inScope: false });
+
+    const result = await runScope(context, { from: 'file', path: 'docs/requirements.md' });
+
+    const scope = JSON.parse(await context.fs.readFile(join(QA_DIR, 'artifacts', 'scope.json'))) as {
+      requirements: { id: string; inScope: boolean }[];
+    };
+    expect(scope.requirements.map((entry) => [entry.id, entry.inScope])).toEqual([
+      ['login', true],
+      ['signup', false],
+    ]);
+    expect(result.orphaned).toEqual([]);
   });
 
   it('rejects an unknown --from value', async () => {

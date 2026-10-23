@@ -27,7 +27,8 @@ restating it here — read that file before writing a case's content.
    before asking the operator to name a new one — reuse it rather than coining a near-duplicate.
 2. **Requirements.** Read `artifacts/scope.json` and pick `requirementIds` from what is already
    registered there. `qa.cases_add` rejects a case whose id does not resolve — run `qa.scope` first
-   if the requirement genuinely does not exist yet, never invent an id to satisfy the check.
+   if the requirement genuinely does not exist yet, never invent an id to satisfy the check. Write
+   no case for a requirement whose `inScope` is `false`: the operator took it out of scope.
 3. **Testing scope.** Check `config.yaml`'s `testing` block for the case's `testType`
    (`e2e`/`api`/`a11y`). `qa-start` normally already confirmed this at session start; re-check here
    if this skill fires mid-session. Never write a case for an `out-of-scope` or `undecided` type.
