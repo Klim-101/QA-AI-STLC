@@ -52,6 +52,7 @@ import {
 } from '../component-library-profile.js';
 import { crawl } from '../crawl.js';
 import { generateLocatorModule } from '../generate-locator-module.js';
+import { writeLocatorModule } from '../locator-module-file.js';
 import { migrateElementIds } from '../migrate-element-ids.js';
 import { resolveStorageState, type ExplorerIdentity } from '../identity.js';
 import { readPackageVersion } from '../package-version.js';
@@ -63,7 +64,6 @@ import type { DegradedSelectorElement } from '../build-selector-registry.js';
 const REGISTRY_PATH = 'selectors/registry.json';
 const MISSING_TEST_ID_REPORT_PATH = 'selectors/missing-test-ids.json';
 const ENDPOINTS_PATH = 'selectors/endpoints.json';
-const LOCATOR_MODULE_PATH = 'tests/qa/locators.ts';
 
 // EJS is included alongside the three frameworks the development plan names (React/Angular/Vue):
 // its templates are plain HTML, the same literal-attribute shape analyzeStaticSource looks for in
@@ -606,12 +606,7 @@ async function persistExploreResultLocked(
   await manifest.register(REGISTRY_PATH, registrySerialized);
 
   const moduleResult = generateLocatorModule(merged, { generatorVersion: readPackageVersion() });
-  await context.fs.mkdir(resolveRelativePath(context.projectRoot, 'tests/qa'));
-  await context.fs.writeFile(
-    resolveRelativePath(context.projectRoot, LOCATOR_MODULE_PATH),
-    moduleResult.source,
-  );
-  await manifest.register(LOCATOR_MODULE_PATH, moduleResult.source, { root: 'project' });
+  await writeLocatorModule(context, manifest, moduleResult);
 
   const missingTestIdReport = buildMissingTestIdReport(merged);
   const missingTestIdReportSerialized = toCanonicalJson(missingTestIdReport);

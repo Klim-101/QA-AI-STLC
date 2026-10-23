@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { runBuildGenerationSpokeInput } from '@qa-ai-stlc/core';
+import { runSyncLocatorModule } from '@qa-ai-stlc/explorer';
 import { GenerationSpokeInputSchema, IdentifierSchema, ProvenSessionSchema } from '@qa-ai-stlc/schemas';
 import { z } from 'zod';
 import { createNodeEngineContext } from '../engine-context.js';
@@ -44,11 +45,16 @@ export const generationSpokeInputTool: ToolDefinition<typeof InputSchema, typeof
       'names (apiContract, with the contract sha256) instead of a registry slice.',
     inputSchema: InputSchema,
     outputSchema: GenerationSpokeInputSchema,
-    handler: (input) =>
-      runBuildGenerationSpokeInput(createNodeEngineContext(), {
+    handler: async (input) => {
+      const context = createNodeEngineContext();
+      // Elements registered during a session reach the registry only; the module a spec imports
+      // from must list them before the spoke input reads it.
+      await runSyncLocatorModule(context);
+      return runBuildGenerationSpokeInput(context, {
         testCaseId: input.testCaseId,
         elementIds: input.elementIds,
         ...(input.environment !== undefined ? { environment: input.environment } : {}),
         ...(input.provenSession !== undefined ? { provenSession: input.provenSession } : {}),
-      }),
+      });
+    },
   };

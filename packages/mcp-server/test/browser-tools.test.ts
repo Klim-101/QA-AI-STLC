@@ -796,6 +796,10 @@ describe('qa.browser_* tools (real filesystem, temp project directory)', () => {
         name: 'Log in',
       });
       expect(registered.created).toBe(true);
+      expect(registered.locator).toStrictEqual({ status: 'exported', exportName: 'logIn' });
+      expect(await readFile(join(projectRoot, 'tests', 'qa', 'locators.ts'), 'utf-8')).toContain(
+        'export function logIn(page: Page)',
+      );
       const registry = JSON.parse(
         await readFile(join(projectRoot, '.qa', 'selectors', 'registry.json'), 'utf-8'),
       ) as { elements: { elementId: string; source: string }[] };
