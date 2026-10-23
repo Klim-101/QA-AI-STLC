@@ -145,7 +145,8 @@ nothing uncertain). Otherwise the call fails with `RUN_RESULT_STEP_NOT_PROVEN` o
 `RUN_RESULT_EXPECTED_RESULT_UNCHECKED`: perform or re-check what is missing, or register `partial` or
 `failed`. Evidence is linked only to `step-<N>`; the engine refuses any other `stepId`, so link the check of
 the expected result to the case's last step. A run belongs to one case: execute each case in a session of its own. A screenshot proves
-nothing here, and an api case that expects an error status cannot be `passed` yet.
+nothing here. An api case that expects an error status can be `passed` when the case declares an
+`http-status` expectation (on the step or in `resultExpectations`) and the engine saw that status.
 
 Register `partial`, not `uncertain`, when you did some of the case's steps and could not do the
 rest (a blocked page, a missing precondition). It needs `missingStepIds`: the ids of the steps not

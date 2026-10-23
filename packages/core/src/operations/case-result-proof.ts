@@ -31,7 +31,8 @@ export interface PassedProofGaps {
  *
  * - `e2e`: a `qa.browser_expect` whose verdict is `passed`.
  * - `api`: a request that came back below 400, or, for a step that declares an `http-status`
- *   expectation, any request (the expectation decides whether that status is the right one).
+ *   expectation, any request (the expectation decides whether that status is the right one); a
+ *   `resultExpectations` `http-status` counts only a request that returned exactly that status.
  * - `a11y`: a scan with no violations and nothing left uncertain.
  *
  * A record that is not of the case's type is ignored rather than trusted.
@@ -47,8 +48,13 @@ export function findPassedProofGaps(
         : [],
     ),
   );
+  const resultStatuses = new Set(
+    (testCase.resultExpectations ?? []).flatMap((expectation) =>
+      expectation.kind === 'http-status' ? [expectation.expected] : [],
+    ),
+  );
   const readings = observations.flatMap((observation) => {
-    const reading = readObservation(observation, testCase.testType, statusDeclaredSteps);
+    const reading = readObservation(observation, testCase.testType, statusDeclaredSteps, resultStatuses);
     return reading === undefined ? [] : [reading];
   });
 
@@ -67,6 +73,7 @@ function readObservation(
   observation: CitedObservation,
   testType: TestCase['testType'],
   statusDeclaredSteps: ReadonlySet<string>,
+  resultStatuses: ReadonlySet<number>,
 ): EvidenceReading | undefined {
   const stepId = observation.stepId === undefined ? {} : { stepId: observation.stepId };
   // An `a11y` case drives the page with the same browser actions an `e2e` case does; only an `e2e`
@@ -83,7 +90,10 @@ function readObservation(
   if (observation.source === 'http' && testType === 'api') {
     const isOk = observation.record.status < HTTP_ERROR_STATUS;
     const isExpectedByStep = observation.stepId !== undefined && statusDeclaredSteps.has(observation.stepId);
-    return { ...stepId, isSuccessful: isOk || isExpectedByStep, isPassedCheck: isOk };
+    // A result-level expectation names no step, so only a request that returned exactly the
+    // declared status proves the step that made it; any other error status stays a failure.
+    const isExpectedByResult = resultStatuses.has(observation.record.status);
+    return { ...stepId, isSuccessful: isOk || isExpectedByStep || isExpectedByResult, isPassedCheck: isOk };
   }
   if (observation.source === 'scan' && testType === 'a11y') {
     const isClean = observation.record.violations.length === 0 && observation.record.uncertain.length === 0;
