@@ -149,8 +149,12 @@ session with `headed: true`: a visible window opens, with the same safe mode, al
 as a headless session. The result's `headed` says which mode was launched. An operator who always
 wants a window sets `headed: true` on the environment in `config.yaml` (usually the local layer),
 and `headed: false` still overrides it for one session. `BROWSER_HEADED_UNAVAILABLE` means this
-machine has no display: report it and carry on headless, do not look for a workaround. Offer the
-option when the operator mentions watching; never turn it on unprompted.
+machine has no display: report it and carry on headless, do not look for a workaround.
+`BROWSER_EXITED_DURING_OPEN` (the window closed right after opening) and `BROWSER_SESSION_LOST` (the
+window was closed later, by the operator or a crash) mean the operator can no longer watch: say so
+with the error's remediation and ask before opening a headless session instead; never switch to
+headless without telling them. Offer the option when the operator mentions watching; never turn it
+on unprompted.
 
 ## Signing in
 

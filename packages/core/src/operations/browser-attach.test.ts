@@ -46,6 +46,7 @@ async function operatorBrowser(
   const browser: AuthBrowser = {
     newContext: () => Promise.reject(new Error('an attached browser is not given a new context')),
     contexts: () => [context],
+    on: () => undefined,
     close: closeBrowser,
   };
   const connect = vi.fn(() => Promise.resolve(browser));

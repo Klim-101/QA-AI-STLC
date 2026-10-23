@@ -48,7 +48,9 @@ const InputSchema = z.object({
       'Opens a visible browser window so the operator can watch the session or sign in by hand. ' +
         'Defaults to the "headed" setting of the environment, then to false (headless). Safe mode, ' +
         'the allowlist and evidence registration are unchanged. Fails with BROWSER_HEADED_UNAVAILABLE ' +
-        'on a machine without a display.',
+        'on a machine without a display, and with BROWSER_EXITED_DURING_OPEN when the browser is ' +
+        'gone right after it launched. A window closed later ends the session: its next call fails ' +
+        'with BROWSER_SESSION_LOST.',
     ),
 });
 

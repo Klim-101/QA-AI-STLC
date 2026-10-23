@@ -210,6 +210,7 @@ export function createFakeExploreBrowserLauncher(
           return Promise.resolve(context);
         },
         contexts: () => [context],
+        on: () => undefined,
         close: () => {
           closedBrowsers.count += 1;
           return Promise.resolve();
@@ -229,6 +230,7 @@ export function createFakeExploreBrowserLauncher(
       const browser: AuthBrowserLike = {
         newContext: () => Promise.reject(new Error('newContext is not available on an attached browser')),
         contexts: () => [authContext],
+        on: () => undefined,
         close: () => {
           closedBrowsers.count += 1;
           return Promise.resolve();

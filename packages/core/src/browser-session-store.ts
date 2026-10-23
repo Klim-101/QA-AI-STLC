@@ -205,6 +205,9 @@ export class BrowserSessionStore {
   private readonly pendingTabWork = new Map<string, Set<Promise<void>>>();
   private readonly lastTabAddedAt = new Map<string, Date>();
   private readonly tabWaiters = new Map<string, Set<() => void>>();
+  // Sessions whose browser went away on its own, kept so the next call can say so instead of
+  // reporting an id it never heard of. Bounded by the sessions one server process ever opens.
+  private readonly lostSessionIds = new Set<string>();
   private readonly clock: Clock;
   private readonly idGenerator: IdGenerator;
   private readonly idleTimeoutMs: number;
@@ -250,7 +253,20 @@ export class BrowserSessionStore {
       nextRefNumber: 1,
     };
     this.sessions.set(session.sessionId, session);
+    // A session this store closes is forgotten before its browser is closed, so only a browser that
+    // ends on its own (the operator closing the window, a crash, an exit at launch) reaches this.
+    options.browser.on('disconnected', () => {
+      this.markLost(session.sessionId);
+    });
     return session;
+  }
+
+  private markLost(sessionId: string): void {
+    if (!this.sessions.has(sessionId)) {
+      return;
+    }
+    this.lostSessionIds.add(sessionId);
+    this.forget(sessionId);
   }
 
   /** Adds a page the application opened as a tab, without switching to it. */
@@ -383,6 +399,16 @@ export class BrowserSessionStore {
    */
   async get(sessionId: string): Promise<BrowserSession> {
     const session = this.sessions.get(sessionId);
+    if (session === undefined && this.lostSessionIds.has(sessionId)) {
+      throw new QaError(
+        'BROWSER_SESSION_LOST',
+        `Browser session "${sessionId}" ended because its browser went away: the window was closed, or the browser crashed or exited`,
+        {
+          remediation:
+            'Open a new session with qa.browser_open. If the window closes by itself right after opening, run the MCP server from an interactive desktop session, or open the session without "headed".',
+        },
+      );
+    }
     if (session === undefined) {
       throw new QaError('BROWSER_SESSION_NOT_FOUND', `No open browser session "${sessionId}"`, {
         remediation: 'Open one with qa.browser_open, or check the session id from its result.',
@@ -448,16 +474,7 @@ export class BrowserSessionStore {
     if (session === undefined) {
       return;
     }
-    this.sessions.delete(sessionId);
-    this.notices.delete(sessionId);
-    this.queuedRecords.delete(sessionId);
-    this.snapshots.delete(sessionId);
-    this.pendingTabWork.delete(sessionId);
-    this.lastTabAddedAt.delete(sessionId);
-    for (const wake of this.tabWaiters.get(sessionId) ?? []) {
-      wake();
-    }
-    this.tabWaiters.delete(sessionId);
+    this.forget(sessionId);
     if (!session.ownsBrowser) {
       // Closing an attached browser's context would close the operator's own tabs; closing the
       // connection only disconnects.
@@ -469,6 +486,19 @@ export class BrowserSessionStore {
     } finally {
       await session.browser.close();
     }
+  }
+
+  private forget(sessionId: string): void {
+    this.sessions.delete(sessionId);
+    this.notices.delete(sessionId);
+    this.queuedRecords.delete(sessionId);
+    this.snapshots.delete(sessionId);
+    this.pendingTabWork.delete(sessionId);
+    this.lastTabAddedAt.delete(sessionId);
+    for (const wake of this.tabWaiters.get(sessionId) ?? []) {
+      wake();
+    }
+    this.tabWaiters.delete(sessionId);
   }
 
   /** Closes every open session, for the host's own shutdown path. */

@@ -416,6 +416,7 @@ describe('runBrowserOpen', () => {
     const failingBrowser: AuthBrowser = {
       newContext: () => Promise.reject(new Error('no context available')),
       contexts: () => [],
+      on: () => undefined,
       close: () => {
         closed += 1;
         return Promise.resolve();
@@ -475,6 +476,122 @@ describe('runBrowserOpen', () => {
       code: 'BROWSER_EVIDENCE_QUARANTINED',
     });
     expect(harness.sessions.sessionIds).toEqual([]);
+  });
+});
+
+describe('runBrowserOpen when the browser exits during the open (P6-122)', () => {
+  const GONE = 'Target page, context or browser has been closed';
+
+  // A browser that went away before anything asked about it: its disconnect handler runs on registration.
+  function exitingContext(
+    harness: ReturnType<typeof createBrowserTestHarness>,
+    newContext: () => Promise<never>,
+  ): { readonly context: typeof harness.context; readonly closed: () => number } {
+    let closed = 0;
+    const browser: AuthBrowser = {
+      newContext,
+      contexts: () => [],
+      on: (_event, handler) => {
+        handler();
+      },
+      close: () => {
+        closed += 1;
+        return Promise.resolve();
+      },
+    };
+    return {
+      closed: () => closed,
+      context: {
+        ...harness.context,
+        engine: {
+          ...harness.context.engine,
+          browserLauncher: {
+            launch: () => Promise.resolve(browser),
+            connectOverCdp: () => Promise.resolve(browser),
+          },
+        },
+      },
+    };
+  }
+
+  it('says a visible window closed right after opening, and closes what is left', async () => {
+    const harness = createBrowserTestHarness();
+    const { context, closed } = exitingContext(harness, () => Promise.reject(new Error(GONE)));
+
+    await expect(runBrowserOpen(context, { headed: true })).rejects.toMatchObject({
+      code: 'BROWSER_EXITED_DURING_OPEN',
+      message: expect.stringContaining('visible browser window') as string,
+      remediation: expect.stringContaining('DEBUG=pw:browser') as string,
+    });
+    expect(closed()).toBe(1);
+    expect(harness.sessions.sessionIds).toEqual([]);
+  });
+
+  it('says a headless browser exited, and points at the installation check', async () => {
+    const harness = createBrowserTestHarness();
+    const { context } = exitingContext(harness, () => Promise.reject(new Error(GONE)));
+
+    await expect(runBrowserOpen(context)).rejects.toMatchObject({
+      code: 'BROWSER_EXITED_DURING_OPEN',
+      message: expect.stringContaining('The browser exited') as string,
+      remediation: expect.stringContaining('qa doctor') as string,
+    });
+  });
+
+  it('also says so when the browser is gone by the time the opening is registered', async () => {
+    const harness = createBrowserTestHarness({ configYaml: BROWSER_CONFIG_WITH_SECRET_IN_URL });
+    const eager = {
+      ...harness.context,
+      engine: {
+        ...harness.context.engine,
+        browserLauncher: {
+          ...harness.launcher,
+          launch: async (options?: LaunchOptions) => {
+            const browser = await harness.launcher.launch(options);
+            return {
+              ...browser,
+              on: (_event: 'disconnected', handler: () => void) => {
+                handler();
+              },
+            };
+          },
+        },
+      },
+    };
+
+    await expect(runBrowserOpen(eager, { headed: true })).rejects.toMatchObject({
+      code: 'BROWSER_EXITED_DURING_OPEN',
+    });
+    expect(harness.sessions.sessionIds).toEqual([]);
+  });
+
+  it('keeps an ordinary failure as it was when the browser is still there', async () => {
+    const harness = createBrowserTestHarness();
+    let notify = (): void => undefined;
+    const browser: AuthBrowser = {
+      newContext: () => Promise.reject(new Error('no context available')),
+      contexts: () => [],
+      on: (_event, handler) => {
+        notify = handler;
+      },
+      // Closing disconnects a real browser too, which must not be mistaken for it exiting by itself.
+      close: () => {
+        notify();
+        return Promise.resolve();
+      },
+    };
+    const context = {
+      ...harness.context,
+      engine: {
+        ...harness.context.engine,
+        browserLauncher: {
+          launch: () => Promise.resolve(browser),
+          connectOverCdp: () => Promise.resolve(browser),
+        },
+      },
+    };
+
+    await expect(runBrowserOpen(context)).rejects.toThrow('no context available');
   });
 });
 
@@ -559,6 +676,31 @@ describe('runBrowserOpen headed sessions (P6-105)', () => {
     await expect(runBrowserOpen(context, { headed: true })).rejects.toMatchObject({
       code: 'BROWSER_HEADED_UNAVAILABLE',
       remediation: expect.stringContaining('without "headed"') as string,
+    });
+  });
+
+  it('reads a missing display as such even when Playwright also calls the browser closed', async () => {
+    const { context } = recordingHarness(
+      undefined,
+      new Error(
+        'browserType.launch: Target page, context or browser has been closed\nBrowser logs:\nMissing X server or $DISPLAY',
+      ),
+    );
+
+    await expect(runBrowserOpen(context, { headed: true })).rejects.toMatchObject({
+      code: 'BROWSER_HEADED_UNAVAILABLE',
+    });
+  });
+
+  it('turns a browser that is gone as soon as it launched into a coded error with a remediation', async () => {
+    const { context } = recordingHarness(
+      undefined,
+      new Error('browserType.launch: Target page, context or browser has been closed'),
+    );
+
+    await expect(runBrowserOpen(context, { headed: true })).rejects.toMatchObject({
+      code: 'BROWSER_EXITED_DURING_OPEN',
+      remediation: expect.stringContaining('interactive desktop session') as string,
     });
   });
 

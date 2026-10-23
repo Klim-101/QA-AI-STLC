@@ -207,6 +207,12 @@ export interface AuthBrowser {
   newContext(options?: NewContextOptions): Promise<AuthBrowserContext>;
   /** The contexts an attached, already-authenticated browser owns (ADR-004, section 6.2 step 1). */
   contexts(): readonly AuthBrowserContext[];
+  /**
+   * Fires once when the browser goes away, whoever ended it: the operator closing the window, a
+   * crash, or a browser that exits right after launch. Not fired for a connection this side closes
+   * after `close()`; callers that care compare against their own close.
+   */
+  on(event: 'disconnected', handler: () => void): unknown;
   close(): Promise<void>;
 }
 
@@ -241,6 +247,7 @@ function wrapBrowser(browser: PlaywrightBrowser): AuthBrowser {
         ...(options?.locale !== undefined ? { locale: options.locale } : {}),
       }),
     contexts: () => browser.contexts(),
+    on: (event, handler) => browser.on(event, handler),
     close: () => browser.close(),
   };
 }

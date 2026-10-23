@@ -35,6 +35,7 @@ function launcherOnHostLanguage(hostLanguage: string): BrowserLauncher {
         newContext: (options) =>
           browser.newContext(options?.locale === undefined ? {} : { locale: options.locale }),
         contexts: () => browser.contexts(),
+        on: (event, handler) => browser.on(event, handler),
         close: () => browser.close(),
       };
     },

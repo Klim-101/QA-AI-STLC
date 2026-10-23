@@ -26,6 +26,7 @@ function lendBrowser(browser: AuthBrowser): AuthBrowser {
       return context;
     },
     contexts: () => opened,
+    on: (event, handler) => browser.on(event, handler),
     // The caller believes it owns the browser, so closing it must still release what it opened.
     close: async () => {
       await Promise.all(opened.splice(0).map((context) => context.close()));

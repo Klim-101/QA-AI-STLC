@@ -167,6 +167,7 @@ function createFakeBrowser(): FakeBrowser {
   const browser: AuthBrowser = {
     newContext: () => Promise.resolve(context),
     contexts: () => [context],
+    on: () => undefined,
     close: () => {
       state.closedBrowsers += 1;
       return Promise.resolve();

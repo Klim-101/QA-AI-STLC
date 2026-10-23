@@ -262,4 +262,17 @@ describe('createFakeExploreBrowserLauncher', () => {
 
     expect(await page.evaluate(clickCollapsedControls)).toBe(0);
   });
+
+  it('accepts a disconnect handler on a launched and an attached browser, and never calls it', async () => {
+    const launcher = createFakeExploreBrowserLauncher();
+    let called = 0;
+    const handler = (): void => {
+      called += 1;
+    };
+
+    (await launcher.launch()).on('disconnected', handler);
+    (await launcher.connectOverCdp('http://localhost:9222')).on('disconnected', handler);
+
+    expect(called).toBe(0);
+  });
 });

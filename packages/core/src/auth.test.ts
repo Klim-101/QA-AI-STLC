@@ -167,6 +167,7 @@ describe('loginWithCredentials', () => {
             close: () => Promise.resolve(),
           }),
         contexts: () => [],
+        on: () => undefined,
         close: () => {
           closed = true;
           return Promise.resolve();

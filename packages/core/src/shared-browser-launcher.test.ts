@@ -14,6 +14,7 @@ interface Recorder {
   readonly launcher: BrowserLauncher;
   readonly launches: (LaunchOptions | undefined)[];
   readonly cdpEndpoints: string[];
+  readonly disconnectHandlers: (() => void)[];
   readonly contextCloses: number[];
   browserCloses: number;
 }
@@ -22,6 +23,7 @@ function createRecorder(): Recorder {
   const recorder: Recorder = {
     launches: [],
     cdpEndpoints: [],
+    disconnectHandlers: [],
     contextCloses: [],
     browserCloses: 0,
     launcher: {
@@ -55,6 +57,9 @@ function createRecorder(): Recorder {
         return Promise.resolve(context);
       },
       contexts: () => [],
+      on: (_event, handler) => {
+        recorder.disconnectHandlers.push(handler);
+      },
       close: () => {
         recorder.browserCloses += 1;
         return Promise.resolve();
@@ -140,6 +145,22 @@ describe('createSharedBrowserLauncher', () => {
     await createSharedBrowserLauncher(recorder.launcher).dispose();
 
     expect(recorder.browserCloses).toBe(0);
+  });
+
+  it('reports the real browser going away to every lent browser that asks', async () => {
+    const recorder = createRecorder();
+    const shared = createSharedBrowserLauncher(recorder.launcher);
+    const first = await shared.launch();
+    let notified = 0;
+
+    first.on('disconnected', () => {
+      notified += 1;
+    });
+    for (const handler of recorder.disconnectHandlers) {
+      handler();
+    }
+
+    expect(notified).toBe(1);
   });
 
   it('passes a CDP attach straight through, so the operator browser is never shared or closed', async () => {
