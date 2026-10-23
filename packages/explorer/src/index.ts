@@ -17,6 +17,7 @@ export * from './naming.js';
 export * from './api-diff.js';
 export * from './operations/api-diff.js';
 export * from './operations/explore.js';
+export * from './operations/sync-locator-module.js';
 export * from './page-elements.js';
 export * from './pick-mode.js';
 export * from './profiles/kendo-angular.js';

@@ -43,7 +43,9 @@ detect or announce a stale spec — that stays the hub's/a future `qa-regression
    exact element ids the proven session actually used — fail loudly on one that does not resolve,
    never guess a locator. Pass `environment` (the one the session ran against) when the project
    has more than one: the registry holds every environment's elements and only that one's are offered. Pass the proven session itself as `provenSession`, so it becomes part of
-   `sourceHash` and a later `qa-execute` re-run is detected as drift.
+   `sourceHash` and a later `qa-execute` re-run is detected as drift. The call first brings
+   `tests/qa/locators.ts` in line with the registry, so an element promoted during `qa-execute` is
+   exported without a new `qa explore`.
 
 ## Declared expectations
 

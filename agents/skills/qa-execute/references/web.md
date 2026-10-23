@@ -53,6 +53,11 @@ otherwise removes the element from the page. The tool re-verifies the selector r
 one element on the _current_ page — calling it after navigation throws `EXECUTE_SELECTOR_NOT_UNIQUE`
 or finds the wrong element, not the one just used.
 
+The result's `locator` says whether the element is now exported by `tests/qa/locators.ts`
+(`exported`, with the `exportName` a spec imports) or why it is not (`skipped`: it has no usable
+locator candidate or no name). Note the `exportName` or the reason; a skipped element cannot be used
+by a generated spec, so register it again with a `name` or pick a better target.
+
 An element already registered from a prior exploration or pick-mode session does not need
 re-registering; `qa.registry_execute_register` only adds value for a genuinely ad hoc find. Check
 `.qa/selectors/registry.json` (read directly, no MCP query tool for it) before assuming a target is
