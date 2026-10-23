@@ -301,6 +301,7 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
           return Promise.resolve(context);
         },
         contexts: () => openedContexts,
+        on: () => undefined,
         close: () => {
           closedBrowsers += 1;
           return Promise.resolve();
@@ -320,6 +321,7 @@ export function createFakeCrawlBrowserLauncher(options: FakeCrawlPageOptions = {
       const browser: AuthBrowserLike = {
         newContext: () => Promise.reject(new Error('newContext is not available on an attached browser')),
         contexts: () => [authContext],
+        on: () => undefined,
         close: () => {
           closedBrowsers += 1;
           return Promise.resolve();

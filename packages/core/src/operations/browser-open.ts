@@ -103,6 +103,24 @@ export function resolveBrowserEnvironment(
 // ones it has used for "a headed browser cannot start here".
 const NO_DISPLAY_PATTERN = /X server|\$DISPLAY|headed browser|XServer|no display/i;
 
+// What Playwright says when the browser process is already gone by the time it is used.
+const BROWSER_GONE_PATTERN = /browser has been closed|closed unexpectedly|browser.*exited/i;
+
+function browserExitedDuringOpen(headed: boolean, cause: unknown): QaError {
+  return new QaError(
+    'BROWSER_EXITED_DURING_OPEN',
+    headed
+      ? 'The visible browser window closed right after it was opened.'
+      : 'The browser exited right after it was opened.',
+    {
+      remediation: headed
+        ? 'Run the MCP server from an interactive desktop session, or open the session without "headed". If it keeps happening, start the server with DEBUG=pw:browser set and keep the browser output.'
+        : 'Run "qa doctor" to check the browser installation, then open the session again.',
+      cause,
+    },
+  );
+}
+
 async function launchSessionBrowser(context: BrowserOperationContext, headed: boolean): Promise<AuthBrowser> {
   if (!headed) {
     return context.engine.browserLauncher.launch();
@@ -110,6 +128,8 @@ async function launchSessionBrowser(context: BrowserOperationContext, headed: bo
   try {
     return await context.engine.browserLauncher.launch({ headless: false });
   } catch (error) {
+    // Checked first: on a machine without a display Playwright words the failure as a closed browser
+    // too, with the missing display only in its logs.
     if (error instanceof Error && NO_DISPLAY_PATTERN.test(error.message)) {
       throw new QaError(
         'BROWSER_HEADED_UNAVAILABLE',
@@ -120,6 +140,9 @@ async function launchSessionBrowser(context: BrowserOperationContext, headed: bo
           cause: error,
         },
       );
+    }
+    if (error instanceof Error && BROWSER_GONE_PATTERN.test(error.message)) {
+      throw browserExitedDuringOpen(true, error);
     }
     throw error;
   }
@@ -185,6 +208,11 @@ export async function runBrowserOpen(
 
   const headed = options.headed ?? environment.config.headed ?? false;
   const browser = await launchSessionBrowser(context, headed);
+  // An object, not a `let`: the flag is set from a callback, which control-flow analysis cannot see.
+  const browserState = { exitedOnItsOwn: false };
+  browser.on('disconnected', () => {
+    browserState.exitedOnItsOwn = true;
+  });
   const storageState = await signIn(context, config, environment.config, options);
   const blockedRequests: BlockedRequest[] = [];
   const observedRequestHeaders = new Map<string, string>();
@@ -221,8 +249,10 @@ export async function runBrowserOpen(
     });
     watchSessionPages(context, session);
   } catch (error) {
+    // Read before closing: closing the browser ourselves also disconnects it.
+    const exitedOnItsOwn = browserState.exitedOnItsOwn;
     await browser.close();
-    throw error;
+    throw exitedOnItsOwn ? browserExitedDuringOpen(headed, error) : error;
   }
 
   let evidence: Evidence;
@@ -237,8 +267,9 @@ export async function runBrowserOpen(
   } catch (error) {
     // A session whose own opening could not be registered would be a browser an agent drives
     // without an evidence trail, which ADR-005 does not allow to exist at all.
+    const exitedOnItsOwn = browserState.exitedOnItsOwn;
     await context.sessions.close(session.sessionId);
-    throw error;
+    throw exitedOnItsOwn ? browserExitedDuringOpen(headed, error) : error;
   }
 
   return {

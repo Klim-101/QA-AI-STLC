@@ -145,6 +145,7 @@ export interface NewContextOptionsLike {
 export interface AuthBrowserLike {
   newContext(options?: NewContextOptionsLike): Promise<AuthBrowserContextLike>;
   contexts(): readonly AuthBrowserContextLike[];
+  on(event: 'disconnected', handler: () => void): unknown;
   close(): Promise<void>;
 }
 
@@ -273,6 +274,8 @@ export interface FakeBrowserLauncher extends BrowserLauncherLike {
   failClosingWith(reason: unknown): void;
   /** Makes `page.waitForLoadState()` of every page reject with `reason`. */
   failLoadStateWith(reason: unknown): void;
+  /** Makes every browser launched or attached so far report that it went away, as when its window is closed. */
+  disconnectBrowsers(): void;
   readonly closedBrowsers: number;
   readonly newContextCalls: NewContextOptionsLike[];
 }
@@ -458,6 +461,7 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
   const pageCalls: FakePageCall[] = [];
   const newContextCalls: NewContextOptionsLike[] = [];
   let closedBrowsers = 0;
+  const disconnectHandlers: (() => void)[] = [];
   const storageState = options.storageState ?? EMPTY_STORAGE_STATE;
   const dialogOutcomes: FakeDialogOutcome[] = [];
   const handles: FakePageHandle[] = [];
@@ -546,6 +550,11 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
       }
       return page;
     },
+    disconnectBrowsers: () => {
+      for (const handler of disconnectHandlers) {
+        handler();
+      }
+    },
     get closedBrowsers() {
       return closedBrowsers;
     },
@@ -569,6 +578,9 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
           return Promise.resolve(context);
         },
         contexts: () => [context],
+        on: (_event, handler) => {
+          disconnectHandlers.push(handler);
+        },
         close: () => {
           closedBrowsers += 1;
           return Promise.resolve();
@@ -581,6 +593,9 @@ export function createFakeBrowserLauncher(options: FakeBrowserLauncherOptions = 
         newContext: () =>
           Promise.reject(new Error('newContext is not available on an attached browser in this fake')),
         contexts: () => options.contexts ?? [],
+        on: (_event, handler) => {
+          disconnectHandlers.push(handler);
+        },
         close: () => {
           closedBrowsers += 1;
           return Promise.resolve();

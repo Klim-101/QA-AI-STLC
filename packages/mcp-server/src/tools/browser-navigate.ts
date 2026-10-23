@@ -40,7 +40,7 @@ export function createBrowserNavigateTool(
     description:
       'Navigates an open browser session to a URL and records the navigation as evidence. ' +
       'Fails with BROWSER_URL_NOT_ALLOWED when the host is not on the session allowlist, and ' +
-      'with BROWSER_SESSION_NOT_FOUND or BROWSER_SESSION_EXPIRED when the session is gone. ' +
+      'with BROWSER_SESSION_NOT_FOUND, BROWSER_SESSION_EXPIRED or BROWSER_SESSION_LOST when the session is gone. ' +
       'Returns where the page actually landed, which a redirect can change.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,

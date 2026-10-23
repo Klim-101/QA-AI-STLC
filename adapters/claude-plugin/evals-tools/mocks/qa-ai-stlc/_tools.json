@@ -32,7 +32,7 @@
             ]
           },
           "headed": {
-            "description": "Opens a visible browser window so the operator can watch the session or sign in by hand. Defaults to the \"headed\" setting of the environment, then to false (headless). Safe mode, the allowlist and evidence registration are unchanged. Fails with BROWSER_HEADED_UNAVAILABLE on a machine without a display.",
+            "description": "Opens a visible browser window so the operator can watch the session or sign in by hand. Defaults to the \"headed\" setting of the environment, then to false (headless). Safe mode, the allowlist and evidence registration are unchanged. Fails with BROWSER_HEADED_UNAVAILABLE on a machine without a display, and with BROWSER_EXITED_DURING_OPEN when the browser is gone right after it launched. A window closed later ends the session: its next call fails with BROWSER_SESSION_LOST.",
             "type": "boolean"
           }
         },
@@ -94,7 +94,7 @@
     },
     {
       "name": "qa.browser_navigate",
-      "description": "Navigates an open browser session to a URL and records the navigation as evidence. Fails with BROWSER_URL_NOT_ALLOWED when the host is not on the session allowlist, and with BROWSER_SESSION_NOT_FOUND or BROWSER_SESSION_EXPIRED when the session is gone. Returns where the page actually landed, which a redirect can change.",
+      "description": "Navigates an open browser session to a URL and records the navigation as evidence. Fails with BROWSER_URL_NOT_ALLOWED when the host is not on the session allowlist, and with BROWSER_SESSION_NOT_FOUND, BROWSER_SESSION_EXPIRED or BROWSER_SESSION_LOST when the session is gone. Returns where the page actually landed, which a redirect can change.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",

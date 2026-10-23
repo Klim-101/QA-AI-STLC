@@ -462,4 +462,17 @@ describe('createFakeBrowserLauncher', () => {
 
     expect(launcher.closedPages).toEqual([page]);
   });
+
+  it('tells every launched and attached browser that asked when disconnectBrowsers() is called', async () => {
+    const launcher = createFakeBrowserLauncher();
+    const notified: string[] = [];
+
+    (await launcher.launch()).on('disconnected', () => notified.push('launched'));
+    (await launcher.connectOverCdp('http://localhost:9222')).on('disconnected', () =>
+      notified.push('attached'),
+    );
+    launcher.disconnectBrowsers();
+
+    expect(notified).toEqual(['launched', 'attached']);
+  });
 });

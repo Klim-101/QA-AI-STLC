@@ -14,6 +14,7 @@ interface FakeBrowserParts {
   readonly context: AuthBrowserContext;
   readonly page: AuthPage;
   readonly closed: string[];
+  readonly launcher: ReturnType<typeof createFakeBrowserLauncher>;
 }
 
 async function fakeBrowserParts(
@@ -38,7 +39,7 @@ async function fakeBrowserParts(
       return Promise.resolve();
     },
   };
-  return { browser, context, page, closed };
+  return { browser, context, page, closed, launcher };
 }
 
 function movableClock(start = new Date('2026-09-21T10:00:00.000Z')): Clock & { advance(ms: number): void } {
@@ -139,6 +140,37 @@ describe('BrowserSessionStore', () => {
     await expect(store.get('session-missing')).rejects.toMatchObject({
       code: 'BROWSER_SESSION_NOT_FOUND',
     });
+  });
+
+  it('reports a session whose browser went away as lost, not as unknown', async () => {
+    const { store, session, parts } = await storeWithSession();
+
+    parts.launcher.disconnectBrowsers();
+
+    expect(store.sessionIds).toEqual([]);
+    await expect(store.get(session.sessionId)).rejects.toMatchObject({
+      code: 'BROWSER_SESSION_LOST',
+      remediation: expect.stringContaining('interactive desktop session') as string,
+    });
+    await expect(store.close(session.sessionId)).resolves.toBeUndefined();
+  });
+
+  it('still reports an unknown id as unknown once another session was lost', async () => {
+    const { store, parts } = await storeWithSession();
+    parts.launcher.disconnectBrowsers();
+
+    await expect(store.get('session-never-opened')).rejects.toMatchObject({
+      code: 'BROWSER_SESSION_NOT_FOUND',
+    });
+  });
+
+  it('does not call a session lost when the store closed it itself', async () => {
+    const { store, session, parts } = await storeWithSession();
+
+    await store.close(session.sessionId);
+    parts.launcher.disconnectBrowsers();
+
+    await expect(store.get(session.sessionId)).rejects.toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
   });
 
   it('closes and rejects a session that sat idle past the timeout', async () => {
