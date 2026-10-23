@@ -56,6 +56,9 @@ to skip under time pressure:
   engine only checks that some successful check exists, and `passed` rests on the executor's
   judgement of the text
   ([ADR-0016](../../../docs/adr/0016-structured-case-expectations-judged-by-the-engine.md)).
+- **An `api` case needs `endpoints`.** Fill it with the `{ method, path }` of each operation the case
+  calls, taken from the API contract (`qa-api`). `qa.cases_add` refuses an `api` case without it
+  (`CASE_API_ENDPOINTS_REQUIRED`), and adding it after approval would reopen the cases gate.
 - **`testDataRefs` before inlining.** If a value repeats across steps or cases (a test card number,
   a seeded username), write it once as a `TestDataSchema` set (`qa.test_data_add`) and reference it
   by id, instead of copying the literal value into every case. `qa-explore-data`

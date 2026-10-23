@@ -77,6 +77,19 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
     );
   }
 
+  // Spec generation refuses an api case without endpoints (API_CASE_INVALID); catching it here
+  // keeps the fix from editing an already approved case and reopening the cases gate.
+  if (testCase.testType === 'api' && testCase.endpoints === undefined) {
+    throw new QaError(
+      'CASE_API_ENDPOINTS_REQUIRED',
+      `Case "${testCase.id}" is an api case but lists no "endpoints"`,
+      {
+        remediation:
+          'Add "endpoints" ({ method, path } for each operation the case calls, taken from the API contract) and re-run "qa cases add".',
+      },
+    );
+  }
+
   const manifestStore = new ManifestStore({ store, clock: context.clock });
   const scope = await loadScope(manifestStore);
   const unlinked = findUnlinkedRequirementIds(testCase.requirementIds, scope);
