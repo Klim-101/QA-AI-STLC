@@ -232,6 +232,7 @@ A typical path after exploring:
 
 ```sh
 npx qa scope --from file --path requirements.md      # requirements, one "## Heading" each
+npx qa scope set out-of-scope <requirement-id>       # optional: drop a requirement from the scope
 npx qa cases add --path cases/login.json             # a case linked to a real requirement
 npx qa approve scope --artifact artifacts/scope.json --approved-by <your name>
 npx qa validate                                      # recomputes every gate from the ledger

@@ -75,6 +75,24 @@ function fakeStore(files: Readonly<Record<string, string>> = {}): QaStore {
 }
 
 describe('buildTraceabilityMatrix', () => {
+  it('leaves a requirement the operator took out of scope out of the matrix', async () => {
+    const scope = JSON.parse(scopeJson()) as { requirements: { id: string; inScope: boolean }[] };
+    const [, second] = scope.requirements;
+    if (second !== undefined) {
+      second.inScope = false;
+    }
+    const store = fakeStore({
+      [join(QA_DIR, 'artifacts', 'scope.json')]: JSON.stringify(scope),
+      [join(QA_DIR, 'artifacts', 'cases', 'auth', 'case-1.json')]: caseJson({
+        id: 'case-1',
+        requirementIds: ['req-1', 'req-2'],
+      }),
+    });
+
+    const matrix = await buildTraceabilityMatrix(store, CLOCK, FLAKY_CONFIG);
+
+    expect(matrix.requirements.map((requirement) => requirement.requirementId)).toEqual(['req-1']);
+  });
   it('links each requirement to the cases that cite it, with no case for an uncited requirement', async () => {
     const store = fakeStore({
       [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),

@@ -20,7 +20,11 @@ layer introduces; `--explain` also names the source layer (committed, local or a
 of every value. `qa scope --from file --path <path>`
 or `qa scope --from text --content <text> --label <label>` extracts requirements (one per
 level-2 Markdown heading) into `artifacts/scope.json`, upserting by requirement id on a repeated
-call. `qa cases add --path <path>` validates a test case written as JSON — it must link to at
+call and keeping any in-scope decision already made; a requirement whose heading left the source is
+reported as no longer in the source but still in scope. `qa scope set <in-scope|out-of-scope>
+<requirement-id>...` takes requirements out of scope or puts them back; an out-of-scope requirement
+stays in the file but is left out of coverage and the traceability matrix, and changing it reopens
+an approved `scope` gate. `qa cases add --path <path>` validates a test case written as JSON — it must link to at
 least one requirement, and every linked id must actually exist in `artifacts/scope.json` — and
 registers it under `artifacts/cases/<id>.json`. `qa cases render <id>` renders a registered test
 case as a numbered Markdown document (metadata, preconditions, steps, expected result), so it can

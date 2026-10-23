@@ -75,6 +75,7 @@ export * from './operations/config-add.js';
 export * from './operations/config-add-api-auth.js';
 export * from './config-template.js';
 export * from './operations/scope.js';
+export * from './operations/scope-set.js';
 export * from './operations/cases-add.js';
 export * from './operations/cases-render.js';
 export * from './render/markdown-registry.js';

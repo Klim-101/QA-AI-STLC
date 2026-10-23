@@ -16,7 +16,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { assertRelativePath, resolveRelativePath } from '../paths.js';
 import { QaStore } from '../qa-store.js';
 import { extractRequirements } from '../requirement-extraction.js';
-import { mergeRequirements } from '../scope-merge.js';
+import { findOrphanedRequirementIds, mergeRequirements } from '../scope-merge.js';
 import { findUndecidedTestingTypes } from '../testing-scope.js';
 
 const SCOPE_PATH: RelativePath = 'artifacts/scope.json';
@@ -33,14 +33,20 @@ export interface ScopeResult {
   readonly added: number;
   readonly updated: number;
   readonly total: number;
+  /**
+   * Requirements still in scope whose section is no longer in the source this call read; take them
+   * out with `qa scope set` (or restore the section), or they stay in the scope to be approved.
+   */
+  readonly orphaned: readonly string[];
 }
 
 /**
  * `qa scope` / MCP `qa_scope` (development plan section 2.4, 2.7 step 4; P2-05): deterministically
  * extracts requirements from a local source — the framework never fetches requirements from a
  * tracker (AGENTS.md 2.4) — and upserts them into `artifacts/scope.json` by id, so a repeated call
- * updates rather than duplicates. The scope gate itself (`qa approve scope`, P2-01) is a separate,
- * later step.
+ * updates rather than duplicates, keeping the operator's `inScope` decision. A requirement whose
+ * section left the source is reported as `orphaned`, not dropped. The scope gate itself
+ * (`qa approve scope`, P2-01) is a separate, later step.
  */
 export async function runScope(context: EngineContext, options: ScopeOptions): Promise<ScopeResult> {
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
@@ -78,6 +84,7 @@ export async function runScope(context: EngineContext, options: ScopeOptions): P
     added: merge.added,
     updated: merge.updated,
     total: scope.requirements.length,
+    orphaned: findOrphanedRequirementIds(existing.requirements, incoming, source),
   };
 }
 

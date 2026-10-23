@@ -67,6 +67,7 @@ import { securityAuthorizeTool } from './security-authorize.js';
 import { runTool } from './run.js';
 import { runMetricsTool } from './run-metrics.js';
 import { scopeTool } from './scope.js';
+import { scopeSetTool } from './scope-set.js';
 import { specCheckTool } from './spec-check.js';
 import { testDataAddTool } from './test-data-add.js';
 import { statusTool } from './status.js';
@@ -85,6 +86,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   exploreTool,
   apiDiffTool,
   scopeTool,
+  scopeSetTool,
   casesAddTool,
   casesRenderTool,
   testDataAddTool,

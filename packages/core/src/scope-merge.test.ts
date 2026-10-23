@@ -3,7 +3,7 @@
 
 import type { Requirement } from '@qa-ai-stlc/schemas';
 import { describe, expect, it } from 'vitest';
-import { mergeRequirements } from './scope-merge.js';
+import { findOrphanedRequirementIds, mergeRequirements } from './scope-merge.js';
 
 const SOURCE = { kind: 'file' as const, path: 'docs/requirements.md' };
 
@@ -51,5 +51,59 @@ describe('mergeRequirements', () => {
 
   it('returns an empty result for two empty inputs', () => {
     expect(mergeRequirements([], [])).toEqual({ requirements: [], added: 0, updated: 0 });
+  });
+});
+
+describe('mergeRequirements and the operator scope decision', () => {
+  it('keeps an out-of-scope decision when the same requirement is extracted again', () => {
+    const existing = [requirement({ id: 'r1', title: 'Old', inScope: false })];
+    const incoming = [requirement({ id: 'r1', title: 'New', inScope: true })];
+
+    const result = mergeRequirements(existing, incoming);
+
+    expect(result.requirements).toEqual([requirement({ id: 'r1', title: 'New', inScope: false })]);
+  });
+});
+
+describe('findOrphanedRequirementIds', () => {
+  const textSource = { kind: 'text' as const, label: 'operator input' };
+
+  it('reports a requirement of this source whose section is gone, in existing order', () => {
+    const existing = [requirement({ id: 'r1' }), requirement({ id: 'r2' }), requirement({ id: 'r3' })];
+
+    expect(findOrphanedRequirementIds(existing, [requirement({ id: 'r2' })], SOURCE)).toEqual(['r1', 'r3']);
+  });
+
+  it('reports nothing when every requirement is still extracted', () => {
+    expect(findOrphanedRequirementIds([requirement()], [requirement()], SOURCE)).toEqual([]);
+  });
+
+  it('does not report a requirement already taken out of scope', () => {
+    const existing = [requirement({ id: 'r1', inScope: false })];
+
+    expect(findOrphanedRequirementIds(existing, [], SOURCE)).toEqual([]);
+  });
+
+  it('does not judge a requirement of another file by this file', () => {
+    const existing = [requirement({ id: 'r1', source: { kind: 'file', path: 'docs/other.md' } })];
+
+    expect(findOrphanedRequirementIds(existing, [], SOURCE)).toEqual([]);
+  });
+
+  it('does not judge a text requirement by a file, nor a file requirement by text', () => {
+    const fromText = requirement({ id: 'r1', source: textSource });
+    const fromFile = requirement({ id: 'r2' });
+
+    expect(findOrphanedRequirementIds([fromText], [], SOURCE)).toEqual([]);
+    expect(findOrphanedRequirementIds([fromFile], [], textSource)).toEqual([]);
+  });
+
+  it('matches a text source by its label', () => {
+    const existing = [
+      requirement({ id: 'r1', source: textSource }),
+      requirement({ id: 'r2', source: { kind: 'text', label: 'another label' } }),
+    ];
+
+    expect(findOrphanedRequirementIds(existing, [], textSource)).toEqual(['r1']);
   });
 });

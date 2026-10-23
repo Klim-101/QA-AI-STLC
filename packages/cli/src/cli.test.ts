@@ -1468,6 +1468,92 @@ describe('runCli', () => {
     expect(stderr.join('\n')).toContain('requirements.md');
   });
 
+  it('warns about a requirement whose section left the file but is still in scope', async () => {
+    const fs = createFakeFileSystem({
+      [CONFIG_PATH]: CONFIG_YAML,
+      [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n\n## Signup\nbody\n',
+    });
+    await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], dependencies({ fs }));
+    await fs.writeFile(join(PROJECT_ROOT, 'requirements.md'), '## Login\nbody\n');
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(deps.stdout.join('\n')).toContain('No longer in the source but still in scope: signup.');
+  });
+
+  it('runs "scope set out-of-scope" and says the approved gate reopens', async () => {
+    const fs = createFakeFileSystem({
+      [CONFIG_PATH]: CONFIG_YAML,
+      [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n\n## Signup\nbody\n',
+    });
+    await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], dependencies({ fs }));
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['scope', 'set', 'out-of-scope', 'signup'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    const output = deps.stdout.join('\n');
+    expect(output).toContain('Moved 1 requirement(s) in artifacts/scope.json: 1 in scope, 1 out of scope.');
+    expect(output).toContain('approve the scope again');
+  });
+
+  it('runs "scope set in-scope --json" for a requirement that is already in scope', async () => {
+    const fs = createFakeFileSystem({
+      [CONFIG_PATH]: CONFIG_YAML,
+      [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n',
+    });
+    await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], dependencies({ fs }));
+    const deps = dependencies({ fs });
+
+    const exitCode = await runCli(['scope', 'set', 'in-scope', 'login', '--json'], deps);
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(JSON.parse(deps.stdout[0] ?? '')).toMatchObject({
+      command: 'scope-set',
+      data: { changed: 0, inScopeCount: 1, outOfScopeCount: 0 },
+    });
+  });
+
+  it('prints no gate note for a human "scope set" that moved nothing', async () => {
+    const fs = createFakeFileSystem({
+      [CONFIG_PATH]: CONFIG_YAML,
+      [join(PROJECT_ROOT, 'requirements.md')]: '## Login\nbody\n',
+    });
+    await runCli(['scope', '--from', 'file', '--path', 'requirements.md'], dependencies({ fs }));
+    const deps = dependencies({ fs });
+
+    await runCli(['scope', 'set', 'in-scope', 'login'], deps);
+
+    expect(deps.stdout.join('\n')).not.toContain('approve the scope again');
+  });
+
+  it.each([[['scope', 'set']], [['scope', 'set', 'out-of-scope']], [['scope', 'set', 'maybe', 'login']]])(
+    'reports a coded error for the incomplete command "%j"',
+    async (args) => {
+      const deps = dependencies();
+
+      const exitCode = await runCli(args, deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('Usage: qa scope set');
+    },
+  );
+
+  it('defaults the project root to the current working directory for "scope set"', async () => {
+    const { io, stderr } = captureIO();
+
+    const exitCode = await runCli(['scope', 'set', 'out-of-scope', 'login'], {
+      io,
+      fs: createFakeFileSystem({ [join(process.cwd(), '.qa', 'config.yaml')]: CONFIG_YAML }),
+      env: {},
+    });
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(stderr.join('\n')).toContain('no scope artifact');
+  });
+
   it('runs "approve" and prints a human-readable confirmation', async () => {
     const deps = dependencies({
       fs: createFakeFileSystem({

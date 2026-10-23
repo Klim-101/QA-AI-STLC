@@ -18,6 +18,7 @@ import {
   runRcaApprove,
   runReport,
   runScope,
+  runScopeSet,
   runTestDataAdd,
   runRegressionPlan,
   runReviewAdd,
@@ -43,6 +44,7 @@ import {
   type ReportResult,
   type RequestSummary,
   type ScopeResult,
+  type ScopeSetResult,
   BLOCKED_REQUEST_REASONS,
   SAFE_HTTP_METHODS,
   type BlockedRequestReason,
@@ -107,6 +109,7 @@ Commands:
   config add    Add an environment, identity or API auth profile: "config add environment <name> ...", "config add identity <name> ..." or "config add api-auth <name> --profile <json>"
   config show   Print the effective configuration and its relaxations: "config show [--explain]" also names the source layer of every value
   scope         Extract requirements into the scope artifact: "scope --from file --path <path>" or "scope --from text --content <text> --label <label>"
+  scope set     Take requirements out of scope or put them back: "scope set <in-scope|out-of-scope> <requirement-id>..."
   cases add     Validate and register a test case: "cases add --path <path>"
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
@@ -680,6 +683,9 @@ async function dispatchApiDiff(rest: readonly string[], dependencies: RunCliDepe
 }
 
 async function dispatchScope(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  if (rest[0] === 'set') {
+    return await dispatchScopeSet(rest.slice(1), dependencies);
+  }
   const values = parseCommandArgs(rest, {
     json: { type: 'boolean', default: false },
     from: { type: 'string' },
@@ -707,6 +713,30 @@ async function dispatchScope(rest: readonly string[], dependencies: RunCliDepend
     ...(typeof values.label === 'string' ? { label: values.label } : {}),
   });
   printResult(context.io, json, 'scope', result, formatScopeResult(result));
+  return EXIT_SUCCESS;
+}
+
+async function dispatchScopeSet(rest: readonly string[], dependencies: RunCliDependencies): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: [...rest],
+    options: { json: { type: 'boolean', default: false } },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [decision, ...requirementIds] = positionals;
+  if ((decision !== 'in-scope' && decision !== 'out-of-scope') || requirementIds.length === 0) {
+    throw new QaError('SCOPE_SET_USAGE', 'Usage: qa scope set <in-scope|out-of-scope> <requirement-id>...', {
+      remediation: 'Example: qa scope set out-of-scope login-with-sso password-reset',
+    });
+  }
+  const json = values.json;
+  const context = createCommandContext({
+    ...dependencies,
+    projectRoot: dependencies.projectRoot ?? process.cwd(),
+    json,
+  });
+  const result = await runScopeSet(context, { requirementIds, inScope: decision === 'in-scope' });
+  printResult(context.io, json, 'scope-set', result, formatScopeSetResult(result));
   return EXIT_SUCCESS;
 }
 
@@ -1553,6 +1583,18 @@ function formatApiDiffSummary(summary: ApiDiffSummary): readonly string[] {
 function formatScopeResult(result: ScopeResult): readonly string[] {
   return [
     `Wrote ${result.scopePath}: ${String(result.total)} requirement(s) (${String(result.added)} added, ${String(result.updated)} updated).`,
+    ...(result.orphaned.length === 0
+      ? []
+      : [
+          `No longer in the source but still in scope: ${result.orphaned.join(', ')}. Take them out with "qa scope set out-of-scope <id>..." or restore their sections.`,
+        ]),
+  ];
+}
+
+function formatScopeSetResult(result: ScopeSetResult): readonly string[] {
+  return [
+    `Moved ${String(result.changed)} requirement(s) in ${result.scopePath}: ${String(result.inScopeCount)} in scope, ${String(result.outOfScopeCount)} out of scope.`,
+    ...(result.changed === 0 ? [] : ['An approved scope gate reopens: approve the scope again.']),
   ];
 }
 
