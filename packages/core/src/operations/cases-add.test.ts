@@ -17,12 +17,19 @@ import { runCasesAdd } from './cases-add.js';
 const PROJECT_ROOT = join('project');
 const QA_DIR = join(PROJECT_ROOT, '.qa');
 
-function testCaseJson(overrides: { id?: string; feature?: string; requirementIds: string[] }): string {
+function testCaseJson(overrides: {
+  id?: string;
+  feature?: string;
+  requirementIds: string[];
+  testType?: 'e2e' | 'api';
+  endpoints?: readonly { method: string; path: string }[];
+}): string {
   return JSON.stringify({
     id: overrides.id ?? 'case-1',
     feature: overrides.feature ?? 'checkout',
     requirementIds: overrides.requirementIds,
-    testType: 'e2e',
+    testType: overrides.testType ?? 'e2e',
+    ...(overrides.endpoints === undefined ? {} : { endpoints: overrides.endpoints }),
     title: 'A case',
     steps: [{ description: 'Do something' }],
     expectedResult: 'Something happens',
@@ -272,5 +279,45 @@ describe('runCasesAdd', () => {
 
     expect(error).toBeInstanceOf(QaError);
     expect((error as QaError).code).toBe('CASE_TYPE_OUT_OF_SCOPE');
+  });
+
+  describe('api cases', () => {
+    const apiConfigYaml = CONFIG_YAML.replace('api: out-of-scope', 'api: in-scope').replace(
+      'environments: {}',
+      'api: { contract: openapi, source: discover }\nenvironments: {}',
+    );
+
+    function apiContext(caseJson: string): ReturnType<typeof fakeContext> {
+      return fakeContext({
+        [join(QA_DIR, 'config.yaml')]: apiConfigYaml,
+        [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+        [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
+        [join(PROJECT_ROOT, 'cases', 'api.json')]: caseJson,
+      });
+    }
+
+    it('rejects an api case without endpoints, naming the remediation', async () => {
+      const context = apiContext(testCaseJson({ requirementIds: ['r1'], testType: 'api' }));
+
+      const error = await runCasesAdd(context, { path: 'cases/api.json' }).catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(QaError);
+      expect((error as QaError).code).toBe('CASE_API_ENDPOINTS_REQUIRED');
+      expect((error as QaError).remediation).toContain('endpoints');
+    });
+
+    it('registers an api case that lists its endpoints', async () => {
+      const context = apiContext(
+        testCaseJson({
+          requirementIds: ['r1'],
+          testType: 'api',
+          endpoints: [{ method: 'GET', path: '/api/items' }],
+        }),
+      );
+
+      const result = await runCasesAdd(context, { path: 'cases/api.json' });
+
+      expect(result.id).toBe('case-1');
+    });
   });
 });
