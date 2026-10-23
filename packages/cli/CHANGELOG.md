@@ -1,5 +1,28 @@
 # @qa-ai-stlc/cli
 
+## 1.14.0
+
+### Minor Changes
+
+- 1d566ab: Let the operator take a requirement out of scope. `qa scope set <in-scope|out-of-scope> <requirement-id>...` and the `qa.scope_set` tool move requirements in or out of `artifacts/scope.json`; the scope gate's hash covers the change, so an approved gate reopens. Out-of-scope requirements are left out of the traceability matrix and its coverage counts. `qa scope` no longer resets a requirement's scope decision when it reads the source again, and it reports requirements whose section left the source but that are still in scope as `orphaned`. The `qa-start`, `qa-design-cases` and scope-phase guidance describe the new step.
+
+### Patch Changes
+
+- Updated dependencies [1d566ab]
+- Updated dependencies [7e5b155]
+- Updated dependencies [256380c]
+- Updated dependencies [caf298b]
+- Updated dependencies [14cadbb]
+- Updated dependencies [3026937]
+- Updated dependencies [1c125bd]
+  - @qa-ai-stlc/core@1.14.0
+  - @qa-ai-stlc/schemas@1.14.0
+  - @qa-ai-stlc/explorer@1.14.0
+  - @qa-ai-stlc/runner-a11y@1.14.0
+  - @qa-ai-stlc/runner-api@1.14.0
+  - @qa-ai-stlc/runner-playwright@1.14.0
+  - @qa-ai-stlc/runner-security@1.14.0
+
 ## 1.13.0
 
 ### Minor Changes
