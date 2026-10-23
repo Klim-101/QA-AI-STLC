@@ -1,5 +1,31 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.14.0
+
+### Minor Changes
+
+- 1d566ab: Let the operator take a requirement out of scope. `qa scope set <in-scope|out-of-scope> <requirement-id>...` and the `qa.scope_set` tool move requirements in or out of `artifacts/scope.json`; the scope gate's hash covers the change, so an approved gate reopens. Out-of-scope requirements are left out of the traceability matrix and its coverage counts. `qa scope` no longer resets a requirement's scope decision when it reads the source again, and it reports requirements whose section left the source but that are still in scope as `orphaned`. The `qa-start`, `qa-design-cases` and scope-phase guidance describe the new step.
+
+### Patch Changes
+
+- 256380c: Refuse an evidence `stepId` that is not `step-<N>` when a browser or HTTP tool is called, and leave such ids out when a case's proven session is read back, instead of failing the whole session. `qa-execute` now says to link the expected-result checks to the case's last step.
+- 14cadbb: Say what happened when a browser session's browser goes away. A browser that exits right after `qa.browser_open` launched it now fails with `BROWSER_EXITED_DURING_OPEN` and a remediation, instead of a raw "Target page, context or browser has been closed". A session whose window is closed later (by the operator or a crash) is reported as `BROWSER_SESSION_LOST` on its next call, instead of as an unknown id. `qa-execute` tells the agent to say so and ask before carrying on headless.
+- 1c125bd: Export an element promoted during an interactive session from `tests/qa/locators.ts` without a new crawl: `qa.registry_execute_register` now regenerates the locator module and reports the element's `locator` (the export name, or why it is skipped), and `qa.generation_spoke_input` brings the module in line with the registry before reading it. `qa-execute` and `qa-generate-tests` guidance updated.
+- Updated dependencies [1d566ab]
+- Updated dependencies [7e5b155]
+- Updated dependencies [256380c]
+- Updated dependencies [caf298b]
+- Updated dependencies [14cadbb]
+- Updated dependencies [3026937]
+- Updated dependencies [1c125bd]
+  - @qa-ai-stlc/core@1.14.0
+  - @qa-ai-stlc/schemas@1.14.0
+  - @qa-ai-stlc/explorer@1.14.0
+  - @qa-ai-stlc/runner-a11y@1.14.0
+  - @qa-ai-stlc/runner-api@1.14.0
+  - @qa-ai-stlc/runner-playwright@1.14.0
+  - @qa-ai-stlc/runner-security@1.14.0
+
 ## 1.13.0
 
 ### Minor Changes

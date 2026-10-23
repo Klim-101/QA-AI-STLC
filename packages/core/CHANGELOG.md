@@ -1,5 +1,21 @@
 # @qa-ai-stlc/core
 
+## 1.14.0
+
+### Minor Changes
+
+- 1d566ab: Let the operator take a requirement out of scope. `qa scope set <in-scope|out-of-scope> <requirement-id>...` and the `qa.scope_set` tool move requirements in or out of `artifacts/scope.json`; the scope gate's hash covers the change, so an approved gate reopens. Out-of-scope requirements are left out of the traceability matrix and its coverage counts. `qa scope` no longer resets a requirement's scope decision when it reads the source again, and it reports requirements whose section left the source but that are still in scope as `orphaned`. The `qa-start`, `qa-design-cases` and scope-phase guidance describe the new step.
+
+### Patch Changes
+
+- 7e5b155: Refuse an `api` case without `endpoints` when it is added (`CASE_API_ENDPOINTS_REQUIRED`), instead of failing later at spec generation and reopening the cases gate. `qa-design-cases` now says to fill `endpoints` from the contract.
+- 256380c: Refuse an evidence `stepId` that is not `step-<N>` when a browser or HTTP tool is called, and leave such ids out when a case's proven session is read back, instead of failing the whole session. `qa-execute` now says to link the expected-result checks to the case's last step.
+- caf298b: Make `qa explore` and `qa explore --verify` faster: the sign-in, crawl, page analysis and scoring steps of one run now share a single Chromium instead of starting one each, and the stability check counts candidates in small concurrent batches instead of one at a time. Every step still opens browser contexts of its own, so sessions stay isolated. `@qa-ai-stlc/core` exports `createSharedBrowserLauncher`.
+- 14cadbb: Say what happened when a browser session's browser goes away. A browser that exits right after `qa.browser_open` launched it now fails with `BROWSER_EXITED_DURING_OPEN` and a remediation, instead of a raw "Target page, context or browser has been closed". A session whose window is closed later (by the operator or a crash) is reported as `BROWSER_SESSION_LOST` on its next call, instead of as an unknown id. `qa-execute` tells the agent to say so and ask before carrying on headless.
+- 3026937: Let an api case that expects an error status be registered as `passed` when the `http-status` is declared in `resultExpectations`: a request that returned exactly that status now proves the step that made it. `qa-execute` no longer says such a case cannot be `passed`.
+- Updated dependencies [256380c]
+  - @qa-ai-stlc/schemas@1.14.0
+
 ## 1.13.0
 
 ### Minor Changes

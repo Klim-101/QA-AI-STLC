@@ -1,5 +1,20 @@
 # @qa-ai-stlc/explorer
 
+## 1.14.0
+
+### Patch Changes
+
+- caf298b: Make `qa explore` and `qa explore --verify` faster: the sign-in, crawl, page analysis and scoring steps of one run now share a single Chromium instead of starting one each, and the stability check counts candidates in small concurrent batches instead of one at a time. Every step still opens browser contexts of its own, so sessions stay isolated. `@qa-ai-stlc/core` exports `createSharedBrowserLauncher`.
+- 1c125bd: Export an element promoted during an interactive session from `tests/qa/locators.ts` without a new crawl: `qa.registry_execute_register` now regenerates the locator module and reports the element's `locator` (the export name, or why it is skipped), and `qa.generation_spoke_input` brings the module in line with the registry before reading it. `qa-execute` and `qa-generate-tests` guidance updated.
+- Updated dependencies [1d566ab]
+- Updated dependencies [7e5b155]
+- Updated dependencies [256380c]
+- Updated dependencies [caf298b]
+- Updated dependencies [14cadbb]
+- Updated dependencies [3026937]
+  - @qa-ai-stlc/core@1.14.0
+  - @qa-ai-stlc/schemas@1.14.0
+
 ## 1.13.0
 
 ### Minor Changes
