@@ -7,6 +7,7 @@ import {
   QaStore,
   SafeModeRequestTally,
   configureTestIdAttribute,
+  createSharedBrowserLauncher,
   inEnvironmentOf,
   loadConfig,
   resolveRelativePath,
@@ -713,10 +714,25 @@ export async function runExplore(
   const manifest = new ManifestStore({ store, clock: context.clock });
   const config = await loadConfig(context);
 
+  // Every browser step of one run shares a single Chromium: starting one takes seconds, and a run
+  // signs in, crawls, analyses and scores in separate steps (P6-120).
+  const sharedLauncher = createSharedBrowserLauncher(context.browserLauncher);
+  const browserContext: EngineContext = { ...context, browserLauncher: sharedLauncher };
+
   if (options.verify === true) {
-    return runVerify(context, store, config, options);
+    try {
+      return await runVerify(browserContext, store, config, options);
+    } finally {
+      await sharedLauncher.dispose();
+    }
   }
 
+  let built: Awaited<ReturnType<typeof runCrawlAndBuild>>;
+  try {
+    built = await runCrawlAndBuild(browserContext, config, options);
+  } finally {
+    await sharedLauncher.dispose();
+  }
   const {
     elements,
     legacyElementIds,
@@ -725,7 +741,7 @@ export async function runExplore(
     requests,
     probeCount,
     expandedPanelCount,
-  } = await runCrawlAndBuild(context, config, options);
+  } = built;
 
   const environment = resolveEnvironment(config, options.environment);
   return persistExploreResult(

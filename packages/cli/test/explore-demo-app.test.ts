@@ -17,6 +17,10 @@ import { runInit } from '../src/commands/init.js';
 const PORT = 4393;
 const BASE_URL = `http://localhost:${String(PORT)}`;
 const STARTUP_TIMEOUT_MS = 60_000;
+// The crawl reaches the tasks page, which carries the `apply-filter` test ID, second (after the
+// dashboard). Every page costs a settle wait and a reload per viewport in each of build and both
+// verifies, so crawling all eight made this test take over a minute alone (P6-120).
+const APPLY_FILTER_PAGE_COUNT = 2;
 
 let demoApp: ManagedServer;
 
@@ -71,7 +75,11 @@ describe('runExplore (demo app)', () => {
       await runInit(context, { deferScope: true });
       await context.fs.writeFile(join(context.projectRoot, '.qa', 'config.yaml'), configYaml());
 
-      const built = await runExplore(context, { environment: 'staging', identity: 'admin' });
+      const built = await runExplore(context, {
+        environment: 'staging',
+        identity: 'admin',
+        maxPages: APPLY_FILTER_PAGE_COUNT,
+      });
       expect(built.elementCount).toBeGreaterThan(0);
 
       const clean = await runExplore(context, { verify: true, identity: 'admin' });

@@ -3,6 +3,7 @@
 
 import {
   discoverOpenApiContract,
+  createSharedBrowserLauncher,
   fetchHttpClient,
   listOpenApiEndpoints,
   playwrightBrowserLauncher,
@@ -25,6 +26,10 @@ const PORT = 4391;
 const BASE_URL = `http://localhost:${String(PORT)}`;
 const STARTUP_TIMEOUT_MS = 60_000;
 
+// One Chromium for the whole file: a launch takes seconds, and each test starts several (P6-120).
+// Every step still opens contexts of its own, so what a test signs in as never leaks into the next.
+const browserLauncher = createSharedBrowserLauncher(playwrightBrowserLauncher);
+
 let demoApp: ManagedServer;
 
 beforeAll(async () => {
@@ -32,6 +37,7 @@ beforeAll(async () => {
 }, STARTUP_TIMEOUT_MS + 5_000);
 
 afterAll(async () => {
+  await browserLauncher.dispose();
   await demoApp.stop();
 });
 
@@ -44,7 +50,7 @@ describe('crawl (demo app)', () => {
     const result = await crawl({
       startUrl: `${BASE_URL}/login`,
       allowlist: ['localhost'],
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
     });
 
     expect(result.routeMap.routes).toEqual([
@@ -64,7 +70,7 @@ describe('crawl (demo app)', () => {
     const result = await crawl({
       startUrl: `${BASE_URL}/dashboard`,
       allowlist: ['localhost'],
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       identity: { config: identityConfig, env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' } },
     });
 
@@ -95,7 +101,7 @@ describe('crawl (demo app)', () => {
     const result = await crawl({
       startUrl: `${BASE_URL}/dashboard`,
       allowlist: ['localhost'],
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       identity: { config: identityConfig, env: { QA_DEMO_ADMIN_PASSWORD: 'admin123' } },
     });
 
@@ -125,7 +131,7 @@ describe('crawl of a page with no link href (demo app)', () => {
     const result = await crawl({
       startUrl: START,
       allowlist: ['localhost'],
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
     });
 
     expect(result.routeMap.routes.map((route) => [route.url, route.discoveredVia])).toEqual([
@@ -140,7 +146,7 @@ describe('crawl of a page with no link href (demo app)', () => {
     const result = await crawl({
       startUrl: START,
       allowlist: ['localhost'],
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       probeNavigation: true,
     });
 
@@ -165,7 +171,7 @@ describe('API diff (demo app)', () => {
     const result = await crawl({
       startUrl: `${BASE_URL}/dashboard`,
       allowlist: ['localhost'],
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       identity: {
         config: {
           auth: 'storage-state',
@@ -203,7 +209,7 @@ describe('analyzePages (demo app)', () => {
       urls: [`${BASE_URL}/login`, `${BASE_URL}/tasks/new`],
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       testIdAttribute: 'data-testid',
       identity: {
         config: {
@@ -235,7 +241,7 @@ describe('analyzePages (demo app)', () => {
       urls: [`${BASE_URL}/login`],
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       testIdAttribute: 'data-testid',
     });
 
@@ -265,7 +271,7 @@ describe('analyzePages (demo app)', () => {
 // (AGENTS.md section 13), and the exit criterion that scores are reproducible across two runs.
 describe('scoreLocatorStability (demo app)', () => {
   it('scores a real, uniquely-resolving candidate identically across two runs', async () => {
-    const browser = await playwrightBrowserLauncher.launch();
+    const browser = await browserLauncher.launch();
     const context = await browser.newContext();
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/login`);
@@ -287,7 +293,7 @@ describe('scoreLocatorStability (demo app)', () => {
   }, 30_000);
 
   it('scores 0 for a candidate that does not resolve to any real element', async () => {
-    const browser = await playwrightBrowserLauncher.launch();
+    const browser = await browserLauncher.launch();
     const context = await browser.newContext();
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/login`);
@@ -315,7 +321,7 @@ describe('buildSelectorRegistry (demo app)', () => {
       urls: [`${BASE_URL}/login`],
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
       testIdAttribute: 'data-testid',
     });
 
@@ -324,14 +330,14 @@ describe('buildSelectorRegistry (demo app)', () => {
       pageModelSet,
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
     });
     const second = await buildSelectorRegistry({
       environmentName: 'staging',
       pageModelSet,
       allowlist: ['localhost'],
       baseUrl: BASE_URL,
-      browserLauncher: playwrightBrowserLauncher,
+      browserLauncher,
     });
 
     expect(first.registry.elements.length).toBeGreaterThan(0);

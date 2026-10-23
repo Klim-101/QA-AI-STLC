@@ -25,6 +25,7 @@ export * from './secret-scan.js';
 export * from './redaction.js';
 export * from './evidence-store.js';
 export * from './ports/browser-launcher.js';
+export * from './shared-browser-launcher.js';
 export * from './ports/id-generator.js';
 export * from './api-auth.js';
 export * from './api-auth-module.js';
