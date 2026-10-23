@@ -140,20 +140,35 @@ interface CandidateProgress {
   survivedChecks: number;
 }
 
+// Each count is a round trip to the browser, and a page scores every candidate of every element
+// five times over (now, after a reload, once per viewport), so awaiting them one by one made the
+// round trips the whole cost of exploring a page (P6-120). A small bound keeps them pipelined
+// without flooding the browser's connection.
+const COUNT_CONCURRENCY = 16;
+
+async function areUniqueMatches(page: AuthPage, candidates: readonly LocatorCandidate[]): Promise<boolean[]> {
+  const results: boolean[] = [];
+  for (let start = 0; start < candidates.length; start += COUNT_CONCURRENCY) {
+    const batch = candidates.slice(start, start + COUNT_CONCURRENCY);
+    results.push(...(await Promise.all(batch.map((candidate) => isUniqueMatch(page, candidate)))));
+  }
+  return results;
+}
+
 async function checkSurvival(
   page: AuthPage,
   groups: readonly { readonly progress: readonly CandidateProgress[] }[],
 ): Promise<void> {
-  for (const group of groups) {
-    for (const state of group.progress) {
-      if (!state.uniqueNow) {
-        continue;
-      }
-      if (await isUniqueMatch(page, state.candidate)) {
-        state.survivedChecks += 1;
-      }
+  const states = groups.flatMap((group) => group.progress).filter((state) => state.uniqueNow);
+  const survived = await areUniqueMatches(
+    page,
+    states.map((state) => state.candidate),
+  );
+  states.forEach((state, index) => {
+    if (survived[index] === true) {
+      state.survivedChecks += 1;
     }
-  }
+  });
 }
 
 /**
@@ -172,14 +187,23 @@ export async function scorePageCandidates<T extends PageScoringItem>(
   const viewports = options.viewports ?? DEFAULT_VIEWPORTS;
   const originalViewport = page.viewportSize();
 
-  const groups: { readonly item: T; readonly progress: CandidateProgress[] }[] = [];
-  for (const item of items) {
-    const progress: CandidateProgress[] = [];
-    for (const candidate of item.candidates) {
-      progress.push({ candidate, uniqueNow: await isUniqueMatch(page, candidate), survivedChecks: 0 });
-    }
-    groups.push({ item, progress });
-  }
+  const uniqueNow = await areUniqueMatches(
+    page,
+    items.flatMap((item) => item.candidates),
+  );
+  let candidateIndex = 0;
+  const groups: { readonly item: T; readonly progress: CandidateProgress[] }[] = items.map((item) => ({
+    item,
+    progress: item.candidates.map((candidate) => {
+      const state: CandidateProgress = {
+        candidate,
+        uniqueNow: uniqueNow[candidateIndex] === true,
+        survivedChecks: 0,
+      };
+      candidateIndex += 1;
+      return state;
+    }),
+  }));
 
   await page.reload();
   await options.afterReload?.();
