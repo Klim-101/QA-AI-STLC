@@ -1,5 +1,15 @@
 # @qa-ai-stlc/runner-api
 
+## 1.14.1
+
+### Patch Changes
+
+- Updated dependencies [29bc53b]
+- Updated dependencies [483a711]
+  - @qa-ai-stlc/core@1.14.1
+  - @qa-ai-stlc/runner-playwright@1.14.1
+  - @qa-ai-stlc/schemas@1.14.1
+
 ## 1.14.0
 
 ### Patch Changes

@@ -1,5 +1,22 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.14.1
+
+### Patch Changes
+
+- 29bc53b: `qa.case_result_register` no longer fails with `JSON_FILE_INVALID` once a `qa run` has been recorded. The check that a run is not reused for another case now reads only run results, not the `run.json` summaries and spoke records that also live under `.qa/runs/`.
+- 483a711: `qa run` (and MCP `qa.run`) can bound parallelism and the per-test timeout with `--workers <n>` and `--timeout-ms <ms>` (`workers`, `testTimeoutMs`). Without them Playwright's defaults still apply, so a large spec set against a slow application no longer has to fail with 30-second timeouts that disappear in smaller batches.
+- Updated dependencies [29bc53b]
+- Updated dependencies [aad36b5]
+- Updated dependencies [483a711]
+  - @qa-ai-stlc/core@1.14.1
+  - @qa-ai-stlc/explorer@1.14.1
+  - @qa-ai-stlc/runner-playwright@1.14.1
+  - @qa-ai-stlc/runner-a11y@1.14.1
+  - @qa-ai-stlc/runner-api@1.14.1
+  - @qa-ai-stlc/runner-security@1.14.1
+  - @qa-ai-stlc/schemas@1.14.1
+
 ## 1.14.0
 
 ### Minor Changes
