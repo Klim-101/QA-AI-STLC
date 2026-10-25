@@ -1,5 +1,11 @@
 # @qa-ai-stlc/schemas
 
+## 1.14.0
+
+### Patch Changes
+
+- 256380c: Refuse an evidence `stepId` that is not `step-<N>` when a browser or HTTP tool is called, and leave such ids out when a case's proven session is read back, instead of failing the whole session. `qa-execute` now says to link the expected-result checks to the case's last step.
+
 ## 1.13.0
 
 ### Minor Changes
