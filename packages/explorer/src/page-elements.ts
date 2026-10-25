@@ -109,6 +109,11 @@ async function readRawPageElements(
         if (ariaLabel !== null && ariaLabel.trim().length > 0) {
           return ariaLabel;
         }
+        // A select's text content is every option joined together, and a textarea's is its value;
+        // neither is the control's name.
+        if (element.matches('select, textarea')) {
+          return undefined;
+        }
         const text = element.textContent.trim();
         return text.length > 0 ? text : undefined;
       }

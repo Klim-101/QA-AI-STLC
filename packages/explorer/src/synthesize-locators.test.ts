@@ -33,6 +33,28 @@ describe('synthesizeLocatorCandidates', () => {
     ]);
   });
 
+  it.each([
+    ['a select', element({ kind: 'select', tagName: 'select', role: 'combobox' })],
+    ['a textarea', element({ kind: 'textarea', tagName: 'textarea', role: 'textbox' })],
+    ['a text input', element({ kind: 'input', role: 'textbox' })],
+  ])('never emits a text candidate for %s, since getByText cannot find a form control', (_label, control) => {
+    const candidates = synthesizeLocatorCandidates(
+      { ...control, accessibleName: 'sort', label: 'Sort by' },
+      'playwright-default',
+    );
+
+    expect(candidates.map((candidate) => candidate.strategy)).toEqual(['role', 'label', 'css']);
+  });
+
+  it('keeps the text candidate for a button-like input, whose value is its text', () => {
+    const candidates = synthesizeLocatorCandidates(
+      element({ kind: 'input', role: 'button', accessibleName: 'Search' }),
+      'playwright-default',
+    );
+
+    expect(candidates.map((candidate) => candidate.strategy)).toContain('text');
+  });
+
   it('puts testId before role under testid-first', () => {
     const candidates = synthesizeLocatorCandidates(
       element({ testId: 'save-button', role: 'button', accessibleName: 'Save' }),

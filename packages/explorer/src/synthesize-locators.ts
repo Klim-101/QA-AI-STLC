@@ -58,8 +58,20 @@ function buildPlaceholderCandidate(element: InteractiveElement): LocatorCandidat
     : { strategy: 'placeholder', value: element.placeholder, fragile: false };
 }
 
+// `getByText` matches the text of an element, never a form control: a select is not found by its
+// label or option text, and a text field not by its placeholder or value, so the match lands on
+// whatever else on the page carries the word (a heading above the control) and still passes the
+// uniqueness check. Only a button-like input, whose value is its text, can be found this way.
+function isFormControlWithoutOwnText(element: InteractiveElement): boolean {
+  return (
+    element.kind === 'select' ||
+    element.kind === 'textarea' ||
+    (element.kind === 'input' && element.role !== 'button')
+  );
+}
+
 function buildTextCandidate(element: InteractiveElement): LocatorCandidate | undefined {
-  return element.accessibleName === undefined
+  return element.accessibleName === undefined || isFormControlWithoutOwnText(element)
     ? undefined
     : { strategy: 'text', value: element.accessibleName, fragile: false };
 }
