@@ -34,7 +34,7 @@ approved in order); `qa validate` recomputes every gate's status from the approv
 re-checks every registered case's requirement links, exiting non-zero for a reopened gate or an
 unlinked case. `qa validate --run` also sweeps every recorded run result for a fabricated
 evidence link or a `failed` result with no registered evidence, whether it came from `qa run` or
-from interactive case execution. `qa run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]`
+from interactive case execution. `qa run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>] [--workers <n>] [--timeout-ms <ms>]`
 runs a spec set through the runner for its test type and persists every result under
 `.qa/runs/<run-id>/`. Browser specs start signed in as `--identity`, else the environment's `identity`
 (P6-89); the run record names it. `qa report [--run <run-id>] [--format markdown|html]` renders that run's

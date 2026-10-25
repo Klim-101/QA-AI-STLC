@@ -32,6 +32,10 @@ export interface RunOptions {
   readonly environment?: string;
   /** Identity name from config.yaml to sign in as; defaults to the environment's own `identity`. */
   readonly identity?: string;
+  /** See `RunnerInput.workers`. */
+  readonly workers?: number;
+  /** See `RunnerInput.testTimeoutMs`. */
+  readonly testTimeoutMs?: number;
   readonly idGenerator?: IdGenerator;
 }
 
@@ -140,6 +144,8 @@ export async function executeRunner(context: EngineContext, options: RunOptions)
     testIdAttribute: config.selectors.testIdAttribute,
     ...(environment.config.locale !== undefined ? { locale: environment.config.locale } : {}),
     ...(runnerIdentity !== undefined ? { identity: runnerIdentity } : {}),
+    ...(options.workers !== undefined ? { workers: options.workers } : {}),
+    ...(options.testTimeoutMs !== undefined ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
 
   // A spec path that does not exist or matches nothing still makes Playwright write a JSON report

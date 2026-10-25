@@ -113,7 +113,7 @@ Commands:
   cases add     Validate and register a test case: "cases add --path <path>"
   cases render  Render a registered test case as Markdown: "cases render <id>"
   test-data add Validate and register a reusable test-data set: "test-data add --path <path>"
-  run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]"
+  run           Run a spec set through a runner and record the results: "run --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>] [--workers <n>] [--timeout-ms <ms>]"
   spec check    Run a spec set and say what each test did, recording nothing: "spec check --spec <path> [--spec <path> ...] [--test-type e2e] [--environment <name>] [--identity <name>]"
   link          Register a hand-written spec in traceability without regeneration: "link <spec> <requirement-id> --feature <name> [--test-type e2e]"
   report        Render a run summary and the traceability matrix: "report [--run <run-id>] [--format markdown|html] [--output [path]]"
@@ -616,10 +616,10 @@ async function dispatchDoctor(rest: readonly string[], dependencies: RunCliDepen
   return report.ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-function parsePositiveInt(value: string, flag: string): number {
+function parsePositiveInt(value: string, flag: string, code = 'EXPLORE_OPTION_INVALID'): number {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new QaError('EXPLORE_OPTION_INVALID', `"${value}" is not a positive integer for ${flag}`);
+    throw new QaError(code, `"${value}" is not a positive integer for ${flag}`);
   }
   return parsed;
 }
@@ -844,6 +844,8 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
       'test-type': { type: 'string' },
       environment: { type: 'string' },
       identity: { type: 'string' },
+      workers: { type: 'string' },
+      'timeout-ms': { type: 'string' },
     },
     allowPositionals: false,
     strict: true,
@@ -866,6 +868,12 @@ async function dispatchRun(rest: readonly string[], dependencies: RunCliDependen
     ...(testType !== undefined ? { testType } : {}),
     ...(typeof values.environment === 'string' ? { environment: values.environment } : {}),
     ...(typeof values.identity === 'string' ? { identity: values.identity } : {}),
+    ...(typeof values.workers === 'string'
+      ? { workers: parsePositiveInt(values.workers, '--workers', 'RUN_OPTION_INVALID') }
+      : {}),
+    ...(typeof values['timeout-ms'] === 'string'
+      ? { testTimeoutMs: parsePositiveInt(values['timeout-ms'], '--timeout-ms', 'RUN_OPTION_INVALID') }
+      : {}),
   });
   printResult(context.io, json, 'run', summary, formatRunSummary(summary));
   const hasFailure =

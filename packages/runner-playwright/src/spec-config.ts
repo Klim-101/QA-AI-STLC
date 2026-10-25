@@ -45,6 +45,10 @@ export interface SpecConfigOptions {
   readonly testIdAttribute?: string;
   /** A BCP 47 tag every browser context starts with; omitted, the host's own locale applies. */
   readonly locale?: string;
+  /** Parallel spec files; omitted, Playwright's own default applies. */
+  readonly workers?: number;
+  /** Per-test timeout in milliseconds; omitted, Playwright's own default applies. */
+  readonly testTimeoutMs?: number;
   /**
    * Whether a failing test keeps a Playwright trace (default true). A trace is a zip of every request
    * with its headers, so a run that carries a credential turns it off: the evidence scan cannot see
@@ -87,6 +91,8 @@ export function generateSpecConfigSource(options: SpecConfigOptions): {
     testDir,
     testMatch,
     outputDir: options.outputDir,
+    ...(options.workers === undefined ? {} : { workers: options.workers }),
+    ...(options.testTimeoutMs === undefined ? {} : { timeout: options.testTimeoutMs }),
     use: {
       baseURL: options.baseUrl,
       testIdAttribute: options.testIdAttribute ?? DEFAULT_TEST_ID_ATTRIBUTE,

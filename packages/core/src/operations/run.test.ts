@@ -79,6 +79,44 @@ const IDENTITY_CONFIG_YAML = CONFIG_YAML.replace(
   ].join('\n'),
 ).replace('allowlist: ["staging.example.test"] }', 'allowlist: ["staging.example.test"], identity: tester }');
 
+describe('runTestRun parallelism and timeout', () => {
+  const outcomes = (): readonly RunnerOutcome[] => [
+    fakeOutcome(fakeResult({ id: 'run-result-id-2', status: 'passed' })),
+  ];
+
+  it('hands the runner the workers and per-test timeout the run names', async () => {
+    const { context } = createContext();
+    const { runner, state } = createFakeRunner(outcomes);
+
+    await runTestRun(context, {
+      runner,
+      environment: 'staging',
+      workers: 2,
+      testTimeoutMs: 90_000,
+      specFiles: ['tests/a.spec.ts'],
+      idGenerator: createSequentialIdGenerator('id'),
+    });
+
+    expect(state.receivedInput?.workers).toBe(2);
+    expect(state.receivedInput?.testTimeoutMs).toBe(90_000);
+  });
+
+  it('leaves both unset when the run names neither', async () => {
+    const { context } = createContext();
+    const { runner, state } = createFakeRunner(outcomes);
+
+    await runTestRun(context, {
+      runner,
+      environment: 'staging',
+      specFiles: ['tests/a.spec.ts'],
+      idGenerator: createSequentialIdGenerator('id'),
+    });
+
+    expect(state.receivedInput).not.toHaveProperty('workers');
+    expect(state.receivedInput).not.toHaveProperty('testTimeoutMs');
+  });
+});
+
 describe('runTestRun identity (P6-89)', () => {
   function createIdentityContext(): { readonly context: EngineContext; readonly fs: FakeFileSystem } {
     const fs = createFakeFileSystem({ [join('project', '.qa', 'config.yaml')]: IDENTITY_CONFIG_YAML });

@@ -66,6 +66,22 @@ describe('generateSpecConfigSource', () => {
     expect(generateSpecConfigSource(options).source).not.toContain('locale');
   });
 
+  it('bounds parallelism and the per-test timeout only when asked, leaving Playwright defaults otherwise', () => {
+    const options = {
+      baseUrl: 'http://localhost:4310/',
+      specFiles: [join('project', 'specs', 'a.spec.ts')],
+      reportPath: join('tmp', 'report.json'),
+      outputDir: join('tmp', 'test-results'),
+    };
+
+    const bounded = generateSpecConfigSource({ ...options, workers: 2, testTimeoutMs: 90_000 }).source;
+    expect(bounded).toContain('"workers": 2');
+    expect(bounded).toContain('"timeout": 90000');
+    const defaults = generateSpecConfigSource(options).source;
+    expect(defaults).not.toContain('workers');
+    expect(defaults).not.toContain('"timeout"');
+  });
+
   it.each([
     [undefined, 'retain-on-failure'],
     [true, 'retain-on-failure'],

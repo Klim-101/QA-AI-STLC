@@ -44,6 +44,14 @@ export interface RunnerInput {
    * runner authenticates through the identity mechanism itself. Absent for an anonymous run.
    */
   readonly identity?: string;
+  /**
+   * How many spec files a browser-driving runner runs in parallel; omitted, Playwright's own
+   * default (half the CPU count) applies. Lowered when the application under test slows down under
+   * parallel load. Ignored by a runner with no Playwright process.
+   */
+  readonly workers?: number;
+  /** The per-test timeout in milliseconds; omitted, Playwright's own default (30 s) applies. */
+  readonly testTimeoutMs?: number;
 }
 
 /**
