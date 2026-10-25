@@ -17,6 +17,7 @@ import { ManifestStore } from '../manifest-store.js';
 import { toCanonicalJson } from '../json-file.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
 import { QaStore } from '../qa-store.js';
+import { listRunResultPaths } from '../run-results.js';
 import { canonicalStepIds } from '../step-ids.js';
 import { findUnresolvedFailedExpectations } from './case-result-expectations.js';
 import { assertPassedIsProven } from './case-result-passed.js';
@@ -179,8 +180,8 @@ async function assertRunNotBoundToAnotherCase(
   store: QaStore,
   options: RegisterCaseResultOptions,
 ): Promise<void> {
-  const files = await store.listFiles('runs');
-  for (const path of files.filter((file) => file.endsWith('.json'))) {
+  // `runs/` also holds `qa run` summaries and spoke records, which are not results.
+  for (const path of await listRunResultPaths(store)) {
     const existing = await store.readJson(path, RunResultSchema);
     if (existing.runId === options.runId && existing.testCaseId !== options.testCaseId) {
       throw new QaError(
