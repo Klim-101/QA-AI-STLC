@@ -92,6 +92,8 @@ export async function runPlaywrightSpecs(
       : {}),
     ...(input.testIdAttribute !== undefined ? { testIdAttribute: input.testIdAttribute } : {}),
     ...(input.locale !== undefined ? { locale: input.locale } : {}),
+    ...(input.workers !== undefined ? { workers: input.workers } : {}),
+    ...(input.testTimeoutMs !== undefined ? { testTimeoutMs: input.testTimeoutMs } : {}),
     ...(isSignedIn ? { storageStatePath, isTraceEnabled: false } : {}),
     ...(!isSignedIn && options.isTraceEnabled !== undefined
       ? { isTraceEnabled: options.isTraceEnabled }

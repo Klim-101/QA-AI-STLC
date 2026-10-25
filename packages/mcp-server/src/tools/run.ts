@@ -31,6 +31,20 @@ const InputSchema = z.object({
     .describe(
       "Identity name from config.yaml to sign in as for e2e and a11y specs. Defaults to the environment's own identity; anonymous when it has none.",
     ),
+  workers: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      'How many spec files run in parallel. Lower it (for example to 2) when the application slows down under load and tests time out. Defaults to the runner default.',
+    ),
+  testTimeoutMs: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Per-test timeout in milliseconds. Defaults to 30000.'),
 });
 
 const OutputSchema = z.object({
@@ -61,6 +75,8 @@ export const runTool: ToolDefinition<typeof InputSchema, typeof OutputSchema> = 
       specFiles: input.specFiles,
       ...(input.environment !== undefined ? { environment: input.environment } : {}),
       ...(input.identity !== undefined ? { identity: input.identity } : {}),
+      ...(input.workers !== undefined ? { workers: input.workers } : {}),
+      ...(input.testTimeoutMs !== undefined ? { testTimeoutMs: input.testTimeoutMs } : {}),
     });
     return {
       runId: summary.runId,

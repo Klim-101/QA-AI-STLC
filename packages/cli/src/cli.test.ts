@@ -3339,6 +3339,64 @@ describe('runCli', () => {
     expect(persisted.join('\n')).not.toContain('live-session-value');
   });
 
+  it('runs "run --workers --timeout-ms" with the parallelism and timeout bounded in the Playwright config', async () => {
+    const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
+    const writeReport = fakeProcessRunnerWritingReport(fs, {
+      suites: [
+        {
+          specs: [
+            {
+              title: 'login',
+              tests: [
+                {
+                  annotations: [{ type: 'testCaseId', description: 'login-case' }],
+                  results: [
+                    { status: 'passed', startTime: '2026-09-25T10:00:00.000Z', duration: 1000, errors: [] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    let configSource = '';
+    const deps = dependencies({
+      fs,
+      processRunner: {
+        run: async (command: string, args: readonly string[]) => {
+          const configPath = (args.find((arg) => arg.startsWith('--config=')) ?? '').slice(
+            '--config='.length,
+          );
+          configSource = await fs.readFile(configPath);
+          return writeReport.run(command, args);
+        },
+      },
+    });
+
+    const exitCode = await runCli(
+      ['run', '--spec', 'tests/login.playwright-spec.ts', '--workers', '2', '--timeout-ms', '90000'],
+      deps,
+    );
+
+    expect(exitCode).toBe(EXIT_SUCCESS);
+    expect(configSource).toContain('"workers": 2');
+    expect(configSource).toContain('"timeout": 90000');
+  });
+
+  it.each([['--workers=0'], ['--workers=many'], ['--timeout-ms=-5']])(
+    'refuses "run %s" before running anything',
+    async (flag) => {
+      const fs = createFakeFileSystem({ [CONFIG_PATH]: CONFIG_YAML_WITH_ENVIRONMENT });
+      const deps = dependencies({ fs });
+
+      const exitCode = await runCli(['run', '--spec', 'tests/a.spec.ts', flag], deps);
+
+      expect(exitCode).toBe(EXIT_FAILURE);
+      expect(deps.stderr.join('\n')).toContain('is not a positive integer');
+    },
+  );
+
   // P3-19: a spec path matching zero tests must fail loud, not report a clean zero-count success —
   // a silent false green, since nothing was actually verified.
   it('runs "run" end to end and fails when the runner produced no results', async () => {

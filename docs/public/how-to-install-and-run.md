@@ -237,7 +237,7 @@ npx qa cases add --path cases/login.json             # a case linked to a real r
 npx qa approve scope --artifact artifacts/scope.json --approved-by <your name>
 npx qa validate                                      # recomputes every gate from the ledger
 npx qa cases render <case-id>                        # a readable Markdown copy of one case
-npx qa run --spec tests/login.playwright-spec.ts --test-type e2e --environment staging [--identity <name>]
+npx qa run --spec tests/login.playwright-spec.ts --test-type e2e --environment staging [--identity <name>] [--workers <n>] [--timeout-ms <ms>]
 npx qa report                                        # run summary and traceability matrix
 npx qa validate --run                                # also re-checks every result's evidence
 npx qa status                                        # names what to do next
