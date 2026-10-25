@@ -794,6 +794,17 @@ describe('runRegisterCaseResult', () => {
       });
     });
 
+    it('ignores a qa run summary and spoke records stored under runs/', async () => {
+      const { context, fs } = createContext();
+      await seedCase(fs);
+      await seedExpectation(context, 'run-1', 'evidence-1', { passed: true, at: NOW.toISOString() });
+      const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
+      await store.writeText('runs/run-other/run.json', '{"kind":"run-record"}');
+      await store.writeText('runs/run-other/spokes/dispatch.json', '{"kind":"spoke"}');
+
+      await expect(registerPassed(context, 'e2e', ['evidence-1'])).resolves.toBeDefined();
+    });
+
     it('lets the same case register again under its own run', async () => {
       const { context, fs } = createContext();
       await seedCase(fs);
