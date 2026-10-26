@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "product-page-missing-stock-availability",
+  "title": "Product page does not show stock availability (\"In stock\") for in-stock products",
+  "severityProposal": "minor",
+  "category": "functional",
+  "steps": [
+    "Open https://practicesoftwaretesting.com",
+    "Open the first product in the list (Combination Pliers, $14.15)",
+    "Look for a stock availability indicator on the product page"
+  ],
+  "expectedResult": "The page shows the product name, price, description and stock availability (\"In stock\" for an available product), matching the list card.",
+  "actualResult": "Name, price and description are shown and match the list card, but no stock availability text is shown. A visible-text check for 'in stock' or 'out of stock' found nothing. Only out-of-stock items are labelled (the list card shows 'Out of stock'); in-stock products show no availability text.",
+  "environment": "default",
+  "requirementIds": [
+    "product-details"
+  ],
+  "evidencePaths": [
+    "evidence/run-f109f27e-5c2d-4475-ad21-ed77d9af2ca8/evidence-4ff80dbb-adb7-42c8-b5ff-beb345901a06.json",
+    "evidence/run-f109f27e-5c2d-4475-ad21-ed77d9af2ca8/evidence-086387c7-7861-4f00-a80e-5a4575d6ce6f.json"
+  ],
+  "source": {
+    "runId": "run-f109f27e-5c2d-4475-ad21-ed77d9af2ca8",
+    "resultId": "run-result-60927377-8960-4cc4-ad31-925c77ba9f2f"
+  },
+  "status": "accepted",
+  "createdAt": "2026-10-26T13:46:00.000Z"
+}

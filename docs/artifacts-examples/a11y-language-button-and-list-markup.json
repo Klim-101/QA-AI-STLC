@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "defectId": "a11y-language-button-and-list-markup",
+  "facts": [
+    "axe-core 4.13.0 (WCAG 2.1 AA) reports label-content-name-mismatch (serious, WCAG 2.5.3) on the language button #language on both the home page and the product page; the button has aria-label=\"Select language\" and its visible text is not part of that name.",
+    "axe-core reports the list rule (serious, WCAG 1.3.1) on three category <ul> elements on the home page; each directly contains a <fieldset> child, which is not an allowed child of <ul>.",
+    "The language button sits in the site-wide navigation (same element on both pages), while the list violations are in the catalog filter component, which only the home page renders.",
+    "The same violations were recorded in an earlier run (run-0669cd9d-fbd5-4ddc-8209-8102ff856471, 2026-10-22) and again in run-a3857cc2 (2026-10-26): the symptom is stable across runs.",
+    "No source code is configured for this project, so no cause was read from code."
+  ],
+  "evidencePaths": [
+    "evidence/run-a3857cc2-aa73-43a8-a888-6db7317a922d/evidence-8b4ccfa5-92d5-47eb-b0ed-21eb263f5c82.json",
+    "evidence/run-a3857cc2-aa73-43a8-a888-6db7317a922d/evidence-82d5dbbd-33d7-499e-bcef-ab854d8c8c77.json"
+  ],
+  "hypotheses": [
+    {
+      "description": "The navigation component sets a fixed aria-label (\"Select language\") on a button whose visible content is the current language name or code, so the accessible name overrides and no longer contains the visible text.",
+      "confidence": "high",
+      "evidenceNeeded": "The nav component template, or a snapshot of #language showing its visible text (e.g. a language code) differing from its aria-label."
+    },
+    {
+      "description": "The category filter template renders each sub-category group as a <fieldset> placed directly inside a <ul> (instead of inside an <li>), for example from a loop that emits the fieldset in place of a list item.",
+      "confidence": "medium",
+      "evidenceNeeded": "The filter component template, or the rendered DOM of one `.checkbox > ul` showing the fieldset's parent and sibling nodes."
+    }
+  ],
+  "remediation": [
+    "Make the accessible name of #language contain its visible text: remove aria-label so the visible text names the button, or start the label with the visible text (for example 'EN, Select language'), tied to the label-content-name-mismatch fact.",
+    "Wrap each <fieldset> in a <li>, or replace the <ul> with a non-list container such as a <div>, in the category filter, tied to the list-rule fact.",
+    "Review the uncertain colour-contrast items (CO2 rating letters at about 2.3-2.8:1 and gradient/image backgrounds) manually; they are not part of this defect's confirmed violations."
+  ],
+  "regressionRecommendation": "Keep a11y-catalog-and-product-pages-clean in the regression tier so it fails if either violation returns; consider adding a scan of the cart and checkout pages.",
+  "defectSha256": "b23f29339b40e71f750cd92d35cf81413bb51c209317ef27423ecdfce9d129dd",
+  "status": "approved",
+  "createdAt": "2026-10-26T13:30:00.000Z"
+}

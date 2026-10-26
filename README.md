@@ -147,6 +147,19 @@ Claude Code plugin, over several iterations, against two applications that are n
 The bugs each iteration found were fixed before the next. This is a statement about the runs made
 so far, not a guarantee for your application; report what you find.
 
+### What a run leaves behind
+
+Real output from the public-shop run above, unedited (see
+[the examples folder](docs/artifacts-examples/README.md)):
+
+- [Run result report](docs/artifacts-examples/run-result-2026-10-26.md): status per case, failure
+  reasons, spec runs, the per-criterion WCAG section, defects and root cause analyses.
+- [Accepted defect](docs/artifacts-examples/product-page-missing-stock-availability.json) and a
+  [defect draft](docs/artifacts-examples/a11y-catalog-product-wcag-violations.json), both tracker-neutral
+  JSON linked to the evidence that proves them.
+- [Root cause analysis](docs/artifacts-examples/a11y-language-button-and-list-markup.json): facts,
+  hypotheses with a confidence, remediation, and the hash of the defect it was written against.
+
 ## Documentation
 
 - [Roadmap](docs/public/ROADMAP.md): phases, current status, and what is deliberately out of scope.
