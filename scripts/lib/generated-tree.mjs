@@ -21,11 +21,20 @@ export function listFilesRecursive(dir) {
   return results.map((path) => path.replaceAll('\\', '/')).sort();
 }
 
-/** Copies every file under `sourceDir` to `outRelativeDir` in the generated tree, verbatim. */
-export function copyDirectory(sourceDir, outRelativeDir, files) {
+/**
+ * Copies every file under `sourceDir` to `outRelativeDir` in the generated tree. Markdown goes
+ * through `renderMarkdown(content, sourcePath)` when given (host-specific wording, P5-03); every
+ * other file is copied verbatim.
+ */
+export function copyDirectory(sourceDir, outRelativeDir, files, renderMarkdown) {
   for (const relativePath of listFilesRecursive(sourceDir)) {
+    const sourcePath = join(sourceDir, relativePath);
+    const content = readFileSync(sourcePath, 'utf8');
     files.set(join(outRelativeDir, relativePath).replaceAll('\\', '/'), {
-      content: readFileSync(join(sourceDir, relativePath), 'utf8'),
+      content:
+        renderMarkdown !== undefined && relativePath.endsWith('.md')
+          ? renderMarkdown(content, sourcePath)
+          : content,
     });
   }
 }

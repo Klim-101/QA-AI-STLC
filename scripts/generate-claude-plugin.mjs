@@ -18,7 +18,8 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { format, resolveConfig } from 'prettier';
+import { copyDirectory, listFilesRecursive, readLfText, renderJson } from './lib/generated-tree.mjs';
+import { renderForHost } from './lib/host-blocks.mjs';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 const repoRoot = join(import.meta.dirname, '..');
@@ -33,34 +34,6 @@ const mcpServerPackage = JSON.parse(
   readFileSync(join(repoRoot, 'packages', 'mcp-server', 'package.json'), 'utf8'),
 );
 const engineVersion = mcpServerPackage.version;
-
-/** Every file under `dir`, as paths relative to `dir` using `/`, sorted for deterministic output. */
-function listFilesRecursive(dir) {
-  const results = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const absolute = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...listFilesRecursive(absolute).map((path) => join(entry.name, path)));
-    } else if (entry.isFile()) {
-      results.push(entry.name);
-    }
-  }
-  return results.map((path) => path.replaceAll('\\', '/')).sort();
-}
-
-/** Copies every file under `sourceDir` to `outRelativeDir` in the generated tree, verbatim. */
-function copyDirectory(sourceDir, outRelativeDir, files) {
-  for (const relativePath of listFilesRecursive(sourceDir)) {
-    files.set(join(outRelativeDir, relativePath).replaceAll('\\', '/'), {
-      content: readFileSync(join(sourceDir, relativePath), 'utf8'),
-    });
-  }
-}
-
-async function renderJson(value, outPath) {
-  const config = await resolveConfig(outPath);
-  return format(JSON.stringify(value), { ...config, filepath: outPath });
-}
 
 /** Reads `name`, `triggers` and `nonTriggers` out of a `SKILL.md`'s YAML frontmatter block. */
 function parseSkillFrontmatter(skillMdPath) {
@@ -215,13 +188,9 @@ async function buildToolSelectionEvals(choices, files) {
   }
 }
 
-/** Reads a text file with LF endings so a Windows checkout (autocrlf) generates the same bytes as CI. */
-function readLfText(path) {
-  return readFileSync(path, 'utf8').replaceAll('\r\n', '\n');
-}
-
 async function buildFiles() {
   const files = new Map();
+  const renderMarkdown = (content, sourcePath) => renderForHost(content, 'claude-code', sourcePath);
   const allToolChoices = [];
 
   for (const skillName of readdirSync(join(agentsDir, 'skills'))) {
@@ -230,7 +199,7 @@ async function buildFiles() {
       continue;
     }
     const skillDir = join(agentsDir, 'skills', skillName);
-    copyDirectory(skillDir, join('skills', skillName), files);
+    copyDirectory(skillDir, join('skills', skillName), files, renderMarkdown);
 
     const { name, triggers, nonTriggers, toolChoices } = parseSkillFrontmatter(join(skillDir, 'SKILL.md'));
     toolChoices.forEach((choice) => allToolChoices.push({ skill: name, ...choice }));
@@ -240,9 +209,9 @@ async function buildFiles() {
     });
   }
   await buildToolSelectionEvals(allToolChoices, files);
-  copyDirectory(join(agentsDir, 'hub'), 'hub', files);
-  copyDirectory(join(agentsDir, 'phase-prompts'), 'phase-prompts', files);
-  copyDirectory(join(agentsDir, 'references'), 'references', files);
+  copyDirectory(join(agentsDir, 'hub'), 'hub', files, renderMarkdown);
+  copyDirectory(join(agentsDir, 'phase-prompts'), 'phase-prompts', files, renderMarkdown);
+  copyDirectory(join(agentsDir, 'references'), 'references', files, renderMarkdown);
 
   files.set('hooks/block-qa-writes.mjs', { content: readFileSync(hookSourcePath, 'utf8') });
 
