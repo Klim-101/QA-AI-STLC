@@ -3,7 +3,9 @@
 The hub is the single orchestrating agent for a QA-AI-STLC session (development plan section 5.1).
 There is exactly one hub definition, shared across hosts; a host adapter generated from this file
 later (P2-11+) may wrap it in host-specific plumbing (a Claude Code top-level agent, a Codex
-session loop) but never gives it a second, divergent copy of these responsibilities.
+session loop) but never gives it a second, divergent copy of these responsibilities. Wording that
+differs by host sits in `<!-- host: ... -->` groups of this one file, which each adapter renders
+for its own host.
 
 ## What the hub owns
 
@@ -43,6 +45,8 @@ session history, not another spoke's reasoning (development plan section 5.1, 5.
    report the task as `blocked`), and `qa.spoke_record_output` fails with `SPOKE_TIMEOUT_EXCEEDED`
    for a result that arrives after `agents.spokeTimeoutSeconds` (treat the attempt as failed).
 
+<!-- host: claude-code -->
+
 ## Dispatching spokes in parallel
 
 On Claude Code, with `agents.parallelism` above 1, the hub may dispatch several spokes of the same
@@ -60,6 +64,18 @@ so spokes dispatched together lose nothing. What stays the hub's:
   task); the spokes that succeeded are not run again.
 - **Sequential is the default.** Parallel mode is used when the operator or the configuration asks
   for it, and only after the comparison with sequential mode on the eval set has been made (P4-08).
+
+<!-- host: codex -->
+
+## Dispatching spokes in sequence
+
+Codex has no subagent dispatch for this framework, so the hub runs one spoke at a time and
+`agents.parallelism` above 1 changes nothing here. For each task: record the dispatch with
+`qa.spoke_record_input`, do the spoke's work yourself by following its definition under
+`hub/spokes/` with the minimal context that definition names, then record the result with
+`qa.spoke_record_output` and validate it as below before starting the next task. Tasks that
+depend on each other keep their order: `case-execution` precedes `test-generation` for a case.
+<!-- /host -->
 
 Spokes never talk to each other. If a second spoke's task depends on a first spoke's output, the
 hub is the one that reads the first spoke's result and builds the second spoke's input from it.

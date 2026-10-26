@@ -113,6 +113,24 @@ The hub definition is prose plus references to engine tools and to the spoke con
 carries no Zod schema of its own. Host-specific wiring (a Claude Code subagent's `model:` field, a
 Codex sequential loop) is generated from this file later (P2-11+), not duplicated into it.
 
+## Host-specific wording
+
+Skills, the hub and the references are one canonical body. Where a host needs different words (the
+hub's parallel dispatch exists on Claude Code only), the Markdown carries a group:
+
+```md
+<!-- host: claude-code -->
+
+text for Claude Code
+<!-- host: codex -->
+
+text for Codex
+<!-- /host -->
+```
+
+Each adapter generator keeps its own branch and drops the markers (`scripts/lib/host-blocks.mjs`);
+text outside a group is shared. Keep groups rare: a rule that holds on every host stays outside one.
+
 ## Spoke contract
 
 The generic envelope every spoke result flows through is a Zod schema in `packages/schemas`, not

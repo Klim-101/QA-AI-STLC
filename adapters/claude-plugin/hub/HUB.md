@@ -3,7 +3,9 @@
 The hub is the single orchestrating agent for a QA-AI-STLC session (development plan section 5.1).
 There is exactly one hub definition, shared across hosts; a host adapter generated from this file
 later (P2-11+) may wrap it in host-specific plumbing (a Claude Code top-level agent, a Codex
-session loop) but never gives it a second, divergent copy of these responsibilities.
+session loop) but never gives it a second, divergent copy of these responsibilities. Wording that
+differs by host sits in `<!-- host: ... -->` groups of this one file, which each adapter renders
+for its own host.
 
 ## What the hub owns
 
