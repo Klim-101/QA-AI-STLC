@@ -1,0 +1,130 @@
+---
+name: qa-generate-tests
+description: >-
+  Use when the operator explicitly asks for a deterministic Playwright/API spec to be generated or
+  regenerated for an approved test case ("generate the test for the checkout case", "turn this
+  qa-execute session into real code", "regenerate the login spec, the case changed"). Never use to
+  design a case (`qa-design-cases`), to execute a case live (`qa-execute`), or to run an
+  already-generated spec (`qa run`, no skill needed). Does not fire on its own to warn that a spec
+  is stale — that is a future `qa-regression`/hub concern, not this skill's.
+triggers:
+  - 'generate the test for the checkout case'
+  - 'turn this qa-execute session into a real spec'
+  - 'regenerate the login test, the case steps changed'
+nonTriggers:
+  - 'design a test case for password reset'
+  - 'execute the checkout case live'
+  - 'run the regression suite'
+  - 'is the generated spec for this case still up to date'
+references:
+  - ../../references/testing-standards.md
+  - references/generation-standards.md
+---
+
+# `qa-generate-tests` — spec generation from a proven session
+
+Fires only on an explicit request to generate or regenerate a spec. Never runs proactively to
+detect or announce a stale spec — that stays the hub's/a future `qa-regression`'s job.
+
+## Before generating anything
+
+1. **Require a completed `qa-execute` session.** Call `qa.generation_proven_session` with the
+   case's id. `found: false` means there is no proven session yet, or one exists but predates the
+   `stepId` convention (`references/web.md`/`references/api.md`) — either way, refuse and say so
+   plainly. Never fall back to authoring from the case's free-text description alone.
+2. **Read the proven steps from `found: true`'s `session`.** Its `steps` are already grouped by
+   `stepId` in case order, each with the recorded action(s) that proved it — never re-derive steps
+   from conversation or memory.
+3. **Check for an existing spec.** If `spec.filePath` already has content (read it yourself; it
+   lives in the real project tree, not `.qa/`), call `qa.generation_manual_regions_extract` on it
+   before generating the new template, so hand-edited code survives (`// qa:manual:start <id>` /
+   `// qa:manual:end <id>`).
+4. **Resolve the registry slice.** Call `qa.generation_spoke_input` with the case's id and the
+   exact element ids the proven session actually used — fail loudly on one that does not resolve,
+   never guess a locator. Pass `environment` (the one the session ran against) when the project
+   has more than one: the registry holds every environment's elements and only that one's are offered. Pass the proven session itself as `provenSession`, so it becomes part of
+   `sourceHash` and a later `qa-execute` re-run is detected as drift. The call first brings
+   `tests/qa/locators.ts` in line with the registry, so an element promoted during `qa-execute` is
+   exported without a new `qa explore`.
+
+## Declared expectations
+
+When the case declares `expectations` (per step) or `resultExpectations`, the spoke input lists the
+assertion each one needs in `expectationAssertions`: the step (`where`, `step-<N>` or `result`) and
+the exact line (`code`). Put each line, unchanged, in the `test.step` of its step (a result
+expectation may go in any step), so the test re-checks what the case declares. A selector reaches
+the spec only as the locator-module function inside that line. `qa.generation_verify` looks for every
+line before it runs anything and answers `expectations_missing` with what to add. A line counts only
+when it always runs: at the top level of its `test.step` (a literal `if (true)` or a plain block is
+fine), not inside a condition on a value, loop, `try`, function, skipped step or after a `return`
+or `throw`, and with nothing chained onto it (no `.catch(...)`). Execution proves the line passes,
+not that it was reached, so the engine checks that before it runs.
+
+`unresolvedExpectations` lists the expectations the engine could not turn into a line: the selector
+names no registry element (`selector-not-in-registry`), or its element has no function in the module
+(`element-not-exported`). Never inline such a selector. Say so to the operator: the element has to
+reach the registry (`qa-execute` promotes an ad hoc find, `qa-explore` adds it) and the module be
+regenerated, then ask for the spoke input again.
+
+## API cases
+
+An `api` case has no DOM, so its spoke input carries `apiContract` (the contract operations the
+case's `endpoints` name, with the contract `sha256`) instead of a registry slice; pass no
+`elementIds`. Generate a Playwright `APIRequestContext` spec (`request.get(...)`, never a browser
+page) from those operations' definitions and the proven session, and add
+`export const CONTRACT_SHA256 = "<apiContract.sha256>";` to it. `qa.generation_verify` refuses a
+spec that does not declare that exact hash, and `qa run` refuses one whose hash no longer matches
+the live contract: when that happens the contract changed, so regenerate from a fresh
+`qa.generation_spoke_input` instead of editing the hash by hand. Authenticate only through an
+`apiAuth` profile, never a literal credential in the spec: `import { apiAuth } from '<relative path to tests/qa/api-auth.js>'`
+and pass `apiAuth('<profile>')` as the options of the request call. The profile name must be a string
+literal from `.qa/config.yaml`; the engine writes `tests/qa/api-auth.ts` when it builds the spoke input.
+A profile that reads its token from a browser session (`from-browser`) works in `qa.generation_verify`
+and `qa run` too: they sign in as the environment's identity and read it themselves, so the operator
+needs no token variable, only an identity on the environment (or `identity` on the call).
+A spec that writes an `Authorization`/`Cookie` header or a profile's header, query parameter or a
+`Bearer` value itself is rejected (`HTTP_CREDENTIAL_INPUT_REJECTED`).
+
+## Pages behind sign-in
+
+A spec for a page that needs sign-in carries no credential and no login steps: the runner starts the
+browser already signed in as a configured identity, in `qa run` and in `qa.generation_verify` alike.
+The identity is the one the call names (`identity` on `qa.generation_verify` and `qa.run`,
+`--identity` on `qa run`), else the environment's own `identity` in `.qa/config.yaml`; with neither,
+the run is anonymous. The result says which identity was used. If the sign-in fails the call returns
+a coded error (`RUN_SIGN_IN_FAILED`, `IDENTITY_SECRET_MISSING`, `RUN_IDENTITY_UNKNOWN`) with a
+remediation: report it to the operator instead of editing the spec, since the spec is not the cause.
+
+## Writing the spec
+
+Follow [`references/generation-standards.md`](references/generation-standards.md) for the
+generation-specific rules (traceability, independence, anti-flaky locators) and
+[`../../references/testing-standards.md`](../../references/testing-standards.md) for the shared
+ISTQB/ISO 29119 grounding. Two points worth restating:
+
+- **One `test.step([id] ...)` with an explicit assertion per case step.** This is what lets the
+  existing verification loop catch incomplete coverage — a spec missing one is rejected, not
+  registered.
+- **Registry locators only.** Never write a raw, ad hoc selector into generated content.
+
+## Verifying and registering
+
+1. Call `qa.generation_manual_regions_apply` to splice preserved hand-written code back into the
+   freshly generated template.
+2. Call `qa.generation_verify` with the exact `qa.generation_spoke_input` result, the candidate
+   content, the target `filePath` and the generator's own version — it typechecks the candidate,
+   then, only if that passes, executes it once through the runner.
+3. Only a `'verified'` outcome is registered: call `qa.generation_register` with the exact `spec`
+   and `verificationId` the `'verified'` outcome returned, unmodified. A `verificationId` registers
+   one spec once; to register again, verify again.
+4. A `'typecheck_failed'`, `'expectations_missing'` or `'execution_failed'` outcome is never registered. Report the `issues`
+   plainly; the hub re-dispatches within the configured retry budget — this skill does not run its
+   own retry loop.
+
+## What this skill does not do
+
+- It does not design or edit case content — that is `qa-design-cases`.
+- It does not execute a case live — that is `qa-execute`, and must run first.
+- It does not report a "test generated" outcome without a `'verified'` result.
+- It does not proactively scan for or announce stale specs.
+- It does not hand-edit code outside a manual-region marker.
