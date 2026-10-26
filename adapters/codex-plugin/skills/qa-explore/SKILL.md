@@ -1,0 +1,157 @@
+---
+name: qa-explore
+description: >-
+  Use when the operator wants to build or refresh the selector registry ("explore the app",
+  "crawl the app for testable elements", "update the registry", "check if the registry is still
+  valid", "why doesn't this locator work anymore"). Never use for starting a new session (that is
+  `qa-start`) or for case design / execution work once elements already exist in the registry.
+triggers:
+  - 'explore the app and build the selector registry'
+  - 'crawl the staging environment'
+  - 'refresh the registry, some selectors might be stale'
+  - 'why is this locator failing now'
+nonTriggers:
+  - 'start a QA session for this project'
+  - 'write test cases for the login flow'
+  - 'run the checkout test case'
+references:
+  - ../../references/component-libraries.md
+---
+
+# `qa-explore` — selector registry
+
+Fires when the operator wants the selector registry built or re-checked. Scoped to what
+`qa.explore` actually does today: crawling and static source analysis feed the registry, and the
+same crawl also derives a discovered API surface (`endpoints.json`, see
+[Reading the result](#reading-the-result)). Comparing that surface with an OpenAPI contract is `qa-api` (see [Not yet in scope](#not-yet-in-scope)).
+
+## Ask before calling anything
+
+Before the first `qa.explore` call, ask the operator explicitly rather than assuming defaults:
+
+1. **Fresh crawl or verify?** A new/extended registry (`qa.explore`) or a live re-check of the
+   stored registry (`qa.explore` with `verify: true`) — these answer different questions and are
+   never picked silently from phrasing alone.
+2. **Static analysis too?** Whether to merge in framework-attribute analysis of `source.path`
+   (`static: true`) alongside the crawl. Only relevant when doing a fresh crawl.
+3. **Which environment/identity?** Required when `config.yaml` has more than one of either; skip
+   the question when there is only one.
+4. **Expect any pages the crawler cannot reach?** Login walls, multi-step wizards or canvas-heavy
+   UI a crawler cannot drive reliably. If the operator names any, tell them up front that those need
+   manual pick mode (`qa explore --pick <url>`, operator-run — see
+   [What this skill does not do](#what-this-skill-does-not-do)) rather than only surfacing it later
+   if `missingLocatorCount` turns out non-zero.
+
+## When the built-in auto-login heuristic fails
+
+`qa.explore`'s scripted login (`identity.auth: "storage-state"`) fills the username/password fields
+with a generic default selector (`input[type="email"], input[name="username"],
+input[id="username"], input[autocomplete="username"]`) only when
+`identities.<name>.selectors.username`/`password`/`submit` is not set in `config.yaml`. A login form
+that does not use any of those standard attributes — a custom component library (e.g. a Kendo
+`<kendo-textbox formcontrolname="username" data-ui-id="...">`) is a typical case — is not a gap this
+skill or the engine needs a code change for: set the matching identity's `selectors.username` (and
+`password`/`submit` as needed) to a CSS selector that actually matches the app's markup, then retry.
+Check this before concluding auto-login is unfixable or filing it as an engine limitation.
+
+## Component-library applications
+
+When `ui.componentLibrary` in `config.yaml` is not `none`, or the crawl reports drop-downs, date
+pickers or grids with no usable locator, read
+[`agents/references/component-libraries.md`](../../references/component-libraries.md) before
+advising the operator: it says what the registry holds for such widgets and which tools later
+steps use instead of raw clicks.
+
+## What this skill calls
+
+1. **`qa.doctor`**, if not already confirmed this session (`qa-start` normally does this at session
+   start) — an explore against a broken environment produces a misleading, mostly-empty registry
+   rather than a clear error, so confirm the environment first when in doubt.
+2. **`qa.explore`**, with the answers from the survey above: `environment`/`identity`, `static`,
+   `maxPages` to bound the crawl if the operator wants a cap, or `verify: true` for the re-check
+   path instead of a crawl. When the operator names a page the crawl missed, pass its URL or path in
+   `startUrls` and explore again before falling back to manual pick mode.
+   When pages are missing because the application navigates with buttons that have no link (a
+   single-page application), ask the operator before setting `probeNavigation: true`: it clicks
+   buttons outside forms, each in a throwaway context under safe mode, and is slower. Do not turn it
+   on unprompted, and tell the operator it skips controls named like a sign-out or delete.
+   When controls are missing because they sit inside a collapsed panel (a filter behind a "Search
+   Details" toggle), ask the operator before setting `expandCollapsed: true`: it opens each page's
+   collapsed panels in a throwaway context under safe mode and is slower. Use it for `verify` too
+   once the registry holds such controls, or they will score as degraded.
+
+## Reading the result
+
+- `added` / `removed` — elements newly found or dropped since the last stored registry. Report the
+  counts; a large, unexpected drop is worth flagging to the operator before continuing rather than
+  treating it as routine.
+- `degraded` (`verify` mode only) — a stored, previously-working selector no longer resolves the
+  same way live. Each entry names the element and its previous vs. current stability score. Surface
+  these to the operator; do not silently re-crawl over a degraded selector without saying so.
+- `missingLocatorCount` — elements the explorer found but could not synthesize any locator for.
+  These need the operator's attention (a manual pick, or a `data-testid` added to the source) before
+  a case can target them.
+- `elementCount` and the counts beside it describe the environment that was explored. The registry
+  holds every environment of the project and a run leaves the others alone;
+  `otherEnvironmentElementCount` says how many it left, so a number that looks small next to the file
+  is not a loss.
+- `blockedRequestCount` — requests safe mode blocked during the crawl, and `blockedRequestCounts` the
+  same by reason: `method` (not a safe read), or `host`, `scheme` or `port` (the request left the
+  environment's allowlist or `baseUrl`). Non-zero is expected behavior, not a failure; mention it only
+  if the operator asks what the crawl touched. The one exception is a registry that is empty, stops at
+  the sign-in page or shows pages without their data: `blockedRequests` then names, by reason, method
+  and path, what the application tried to send. Read the reason before advising. A `method` entry
+  (typically a `POST` that opens the session) is the only kind the operator could add to the
+  environment's `safeNonGetRequests` (they edit `config.yaml`; you cannot, and must not suggest
+  widening it for a request that changes data). A `host`, `scheme` or `port` entry is a plain GET to
+  another origin, for example an API on another port: `safeNonGetRequests` cannot help; tell the operator
+  it is the environment's allowlist or `baseUrl`. For a `port` entry the operator adds `host:port` (for example `localhost:8091`) to the environment's `allowlist` in `config.yaml`, or with `qa config add environment`; you cannot add a port yourself.
+  `allowedRequests` lists what the environment's list let through.
+- `expandedPanelCount` (present only when `expandCollapsed` was on) — how many panel toggles were
+  clicked. Zero means no page had a collapsed panel to open.
+- `navigationProbeCount` (present only when `probeNavigation` was on) — how many controls were clicked.
+  Zero means the pages had no such control; the route map says which pages were found by a click
+  (`click-probe`) and which by a router attribute or the History API.
+- `EXPLORE_PAGE_NOT_SETTLED` (a logged warning, one per page) — a page still showed a busy indicator or
+  kept changing when the wait for it to render ran out, so it was read as it was. A registry that is
+  thin for that page means the page never settled: tell the operator, and check `ui.busySelectors`
+  names the application's spinner.
+- `endpointsPath` / `endpointCount` — where the discovered API surface was written
+  (`.qa/selectors/endpoints.json`) and how many endpoints it holds after merging with whatever was
+  already stored there. Each entry is `{ method, path, source: 'discovered', examples }`: `path`
+  has record-id segments collapsed to `{id}` (`/tasks/1`, `/tasks/2` → `/tasks/{id}`), and
+  `examples` keeps a capped sample of the raw paths that collapsed into it, so a reviewer can check
+  the collapse was correct instead of trusting it blindly. This is traffic the crawl itself
+  observed, not a contract — treat a large `endpointCount` as informational, not something to report
+  unprompted, unless the operator is specifically working toward API test generation
+  ([P6-04](https://github.com/Klim-101/QA-AI-STLC/issues/78) and later).
+
+Exploring is not itself a gated phase (`packages/core/src/phases.ts`'s `PHASES` has no `explore`
+entry), so do not stop after presenting the counts above. Read `.qa/state.json`'s `currentPhase`
+and relay that phase's own next step the same way a gate approval would
+([`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)) — for example, if `scope` is
+still open, point at [`agents/phase-prompts/scope.md`](../../phase-prompts/scope.md) rather than
+ending on the registry report alone.
+
+## What this skill does not do
+
+- **Manual pick mode is CLI-only.** `qa explore --pick <url>` opens a headed browser for the
+  _operator_ to click through — it cannot run over MCP's stdio transport (AGENTS.md 12.4). If the
+  registry is missing a locator this skill cannot resolve by crawling, tell the operator to run pick
+  mode themselves; do not attempt it as a spoke task.
+  Give the exact command, never a guessed package name. In a project without the CLI installed:
+  `npx @qa-ai-stlc/cli explore --pick <url>`; with it installed: `npx qa explore --pick <url>`. Add
+  `--identity <name>` whenever the page needs sign-in (without it the browser opens on the login
+  page), and `--environment <name>` when `config.yaml` has more than one.
+  Tell the operator how to reach a control behind a collapsed panel (a filter section, a menu): in the
+  toolbar, switch **Browse** on, click to open the panel, switch it off, then click the element to
+  capture. While browsing the session still blocks every write and every request off the allowlist.
+- It does not write test cases or dispatch execution — that is `qa-design-cases` and later skills.
+- It does not re-implement the explorer's crawl, static-analysis or scoring logic; it calls
+  `qa.explore` and reports the structured result.
+
+## Not in this skill
+
+Diffing the discovered API surface against an OpenAPI contract (`qa.api_diff`) belongs to `qa-api`.
+This skill reports the `endpoints.json` the crawl observed: traffic seen, not a contract. A
+synthesized draft is not a contract until the operator approves it as one.

@@ -16,6 +16,8 @@ export interface PluginConfig {
   readonly keywords: readonly string[];
   /** The npm package `.mcp.json` launches via `npx -y <mcpPackage>@<version>`. */
   readonly mcpPackage: string;
+  /** Presentation metadata for the Codex plugin (`adapters/codex-plugin/`, P5-02). */
+  readonly codex: { readonly category: string; readonly defaultPrompt: readonly string[] };
 }
 
 const pluginConfig: PluginConfig = {
@@ -28,6 +30,7 @@ const pluginConfig: PluginConfig = {
   license: 'Apache-2.0',
   keywords: ['qa', 'testing', 'playwright', 'mcp', 'e2e'],
   mcpPackage: '@qa-ai-stlc/mcp-server',
+  codex: { category: 'Coding', defaultPrompt: ['Set up QA for this application'] },
 };
 
 export default pluginConfig;
