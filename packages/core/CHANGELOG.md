@@ -1,5 +1,12 @@
 # @qa-ai-stlc/core
 
+## 1.14.2
+
+### Patch Changes
+
+- 6e36036: The declared-expectation check now reads a test inside `test.describe` (including `.serial`, `.parallel`, `.only` and nested describes), as it does a top-level test, so a spec written the way the generation standards describe is no longer rejected. A test in `test.describe.skip` or `.fixme` still counts as one that never runs.
+- @qa-ai-stlc/schemas@1.14.2
+
 ## 1.14.1
 
 ### Patch Changes
