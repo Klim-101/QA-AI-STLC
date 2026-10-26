@@ -1,6 +1,12 @@
 # QA-AI-STLC
 
+[![npm](https://img.shields.io/npm/v/@qa-ai-stlc/cli?label=npm)](https://www.npmjs.com/package/@qa-ai-stlc/cli)
+[![CI](https://github.com/Klim-101/QA-AI-STLC/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Klim-101/QA-AI-STLC/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](docs/public/ROADMAP.md)
+
 Open-source, model-agnostic QA framework that runs inside the agent host you already use: Claude Code or Codex.
+It carries a feature through functional testing, from requirement to proven results, specs for CI, a report and defect drafts.
 
 > **Status: alpha.** The engine packages are published to npm and covered by tests on Windows, macOS
 > and Linux, and the Claude Code plugin installs from this repository. Progress per phase is in the
@@ -10,9 +16,25 @@ Open-source, model-agnostic QA framework that runs inside the agent host you alr
 
 ## Why
 
-QA work with AI agents today mostly means chatting with a model in a loop: it clicks around, writes a test, tells you it passed. There's no artifact you can trust without re-checking it yourself, no record of what was actually clicked or called, and no way to tell "the agent verified this" from "the agent said this." Every project starts over — no shared selector map, no traceability from requirement to evidence, no memory between runs.
+AI agents can drive a browser, but a chat with a model leaves nothing you can trust without re-checking it yourself: no record of what was actually clicked or called, no difference between "the agent verified this" and "the agent said this", and no memory between runs.
 
-QA-AI-STLC turns that into a deterministic pipeline instead of a conversation. The agent drives it, but the engine — not the model — owns the browser, the test runs, the evidence, and every report. A test isn't "kept" until it has actually executed. A defect draft isn't written by hand. Nothing is marked passed unless the engine, not the agent's word, says so. And because it runs inside the agent host you already have, on your own subscription, there's no separate service to trust, host, or pay for.
+QA-AI-STLC puts a deterministic engine between the agent and your application. The agent drives; the engine, not the model, owns the browser, the test runs, the evidence and every report. A test isn't kept until it has actually executed, and a result isn't `passed` unless the recorded evidence proves it. It runs inside the agent host you already have, on your own subscription, so there is no separate service to trust, host or pay for.
+
+## What you get
+
+For a feature you are testing, the framework does the routine of the manual functional-testing phase and leaves the decisions to you:
+
+- **Approved test cases** traced to your requirements; scope and cases are gates you approve.
+- **Live runs with proof.** Each approved case runs in a browser, as an HTTP call or as an axe-core scan, and is `passed` only when the evidence the engine recorded proves it.
+- **Deterministic specs for CI.** Playwright and API specs stay in your repository and run with `qa run` without a model or an API key ([CI usage](docs/public/ci-usage.md)).
+- **A report** with a requirement → case → result → evidence traceability matrix and a per-criterion WCAG section ([example](docs/artifacts-examples/run-result-2026-10-26.md)).
+- **Defect drafts and root cause analyses** in a tracker-neutral format. Filing them in Jira or any other system stays with you.
+
+## When to use it
+
+It fits when you have a feature or a release to test and want the functional pass done by an agent with an audit trail, when you are building a regression pack that will then run in CI, and when the application is a non-production environment you are authorized to test.
+
+It does not fit production environments, or a quick one-off check that needs no process and no artifacts. Today's scope is web E2E, API, accessibility and an on-demand security audit. Scope, defect acceptance and release recommendations always remain your decisions.
 
 ## What it does
 
@@ -23,34 +45,37 @@ the agent in your host drive it.
 - **Exploration.** A safe-mode crawl, optional static source analysis and a manual pick mode build a selector registry with scored locators and an API-surface map, and `qa explore --verify` catches a selector that stopped working.
 - **Requirements and test cases.** Requirements come from a local Markdown source; every case must link to a real requirement and can declare expectations the engine checks.
 - **Hash-bound approvals.** Scope, cases, accepted defects, root cause analyses and security audits are approved against their exact content, so an edit afterwards reopens the approval.
-- **Live execution.** An approved case runs live, in a browser, as an HTTP call or as an axe-core scan, before any code is written; a result is `passed` only when the recorded evidence proves it.
 - **Verified generation.** Playwright UI specs and API specs from your OpenAPI contract are kept only after they typecheck, run against the application and cover the case's own steps.
-- **Runs and evidence.** `qa run` runs E2E, API and accessibility specs and records each result with hashed, secret-scanned evidence, and honest statuses such as `partial`.
-- **Reports.** Run summaries and a requirement → case → result → evidence traceability matrix as Markdown or HTML, plus a per-criterion WCAG conformance section.
-- **Defects, triage and RCA.** Failures are classified, product bugs become tracker-neutral defect drafts for you to file, and an accepted defect can get a root cause analysis.
 - **Security audit on demand.** Non-destructive checks, run only after an authorization you approve, never as part of the pipeline.
 - **Adapts to your application.** Layered configuration, named API auth profiles (including a token read from the live browser session), Kendo UI for jQuery and Angular widgets, and a pinned browser language.
 - **Same engine over MCP.** The local `qa-mcp-server` exposes one tool per engine operation, so any MCP-capable host gets the same results as the CLI.
 
-## Supported hosts
+## Tested on real applications
 
-| Host                          | Status                                                                                                                |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Claude Code (CLI and desktop) | Installable from this repository as a public marketplace, or from a local marketplace (verified on Windows and macOS) |
-| Codex (CLI and desktop)       | Planned                                                                                                               |
-| Other MCP-capable hosts       | Engine usable through the local MCP server                                                                            |
+Besides the demo app, the whole chain (explore, case design, live execution, triage, defects, root
+cause analysis, generation, `qa run` and the report) has been driven by a real agent host through the
+Claude Code plugin, over several iterations, against two applications that are not ours:
 
-## Responsibility boundary
+- a live, sign-in protected Kendo UI for Angular application;
+- the public sample shop [Practice Software Testing](https://practicesoftwaretesting.com/), end to
+  end for web E2E, API (from its OpenAPI contract) and accessibility cases, from the first
+  exploration to generated specs replayed with `qa run` without any agent or model.
 
-Read this before adopting the framework.
+The bugs each iteration found were fixed before the next. This is a statement about the runs made
+so far, not a guarantee for your application; report what you find.
 
-**The model is yours.** The framework runs entirely on your machine inside your agent host and uses the model and subscription you have configured there. It operates no hosted service, requires no API keys and never calls a language model itself. Model usage and its cost are governed by your host account.
+### What a run leaves behind
 
-**Defects and reports are yours to publish.** Creating, filing and publishing defects, test reports and any other records in external systems such as Jira, Confluence, GitHub Issues, Azure DevOps or TestRail is the responsibility of the operator and the operator's infrastructure. The framework contains no integrations with such systems, stores no tracker credentials and sends nothing to them. It produces schema-valid defect drafts and rendered reports in your project that you can file, script or import with your own tools. See [Filing defect drafts with your own tooling](docs/public/filing-defect-drafts.md) for worked examples.
+Real output from the public-shop run above, unedited (see
+[the examples folder](docs/artifacts-examples/README.md)):
 
-**Decisions are yours.** Test scope, test cases, defect acceptance and release recommendations require explicit operator approval. The framework records evidence; it does not certify quality.
-
-**Environments are yours to choose.** Point the framework only at non-production environments you are authorized to test. Safe mode is on by default, but you remain responsible for the data and systems it touches.
+- [Run result report](docs/artifacts-examples/run-result-2026-10-26.md): status per case, failure
+  reasons, spec runs, the per-criterion WCAG section, defects and root cause analyses.
+- [Accepted defect](docs/artifacts-examples/product-page-missing-stock-availability.json) and a
+  [defect draft](docs/artifacts-examples/a11y-catalog-product-wcag-violations.json), both tracker-neutral
+  JSON linked to the evidence that proves them.
+- [Root cause analysis](docs/artifacts-examples/a11y-language-button-and-list-markup.json): facts,
+  hypotheses with a confidence, remediation, and the hash of the defect it was written against.
 
 ## Quick start
 
@@ -68,25 +93,9 @@ then ask: "set up QA-AI-STLC for this repo". The `qa-start` skill asks which kin
 scope, writes `.qa/config.yaml` through the engine, offers to add an environment and an identity (you
 name a `QA_*` variable and set its value yourself) and checks the setup with `qa.doctor`.
 
-For CI or a shell, the CLI does the same with flags:
-
-```sh
-npx @qa-ai-stlc/cli init --e2e in-scope --api out-of-scope --a11y out-of-scope --security out-of-scope
-npx @qa-ai-stlc/cli config add environment staging \
-  --base-url https://staging.example.com/dashboard --allowlist staging.example.com
-npx @qa-ai-stlc/cli config add identity admin \
-  --auth storage-state --secret QA_ADMIN_PASSWORD \
-  --login-url https://staging.example.com/login --username admin@example.com
-npx @qa-ai-stlc/cli explore --environment staging --identity admin
-```
-
-Against [`examples/demo-app`](examples/demo-app), a small task tracker with catalogued bugs:
-
-```
-Wrote selectors/registry.json: 78 element(s) (78 added, 0 removed, 0 degraded).
-0 element(s) with no locator candidate.
-0 request(s) blocked by safe mode.
-```
+For CI or a shell, install the CLI instead: see
+[Option B in the install guide](docs/public/how-to-install-and-run.md#option-b-the-cli-for-a-shell-or-ci),
+which also covers a first run on the demo app, [`examples/demo-app`](examples/demo-app).
 
 Every command takes `--json`, and `qa status` names what to do next. For applications that do not
 fit the defaults (a session opened with a POST, an API on another port, several environments, a
@@ -133,19 +142,25 @@ Requirements, cases and approvals are checked the same way:
 ([ADR-0003](docs/adr/0003-hash-bound-approval-gates.md)), and `qa validate` recomputes every gate from it, so a hand edit
 after approval reopens the gate and a case whose requirement disappeared is reported as unlinked.
 
-## Tested on real applications
+## Supported hosts
 
-Besides the demo app, the whole chain (explore, case design, live execution, triage, defects, root
-cause analysis, generation, `qa run` and the report) has been driven by a real agent host through the
-Claude Code plugin, over several iterations, against two applications that are not ours:
+| Host                          | Status                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Claude Code (CLI and desktop) | Installable from this repository as a public marketplace, or from a local marketplace (verified on Windows and macOS) |
+| Codex (CLI and desktop)       | Planned                                                                                                               |
+| Other MCP-capable hosts       | Engine usable through the local MCP server                                                                            |
 
-- a live, sign-in protected Kendo UI for Angular application;
-- the public sample shop [Practice Software Testing](https://practicesoftwaretesting.com/), end to
-  end for web E2E, API (from its OpenAPI contract) and accessibility cases, from the first
-  exploration to generated specs replayed with `qa run` without any agent or model.
+## Responsibility boundary
 
-The bugs each iteration found were fixed before the next. This is a statement about the runs made
-so far, not a guarantee for your application; report what you find.
+Read this before adopting the framework.
+
+**The model is yours.** The framework runs entirely on your machine inside your agent host and uses the model and subscription you have configured there. It operates no hosted service, requires no API keys and never calls a language model itself. Model usage and its cost are governed by your host account.
+
+**Defects and reports are yours to publish.** Creating, filing and publishing defects, test reports and any other records in external systems such as Jira, Confluence, GitHub Issues, Azure DevOps or TestRail is the responsibility of the operator and the operator's infrastructure. The framework contains no integrations with such systems, stores no tracker credentials and sends nothing to them. It produces schema-valid defect drafts and rendered reports in your project that you can file, script or import with your own tools. See [Filing defect drafts with your own tooling](docs/public/filing-defect-drafts.md) for worked examples.
+
+**Decisions are yours.** Test scope, test cases, defect acceptance and release recommendations require explicit operator approval. The framework records evidence; it does not certify quality.
+
+**Environments are yours to choose.** Point the framework only at non-production environments you are authorized to test. Safe mode is on by default, but you remain responsible for the data and systems it touches.
 
 ## Documentation
 

@@ -7,3 +7,5 @@ docs/dev
 # expectMatchesGoldenFile; Prettier reformatting them (e.g. padding Markdown table columns) would
 # make every renderer test fail against its own real output.
 **/__snapshots__/*.golden.*
+# Real engine output kept as it was written, so the examples show what a run leaves behind.
+docs/artifacts-examples

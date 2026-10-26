@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "a11y-catalog-product-wcag-violations",
+  "title": "Catalog filter list markup and language button label fail WCAG 2.1 AA",
+  "severityProposal": "major",
+  "category": "accessibility",
+  "steps": [
+    "Open https://practicesoftwaretesting.com and run an axe-core WCAG 2.1 AA scan.",
+    "Open a product page and run the same scan.",
+    "Compare the reported violations with the expected clean result."
+  ],
+  "expectedResult": "The automated scan reports no WCAG 2.1 AA violations on either page.",
+  "actualResult": "axe-core 4.13.0 reports 2 serious violations on the home page and 1 on the product page. 'list' (WCAG 1.3.1): a <fieldset> is a direct child of <ul> in the category filter. 'label-content-name-mismatch' (WCAG 2.5.3, experimental rule): button #language has aria-label 'Select language' that does not contain its visible text. Colour-contrast checks were uncertain (2 on home, 3 on product) and need a manual check.",
+  "environment": "default",
+  "requirementIds": [
+    "accessibility"
+  ],
+  "evidencePaths": [
+    "evidence/run-0669cd9d-fbd5-4ddc-8209-8102ff856471/evidence-883e9090-c9bb-4075-829b-7bb4fad91ab1.json",
+    "evidence/run-0669cd9d-fbd5-4ddc-8209-8102ff856471/evidence-fb97d3b8-a987-4e61-9d90-f97513104a84.json"
+  ],
+  "source": {
+    "runId": "run-0669cd9d-fbd5-4ddc-8209-8102ff856471",
+    "resultId": "run-result-1ce67797-72c3-4225-91e4-ba767d0f74e2"
+  },
+  "status": "draft",
+  "createdAt": "2026-10-25T13:01:00.000Z"
+}
