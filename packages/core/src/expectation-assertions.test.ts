@@ -395,6 +395,48 @@ describe('findMissingExpectationAssertions: the assertion has to run', () => {
     expect(found[0]?.path).toEqual(['result']);
   });
 
+  describe('a test inside test.describe', () => {
+    const step = `await test.step('[step-1] Open', async () => { ${ASSERTION} });`;
+    const wrapped = (opener: string, closer = '});') =>
+      [opener, `  test('a case', async ({ page }) => {`, `    ${step}`, '  });', closer].join('\n');
+
+    it.each([
+      ['test.describe', wrapped("test.describe('group', () => {")],
+      ['test.describe.serial', wrapped("test.describe.serial('group', () => {")],
+      ['test.describe.only', wrapped("test.describe.only('group', () => {")],
+      [
+        'a nested describe',
+        wrapped("test.describe('outer', () => { test.describe('inner', () => {", '}); });'),
+      ],
+      ['a function expression callback', wrapped("test.describe('group', function () {")],
+    ])('reads the assertion in %s', (_shape, content) => {
+      expect(issues(content)).toEqual([]);
+    });
+
+    it.each([
+      ['test.describe.skip', wrapped("test.describe.skip('group', () => {")],
+      ['test.describe.fixme', wrapped("test.describe.fixme('group', () => {")],
+    ])('refuses an assertion in %s, whose tests never run', (_shape, content) => {
+      expect(issues(content)).toHaveLength(1);
+    });
+
+    it('still refuses dead code inside a describe, and reads nothing from a describe with no body', () => {
+      expect(
+        issues(wrapped("test.describe('group', () => {").replace(ASSERTION, `if (false) { ${ASSERTION} }`)),
+      ).toHaveLength(1);
+      expect(
+        issues("test.describe('group', helper); test.describe.configure({ mode: 'serial' });"),
+      ).toHaveLength(1);
+    });
+
+    it('reads a test beside a describe, and ignores a call that is not test.describe', () => {
+      expect(
+        issues([wrapped("test.describe('group', () => {"), 'other.describe(() => {});'].join('\n')),
+      ).toEqual([]);
+      expect(issues(['other.describe.skip(() => {});', spec(step)].join('\n'))).toEqual([]);
+    });
+  });
+
   it('says the line is written but may never run when it is there in dead code', () => {
     const found = issues(stepWith(`if (false) { ${ASSERTION} }`));
 

@@ -130,24 +130,48 @@ class StatementCollector {
   }
 }
 
+// `test.describe(...)`, `.serial`, `.parallel`, `.only` and nested describes run their body every
+// time. `.skip` and `.fixme` never run their tests, so like a skipped step they contribute nothing.
+function isRunningDescribeCall(call: ts.CallExpression): boolean {
+  const names: string[] = [];
+  let current: ts.Expression = call.expression;
+  while (ts.isPropertyAccessExpression(current)) {
+    names.unshift(current.name.text);
+    current = current.expression;
+  }
+  return (
+    ts.isIdentifier(current) &&
+    current.text === 'test' &&
+    names[0] === 'describe' &&
+    !names.includes('skip') &&
+    !names.includes('fixme')
+  );
+}
+
+function collectTests(statements: readonly ts.Statement[], collector: StatementCollector): void {
+  for (const statement of statements) {
+    if (!ts.isExpressionStatement(statement) || !ts.isCallExpression(statement.expression)) {
+      continue;
+    }
+    const call = statement.expression;
+    if (ts.isIdentifier(call.expression) && call.expression.text === 'test') {
+      collector.collectTest(call);
+    } else if (isRunningDescribeCall(call)) {
+      collectTests(callbackStatements(call), collector);
+    }
+  }
+}
+
 /**
  * Reads a generated spec and returns the code that is certain to run, so an assertion that sits in
  * a branch that is never taken, after a `return`, or in a skipped step is not mistaken for one that
- * runs (AGENTS.md 12.1). Only the callback of a top-level `test(...)` is read.
+ * runs (AGENTS.md 12.1). Only the callback of a `test(...)` is read, at the top level or inside a
+ * `test.describe` that runs.
  */
 export function readReachableSpecCode(specContent: string): ReachableSpecCode {
   const sourceFile = ts.createSourceFile('spec.ts', specContent, ts.ScriptTarget.Latest, true);
   const collector = new StatementCollector(sourceFile);
-  for (const statement of sourceFile.statements) {
-    if (
-      ts.isExpressionStatement(statement) &&
-      ts.isCallExpression(statement.expression) &&
-      ts.isIdentifier(statement.expression.expression) &&
-      statement.expression.expression.text === 'test'
-    ) {
-      collector.collectTest(statement.expression);
-    }
-  }
+  collectTests(sourceFile.statements, collector);
   return {
     statementsByStep: collector.statementsByStep,
     statements: collector.statements,
