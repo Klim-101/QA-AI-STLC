@@ -1,17 +1,21 @@
 // Copyright The QA-AI-STLC Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import {
   fetchHttpClient,
   nodeFileSystem,
   nodeProcessRunner,
   noopLogger,
   playwrightBrowserLauncher,
-  resolveProjectRoot,
+  resolveEngineProjectRoot,
   systemClock,
   type EngineContext,
 } from '@qa-ai-stlc/core';
+
+function isExistingDirectory(path: string): boolean {
+  return existsSync(path) && statSync(path).isDirectory();
+}
 
 /**
  * Builds an `EngineContext` from the real Node adapters, freshly on every call rather than once
@@ -23,7 +27,12 @@ import {
  */
 export function createNodeEngineContext(): EngineContext {
   return {
-    projectRoot: resolveProjectRoot(process.cwd(), existsSync),
+    projectRoot: resolveEngineProjectRoot({
+      cwd: process.cwd(),
+      env: process.env,
+      isDirectory: isExistingDirectory,
+      hasQaDirectory: existsSync,
+    }),
     fs: nodeFileSystem,
     clock: systemClock,
     logger: noopLogger,

@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import {
-  CODEX_PLUGIN_SOURCE_PATH,
-  buildMarketplace,
-  buildMcpConfig,
-  buildPluginManifest,
-} from './manifests.mjs';
+import { CODEX_PLUGIN_SOURCE_PATH, buildMarketplace, buildPluginManifest } from './manifests.mjs';
 
 const CONFIG = {
   name: 'demo-plugin',
@@ -42,19 +37,6 @@ describe('buildPluginManifest', () => {
 
     expect(manifest).not.toHaveProperty('skills');
     expect(manifest).not.toHaveProperty('mcpServers');
-  });
-});
-
-describe('buildMcpConfig', () => {
-  it('pins the engine package and the expected version for the handshake', () => {
-    const server = buildMcpConfig(CONFIG, '2.3.4').mcpServers['demo-plugin'];
-
-    expect(server).toEqual({
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', '@demo/mcp-server@2.3.4'],
-      env: { QA_EXPECTED_ENGINE_VERSION: '2.3.4' },
-    });
   });
 });
 

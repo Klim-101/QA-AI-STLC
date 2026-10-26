@@ -7,11 +7,12 @@
 // the sources stay the only hand-edited files and `--check` flags drift and stray files. The Claude
 // plugin's hook and eval suite are deliberately not carried over: plugins with hooks cannot be
 // submitted to Codex's public directory, and the evals are `claude plugin eval` files.
-// Run with `node --experimental-strip-types` so `plugin.config.ts` can be imported directly.
+// The MCP server is deliberately not declared by the plugin (P5-07); the README tells the
+// operator to register it with `codex mcp add`. Run with `node --experimental-strip-types` so `plugin.config.ts` can be imported directly.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildMarketplace, buildMcpConfig, buildPluginManifest } from './codex-plugin/manifests.mjs';
+import { buildMarketplace, buildPluginManifest } from './codex-plugin/manifests.mjs';
 import { checkTree, copyDirectory, readLfText, renderJson, writeTree } from './lib/generated-tree.mjs';
 
 const repoRoot = join(import.meta.dirname, '..');
@@ -36,14 +37,15 @@ copyDirectory(join(agentsDir, 'hub'), 'hub', files);
 copyDirectory(join(agentsDir, 'phase-prompts'), 'phase-prompts', files);
 copyDirectory(join(agentsDir, 'references'), 'references', files);
 
-files.set('README.md', { content: readLfText(readmeSourcePath) });
+files.set('README.md', {
+  content: readLfText(readmeSourcePath)
+    .replaceAll('{{engineVersion}}', engineVersion)
+    .replaceAll('{{mcpPackage}}', pluginConfig.mcpPackage),
+});
 files.set('LICENSE', { content: readLfText(join(repoRoot, 'LICENSE')) });
 files.set('NOTICE', { content: readLfText(join(repoRoot, 'NOTICE')) });
 files.set('plugin.json', {
   content: await renderJson(buildPluginManifest(pluginConfig, engineVersion), join(outDir, 'plugin.json')),
-});
-files.set('mcp.json', {
-  content: await renderJson(buildMcpConfig(pluginConfig, engineVersion), join(outDir, 'mcp.json')),
 });
 
 const extraFiles = new Map([

@@ -5,7 +5,16 @@ QA-AI-STLC is an open-source, model-agnostic QA framework that runs inside Codex
 ## What the plugin contains
 
 - **Skills** for the QA pipeline, from setting up a project and exploring the application to designing cases, generating and running tests, and reading reports.
-- **A local MCP server**, declared in `mcp.json`, started with `npx` at a pinned version. It runs on your machine over stdio.
+
+## Register the engine
+
+The skills drive a local MCP server, the engine. Codex starts a server that a plugin declares in the plugin's own cache directory, where it cannot find your project, so the plugin does not declare it. Register it once instead; Codex then starts it in the directory of your session:
+
+```sh
+codex mcp add qa-ai-stlc --env QA_EXPECTED_ENGINE_VERSION={{engineVersion}} -- npx -y {{mcpPackage}}@{{engineVersion}}
+```
+
+The server runs on your machine over stdio. To act on a project other than the session's directory, set `QA_PROJECT_ROOT` to its absolute path.
 
 ## What it does not do
 
