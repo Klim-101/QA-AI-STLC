@@ -54,7 +54,7 @@ The agent can drive the engine inside Claude Code.
 - Reusable, non-secret test-data sets a case references by id instead of inlining repeated values
 - Test cases render as a presentable Markdown document instead of raw JSON
 - Claude Code plugin generated from one canonical source
-- Skill triggering evaluations run in CI (waiting for an owner decision on model-call budget)
+- Skill triggering evaluations generated with the plugin, run by hand as a local check
 
 ## Phase 3 — Runner and generation
 
@@ -75,8 +75,6 @@ Parallel work where it pays off, measured rather than assumed.
 - Regression suite selection by test priority, replayed through the generated tests or live execution as needed
 - Run metrics — how a run was carried out, not how much it cost to think
 - Agent-layer evaluation set and a sequential versus parallel comparison, run as a scripted baseline on the demo application
-
-One internal spoke, `qa-aggregate`, is deliberately not built: it waits for a skill that needs judgment over aggregated data beyond what the engine's own aggregation already gives.
 
 ## Phase 5 — Codex
 
@@ -103,6 +101,23 @@ The same framework inside Codex.
 - Public benchmark on the demo application
 - Submissions to the Claude Code and Codex plugin directories
 
+## Leaving alpha
+
+The project is alpha today. These are the conditions for each step, all tied to work on the board, with no dates.
+
+**Beta, for Claude Code**
+
+- The remaining Phase 6 work is closed: test-data discovery, OpenAPI draft synthesis, validation of API discovery on a real application, a reliable headed browser session, and demo-application tests that are stable under load
+- An upgrade path: `qa upgrade` migrates existing `.qa/` folders when a schema changes, and `qa doctor` checks the generator version
+- A weekly plugin install smoke test and a security review pass
+- Evidence from outside the repository: runs on real applications (done so far on the demo application, a Kendo UI for Angular application and a public sample shop) and reports from people who installed the plugin, with the defects they found fixed
+
+**General availability**
+
+- Phase 7 is complete: the documentation site, the public benchmark, the migration guide and changelog, marketplace submissions and the decision on a VS Code extension
+- Codex is either delivered (Phase 5) or General availability is declared for Claude Code only, with Codex still listed as planned
+- General availability ships as version 2.0.0
+
 ## Not planned
 
 These are deliberate boundaries, not gaps. See the responsibility boundary in the [README](../../README.md).
@@ -110,3 +125,5 @@ These are deliberate boundaries, not gaps. See the responsibility boundary in th
 - Calling language models directly or running hosted infrastructure
 - Publishing defects or reports to Jira, Confluence, GitHub Issues or other trackers
 - Bundling third-party MCP servers
+- Running skill triggering evaluations in CI, which would spend model budget on every run
+- An internal `qa-aggregate` spoke, until a skill needs judgment over aggregated data that the engine's own aggregation cannot give
