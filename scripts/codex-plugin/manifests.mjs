@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Pure builders for the Codex plugin's JSON files (P5-02). Layout verified against Codex CLI
-// 0.149.1: the portable root `plugin.json` plus `mcp.json` install and register the MCP server,
-// and the manifest schema forbids any key outside its fixed list, so skills are discovered from
-// `skills/` rather than declared.
+// 0.149.1: the portable root `plugin.json` installs, and the manifest schema forbids any key outside
+// its fixed list, so skills are discovered from `skills/` rather than declared. The plugin ships no
+// `mcp.json` on purpose (P5-07): Codex starts a plugin-declared server in the plugin cache with no
+// way to learn the project, whereas a server registered with `codex mcp add` starts in the
+// session's directory.
 export const PLUGIN_SCHEMA_URL = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
-export const MCP_SCHEMA_URL = 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json';
 export const CODEX_PLUGIN_SOURCE_PATH = './adapters/codex-plugin';
 
 export function buildPluginManifest(pluginConfig, engineVersion) {
@@ -30,22 +31,6 @@ export function buildPluginManifest(pluginConfig, engineVersion) {
           websiteURL: pluginConfig.homepage,
           defaultPrompt: [...pluginConfig.codex.defaultPrompt],
         },
-      },
-    },
-  };
-}
-
-export function buildMcpConfig(pluginConfig, engineVersion) {
-  return {
-    $schema: MCP_SCHEMA_URL,
-    mcpServers: {
-      [pluginConfig.name]: {
-        type: 'stdio',
-        command: 'npx',
-        args: ['-y', `${pluginConfig.mcpPackage}@${engineVersion}`],
-        // Read by the version handshake (ADR-007) so a stale npx cache produces a coded error
-        // instead of silently running a different engine than this plugin was generated against.
-        env: { QA_EXPECTED_ENGINE_VERSION: engineVersion },
       },
     },
   };

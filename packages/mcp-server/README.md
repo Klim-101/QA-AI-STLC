@@ -46,5 +46,11 @@ Unlike every other tool, these share one session store owned by
 the server process, because a session spans several tool calls; it is closed on SIGINT/SIGTERM,
 and an idle session is closed at the next call that touches it.
 
+The project the tools act on is the nearest directory from the server's working directory upward that
+holds `.qa/`, or the working directory itself. `QA_PROJECT_ROOT` (an absolute path to an existing
+directory) overrides that. A server started inside its plugin's install directory (`PLUGIN_ROOT`) fails
+with `PROJECT_ROOT_UNRESOLVED` instead of acting on it, because Codex starts a plugin-declared server
+there; register the server outside the plugin so it starts in the project.
+
 Part of [QA-AI-STLC](https://github.com/Klim-101/QA-AI-STLC). See the repository root for
 license, contributing and security information.
