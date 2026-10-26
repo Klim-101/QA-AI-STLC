@@ -24,7 +24,7 @@ the agent in your host drive it.
 - **Requirements and test cases.** Requirements come from a local Markdown source; every case must link to a real requirement and can declare expectations the engine checks.
 - **Hash-bound approvals.** Scope, cases, accepted defects, root cause analyses and security audits are approved against their exact content, so an edit afterwards reopens the approval.
 - **Live execution.** An approved case runs live, in a browser, as an HTTP call or as an axe-core scan, before any code is written; a result is `passed` only when the recorded evidence proves it.
-- **Verified generation.** Playwright UI specs and API specs from your OpenAPI contract are kept only after they typecheck, run against the application and cover the case's own steps. API spec generation has not yet been driven end to end by a real agent host.
+- **Verified generation.** Playwright UI specs and API specs from your OpenAPI contract are kept only after they typecheck, run against the application and cover the case's own steps.
 - **Runs and evidence.** `qa run` runs E2E, API and accessibility specs and records each result with hashed, secret-scanned evidence, and honest statuses such as `partial`.
 - **Reports.** Run summaries and a requirement → case → result → evidence traceability matrix as Markdown or HTML, plus a per-criterion WCAG conformance section.
 - **Defects, triage and RCA.** Failures are classified, product bugs become tracker-neutral defect drafts for you to file, and an accepted defect can get a root cause analysis.
@@ -133,13 +133,19 @@ Requirements, cases and approvals are checked the same way:
 ([ADR-0003](docs/adr/0003-hash-bound-approval-gates.md)), and `qa validate` recomputes every gate from it, so a hand edit
 after approval reopens the gate and a case whose requirement disappeared is reported as unlinked.
 
-## Tested on a real application
+## Tested on real applications
 
-Besides the demo app, the whole chain (explore, case design, live execution, defects, root cause
-analysis, report, generation and `qa run`) has been driven by a real agent host through the Claude
-Code plugin, over several iterations, against a live, sign-in protected Kendo UI for Angular
-application. The bugs each iteration found were fixed before the next. This is a statement about the
-runs made so far, not a guarantee for your application; report what you find.
+Besides the demo app, the whole chain (explore, case design, live execution, triage, defects, root
+cause analysis, generation, `qa run` and the report) has been driven by a real agent host through the
+Claude Code plugin, over several iterations, against two applications that are not ours:
+
+- a live, sign-in protected Kendo UI for Angular application;
+- the public sample shop [Practice Software Testing](https://practicesoftwaretesting.com/), end to
+  end for web E2E, API (from its OpenAPI contract) and accessibility cases, from the first
+  exploration to generated specs replayed with `qa run` without any agent or model.
+
+The bugs each iteration found were fixed before the next. This is a statement about the runs made
+so far, not a guarantee for your application; report what you find.
 
 ## Documentation
 
