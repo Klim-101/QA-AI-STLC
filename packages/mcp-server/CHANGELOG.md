@@ -1,5 +1,22 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.15.0
+
+### Minor Changes
+
+- 4ee39ea: The MCP server reads the project root from `QA_PROJECT_ROOT` when it is set (an absolute path to an existing directory, otherwise `PROJECT_ROOT_INVALID`). A server started inside its plugin's install directory (`PLUGIN_ROOT`), as Codex does for a plugin-declared server, now fails with `PROJECT_ROOT_UNRESOLVED` and a remediation instead of acting on that directory.
+
+### Patch Changes
+
+- Updated dependencies [4ee39ea]
+  - @qa-ai-stlc/core@1.15.0
+  - @qa-ai-stlc/explorer@1.15.0
+  - @qa-ai-stlc/runner-a11y@1.15.0
+  - @qa-ai-stlc/runner-api@1.15.0
+  - @qa-ai-stlc/runner-playwright@1.15.0
+  - @qa-ai-stlc/runner-security@1.15.0
+  - @qa-ai-stlc/schemas@1.15.0
+
 ## 1.14.2
 
 ### Patch Changes
