@@ -75,3 +75,10 @@ with an agent, and the engine has no figure for cost at all (it reads no host tr
   Claude Code). Nothing here argues for changing that, and nothing against it.
 - The comparison that decides a default (time and cost with an agent) is a run in a host, scored by
   this same scorer with `--project`. It belongs with the per-host benchmark (P5-05, P7-04).
+
+## Running a scenario with a real agent
+
+`evals/scenarios/<id>.requirements.md` is the one input every host gets for a scenario, so two hosts are
+scored on the same work. Register it as the scope (`qa scope --from file --path <that file>`, or the
+agent's `qa.scope`), let the agent explore, design, execute and file defects, then score the project:
+`npm run eval -- --project <dir>`.
