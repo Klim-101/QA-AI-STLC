@@ -97,7 +97,8 @@ export const generationVerifyTool: ToolDefinition<typeof InputSchema, typeof Out
     '"typecheck_failed"/"expectations_missing"/"execution_failed" with issues to fix, or "verified" with a spec and ' +
     'verificationId to pass, unmodified, to qa.generation_register. An api spec must declare the ' +
     'contract hash from the input (export const CONTRACT_SHA256) and is rejected once the live ' +
-    'contract hashes differently. The test case must be registered ' +
+    'contract hashes differently. A spec that writes the environment origin as a literal is rejected ' +
+    '(core.verification.literal_origin): navigate and assert with paths. The test case must be registered ' +
     'and unchanged since qa.generation_spoke_input built the input.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,

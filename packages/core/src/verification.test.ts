@@ -827,6 +827,55 @@ describe('verifyGeneratedTestSpec', () => {
     });
   });
 
+  it('adds what the runner says about a "partial" result, so the fix reaches the issues', async () => {
+    const { context } = createContext();
+    const failure = { message: 'Step "expected-result" ran no web-first assertion. Use toHaveCount.' };
+    const runner = createFakeRunner(() => [
+      {
+        result: fakeResult({ status: 'partial', missingStepIds: ['expected-result'], failure }),
+        evidence: [],
+      },
+    ]);
+
+    const outcome = await verifyGeneratedTestSpec(context, {
+      spec: SPEC,
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    });
+
+    expect(outcome).toMatchObject({
+      status: 'execution_failed',
+      issues: [
+        { path: ['expected-result'] },
+        { path: [], message: 'Step "expected-result" ran no web-first assertion. Use toHaveCount.' },
+      ],
+    });
+  });
+
+  it('rejects a spec that writes the environment origin as a literal, before anything runs', async () => {
+    const { context, fs } = createContext();
+    let runnerCalled = false;
+    const runner = createFakeRunner(() => {
+      runnerCalled = true;
+      return [];
+    });
+    const content = `${SPEC.content}
+await expect(page).toHaveURL(new RegExp("https://staging.example.test/tasks"));`;
+
+    const rejected = await verifyGeneratedTestSpec(context, {
+      spec: { ...SPEC, content },
+      testCase: TEST_CASE,
+      runner,
+      idGenerator,
+    }).catch((caught: unknown) => caught);
+
+    expect(rejected).toMatchObject({ code: 'core.verification.literal_origin' });
+    expect((rejected as { remediation?: string }).remediation).toContain('baseURL');
+    expect(runnerCalled).toBe(false);
+    expect(await fs.pathExists(join('project', '.qa', 'verifications'))).toBe(false);
+  });
+
   it('rejects a "partial" result with no recorded missing steps instead of verifying it', async () => {
     const { context, fs } = createContext();
     const runner = createFakeRunner(() => [

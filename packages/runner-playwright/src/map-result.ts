@@ -71,10 +71,26 @@ function parseDeclaredStepIds(description: string | undefined): readonly string[
   return description.split(',').map((id) => id.trim());
 }
 
-function describeIncompleteSteps(notRun: readonly string[], idle: readonly string[]): string {
+// Said in full because the agent that wrote the spec cannot see why a generic comparison did not count.
+const WEB_FIRST_RULE =
+  `Step "${EXPECTED_RESULT_STEP_ID}" ran no web-first assertion. Check a locator or the page with ` +
+  'toHaveCount, toBeVisible, toContainText or toHaveURL, for example await expect(rows).toHaveCount(rowsBefore); ' +
+  'a generic comparison such as expect(n).toBe(m) does not count';
+
+function describeIncompleteSteps(
+  notRun: readonly string[],
+  idle: readonly string[],
+  expectedResultCheck: ExpectedResultCheck,
+): string {
+  const needsWebFirst =
+    expectedResultCheck === 'web-first-assertion' && idle.includes(EXPECTED_RESULT_STEP_ID);
+  const idleWithoutRule = needsWebFirst ? idle.filter((id) => id !== EXPECTED_RESULT_STEP_ID) : idle;
   const parts = [
     ...(notRun.length > 0 ? [`Missing step coverage for: ${notRun.join(', ')}`] : []),
-    ...(idle.length > 0 ? [`Steps that ran no action or check: ${idle.join(', ')}`] : []),
+    ...(idleWithoutRule.length > 0
+      ? [`Steps that ran no action or check: ${idleWithoutRule.join(', ')}`]
+      : []),
+    ...(needsWebFirst ? [WEB_FIRST_RULE] : []),
   ];
   return `${parts.join('. ')}.`;
 }
@@ -218,7 +234,11 @@ export async function mapReportToRunResults(options: MapReportOptions): Promise<
                 message: stripAnsiCodes(
                   failureMessage ??
                     (status === 'partial'
-                      ? describeIncompleteSteps(notRunStepIds, idleStepIds)
+                      ? describeIncompleteSteps(
+                          notRunStepIds,
+                          idleStepIds,
+                          EXPECTED_RESULT_CHECK_BY_TEST_TYPE[options.testType],
+                        )
                       : 'Playwright reported a failure with no error message.'),
                 ),
               },

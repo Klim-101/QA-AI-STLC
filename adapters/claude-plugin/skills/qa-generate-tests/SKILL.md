@@ -120,6 +120,12 @@ ISTQB/ISO 29119 grounding. Two points worth restating:
 4. A `'typecheck_failed'`, `'expectations_missing'` or `'execution_failed'` outcome is never registered. Report the `issues`
    plainly; the hub re-dispatches within the configured retry budget — this skill does not run its
    own retry loop.
+5. Once the last spec of the request is registered, run the registered set together before reporting
+   generation done: call `qa.regression_plan` with the highest tier, then `qa.run` each `specRuns` entry it
+   returns; a case with no tier is not in the plan, so add the `filePath` of its spec to the call. A spec
+   that passed alone can fail beside others that change shared data (see the standards on counts). Report a
+   failure with its result file; do not edit a registered spec, regenerate it from a fresh
+   `qa.generation_spoke_input`.
 
 ## What this skill does not do
 
