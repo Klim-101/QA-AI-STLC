@@ -28,7 +28,7 @@
     "clean": "node ../../scripts/clean-dir.mjs dist"
   },
   "dependencies": {
-    "@playwright/test": "1.64.0",
+    "@playwright/test": "1.64.1",
     "@qa-ai-stlc/core": "1.15.0",
     "@qa-ai-stlc/schemas": "1.15.0"
   },
