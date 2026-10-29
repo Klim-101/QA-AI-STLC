@@ -452,12 +452,9 @@ describe('runBrowserExpect', () => {
       );
 
       expect(result.passed).toBe(true);
-      expect(result.notes).toEqual([
-        expect.objectContaining({
-          code: 'EXPECTATION_SELECTOR_NOT_REGISTERED',
-          remediation: expect.stringContaining('qa.registry_execute_register'),
-        }),
-      ]);
+      expect(result.notes).toHaveLength(1);
+      expect(result.notes?.[0]?.code).toBe('EXPECTATION_SELECTOR_NOT_REGISTERED');
+      expect(result.notes?.[0]?.remediation).toContain('qa.registry_execute_register');
     });
 
     it('also tells it when the registry exists but holds no element with that selector', async () => {
