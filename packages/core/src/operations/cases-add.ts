@@ -9,6 +9,7 @@ import {
   type Scope,
   type TestCase,
 } from '@qa-ai-stlc/schemas';
+import { assertCaseSelectorsSupported } from '../case-selectors.js';
 import { loadConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
@@ -89,6 +90,8 @@ export async function runCasesAdd(context: EngineContext, options: CasesAddOptio
       },
     );
   }
+
+  assertCaseSelectorsSupported(testCase);
 
   const manifestStore = new ManifestStore({ store, clock: context.clock });
   const scope = await loadScope(manifestStore);

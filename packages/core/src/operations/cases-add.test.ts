@@ -320,4 +320,41 @@ describe('runCasesAdd', () => {
       expect(result.id).toBe('case-1');
     });
   });
+
+  describe('selectors the browser tools cannot run', () => {
+    function contextWithStepSelector(selector: string): ReturnType<typeof fakeContext> {
+      const base = JSON.parse(testCaseJson({ requirementIds: ['r1'] })) as Record<string, unknown>;
+      const caseJson = JSON.stringify({
+        ...base,
+        steps: [{ description: 'Do something', expectations: [{ kind: 'visible', selector }] }],
+      });
+      return fakeContext({
+        [join(QA_DIR, 'config.yaml')]: CONFIG_YAML,
+        [join(QA_DIR, 'artifacts', 'scope.json')]: scopeJson(),
+        [join(QA_DIR, 'manifest.json')]: manifestRegisteringScope(scopeJson()),
+        [join(PROJECT_ROOT, 'cases', 'selector.json')]: caseJson,
+      });
+    }
+
+    it('rejects a case whose expectation uses an unknown engine, before anything is written', async () => {
+      const context = contextWithStepSelector('label=Title');
+
+      const error = await runCasesAdd(context, { path: 'cases/selector.json' }).catch(
+        (caught: unknown) => caught,
+      );
+
+      expect(error).toBeInstanceOf(QaError);
+      expect((error as QaError).code).toBe('CASE_SELECTOR_UNSUPPORTED');
+      expect((error as QaError).message).toContain('step 1');
+      expect((error as QaError).remediation).toContain('role=button');
+    });
+
+    it('registers a case whose selector is a form the tools execute', async () => {
+      const context = contextWithStepSelector('role=button[name="Save"]');
+
+      const result = await runCasesAdd(context, { path: 'cases/selector.json' });
+
+      expect(result.id).toBe('case-1');
+    });
+  });
 });
