@@ -106,6 +106,10 @@ export const TestCaseSchema = z
     expectedResult: z.string().min(1),
     // The checks behind `expectedResult` that the engine can compare itself; observed in any step.
     resultExpectations: z.array(CaseExpectationSchema).min(1).optional(),
+    // Checks that only a person can judge (does the layout look right, is the wording suitable). They
+    // are not steps: a step is something the executor does or the engine checks, and a step nobody can
+    // check mechanically leaves the executor to decide it passed. The engine never evaluates these.
+    manualChecks: z.array(z.string().min(1)).min(1).optional(),
     regressionTier: RegressionTierSchema.optional(),
     // Reusable test-data sets this case's steps/preconditions reference by id (P2-22), instead of
     // inlining values another case could share. Optional: a case with no data dependency has none.

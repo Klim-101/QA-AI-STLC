@@ -59,6 +59,13 @@ to skip under time pressure:
   engine only checks that some successful check exists, and `passed` rests on the executor's
   judgement of the text
   ([ADR-0016](../../../docs/adr/0016-structured-case-expectations-judged-by-the-engine.md)).
+- **A step that asserts carries an expectation.** Write each step so the engine can tell whether it
+  held: a step that observes something (a count, a text, a value, a location, a visible element)
+  declares that as an expectation; a step that only acts (click, fill, open) needs none. Do not write
+  a prose step such as "compare every task with the known open tasks": turn it into a `count` or
+  `text` expectation on a registered element, or split it into steps the engine can check. A check
+  only a person can judge (how the layout looks, whether the wording is suitable) is not a step:
+  list it in `manualChecks`, which the engine never evaluates and `qa-execute` reports as still open.
 - **An `api` case needs `endpoints`.** Fill it with the `{ method, path }` of each operation the case
   calls, taken from the API contract (`qa-api`). `qa.cases_add` refuses an `api` case without it
   (`CASE_API_ENDPOINTS_REQUIRED`), and adding it after approval would reopen the cases gate.

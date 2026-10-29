@@ -34,6 +34,12 @@ export function renderTestCaseMarkdown(testCase: TestCase): string {
     );
   }
 
+  if (testCase.manualChecks !== undefined) {
+    sections.push(
+      ['### Checked by a person', '', ...testCase.manualChecks.map((check) => `- ${check}`)].join('\n'),
+    );
+  }
+
   return `${sections.join('\n\n')}\n`;
 }
 
