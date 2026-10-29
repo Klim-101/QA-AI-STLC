@@ -112,6 +112,39 @@ describe('runDoctor', () => {
     expect(identityCheck?.remediation).toContain('QA_ADMIN_PASSWORD');
   });
 
+  describe('the project prerequisite for generated specs (P5-10)', () => {
+    const E2E_YAML = CONFIG_YAML.replace('e2e: undecided', 'e2e: in-scope');
+    const PLAYWRIGHT_TEST = join(PROJECT_ROOT, 'node_modules', '@playwright', 'test', 'package.json');
+
+    async function doctorWith(yaml: string, files: Readonly<Record<string, string>> = {}) {
+      const fs = createFakeFileSystem(files);
+      await fs.mkdir(QA_DIR);
+      await fs.writeFile(join(QA_DIR, 'config.yaml'), yaml);
+      return runDoctor(fakeContext({ fs, env: { QA_ADMIN_PASSWORD: 'set' } }));
+    }
+
+    it('fails in a bare project with the command that installs it, though the engine has its own Chromium', async () => {
+      const report = await doctorWith(E2E_YAML, { [resolveBrowserExecutablePath('chromium')]: '' });
+
+      expect(report.ok).toBe(false);
+      const check = report.checks.find((candidate) => candidate.name === 'playwright-test');
+      expect(check?.status).toBe('fail');
+      expect(check?.remediation).toContain('npm install --save-dev --save-exact @qa-ai-stlc/cli');
+    });
+
+    it('passes once the package is installed in the project', async () => {
+      const report = await doctorWith(E2E_YAML, { [PLAYWRIGHT_TEST]: '{}' });
+
+      expect(report.checks.find((check) => check.name === 'playwright-test')?.status).toBe('pass');
+    });
+
+    it('does not check it when no testing type that generates specs is in scope', async () => {
+      const report = await doctorWith(CONFIG_YAML);
+
+      expect(report.checks.some((check) => check.name === 'playwright-test')).toBe(false);
+    });
+  });
+
   it('reports no relaxations with no local configuration layer', async () => {
     const fs = createFakeFileSystem();
     const context = fakeContext({ fs, env: { QA_ADMIN_PASSWORD: 'set' } });

@@ -61,6 +61,24 @@ than continuing past it.
    would (see [`hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)). Calling it at the
    start of a resumed session is also the quickest way to tell the operator where they left off.
 
+## When the `playwright-test` check fails
+
+`qa.doctor` fails this check when a testing type that generates specs is in scope and the project has no
+`@playwright/test`, so no generated spec could be typechecked or run. Show the check's `remediation`, which
+names the install command, and stop at step 2.
+
+<!-- host: claude-code -->
+
+Once the operator agrees, run that command in the project root yourself, then call `qa.doctor` again.
+
+<!-- host: codex -->
+
+The Codex sandbox has no network, so `npm install` cannot run there: give the operator the command to run in
+their own terminal, and call `qa.doctor` again when they say it is done. Never retry with `--cache`, an
+`.npm-cache` directory or any other cache path inside the project.
+
+<!-- /host -->
+
 ## First-time setup
 
 Runs only when step 1 found no `.qa/`. The operator never needs a terminal.

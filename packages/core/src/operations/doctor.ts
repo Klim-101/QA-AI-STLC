@@ -18,6 +18,7 @@ import type { ConfigRelaxation } from '../config-layers.js';
 import { loadLayeredConfig } from '../config-loader.js';
 import type { EngineContext } from '../engine-context.js';
 import { QaError } from '../errors.js';
+import { checkPlaywrightTestResolvable, isPlaywrightSpecInScope } from '../playwright-test-doctor.js';
 
 export interface DoctorOptions {
   readonly fix?: boolean;
@@ -33,6 +34,7 @@ export interface DoctorReport {
 /**
  * `qa doctor` / MCP `qa_doctor` (P2-05): Node version, browser binaries, and, once a
  * `config.yaml` exists, every identity's secret and every environment's reachability (ADR-004),
+ * `@playwright/test` in the project when a testing type that generates specs is in scope,
  * plus every relaxation the local configuration layer introduces (ADR-011) — this is the one
  * check every `qa-start` session runs first, so it is where a widened allowlist or a disabled
  * TLS check must be impossible to miss. `--fix` installs missing browsers through Playwright's
@@ -140,8 +142,17 @@ async function runConfigChecks(context: EngineContext): Promise<ConfigCheckResul
     httpClient: context.httpClient,
     ...contractSettings,
   });
+  const playwrightTestChecks = isPlaywrightSpecInScope(config.testing)
+    ? [await checkPlaywrightTestResolvable(context.fs, context.projectRoot)]
+    : [];
   return {
-    checks: [...identityChecks, ...environmentChecks, ...sourcePathChecks, ...apiContractChecks],
+    checks: [
+      ...identityChecks,
+      ...environmentChecks,
+      ...sourcePathChecks,
+      ...apiContractChecks,
+      ...playwrightTestChecks,
+    ],
     relaxations,
   };
 }
