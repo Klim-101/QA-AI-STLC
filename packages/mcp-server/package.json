@@ -39,7 +39,7 @@
     "@qa-ai-stlc/runner-playwright": "1.15.0",
     "@qa-ai-stlc/runner-security": "1.15.0",
     "@qa-ai-stlc/schemas": "1.15.0",
-    "zod": "4.6.6"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@qa-ai-stlc/test-utils": "0.0.0"
