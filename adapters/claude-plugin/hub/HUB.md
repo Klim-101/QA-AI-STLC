@@ -95,7 +95,7 @@ After `qa.approve` succeeds for gate `<phase>`:
    the hub does not already have one) — `currentPhase` and each phase's `gates[phase].status`.
 2. Find `<phase>`'s position in `packages/core/src/phases.ts`'s `PHASES` order.
 3. If `PHASES` has a phase after `<phase>` and that phase's gate is not yet `satisfied`, tell the
-   operator its name and load [`agents/phase-prompts/<next-phase>.md`](../phase-prompts) — each
+   operator its name and load [`phase-prompts/<next-phase>.md`](../phase-prompts) — each
    phase prompt states its own normal next step and which skill starts it (see
    [`scope.md`](../phase-prompts/scope.md) and [`cases.md`](../phase-prompts/cases.md)), so the hub
    relays that instead of guessing.

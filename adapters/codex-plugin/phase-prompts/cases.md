@@ -32,5 +32,5 @@ design work and registering + gating its output, not inventing cases.
 `cases` is the last phase `packages/core/src/phases.ts`'s `PHASES` defines, but not the end of the
 work: exploring the application, executing the approved cases and generating tests happen after it,
 outside any gate. Once `cases` is approved, call `qa.status` and relay its `nextActions` per
-[`agents/hub/HUB.md`](../hub/HUB.md#announcing-what-comes-next), starting with the first one. Do not
+[`hub/HUB.md`](../hub/HUB.md#announcing-what-comes-next), starting with the first one. Do not
 say there is nothing next while `nextActions` is not empty.

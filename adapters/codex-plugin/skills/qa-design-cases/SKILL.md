@@ -17,7 +17,7 @@ nonTriggers:
 # `qa-design-cases` — test case design
 
 Fires when the operator wants one or more `TestCaseSchema` cases written. Follows
-[`agents/references/testing-standards.md`](../../references/testing-standards.md) for structure
+[`references/testing-standards.md`](../../references/testing-standards.md) for structure
 (preconditions, steps, expected result, `regressionTier`, `feature`, `testDataRefs`) rather than
 restating it here — read that file before writing a case's content.
 
@@ -80,7 +80,7 @@ to skip under time pressure:
 ## What this skill does not do
 
 - It does not call `qa.approve` for the `cases` gate — that stays the hub's job
-  ([`agents/phase-prompts/cases.md`](../../phase-prompts/cases.md)), not duplicated here.
+  ([`phase-prompts/cases.md`](../../phase-prompts/cases.md)), not duplicated here.
 - It does not invent a requirement id, a feature name or a locator to make registration succeed;
   a missing prerequisite is surfaced to the operator, not worked around.
 - It does not execute the case or drive `browser.*`/HTTP/axe-core tools — that is a later pipeline

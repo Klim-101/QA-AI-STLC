@@ -23,7 +23,7 @@ nonTriggers:
 
 Fires when the operator wants to begin or resume a session. This skill is the thin trigger surface
 a host matches on; it does not restate the hub's dispatch or validation contract — that is
-[`agents/hub/HUB.md`](../../hub/HUB.md). Once loaded, act as the hub for the rest of the session.
+[`hub/HUB.md`](../../hub/HUB.md). Once loaded, act as the hub for the rest of the session.
 
 ## Cold start / resume sequence
 
@@ -52,13 +52,13 @@ than continuing past it.
    not silently skipped.
 4. **Resume or start.** Read `.qa/state.json`. If it does not exist, the session starts at the first
    phase (`scope`). If it exists, read `currentPhase` and continue from there. Either way, hand off
-   to the matching [`agents/phase-prompts/<phase>.md`](../../phase-prompts) for what to actually
+   to the matching [`phase-prompts/<phase>.md`](../../phase-prompts) for what to actually
    call next — this skill's job ends at knowing which phase prompt to load, not doing that phase's
    work itself. In the `scope` phase that includes taking a requirement the operator drops, or that
    `qa.scope` reports as `orphaned`, out of scope with `qa.scope_set` — only on the operator's say-so.
    If every phase's gate in `.qa/state.json` is already `satisfied`, do not stop with
    just that status: call `qa.status` and relay its `nextActions` the same way a gate approval
-   would (see [`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)). Calling it at the
+   would (see [`hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)). Calling it at the
    start of a resumed session is also the quickest way to tell the operator where they left off.
 
 ## First-time setup
