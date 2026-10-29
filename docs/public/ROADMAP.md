@@ -13,11 +13,11 @@ Live task status is on the [project board](https://github.com/users/Klim-101/pro
 | Phase 2 — MCP and Claude Code plugin                 | done        | 26 / 26   |
 | Phase 3 — Runner and generation                      | done        | 20 / 20   |
 | Phase 4 — Hub-and-spoke                              | done        | 17 / 17   |
-| Phase 5 — Codex                                      | in progress | 5 / 16    |
+| Phase 5 — Codex                                      | in progress | 5 / 17    |
 | Phase 6 — API, accessibility, defects, RCA, security | in progress | 116 / 122 |
 | Phase 7 — General availability                       | planned     | 0 / 11    |
 
-_Last synchronized: 2026-10-27._
+_Last synchronized: 2026-10-29._
 <!-- roadmap:progress:end -->
 
 ## Phase 0 — Foundation
