@@ -385,8 +385,43 @@ describe('mapReportToRunResults', () => {
         expect(outcome?.result.status).toBe('partial');
         expect(outcome?.result.missingStepIds).toEqual(['step-1', 'expected-result']);
         expect(outcome?.result.failure?.message).toBe(
-          'Steps that ran no action or check: step-1, expected-result.',
+          'Steps that ran no action or check: step-1. Step "expected-result" ran no web-first assertion. ' +
+            'Check a locator or the page with toHaveCount, toBeVisible, toContainText or toHaveURL, ' +
+            'for example await expect(rows).toHaveCount(rowsBefore); ' +
+            'a generic comparison such as expect(n).toBe(m) does not count.',
         );
+      });
+
+      it('names the web-first rule and a fix when a browser test checked only with a generic matcher', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({
+            status: 'passed',
+            stepTitles: ['[expected-result] Read the saved record'],
+          }),
+          runId: 'run-1',
+          testType: 'e2e',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['expected-result'],
+          stepWork: { 'tc-1': { 'expected-result': work(0, 1, 0) } },
+        });
+
+        const message = outcome?.result.failure?.message ?? '';
+        expect(message).toContain('web-first');
+        expect(message).toContain('await expect(rows).toHaveCount(rowsBefore)');
+        expect(message).not.toContain('Steps that ran no action or check');
+      });
+
+      it('does not state the web-first rule for a test type that does not need one', async () => {
+        const [outcome] = await mapReportToRunResults({
+          report: reportWithOneTest({ status: 'passed', stepTitles: ['[expected-result] Status is 200'] }),
+          runId: 'run-1',
+          testType: 'api',
+          fs: fakeFileSystem(),
+          requiredStepIds: ['expected-result'],
+          stepWork: { 'tc-1': {} },
+        });
+
+        expect(outcome?.result.failure?.message).toBe('Steps that ran no action or check: expected-result.');
       });
 
       it('names a step that never ran and a step that ran idle separately', async () => {

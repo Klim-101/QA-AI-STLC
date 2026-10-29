@@ -34,6 +34,7 @@ import { QaStore } from './qa-store.js';
 import { readRegistryForEnvironment } from './scoped-registry.js';
 import { resolveRunIdentity, resolveRunnerInputIdentity } from './run-identity.js';
 import type { Runner } from './runner.js';
+import { findLiteralOrigin } from './spec-literal-origin.js';
 import { canonicalStepIds } from './step-ids.js';
 
 // `typescript` ships this CLI entry with no shebang-only wrapper needed; resolved through Node's
@@ -141,10 +142,14 @@ function executionIssues(result: RunResult): readonly SpokeValidationIssue[] {
         },
       ];
     case 'partial':
-      return (result.missingStepIds ?? []).map((stepId) => ({
-        path: [stepId],
-        message: `Step "${stepId}" did not run, did not complete, or ran no action or check.`,
-      }));
+      return [
+        ...(result.missingStepIds ?? []).map((stepId) => ({
+          path: [stepId],
+          message: `Step "${stepId}" did not run, did not complete, or ran no action or check.`,
+        })),
+        // The runner says which of those it was and, for a check that did not count, how to fix it.
+        ...(result.failure === undefined ? [] : [{ path: [], message: result.failure.message }]),
+      ];
     case 'blocked':
     case 'skipped':
     case 'uncertain':
@@ -375,6 +380,17 @@ export async function verifyGeneratedTestSpec(
 
     const config = await loadConfig(context);
     const environment = resolveBrowserEnvironment(config, options.environment);
+    const literalOrigin = findLiteralOrigin(options.spec.content, environment.config.baseUrl);
+    if (literalOrigin !== undefined) {
+      throw new QaError(
+        'core.verification.literal_origin',
+        `The spec for "${options.spec.testCaseId}" writes the environment's origin "${literalOrigin}" as a literal.`,
+        {
+          remediation:
+            'Navigate with a path (page.goto("/tasks")) and assert a location with a path pattern (toHaveURL(/\\/tasks$/)); the Playwright baseURL supplies the origin.',
+        },
+      );
+    }
     const identity = resolveRunIdentity(config, environment.config, options.runner, options.identity);
     const runnerIdentity = resolveRunnerInputIdentity(
       config,

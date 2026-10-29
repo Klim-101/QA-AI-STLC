@@ -58,6 +58,26 @@ a mechanism the engine gates on.
   level: a `test.step()` asserts the one outcome its case step names, not several unrelated
   conditions bundled together.
 
+## What a browser spec asserts
+
+- **Paths, not origins.** The Playwright `baseURL` supplies the origin. Navigate with
+  `page.goto('/tasks')` and assert a location with a path pattern (`toHaveURL(//tasks$/)`). A spec
+  that writes the environment's origin as a literal breaks in any other environment and bypasses the
+  configured one; `qa.generation_verify` rejects it with `core.verification.literal_origin`.
+- **Web-first assertions in `[expected-result]`.** The expected-result step of a browser spec counts
+  only when it runs a web-first assertion (`toHaveCount`, `toBeVisible`, `toContainText`,
+  `toHaveURL`, ...), which retries against the page. A generic comparison such as `expect(n).toBe(m)`
+  can compare two literals and proves nothing about the page, so a step that has only that is reported
+  as not done. Count through the locator: `await expect(rows).toHaveCount(rowsBefore)`, not
+  `expect(await rows.count()).toBe(rowsBefore)`. An API spec checks plain values, so any assertion
+  counts there.
+- **Your own data, never a count other specs change.** Specs run in parallel workers against one
+  application. A spec that counted the table rows before and after a rejected submit passed when
+  verified alone and failed in `qa run` (expected 22, received 25) because the creation specs added rows
+  in between. Assert on the record the spec created or on the page it is on (it stays on the form and
+  sends nothing), never on a total another spec can change. The engine cannot tell such a count from a
+  stable one; it shows only when the registered specs run together.
+
 ## API specs and the contract hash
 
 An `api` spec is written against the contract operations its case names, not against the DOM: it
