@@ -17,6 +17,8 @@ nonTriggers:
   - 'explore the app and build the selector registry'
   - 'write test cases for the login flow'
   - 'why did this test case fail'
+references:
+  - ../../references/project-boundary.md
 ---
 
 # `qa-start` — hub entry point
@@ -24,6 +26,13 @@ nonTriggers:
 Fires when the operator wants to begin or resume a session. This skill is the thin trigger surface
 a host matches on; it does not restate the hub's dispatch or validation contract — that is
 [`hub/HUB.md`](../../hub/HUB.md). Once loaded, act as the hub for the rest of the session.
+
+## Stay inside the project
+
+Work only under the project root: no listing or searching outside it, no listing of environment
+variables (ask the operator for a variable's name), engine `qa.*` tools instead of the `qa` CLI
+through `npx`, no cache directory inside the project. Full rules:
+[`references/project-boundary.md`](../../references/project-boundary.md).
 
 ## Cold start / resume sequence
 
