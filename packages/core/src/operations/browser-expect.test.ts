@@ -424,4 +424,83 @@ describe('runBrowserExpect', () => {
       runBrowserExpect(harness.context, { sessionId: 'session-gone', kind: 'url', expected: '/' }),
     ).rejects.toMatchObject({ code: 'BROWSER_SESSION_NOT_FOUND' });
   });
+
+  describe('the note for a selector that is not in the registry', () => {
+    const REGISTRY_FILE_PATH = join('project', '.qa', 'selectors', 'registry.json');
+    const REGISTERED = {
+      schemaVersion: 1,
+      generatedAt: '2026-09-21T10:00:00.000Z',
+      elements: [
+        {
+          elementId: 'status-banner',
+          kind: 'status',
+          locatorCandidates: [{ strategy: 'css', value: '#status', fragile: false }],
+          stabilityScore: 1,
+          lastVerifiedAt: '2026-09-21T10:00:00.000Z',
+          source: 'crawl',
+          pageUrl: 'https://staging.example.test/tasks',
+        },
+      ],
+    };
+
+    it('tells the agent, while the page is open, when a case step asserts on a selector with no element', async () => {
+      const { harness, sessionId } = await openSession();
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'visible', selector: '#status', stepId: 'step-1' }),
+      );
+
+      expect(result.passed).toBe(true);
+      expect(result.notes).toEqual([
+        expect.objectContaining({
+          code: 'EXPECTATION_SELECTOR_NOT_REGISTERED',
+          remediation: expect.stringContaining('qa.registry_execute_register'),
+        }),
+      ]);
+    });
+
+    it('also tells it when the registry exists but holds no element with that selector', async () => {
+      const { harness, sessionId } = await openSession();
+      await harness.context.engine.fs.writeFile(
+        REGISTRY_FILE_PATH,
+        JSON.stringify({ ...REGISTERED, elements: [] }),
+      );
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'visible', selector: '#status', stepId: 'step-1' }),
+      );
+
+      expect(result.notes?.[0]?.code).toBe('EXPECTATION_SELECTOR_NOT_REGISTERED');
+    });
+
+    it('stays silent for a registered selector', async () => {
+      const { harness, sessionId } = await openSession();
+      await harness.context.engine.fs.writeFile(REGISTRY_FILE_PATH, JSON.stringify(REGISTERED));
+
+      const result = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'visible', selector: '#status', stepId: 'step-1' }),
+      );
+
+      expect(result).not.toHaveProperty('notes');
+    });
+
+    it('stays silent outside a case step and for a check that names no element', async () => {
+      const { harness, sessionId } = await openSession();
+
+      const exploratory = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'visible', selector: '#status' }),
+      );
+      const page = await runBrowserExpect(
+        harness.context,
+        expectOptions(sessionId, { kind: 'url', expected: '/tasks', stepId: 'step-1' }),
+      );
+
+      expect(exploratory).not.toHaveProperty('notes');
+      expect(page).not.toHaveProperty('notes');
+    });
+  });
 });

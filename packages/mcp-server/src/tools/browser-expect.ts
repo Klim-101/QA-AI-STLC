@@ -50,6 +50,12 @@ const OutputSchema = z.object({
   matchCount: z.number().int().optional(),
   url: z.string(),
   evidence: EvidenceSchema,
+  notes: z
+    .array(z.object({ code: z.string(), message: z.string(), remediation: z.string() }))
+    .optional()
+    .describe(
+      'Present when the check passed or failed but cannot reach a generated spec as written (EXPECTATION_SELECTOR_NOT_REGISTERED): act on the remediation before recording the result.',
+    ),
 });
 
 /** `qa.browser_expect` (P6-55): the engine's verdict on one expected result, registered as evidence. */
@@ -69,7 +75,9 @@ export function createBrowserExpectTool(
       'one. An empty `expected` for text or value means the element holds nothing and is compared in ' +
       'full. A count of 0 only proves nothing matched the selector (it also holds while the page has ' +
       'not rendered); pair it with a visible check on the container that must exist. ' +
-      'A password field is recorded as [redacted].',
+      'A password field is recorded as [redacted]. With a `stepId`, a selector that names no registry element ' +
+      'comes back with a note (EXPECTATION_SELECTOR_NOT_REGISTERED): register the element with ' +
+      'qa.registry_execute_register, or the case cannot be turned into a spec.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
     handler: (input) =>

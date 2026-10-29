@@ -84,6 +84,14 @@ toolChoices:
       the step's stepId, then stop.
     expect: qa.browser_expect
     inputMatch: '"selector"\s*:\s*"#total"'
+  - id: register-asserted-element
+    prompt: >-
+      Browser session session-1 is open on the task list. You checked step 2 of the case with
+      qa.browser_expect for the selector "role=table[name=Tasks]" and the result came back with
+      the note EXPECTATION_SELECTOR_NOT_REGISTERED: the selector is not in the registry. The page is
+      still open. Make that element usable by a generated spec with the engine, then stop.
+    expect: qa.registry_execute_register
+    inputMatch: 'role=table'
 references:
   - ../../references/testing-standards.md
   - ../../references/component-libraries.md

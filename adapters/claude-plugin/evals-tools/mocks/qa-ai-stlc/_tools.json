@@ -853,6 +853,38 @@
       }
     },
     {
+      "name": "qa.registry_execute_register",
+      "description": "Promotes an ad hoc element found by reading the page during interactive case execution into the selector registry, source \"execute\" and exports it from tests/qa/locators.ts (the result names the export). Call this before an action that navigates away from the element (a form submit, a link) — afterward there is no page left to re-verify the selector against.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "The session id returned by qa.browser_open."
+          },
+          "selector": {
+            "type": "string",
+            "description": "A Playwright selector for an element interactive execution is using, resolved against the session's current page. Call this before an action that navigates away (a form submit, a link), since the element must still be on the page to re-verify."
+          },
+          "kind": {
+            "type": "string",
+            "description": "The element's role or type, e.g. \"button\", \"textbox\"."
+          },
+          "name": {
+            "description": "The element's accessible name, if it has one.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "selector",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "qa.browser_close",
       "description": "Closes an open browser session, records the close as evidence, and reports every request safe mode blocked during it with the reason (its method, or the host, scheme or port of its URL against the environment) and, by method and path, the non-GET requests the environment lets through (safeNonGetRequests) and the ones blocked, with counts per reason. Only a blocked method is answered with safeNonGetRequests; the others are a matter of the environment's allowlist and baseUrl. Call when an exploratory session is finished so the browser process does not stay alive.",
       "inputSchema": {

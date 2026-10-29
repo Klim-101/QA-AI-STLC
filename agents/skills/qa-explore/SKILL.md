@@ -90,6 +90,10 @@ steps use instead of raw clicks.
 
 ## Reading the result
 
+A crawl records whatever the live page shows, including records earlier runs created (a row named
+after a title a case invented). Those entries describe run data, not the application: do not use them
+as targets for a case, and tell the operator when the registry holds many.
+
 - `added` / `removed` — elements newly found or dropped since the last stored registry. Report the
   counts; a large, unexpected drop is worth flagging to the operator before continuing rather than
   treating it as routine.
