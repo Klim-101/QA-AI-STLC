@@ -166,7 +166,7 @@ status. A `partial` result stays `partial` in reports; it is never counted as pa
 - It does not replay an already-generated spec (`qa run`, a deterministic, no-model operation with
   no skill of its own).
 - It does not approve or reopen the `cases` gate — that stays the hub's job
-  ([`agents/phase-prompts/cases.md`](../../phase-prompts/cases.md)).
+  ([`phase-prompts/cases.md`](../../phase-prompts/cases.md)).
 
 ## What comes next
 

@@ -4,11 +4,17 @@
 // Enforces the `SKILL.md` size cap `agents/README.md` and AGENTS.md 12.2 document: a skill stays
 // readable in one load instead of growing into something that needs its own `references/` split
 // but never gets it. Detail belongs under `references/`, which this script never limits.
+// It also checks that a link label naming a path matches the link target as seen from the plugin
+// root, because a generated plugin has no `agents/` folder above `skills/`, `hub/`, `phase-prompts/`
+// and `references/`.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { listFilesRecursive } from './lib/generated-tree.mjs';
+import { findMismatchedLinkLabels } from './lib/link-labels.mjs';
 
 const MAX_SKILL_LINES = 200;
+const SHIPPED_DIRECTORIES = ['skills', 'hub', 'phase-prompts', 'references'];
 
 function findSkillFiles(directory) {
   const skillFiles = [];
@@ -33,6 +39,14 @@ function countLines(fileContent) {
   // inflate the count by one.
   const normalized = fileContent.endsWith('\n') ? fileContent.slice(0, -1) : fileContent;
   return normalized.split('\n').length;
+}
+
+function findMarkdownFiles(agentsDirectory) {
+  return SHIPPED_DIRECTORIES.flatMap((directory) =>
+    listFilesRecursive(join(agentsDirectory, directory))
+      .filter((path) => path.endsWith('.md'))
+      .map((path) => `${directory}/${path}`),
+  );
 }
 
 function main() {
@@ -63,11 +77,24 @@ function main() {
     }
   }
 
+  const markdownFiles = findMarkdownFiles(join(repoRoot, 'agents'));
+  for (const markdownFile of markdownFiles) {
+    const markdown = readFileSync(join(repoRoot, 'agents', markdownFile), 'utf8');
+    for (const { line, label, resolved } of findMismatchedLinkLabels(markdown, markdownFile)) {
+      console.error(
+        `agents/${markdownFile}:${line}: link label "${label}" does not name its target "${resolved}" ` +
+          'from the plugin root, where agents/ is not a folder (AGENTS.md 12.2).',
+      );
+      hasViolation = true;
+    }
+  }
+
   if (hasViolation) {
     process.exit(1);
   }
   console.log(
-    `Checked ${skillFiles.length} SKILL.md file(s) against the ${MAX_SKILL_LINES}-line cap. All within limit.`,
+    `Checked ${skillFiles.length} SKILL.md file(s) against the ${MAX_SKILL_LINES}-line cap and ` +
+      `${markdownFiles.length} file(s) for link labels. All within limit.`,
   );
 }
 

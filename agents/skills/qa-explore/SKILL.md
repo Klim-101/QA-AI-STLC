@@ -58,7 +58,7 @@ Check this before concluding auto-login is unfixable or filing it as an engine l
 
 When `ui.componentLibrary` in `config.yaml` is not `none`, or the crawl reports drop-downs, date
 pickers or grids with no usable locator, read
-[`agents/references/component-libraries.md`](../../references/component-libraries.md) before
+[`references/component-libraries.md`](../../references/component-libraries.md) before
 advising the operator: it says what the registry holds for such widgets and which tools later
 steps use instead of raw clicks.
 
@@ -129,8 +129,8 @@ steps use instead of raw clicks.
 Exploring is not itself a gated phase (`packages/core/src/phases.ts`'s `PHASES` has no `explore`
 entry), so do not stop after presenting the counts above. Read `.qa/state.json`'s `currentPhase`
 and relay that phase's own next step the same way a gate approval would
-([`agents/hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)) — for example, if `scope` is
-still open, point at [`agents/phase-prompts/scope.md`](../../phase-prompts/scope.md) rather than
+([`hub/HUB.md`](../../hub/HUB.md#announcing-what-comes-next)) — for example, if `scope` is
+still open, point at [`phase-prompts/scope.md`](../../phase-prompts/scope.md) rather than
 ending on the registry report alone.
 
 ## What this skill does not do
