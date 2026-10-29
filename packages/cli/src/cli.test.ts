@@ -23,6 +23,8 @@ const PROJECT_ROOT = join('project');
 
 // Every type decided (P2-16 blocks "qa scope"/"qa cases add" while any is "undecided"); e2e
 // in-scope since every case fixture in this file is testType "e2e".
+const PLAYWRIGHT_TEST_PATH = join(PROJECT_ROOT, 'node_modules', '@playwright', 'test', 'package.json');
+
 const CONFIG_YAML = [
   'schemaVersion: 1',
   'testing: { e2e: in-scope, api: out-of-scope, a11y: out-of-scope, security: out-of-scope }',
@@ -457,6 +459,7 @@ describe('runCli', () => {
     const deps = dependencies({
       fs: createFakeFileSystem({
         ...installed,
+        [PLAYWRIGHT_TEST_PATH]: '{}',
         [CONFIG_PATH]: CONFIG_YAML,
         [join(PROJECT_ROOT, '.qa', 'config.local.yaml')]: localYaml,
       }),
@@ -468,6 +471,25 @@ describe('runCli', () => {
     expect(exitCode).toBe(EXIT_SUCCESS);
     expect(
       deps.stdout.some((line) => line.includes('adds "localhost"') && line.includes('.qa/config.local.yaml')),
+    ).toBe(true);
+  });
+
+  it('fails doctor and prints the install command when @playwright/test is missing (P5-10)', async () => {
+    const installed = Object.fromEntries(
+      SUPPORTED_BROWSERS.map((browser) => [resolveBrowserExecutablePath(browser), '']),
+    );
+    const deps = dependencies({ fs: createFakeFileSystem({ ...installed, [CONFIG_PATH]: CONFIG_YAML }) });
+
+    const exitCode = await runCli(['doctor'], deps);
+
+    expect(exitCode).toBe(EXIT_FAILURE);
+    expect(
+      deps.stdout.some(
+        (line) => line.includes('playwright-test') || line.includes('@playwright/test is not installed'),
+      ),
+    ).toBe(true);
+    expect(
+      deps.stdout.some((line) => line.includes('npm install --save-dev --save-exact @qa-ai-stlc/cli')),
     ).toBe(true);
   });
 
