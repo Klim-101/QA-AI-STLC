@@ -42,6 +42,15 @@ describe('resolveBrowserTarget', () => {
     expect(harness.launcher.pageCalls.filter((call) => call.method === 'locator')).toEqual([]);
   });
 
+  it('refuses a selector engine Playwright does not know, with the accepted forms', async () => {
+    const { harness, sessionId } = await openSnapshotted();
+    const session = await harness.sessions.get(sessionId);
+
+    await expect(resolveBrowserTarget(session, { selector: 'label=Title' })).rejects.toMatchObject({
+      code: 'BROWSER_SELECTOR_UNSUPPORTED',
+    });
+  });
+
   it.each([{}, { selector: '#go', ref: 'e1' }])(
     'refuses %j: exactly one of selector and ref',
     async (options) => {

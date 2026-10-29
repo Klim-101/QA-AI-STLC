@@ -5,6 +5,7 @@ import type { BrowserActionRef } from '@qa-ai-stlc/schemas';
 import type { BrowserSession } from './browser-session-store.js';
 import { QaError } from './errors.js';
 import type { PageViewRef } from './page-view.js';
+import { COMMON_SELECTOR_FORMS, findUnsupportedSelectorEngine } from './selector-forms.js';
 
 /** The refs the latest snapshot of a session handed out, and the page they were read from. */
 export interface ElementRefTable {
@@ -65,6 +66,14 @@ export async function resolveBrowserTarget(
 ): Promise<ResolvedBrowserTarget> {
   const { selector, ref: refId } = options;
   if (selector !== undefined && refId === undefined) {
+    const engine = findUnsupportedSelectorEngine(selector);
+    if (engine !== undefined) {
+      throw new QaError(
+        'BROWSER_SELECTOR_UNSUPPORTED',
+        `The selector "${selector}" uses the engine "${engine}", which the browser tools cannot execute.`,
+        { remediation: `Use one of: ${COMMON_SELECTOR_FORMS.join('; ')}.` },
+      );
+    }
     return { selector };
   }
   if (selector !== undefined || refId === undefined) {
