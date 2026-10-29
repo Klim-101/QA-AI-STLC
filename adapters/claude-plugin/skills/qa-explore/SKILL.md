@@ -15,6 +15,7 @@ nonTriggers:
   - 'write test cases for the login flow'
   - 'run the checkout test case'
 references:
+  - ../../references/project-boundary.md
   - ../../references/component-libraries.md
 ---
 
@@ -24,6 +25,13 @@ Fires when the operator wants the selector registry built or re-checked. Scoped 
 `qa.explore` actually does today: crawling and static source analysis feed the registry, and the
 same crawl also derives a discovered API surface (`endpoints.json`, see
 [Reading the result](#reading-the-result)). Comparing that surface with an OpenAPI contract is `qa-api` (see [Not yet in scope](#not-yet-in-scope)).
+
+## Stay inside the project
+
+Work only under the project root: no listing or searching outside it, no listing of environment
+variables (ask the operator for a variable's name), engine `qa.*` tools instead of the `qa` CLI
+through `npx`, no cache directory inside the project. Full rules:
+[`references/project-boundary.md`](../../references/project-boundary.md).
 
 ## Ask before calling anything
 

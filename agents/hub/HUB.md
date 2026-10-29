@@ -7,6 +7,13 @@ session loop) but never gives it a second, divergent copy of these responsibilit
 differs by host sits in `<!-- host: ... -->` groups of this one file, which each adapter renders
 for its own host.
 
+## Stay inside the project
+
+Work only under the project root: no listing or searching outside it, no listing of environment
+variables (ask the operator for a variable's name), engine `qa.*` tools instead of the `qa` CLI
+through `npx`, no cache directory inside the project. Full rules:
+[`references/project-boundary.md`](../references/project-boundary.md).
+
 ## What the hub owns
 
 - **Pipeline state.** The hub is the only agent that reads and reasons about `.qa/state.json` and
