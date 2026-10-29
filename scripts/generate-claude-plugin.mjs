@@ -112,6 +112,10 @@ function mcpToolName(toolName) {
   return `mcp__plugin_${pluginConfig.name}_${pluginConfig.name}__${toolName.replaceAll('.', '_')}`;
 }
 
+// The one non-`qa.browser_` tool an execution step reaches for: promoting an asserted element
+// into the registry while the page is still open.
+const REGISTER_ELEMENT_TOOL = 'qa.registry_execute_register';
+
 /**
  * Tool-selection evals (P6-62): one `claude plugin eval` case per `toolChoices` entry of a skill,
  * asserting the model reaches for the engine tool that fits a step (and not the one it is commonly
@@ -138,7 +142,7 @@ async function buildToolSelectionEvals(choices, files) {
   const { z } = await import('zod');
   const browserTools = serverModule
     .createBuiltinTools(serverModule.createBrowserToolDependencies())
-    .filter((tool) => tool.name.startsWith('qa.browser_'));
+    .filter((tool) => tool.name.startsWith('qa.browser_') || tool.name === REGISTER_ELEMENT_TOOL);
   const toolNames = new Set(browserTools.map((tool) => tool.name));
 
   const mocksDir = `evals-tools/mocks/${pluginConfig.name}`;
@@ -166,7 +170,7 @@ async function buildToolSelectionEvals(choices, files) {
     for (const toolName of [expect, ...never]) {
       if (!toolNames.has(toolName)) {
         throw new Error(
-          `${skill}'s toolChoices "${id}" names "${toolName}", which is not an engine browser tool.`,
+          `${skill}'s toolChoices "${id}" names "${toolName}", which is not an engine browser tool or the element-registration tool.`,
         );
       }
     }

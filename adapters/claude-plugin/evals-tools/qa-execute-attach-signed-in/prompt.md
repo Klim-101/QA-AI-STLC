@@ -25,6 +25,7 @@ allowed_tools:
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_console
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_network
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_accessibility_scan
+  - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_registry_execute_register
   - mcp__plugin_qa-ai-stlc_qa-ai-stlc__qa_browser_close
 ---
 

@@ -52,7 +52,9 @@ to skip under time pressure:
   engine can compare itself: `expectations` on the step that observes something, and
   `resultExpectations` for the final outcome. Kinds: `visible`, `hidden`, `text`, `value`, `count`,
   `checked` (with a `selector`) and `url` for `e2e`/`a11y`; `http-status` and `http-body-contains`
-  for `api`; `a11y-clean` for `a11y`. Use selectors the registry holds and exact expected values;
+  for `api`; `a11y-clean` for `a11y`. Use selectors the registry holds and exact expected values, role/name-based where possible, and
+  never a selector tied to the data of one run (the title of a record the case creates): assert on
+  the registered list or grid with a `count` or `text` check instead;
   an `api` case that expects an error status declares it with `http-status`. Without them the
   engine only checks that some successful check exists, and `passed` rests on the executor's
   judgement of the text

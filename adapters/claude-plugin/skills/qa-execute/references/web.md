@@ -90,6 +90,16 @@ snapshot. The full tree is registered as evidence either way.
 
 ## Checking expected results
 
+A check is ready for a generated spec only when its selector names a registry element: a spec asserts
+through the generated locator module and never inlines a selector. With a `stepId`,
+`qa.browser_expect` returns a `notes` entry `EXPECTATION_SELECTOR_NOT_REGISTERED` for one that does not.
+Read it before you record the result and, while the page is still open, register the element with
+`qa.registry_execute_register` (a role and an accessible name make the best target) or check a
+registered element instead. Otherwise the case is recorded as passed and `qa-generate-tests` then
+refuses it (`selector-not-in-registry`). A selector tied to one run's data, such as the row that holds
+the title this run invented, can never be registered: assert on a registered container (the list, the
+grid) with a `count` or `text` check, or find the record by its role and name.
+
 Check every expected result of a step with `qa.browser_expect` (visible, hidden, text, value, count,
 checked, url) instead of reading the page and saying what you saw. Pass the step's `stepId`. It looks
 again until the expectation holds or the wait runs out, and registers what the page showed with

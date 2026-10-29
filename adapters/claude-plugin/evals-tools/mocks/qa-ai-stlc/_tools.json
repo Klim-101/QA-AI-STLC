@@ -565,7 +565,7 @@
     },
     {
       "name": "qa.browser_expect",
-      "description": "Checks one expected result in the open page and registers what the page showed with a pass or fail verdict as evidence. Use for every expected result of a case step instead of describing the page yourself. Target an element with `selector` or a snapshot `ref` for visible, hidden, text, value, count and checked; url takes neither. It looks again until the expectation holds or the wait runs out. A failed expectation is returned with `passed: false` and the observed value, not thrown; only a misuse (BROWSER_EXPECT_INVALID, BROWSER_REF_STALE) is an error. More than one matching element fails a check that reads one. An empty `expected` for text or value means the element holds nothing and is compared in full. A count of 0 only proves nothing matched the selector (it also holds while the page has not rendered); pair it with a visible check on the container that must exist. A password field is recorded as [redacted].",
+      "description": "Checks one expected result in the open page and registers what the page showed with a pass or fail verdict as evidence. Use for every expected result of a case step instead of describing the page yourself. Target an element with `selector` or a snapshot `ref` for visible, hidden, text, value, count and checked; url takes neither. It looks again until the expectation holds or the wait runs out. A failed expectation is returned with `passed: false` and the observed value, not thrown; only a misuse (BROWSER_EXPECT_INVALID, BROWSER_REF_STALE) is an error. More than one matching element fails a check that reads one. An empty `expected` for text or value means the element holds nothing and is compared in full. A count of 0 only proves nothing matched the selector (it also holds while the page has not rendered); pair it with a visible check on the container that must exist. A password field is recorded as [redacted]. With a `stepId`, a selector that names no registry element comes back with a note (EXPECTATION_SELECTOR_NOT_REGISTERED): register the element with qa.registry_execute_register, or the case cannot be turned into a spec.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -848,6 +848,38 @@
         },
         "required": [
           "sessionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qa.registry_execute_register",
+      "description": "Promotes an ad hoc element found by reading the page during interactive case execution into the selector registry, source \"execute\" and exports it from tests/qa/locators.ts (the result names the export). Call this before an action that navigates away from the element (a form submit, a link) — afterward there is no page left to re-verify the selector against.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "The session id returned by qa.browser_open."
+          },
+          "selector": {
+            "type": "string",
+            "description": "A Playwright selector for an element interactive execution is using, resolved against the session's current page. Call this before an action that navigates away (a form submit, a link), since the element must still be on the page to re-verify."
+          },
+          "kind": {
+            "type": "string",
+            "description": "The element's role or type, e.g. \"button\", \"textbox\"."
+          },
+          "name": {
+            "description": "The element's accessible name, if it has one.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "selector",
+          "kind"
         ],
         "additionalProperties": false
       }

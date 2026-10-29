@@ -18,6 +18,7 @@ import {
 import { DEFAULT_NORMALIZE_LIMITS, truncateText } from '../normalize.js';
 import type { BrowserOperationContext } from './browser-context.js';
 import { createBrowserEvidenceStore, registerBrowserAction } from './browser-evidence.js';
+import { findUnregisteredSelectorNote, type ExpectationNote } from './expectation-registry-note.js';
 
 export const EXPECTATION_POLL_INTERVAL_MS = 100;
 /** An element that was just counted is read at once; this only bounds the case where it vanished. */
@@ -52,6 +53,8 @@ export interface BrowserExpectResult {
   readonly matchCount?: number;
   readonly url: string;
   readonly evidence: Evidence;
+  /** Present when the expectation cannot reach a generated spec as written; see the note's remediation. */
+  readonly notes?: ExpectationNote[];
 }
 
 function invalid(message: string): QaError {
@@ -188,6 +191,12 @@ export async function runBrowserExpect(
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
+  // Only an expectation of a registered case's step reaches a generated spec; an exploratory check does not.
+  const note =
+    options.stepId !== undefined && target !== undefined
+      ? await findUnregisteredSelectorNote(context.engine, target.selector)
+      : undefined;
+
   return {
     sessionId: session.sessionId,
     kind: spec.kind,
@@ -198,5 +207,6 @@ export async function runBrowserExpect(
     ...(expectation.matchCount === undefined ? {} : { matchCount: expectation.matchCount }),
     url: observation.url,
     evidence,
+    ...(note === undefined ? {} : { notes: [note] }),
   };
 }

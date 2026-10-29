@@ -82,7 +82,10 @@ function candidateMatchesSelector(
   }
 }
 
-function findElementForSelector(registry: SelectorRegistry, selector: string): SelectorElement | undefined {
+export function findElementForSelector(
+  registry: SelectorRegistry,
+  selector: string,
+): SelectorElement | undefined {
   return registry.elements.find(
     (element) =>
       element.deprecatedAt === undefined &&
