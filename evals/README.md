@@ -17,10 +17,19 @@ The report is written to `.eval/reports/<scenario>.json` and `.md` (both ignored
 `examples/demo-app/bugs.json` the run is expected to find. Each has one or more signals, and any one
 counts:
 
-- `failed-case`: the latest recorded result of that case failed. It fits a case written for the bug,
-  as the baseline's are.
-- `defect-title`: a registered defect draft whose title matches the pattern. It fits a run whose cases
-  an agent named itself.
+- `requirement`: the run holds a case linked to that requirement (`requirementIds`) whose latest
+  result failed, or a registered defect draft linked to it. This is the signal the baseline scenario
+  uses: requirement ids come from `<id>.requirements.md` through the engine, so they are the same in
+  every host, while case ids and the wording of a defect title are each agent's own choice. A failed
+  case of another requirement, a case that passed, and a case that failed and was fixed do not count.
+- `failed-case`: the latest recorded result of the named case failed. It fits only a run that uses
+  that case id, such as a scripted run.
+- `defect-title`: a registered defect draft whose title matches the pattern. It fits only a run that
+  happens to word the title that way.
+
+A requirement signal says the run found a failure on the requirement, not that the failure is the
+catalogued bug: a requirement with a second bug would count for either. The demo app has one catalogued
+bug per requirement of the scenario.
 
 ## What is measured
 
