@@ -20,6 +20,26 @@ describe('TestCaseSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts manual checks and rejects an empty list or an empty check', () => {
+    const base = {
+      id: 'case-1',
+      feature: 'checkout',
+      requirementIds: ['req-1'],
+      testType: 'e2e',
+      title: 'A case with judgement-only checks',
+      steps: [{ description: 'Open the page' }],
+      expectedResult: 'The page is shown',
+      status: 'draft',
+      createdAt: '2026-09-16T12:00:00Z',
+    };
+
+    expect(TestCaseSchema.safeParse({ ...base, manualChecks: ['The layout looks right'] }).success).toBe(
+      true,
+    );
+    expect(TestCaseSchema.safeParse({ ...base, manualChecks: [] }).success).toBe(false);
+    expect(TestCaseSchema.safeParse({ ...base, manualChecks: [''] }).success).toBe(false);
+  });
+
   it('accepts a case with no preconditions or regressionTier (P2-17, both optional)', () => {
     const result = TestCaseSchema.safeParse({
       id: 'case-legacy',

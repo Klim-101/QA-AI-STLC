@@ -62,6 +62,23 @@ describe('renderTestCaseMarkdown', () => {
     expect(markdown).toContain('The login page is redisplayed with an error message.');
   });
 
+  it('lists the checks only a person can judge, after what the engine checks', () => {
+    const markdown = renderTestCaseMarkdown(
+      baseCase({
+        resultExpectations: [{ kind: 'text', selector: 'h1', expected: 'Welcome' }],
+        manualChecks: ['The error message reads naturally', 'The layout does not shift'],
+      }),
+    );
+
+    expect(markdown).toContain(
+      '- text on "h1" = "Welcome"\n\n### Checked by a person\n\n- The error message reads naturally\n- The layout does not shift\n',
+    );
+  });
+
+  it('omits the manual section when the case has none', () => {
+    expect(renderTestCaseMarkdown(baseCase())).not.toContain('Checked by a person');
+  });
+
   it('joins multiple requirement ids with a comma', () => {
     const markdown = renderTestCaseMarkdown(baseCase({ requirementIds: ['authentication', 'session'] }));
 
