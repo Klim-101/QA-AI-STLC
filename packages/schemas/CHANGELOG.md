@@ -1,5 +1,13 @@
 # @qa-ai-stlc/schemas
 
+## 1.16.0
+
+### Minor Changes
+
+- 3eb5b39: A test case can list `manualChecks`, the checks only a person can judge, instead of writing them as steps; the case's Markdown shows them under "Checked by a person". `qa-design-cases` now says each asserting step carries an expectation the engine can evaluate.
+- 635a1c3: An `apiAuth` `from-browser` profile can send a session cookie back as a `Cookie` header (`sendAs: cookie`), so an API case runs as a signed-in identity against an application with a server-side session. A response that redirects to a sign-in page is marked `blocked` by `qa.http_execute` and can no longer prove an `api` case passed.
+- 429af34: The eval scorer detects a catalogued bug by requirement: a failed case or a registered defect draft linked to the requirement the bug violates, instead of a defect title pattern or a fixed case id.
+
 ## 1.15.0
 
 No changes in this release.
