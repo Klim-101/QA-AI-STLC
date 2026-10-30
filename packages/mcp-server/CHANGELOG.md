@@ -1,5 +1,35 @@
 # @qa-ai-stlc/mcp-server
 
+## 1.16.0
+
+### Minor Changes
+
+- 3eb5b39: A test case can list `manualChecks`, the checks only a person can judge, instead of writing them as steps; the case's Markdown shows them under "Checked by a person". `qa-design-cases` now says each asserting step carries an expectation the engine can evaluate.
+- 635a1c3: An `apiAuth` `from-browser` profile can send a session cookie back as a `Cookie` header (`sendAs: cookie`), so an API case runs as a signed-in identity against an application with a server-side session. A response that redirects to a sign-in page is marked `blocked` by `qa.http_execute` and can no longer prove an `api` case passed.
+- 815f82b: `qa doctor` / `qa.doctor` now checks that `@playwright/test` resolves from the project root when `testing.e2e`, `testing.api` or `testing.a11y` is `in-scope`. A bare project failed the first generated spec's typecheck even though the doctor was green, because the doctor only looked at the engine's own Chromium. The failing check is named `playwright-test` and its remediation gives the install command (`npm install --save-dev --save-exact @qa-ai-stlc/cli`). On Codex, `qa-start` shows the operator that command to run in their own terminal instead of retrying with a local npm cache.
+- 712d997: `qa.generation_verify` rejects a spec that writes the environment's origin as a literal (`core.verification.literal_origin`, with a remediation: navigate and assert with paths), before anything runs. When a browser spec's `[expected-result]` step ran no web-first assertion, the result now says so and names a fix (`await expect(rows).toHaveCount(rowsBefore)`), and the verification issues carry that message instead of only the step id. The generation standard states both rules and forbids asserting on counts other specs change; `qa-generate-tests` runs the registered set together once before it reports generation done.
+- e7b099f: `qa.browser_expect` reports a note, `EXPECTATION_SELECTOR_NOT_REGISTERED`, when a case step asserts on a selector that names no registry element, so the agent registers it before recording a result a spec cannot be generated from. `qa-execute`, `qa-design-cases` and `qa-explore` say to assert on registered, role/name-based elements and never on run data.
+- a0bce8a: `qa cases add` rejects a case whose expectation uses a selector engine the browser tools cannot run (`label=`, `testid=`), with `CASE_SELECTOR_UNSUPPORTED` naming the step and the accepted forms. The browser tools share the same check and fail with `BROWSER_SELECTOR_UNSUPPORTED` instead of a raw Playwright error.
+
+### Patch Changes
+
+- f423aa0: Skills and the hub now state the project boundary: work only under the project root, no environment listing, engine tools instead of the CLI through `npx`, no cache directory inside the project.
+- 1185c6c: Skills, the hub and the phase prompts no longer label a link with a path that starts with `agents/`, a folder the installed Claude Code and Codex plugins do not have (an agent looked for `agents/references/testing-standards.md` and skipped the field guidance). `npm run lint` now fails when a link label names a path that is neither the link's own target nor that target measured from the plugin root.
+- Updated dependencies [3eb5b39]
+- Updated dependencies [635a1c3]
+- Updated dependencies [815f82b]
+- Updated dependencies [429af34]
+- Updated dependencies [712d997]
+- Updated dependencies [e7b099f]
+- Updated dependencies [a0bce8a]
+  - @qa-ai-stlc/schemas@1.16.0
+  - @qa-ai-stlc/core@1.16.0
+  - @qa-ai-stlc/runner-playwright@1.16.0
+  - @qa-ai-stlc/explorer@1.16.0
+  - @qa-ai-stlc/runner-api@1.16.0
+  - @qa-ai-stlc/runner-security@1.16.0
+  - @qa-ai-stlc/runner-a11y@1.16.0
+
 ## 1.15.0
 
 ### Minor Changes

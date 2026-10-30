@@ -1,5 +1,24 @@
 # @qa-ai-stlc/core
 
+## 1.16.0
+
+### Minor Changes
+
+- 3eb5b39: A test case can list `manualChecks`, the checks only a person can judge, instead of writing them as steps; the case's Markdown shows them under "Checked by a person". `qa-design-cases` now says each asserting step carries an expectation the engine can evaluate.
+- 635a1c3: An `apiAuth` `from-browser` profile can send a session cookie back as a `Cookie` header (`sendAs: cookie`), so an API case runs as a signed-in identity against an application with a server-side session. A response that redirects to a sign-in page is marked `blocked` by `qa.http_execute` and can no longer prove an `api` case passed.
+- 815f82b: `qa doctor` / `qa.doctor` now checks that `@playwright/test` resolves from the project root when `testing.e2e`, `testing.api` or `testing.a11y` is `in-scope`. A bare project failed the first generated spec's typecheck even though the doctor was green, because the doctor only looked at the engine's own Chromium. The failing check is named `playwright-test` and its remediation gives the install command (`npm install --save-dev --save-exact @qa-ai-stlc/cli`). On Codex, `qa-start` shows the operator that command to run in their own terminal instead of retrying with a local npm cache.
+- 429af34: The eval scorer detects a catalogued bug by requirement: a failed case or a registered defect draft linked to the requirement the bug violates, instead of a defect title pattern or a fixed case id.
+- 712d997: `qa.generation_verify` rejects a spec that writes the environment's origin as a literal (`core.verification.literal_origin`, with a remediation: navigate and assert with paths), before anything runs. When a browser spec's `[expected-result]` step ran no web-first assertion, the result now says so and names a fix (`await expect(rows).toHaveCount(rowsBefore)`), and the verification issues carry that message instead of only the step id. The generation standard states both rules and forbids asserting on counts other specs change; `qa-generate-tests` runs the registered set together once before it reports generation done.
+- e7b099f: `qa.browser_expect` reports a note, `EXPECTATION_SELECTOR_NOT_REGISTERED`, when a case step asserts on a selector that names no registry element, so the agent registers it before recording a result a spec cannot be generated from. `qa-execute`, `qa-design-cases` and `qa-explore` say to assert on registered, role/name-based elements and never on run data.
+- a0bce8a: `qa cases add` rejects a case whose expectation uses a selector engine the browser tools cannot run (`label=`, `testid=`), with `CASE_SELECTOR_UNSUPPORTED` naming the step and the accepted forms. The browser tools share the same check and fail with `BROWSER_SELECTOR_UNSUPPORTED` instead of a raw Playwright error.
+
+### Patch Changes
+
+- Updated dependencies [3eb5b39]
+- Updated dependencies [635a1c3]
+- Updated dependencies [429af34]
+  - @qa-ai-stlc/schemas@1.16.0
+
 ## 1.15.0
 
 ### Minor Changes

@@ -1,5 +1,23 @@
 # @qa-ai-stlc/runner-playwright
 
+## 1.16.0
+
+### Minor Changes
+
+- 712d997: `qa.generation_verify` rejects a spec that writes the environment's origin as a literal (`core.verification.literal_origin`, with a remediation: navigate and assert with paths), before anything runs. When a browser spec's `[expected-result]` step ran no web-first assertion, the result now says so and names a fix (`await expect(rows).toHaveCount(rowsBefore)`), and the verification issues carry that message instead of only the step id. The generation standard states both rules and forbids asserting on counts other specs change; `qa-generate-tests` runs the registered set together once before it reports generation done.
+
+### Patch Changes
+
+- Updated dependencies [3eb5b39]
+- Updated dependencies [635a1c3]
+- Updated dependencies [815f82b]
+- Updated dependencies [429af34]
+- Updated dependencies [712d997]
+- Updated dependencies [e7b099f]
+- Updated dependencies [a0bce8a]
+  - @qa-ai-stlc/schemas@1.16.0
+  - @qa-ai-stlc/core@1.16.0
+
 ## 1.15.0
 
 ### Patch Changes
