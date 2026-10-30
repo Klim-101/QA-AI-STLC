@@ -346,7 +346,13 @@ const QueryParameterNameSchema = z
 // Where the engine reads a token from a live browser session, the way an operator would in
 // developer tools (ADR-0012). `jsonPath` is a dot-separated path into a JSON value.
 export const BrowserTokenSourceSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('cookie'), name: z.string().min(1) }),
+  z.object({
+    kind: z.literal('cookie'),
+    name: z.string().min(1),
+    // `bearer`: the cookie holds a token, sent as `Authorization: Bearer`. `cookie`: the cookie is the
+    // application's session, sent back as a `Cookie` header, which is how a server-side session authenticates.
+    sendAs: z.enum(['bearer', 'cookie']).default('bearer'),
+  }),
   z.object({
     kind: z.literal('local-storage'),
     key: z.string().min(1),

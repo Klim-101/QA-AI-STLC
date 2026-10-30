@@ -910,6 +910,19 @@ describe('runRegisterCaseResult', () => {
       await expect(registerPassed(context, 'api', ['evidence-1'])).resolves.toBeDefined();
     });
 
+    it('refuses passed when the only request was redirected to a sign-in page, whatever it answered', async () => {
+      const { context, fs } = createContext();
+      await seedCaseWith(fs, { testType: 'api', steps: [{ description: 'GET /tasks/1' }] });
+      await seedJson(context, 'evidence-1', {
+        ...httpRecord(200),
+        blocked: { reason: 'login-redirect', location: '/login' },
+      });
+
+      const error = await registerPassed(context, 'api', ['evidence-1']).catch((caught: unknown) => caught);
+
+      expect((error as QaError).code).toBe('RUN_RESULT_STEP_NOT_PROVEN');
+    });
+
     it('accepts an api case whose result-level http-status matches the error response', async () => {
       const { context, fs } = createContext();
       await seedCaseWith(fs, {

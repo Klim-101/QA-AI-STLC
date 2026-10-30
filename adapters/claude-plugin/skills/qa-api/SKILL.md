@@ -43,7 +43,8 @@ authenticate, and do the generated API specs pass. One approved case run live is
   `unobserved` endpoint was not seen by the crawl; it is not proof it is gone. Read the report at
   `reportPath` for the endpoints themselves.
 - **Authenticate.** Follow [contract-and-auth.md](references/contract-and-auth.md): discover the token
-  from a signed-in browser session or add a service profile. Never write a secret into a header or
+  from a signed-in browser session (or, for an application with a server-side session, use its session
+  cookie) or add a service profile. Never write a secret into a header or
   ask the operator to edit `.qa/config.yaml`.
 - **Run the API specs.** Check them first with `qa.spec_check` (`testType: 'api'`, nothing recorded),
   then `qa.run` with `testType: 'api'` for a run that counts. The engine rejects a spec whose case is

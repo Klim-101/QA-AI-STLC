@@ -38,6 +38,22 @@ environment's default profile applies.
    ask again).
 2. Register it with `qa.config_add_api_auth`, with a name and `defaultForEnvironment` for the
    environment under test.
-3. A service account is a `bearer`, `basic`, `api-key` or `oauth2-client-credentials` profile. Each
+3. **A server-side session (a cookie, not a token).** If the application keeps you signed in with a
+   session cookie and `qa.browser_discover_api_auth` finds no token, add a `from-browser` profile
+   whose source is the session cookie sent back as a cookie, for example
+   `{ type: 'from-browser', source: { kind: 'cookie', name: 'connect.sid', sendAs: 'cookie' } }`. Ask
+   the operator for the session cookie's name (browser developer tools, Application, Cookies; the name
+   only, never the value). Then
+   sign in with `qa.browser_open` and the case's identity and pass its `sessionId` to
+   `qa.http_execute`; the API runner signs in as the identity itself. The default `sendAs: 'bearer'`
+   is for a cookie that holds a token.
+4. A service account is a `bearer`, `basic`, `api-key` or `oauth2-client-credentials` profile. Each
    secret is the NAME of a `QA_` environment variable that the operator sets; you never see or write
    its value.
+
+## A redirect to a sign-in page
+
+A call that is not authenticated, or whose session lapsed, is redirected to the application's sign-in
+page. `qa.http_execute` marks that response `blocked: { reason: 'login-redirect', location }`: its
+status (even a 200) is the login page's and proves nothing about the endpoint, and the engine refuses
+`passed` on it. Register the case as `blocked`, then authenticate the call (above) and run it again.

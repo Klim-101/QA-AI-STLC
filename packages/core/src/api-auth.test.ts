@@ -327,12 +327,21 @@ describe('collectSensitiveNames', () => {
     const replaying: ApiAuthConfig = {
       profiles: {
         a: { type: 'from-browser', source: { kind: 'request-header', header: 'X-Auth-Token' } },
-        b: { type: 'from-browser', source: { kind: 'cookie', name: 'c' } },
+        b: { type: 'from-browser', source: { kind: 'cookie', name: 'c', sendAs: 'bearer' } },
       },
       defaults: {},
     };
 
     expect(collectSensitiveNames(replaying).headers).toEqual(['X-Auth-Token', 'Authorization']);
+  });
+
+  it('names the Cookie header for a cookie source that is sent as a cookie', () => {
+    const session: ApiAuthConfig = {
+      profiles: { s: { type: 'from-browser', source: { kind: 'cookie', name: 'sid', sendAs: 'cookie' } } },
+      defaults: {},
+    };
+
+    expect(collectSensitiveNames(session).headers).toEqual(['Cookie']);
   });
 
   it('is empty when no profile carries a credential', () => {

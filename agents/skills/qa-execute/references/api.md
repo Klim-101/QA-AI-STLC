@@ -44,6 +44,11 @@ write a token into a header yourself. When there is no profile yet:
    themselves, never its value.
 4. Call `qa.http_execute` with `browserSessionId` of that session so the token is read from it.
 
+An application that keeps a server-side session needs a profile whose source is the session cookie sent
+as a cookie; see `qa-api`'s authentication reference. A response with `blocked` set was redirected to
+the sign-in page: the status is not the endpoint's, so register the case as `blocked`, not `passed`
+or `failed`.
+
 ## Reusable values
 
 Prefer a value already registered as a `TestDataSchema` set (`testDataRefs` on the case) over

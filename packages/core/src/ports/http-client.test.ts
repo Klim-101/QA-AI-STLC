@@ -97,6 +97,34 @@ describe('fetchHttpClient', () => {
     expect(fetchMock).toHaveBeenCalledWith('https://example.com', { method: 'GET' });
   });
 
+  it('request() reports where followed redirects ended, and nothing when there were none', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        redirected: true,
+        url: 'https://example.com/login',
+        headers: new Headers(),
+        text: () => Promise.resolve(''),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        redirected: false,
+        url: 'https://example.com/a',
+        headers: new Headers(),
+        text: () => Promise.resolve(''),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const followed = await fetchHttpClient.request('https://example.com/a');
+    const direct = await fetchHttpClient.request('https://example.com/a');
+
+    expect(followed.redirectedTo).toBe('https://example.com/login');
+    expect(direct).not.toHaveProperty('redirectedTo');
+  });
+
   it('request() passes method, headers and body through', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

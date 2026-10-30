@@ -88,6 +88,10 @@ function readObservation(
     };
   }
   if (observation.source === 'http' && testType === 'api') {
+    // A sign-in page reached by redirect proves nothing about the endpoint, whatever status it answers.
+    if (observation.record.blocked !== undefined) {
+      return { ...stepId, isSuccessful: false, isPassedCheck: false };
+    }
     const isOk = observation.record.status < HTTP_ERROR_STATUS;
     const isExpectedByStep = observation.stepId !== undefined && statusDeclaredSteps.has(observation.stepId);
     // A result-level expectation names no step, so only a request that returned exactly the

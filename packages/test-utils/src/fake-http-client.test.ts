@@ -47,6 +47,18 @@ describe('createFakeHttpClient', () => {
     });
   });
 
+  it('request() reports where followed redirects ended when the response says so', async () => {
+    const client = createFakeHttpClient({
+      ok: true,
+      status: 200,
+      redirectedTo: 'https://example.com/login',
+    });
+
+    await expect(client.request('https://example.com/tasks')).resolves.toMatchObject({
+      redirectedTo: 'https://example.com/login',
+    });
+  });
+
   it('request() rejects with the given error', async () => {
     const client = createFakeHttpClient(new Error('network down'));
 

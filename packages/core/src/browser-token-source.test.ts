@@ -65,7 +65,7 @@ async function failureOf(promise: Promise<unknown>): Promise<QaError> {
   )) as QaError;
 }
 
-const cookie = (name: string): BrowserTokenSource => ({ kind: 'cookie', name });
+const cookie = (name: string): BrowserTokenSource => ({ kind: 'cookie', name, sendAs: 'bearer' });
 const localStorageSource = (key: string, jsonPath?: string): BrowserTokenSource => ({
   kind: 'local-storage',
   key,
@@ -103,6 +103,27 @@ describe('readBrowserToken from a cookie', () => {
       headerValue: 'Bearer cookie-token',
       secretValues: ['cookie-token'],
     });
+  });
+
+  it('sends a session cookie back as a Cookie header when the source says so', async () => {
+    const token = await readBrowserToken(
+      { kind: 'cookie', name: 'api_token', sendAs: 'cookie' },
+      stateOrigin,
+    );
+
+    expect(token).toEqual({
+      headerName: 'Cookie',
+      headerValue: 'api_token=cookie-token',
+      secretValues: ['cookie-token', 'api_token=cookie-token'],
+    });
+  });
+
+  it('refuses an empty session cookie as unusable', async () => {
+    const failure = await failureOf(
+      readBrowserToken({ kind: 'cookie', name: 'empty', sendAs: 'cookie' }, stateOrigin),
+    );
+
+    expect(failure.code).toBe('API_AUTH_SOURCE_INVALID');
   });
 
   it('does not double a Bearer prefix the stored value already has', async () => {

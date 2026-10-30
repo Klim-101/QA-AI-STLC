@@ -128,7 +128,7 @@ describe('withRunTokenOrigin', () => {
       engine,
       config,
       { environment: undefined, identity: 'tester', profileName: 'stage-api' },
-      (origin) => readBrowserToken({ kind: 'cookie', name: 'session' }, origin),
+      (origin) => readBrowserToken({ kind: 'cookie', name: 'session', sendAs: 'bearer' }, origin),
     );
 
     expect(token.secretValues).toEqual(['cookie-secret']);

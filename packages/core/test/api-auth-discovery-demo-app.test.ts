@@ -78,7 +78,7 @@ describe('API auth discovery (demo app)', () => {
         expect(discovery.tokenHeader).toBe('authorization');
         expect(discovery.sources).toEqual(
           expect.arrayContaining([
-            { kind: 'cookie', name: 'api_token' },
+            { kind: 'cookie', name: 'api_token', sendAs: 'bearer' },
             { kind: 'local-storage', key: 'auth', jsonPath: 'token.access' },
             { kind: 'session-storage', key: 'sessionToken' },
             { kind: 'request-header', header: 'authorization' },

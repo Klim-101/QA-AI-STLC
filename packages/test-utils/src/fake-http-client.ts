@@ -14,6 +14,8 @@ export interface HttpResponseLike {
   readonly setCookies?: readonly string[];
   /** Only read by `request()`; defaults to `''` when omitted. */
   readonly bodyText?: string;
+  /** Only read by `request()`: where followed redirects ended; absent when omitted. */
+  readonly redirectedTo?: string;
 }
 
 export interface HttpRequestDetailsOptionsLike {
@@ -31,6 +33,7 @@ export interface HttpResponseDetailsLike {
   readonly headers: Readonly<Record<string, string>>;
   readonly setCookies: readonly string[];
   readonly bodyText: string;
+  readonly redirectedTo?: string;
 }
 
 export interface HttpClientLike {
@@ -54,6 +57,7 @@ export function createFakeHttpClient(response: HttpResponseLike | Error): HttpCl
             headers: response.headers ?? {},
             setCookies: response.setCookies ?? [],
             bodyText: response.bodyText ?? '',
+            ...(response.redirectedTo === undefined ? {} : { redirectedTo: response.redirectedTo }),
           }),
   };
 }

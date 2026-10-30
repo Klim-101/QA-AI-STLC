@@ -172,6 +172,9 @@ export const HttpRequestRecordSchema = z.object({
   responseHeaders: z.record(z.string(), z.string()),
   bodyPreview: z.string(),
   truncated: z.boolean(),
+  // Set when the response sent the caller to a sign-in page: the call reached no endpoint, so the
+  // status, even a 200 for the login page, is not an answer of the API under test.
+  blocked: z.object({ reason: z.literal('login-redirect'), location: z.string().min(1) }).optional(),
   at: IsoDateTimeSchema,
 });
 export type HttpRequestRecord = z.infer<typeof HttpRequestRecordSchema>;

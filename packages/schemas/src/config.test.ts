@@ -550,6 +550,26 @@ describe('apiAuth config (P6-30)', () => {
     expect(ApiAuthProfileSchema.safeParse(profile).success).toBe(true);
   });
 
+  it('sends a cookie source as a bearer token unless it says to send the cookie itself', () => {
+    const parse = (source: Record<string, unknown>) =>
+      ApiAuthProfileSchema.parse({ type: 'from-browser', source });
+
+    expect(parse({ kind: 'cookie', name: 'session' })).toStrictEqual({
+      type: 'from-browser',
+      source: { kind: 'cookie', name: 'session', sendAs: 'bearer' },
+    });
+    expect(parse({ kind: 'cookie', name: 'session', sendAs: 'cookie' })).toStrictEqual({
+      type: 'from-browser',
+      source: { kind: 'cookie', name: 'session', sendAs: 'cookie' },
+    });
+    expect(
+      ApiAuthProfileSchema.safeParse({
+        type: 'from-browser',
+        source: { kind: 'cookie', name: 'session', sendAs: 'header' },
+      }).success,
+    ).toBe(false);
+  });
+
   it('defaults a request-header source to the Authorization header', () => {
     const profile = ApiAuthProfileSchema.parse({
       type: 'from-browser',

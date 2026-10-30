@@ -23,6 +23,7 @@ const CONFIG_YAML = `${BROWSER_TEST_CONFIG_YAML}apiAuth:
     fromLocal: { type: from-browser, source: { kind: local-storage, key: auth, jsonPath: token.access } }
     fromSession: { type: from-browser, source: { kind: session-storage, key: sessionToken } }
     fromHeader: { type: from-browser, source: { kind: request-header, header: X-Auth-Token } }
+    sessionCookie: { type: from-browser, source: { kind: cookie, name: api_token, sendAs: cookie } }
 `;
 
 const STORAGE_STATE = {
@@ -121,6 +122,53 @@ describe('runHttpExecute with a from-browser profile and a live session', () => 
     const record = evidenceText(harness, result.evidence.path);
     expect(record).not.toMatch(/-tok-/u);
     expect(record).toContain('you sent');
+  });
+
+  it('sends a session cookie as a Cookie header, not as a bearer token, and never stores its value', async () => {
+    const { harness, engine, sent } = createHarness();
+    const { sessionId } = await runBrowserOpen(harness.context);
+
+    const result = await runHttpExecute(engine, {
+      runId: 'run-1',
+      url: URL_ON_ALLOWLIST,
+      auth: 'sessionCookie',
+      browserSessionId: sessionId,
+      sessions: harness.sessions,
+    });
+
+    expect(sent[0]?.options?.headers).toEqual({ Cookie: 'api_token=cookie-tok-1' });
+    expect(sent[0]?.options?.redirect).toBe('manual');
+    expect(evidenceText(harness, result.evidence.path)).not.toContain('cookie-tok-1');
+  });
+
+  it('reports a session that lapsed, a redirect to the sign-in page, as blocked', async () => {
+    const { harness, engine } = createHarness();
+    const { sessionId } = await runBrowserOpen(harness.context);
+    const lapsed: EngineContext = {
+      ...engine,
+      httpClient: {
+        get: () => Promise.reject(new Error('get() is not used')),
+        request: () =>
+          Promise.resolve({
+            ok: false,
+            status: 302,
+            headers: { location: '/login?next=/api' },
+            setCookies: [],
+            bodyText: '',
+          }),
+      },
+    };
+
+    const result = await runHttpExecute(lapsed, {
+      runId: 'run-1',
+      url: URL_ON_ALLOWLIST,
+      auth: 'sessionCookie',
+      browserSessionId: sessionId,
+      sessions: harness.sessions,
+    });
+
+    expect(result.status).toBe(302);
+    expect(result.blocked).toEqual({ reason: 'login-redirect', location: '/login' });
   });
 
   it('reads the token again on every call, so a rotated token is picked up', async () => {

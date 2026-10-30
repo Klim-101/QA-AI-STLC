@@ -163,3 +163,20 @@ Rejected alternatives:
   where credentials already are.
 - **Integration with an OS keychain or a secrets manager**: useful, but a per-platform dependency and
   a second source of truth; it can be added later as another way to fill the same variable.
+
+## Amendment: a session cookie as the credential (P5-14)
+
+An application that keeps a server-side session authenticates a request with the session cookie,
+not a bearer token, and answers an unauthenticated request with a redirect to its sign-in page. Two
+additions, both inside the profile model above:
+
+- A `from-browser` profile with a `cookie` source takes `sendAs: cookie` (default `bearer`, the
+  previous behaviour). The engine then sends the cookie back as a `Cookie` header, read from the same
+  places as any other `from-browser` source: a signed-in `qa.browser_open` session, a saved identity,
+  or the headless session the API runner signs in to as its identity. The value is scrubbed from
+  stored evidence like every other credential, and the call keeps `redirect: manual`.
+- A response that sends the call to a sign-in page, either a `Location` header or the URL a followed
+  redirect ended on, is recorded with `blocked: { reason: 'login-redirect', location }`. The status
+  of such a record is the login page's, never the endpoint's, so it cannot prove a step of an `api`
+  case whatever it answers; the executor registers the case as `blocked`. A sign-in page is a path
+  segment `login`, `signin` or `sso`, or the path of a configured identity's `loginUrl`.
