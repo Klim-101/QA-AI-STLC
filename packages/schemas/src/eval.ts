@@ -14,10 +14,14 @@ function isValidRegexSource(value: string): boolean {
   }
 }
 
-// How a run shows that it found a catalogued bug. `failed-case`: the latest recorded result of that
-// case failed, which is what a case written for the bug does on the demo app. `defect-title`: a
-// registered defect draft whose title matches, for a run whose cases the agent named itself.
+// How a run shows that it found a catalogued bug. `requirement`: the run holds a failed case or a
+// registered defect draft linked to the requirement the bug violates. Requirement ids come from the
+// scenario's own requirements file, so they are the same in every host, unlike case ids and defect
+// wording, which each agent chooses. `failed-case` (the latest result of a named case failed) and
+// `defect-title` (a defect draft whose title matches) fit only a run that happens to use that id or
+// that wording, such as the scripted baseline.
 export const EvalBugSignalSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('requirement'), requirementId: IdentifierSchema }),
   z.object({ kind: z.literal('failed-case'), testCaseId: IdentifierSchema }),
   z.object({
     kind: z.literal('defect-title'),

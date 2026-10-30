@@ -54,7 +54,7 @@ function element(stabilityScore: number, isFragile: boolean, isDeprecated = fals
   };
 }
 
-const EMPTY: EvalRunData = { spokeRecords: [], results: [], defects: [] };
+const EMPTY: EvalRunData = { spokeRecords: [], results: [], cases: [], defects: [] };
 
 function record(
   overrides: Partial<EvalSpokeRecord> & Pick<EvalSpokeRecord, 'spokeId' | 'taskId'>,
@@ -94,11 +94,96 @@ describe('scoreEvalRun: bugs', () => {
   it('counts a bug as found by a defect draft whose title matches, ignoring case', () => {
     const report = scoreEvalRun(
       SCENARIO,
-      { ...EMPTY, defects: [{ id: 'sort-defect', title: 'Sorting by Priority orders wrongly' }] },
+      {
+        ...EMPTY,
+        defects: [{ id: 'sort-defect', title: 'Sorting by Priority orders wrongly', requirementIds: [] }],
+      },
       'now',
     );
 
     expect(report.bugs.results[2]).toEqual({ bugId: 'BUG-008', isDetected: true, evidence: 'sort-defect' });
+  });
+
+  describe('a requirement signal', () => {
+    const BY_REQUIREMENT: EvalScenario = {
+      ...SCENARIO,
+      expectedBugs: [
+        { bugId: 'BUG-002', signals: [{ kind: 'requirement', requirementId: 'req-002-filter' }] },
+        { bugId: 'BUG-008', signals: [{ kind: 'requirement', requirementId: 'req-003-sort' }] },
+      ],
+    };
+
+    it('counts a failed case linked to the requirement, whatever the case is called', () => {
+      const report = scoreEvalRun(
+        BY_REQUIREMENT,
+        {
+          ...EMPTY,
+          cases: [{ id: 'tc-tasks-003-whatever', requirementIds: ['req-002-filter'] }],
+          results: [result('tc-tasks-003-whatever', 'failed', 1)],
+        },
+        'now',
+      );
+
+      expect(report.bugs.results[0]).toEqual({
+        bugId: 'BUG-002',
+        isDetected: true,
+        evidence: 'tc-tasks-003-whatever',
+      });
+    });
+
+    it('counts a defect draft linked to the requirement, whatever its title says', () => {
+      const report = scoreEvalRun(
+        BY_REQUIREMENT,
+        {
+          ...EMPTY,
+          defects: [{ id: 'def-9', title: 'Something is off', requirementIds: ['req-003-sort'] }],
+        },
+        'now',
+      );
+
+      expect(report.bugs.results[1]).toEqual({ bugId: 'BUG-008', isDetected: true, evidence: 'def-9' });
+    });
+
+    it('does not count a failed case of another requirement, a case that passed or that was fixed', () => {
+      const report = scoreEvalRun(
+        BY_REQUIREMENT,
+        {
+          ...EMPTY,
+          cases: [
+            { id: 'other', requirementIds: ['req-001-create'] },
+            { id: 'filter-ok', requirementIds: ['req-002-filter'] },
+            { id: 'sort-fixed', requirementIds: ['req-003-sort'] },
+          ],
+          results: [
+            result('other', 'failed', 1),
+            result('filter-ok', 'passed', 1),
+            result('sort-fixed', 'failed', 1),
+            result('sort-fixed', 'passed', 2),
+          ],
+          defects: [{ id: 'unrelated', title: 'Filter is broken', requirementIds: ['req-001-create'] }],
+        },
+        'now',
+      );
+
+      expect(report.bugs.detectedCount).toBe(0);
+    });
+
+    it('names the first failed case by id when several fail', () => {
+      const report = scoreEvalRun(
+        BY_REQUIREMENT,
+        {
+          ...EMPTY,
+          cases: [
+            { id: 'b-case', requirementIds: ['req-002-filter'] },
+            { id: 'a-case', requirementIds: ['req-002-filter'] },
+          ],
+          results: [result('b-case', 'failed', 1), result('a-case', 'failed', 1)],
+        },
+        'now',
+      );
+
+      expect(report.bugs.results[0]?.evidence).toBe('a-case');
+    });
   });
 
   it('has no detection rate when the scenario expects nothing', () => {

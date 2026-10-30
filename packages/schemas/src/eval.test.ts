@@ -35,6 +35,13 @@ describe('EvalBugSignalSchema', () => {
     expect(EvalBugSignalSchema.safeParse({ kind: 'defect-title', pattern: '(unclosed' }).success).toBe(false);
   });
 
+  it('accepts a requirement signal and rejects one without a requirement id', () => {
+    expect(
+      EvalBugSignalSchema.safeParse({ kind: 'requirement', requirementId: 'req-002-filter' }).success,
+    ).toBe(true);
+    expect(EvalBugSignalSchema.safeParse({ kind: 'requirement' }).success).toBe(false);
+  });
+
   it('is part of an expected bug', () => {
     expect(
       EvalExpectedBugSchema.safeParse({

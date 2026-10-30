@@ -5,6 +5,7 @@ import {
   DefectDraftSchema,
   EvalScenarioSchema,
   SelectorRegistrySchema,
+  TestCaseSchema,
   type EvalReport,
 } from '@qa-ai-stlc/schemas';
 import type { EngineContext } from '../engine-context.js';
@@ -14,6 +15,7 @@ import { parseInlineContent } from '../schema-issues.js';
 import { readSpokeAttempts } from '../spoke-records.js';
 import { loadAllRunResults } from '../triage-failures.js';
 
+const CASES_DIR = 'artifacts/cases';
 const DEFECTS_DIR = 'artifacts/defects';
 const REGISTRY_PATH = 'selectors/registry.json';
 
@@ -36,6 +38,8 @@ export async function runEvalScore(context: EngineContext, options: EvalScoreOpt
   const store = new QaStore({ projectRoot: context.projectRoot, fs: context.fs });
   const defectPaths = (await store.listFiles(DEFECTS_DIR)).filter((path) => path.endsWith('.json'));
   const defects = await Promise.all(defectPaths.map((path) => store.readJson(path, DefectDraftSchema)));
+  const casePaths = (await store.listFiles(CASES_DIR)).filter((path) => path.endsWith('.json'));
+  const cases = await Promise.all(casePaths.map((path) => store.readJson(path, TestCaseSchema)));
   const registry = (await store.pathExists(REGISTRY_PATH))
     ? await store.readJson(REGISTRY_PATH, SelectorRegistrySchema)
     : undefined;
@@ -45,7 +49,12 @@ export async function runEvalScore(context: EngineContext, options: EvalScoreOpt
     {
       spokeRecords: await readSpokeAttempts(store),
       results: await loadAllRunResults(store),
-      defects: defects.map((defect) => ({ id: defect.id, title: defect.title })),
+      cases: cases.map((testCase) => ({ id: testCase.id, requirementIds: testCase.requirementIds })),
+      defects: defects.map((defect) => ({
+        id: defect.id,
+        title: defect.title,
+        requirementIds: defect.requirementIds,
+      })),
       ...(registry === undefined ? {} : { registry }),
     },
     context.clock.now().toISOString(),

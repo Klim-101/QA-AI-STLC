@@ -6,11 +6,21 @@
 // a hub and its spokes make (spoke records, exploration, case registration, a run, a triage), so a
 // run by a real agent in a host can be scored by the same scorer and compared with it. There is no
 // model here: the "designed" cases, the specs and the classification below are deterministic.
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { BUILTIN_TOOLS } from '@qa-ai-stlc/mcp-server';
 
 const RUN_ID = 'eval-baseline';
+// The requirements every host of this scenario gets, so a case links to the same requirement ids here and in a real run.
+const REQUIREMENTS_PATH = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'evals',
+  'scenarios',
+  'baseline-demo-app.requirements.md',
+);
 // `agents.parallelism` of the baseline project unless a run names another: the hub dispatches no
 // more spokes than this at once. 1 is sequential mode.
 export const DEFAULT_PARALLELISM = 4;
@@ -40,23 +50,38 @@ export function configYaml(baseUrl, parallelism = DEFAULT_PARALLELISM) {
 // One case per catalogued bug the baseline targets, plus one that must pass. BUG-008 (sorting) has
 // no case: the baseline does not cover every bug, so the detection rate it scores is not 100%.
 export const BASELINE_CASES = [
-  { id: 'login-works', feature: 'login', title: 'A registered user can log in', step: 'Log in as the admin' },
+  {
+    id: 'login-works',
+    feature: 'login',
+    requirementId: 'req-005-dashboard-greeting',
+    title: 'A registered user can log in',
+    step: 'Log in as the admin',
+  },
   {
     id: 'task-empty-title',
     feature: 'tasks-create',
+    requirementId: 'req-001-create-a-task',
     title: 'A task needs a title',
     step: 'Post a task with no title',
   },
   {
     id: 'task-status-filter',
     feature: 'tasks-filter',
+    requirementId: 'req-002-list-and-filter-tasks',
     title: 'The status filter filters',
     step: 'Filter the task list by status',
   },
-  { id: 'task-delete', feature: 'tasks-delete', title: 'A deleted task is gone', step: 'Delete a task' },
+  {
+    id: 'task-delete',
+    feature: 'tasks-delete',
+    requirementId: 'req-004-delete-a-task',
+    title: 'A deleted task is gone',
+    step: 'Delete a task',
+  },
   {
     id: 'dashboard-greeting',
     feature: 'dashboard',
+    requirementId: 'req-005-dashboard-greeting',
     title: 'The dashboard greets the user by name',
     step: 'Open the dashboard',
   },
@@ -151,8 +176,8 @@ export async function runBaseline({ projectRoot, baseUrl, parallelism = DEFAULT_
 
   await tool('qa.scope').handler({
     from: 'text',
-    label: 'login',
-    content: '## Login\nA registered user can log in with valid credentials.\n',
+    label: 'baseline-demo-app',
+    content: await readFile(REQUIREMENTS_PATH, 'utf-8'),
   });
 
   await dispatch('explorer', 'staging', async () => {
@@ -171,7 +196,7 @@ export async function runBaseline({ projectRoot, baseUrl, parallelism = DEFAULT_
             JSON.stringify({
               id: testCase.id,
               feature: testCase.feature,
-              requirementIds: ['login'],
+              requirementIds: [testCase.requirementId],
               testType: 'e2e',
               title: testCase.title,
               steps: [{ description: testCase.step }],

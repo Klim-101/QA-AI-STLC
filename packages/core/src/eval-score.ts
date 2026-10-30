@@ -24,7 +24,13 @@ export interface EvalSpokeRecord {
 export interface EvalRunData {
   readonly spokeRecords: readonly EvalSpokeRecord[];
   readonly results: readonly RunResult[];
-  readonly defects: readonly { readonly id: string; readonly title: string }[];
+  /** The registered cases, so a result can be tied to the requirements its case covers. */
+  readonly cases: readonly { readonly id: string; readonly requirementIds: readonly string[] }[];
+  readonly defects: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly requirementIds: readonly string[];
+  }[];
   readonly registry?: SelectorRegistry;
 }
 
@@ -43,9 +49,29 @@ function latestResultOf(results: readonly RunResult[], testCaseId: string): RunR
     .toSorted((a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime())[0];
 }
 
+// A case whose latest result failed, or a defect draft, that is linked to the requirement. The case
+// id and the defect title are the agent's own choice and play no part in the match.
+function findRequirementEvidence(requirementId: string, data: EvalRunData): string | undefined {
+  const failedCase = data.cases
+    .filter((candidate) => candidate.requirementIds.includes(requirementId))
+    .toSorted((a, b) => a.id.localeCompare(b.id))
+    .find((candidate) => latestResultOf(data.results, candidate.id)?.status === 'failed');
+  if (failedCase !== undefined) {
+    return failedCase.id;
+  }
+  return data.defects.find((defect) => defect.requirementIds.includes(requirementId))?.id;
+}
+
 function scoreBugs(scenario: EvalScenario, data: EvalRunData): EvalReport['bugs'] {
   const results: EvalBugResult[] = scenario.expectedBugs.map((expected) => {
     for (const signal of expected.signals) {
+      if (signal.kind === 'requirement') {
+        const evidence = findRequirementEvidence(signal.requirementId, data);
+        if (evidence !== undefined) {
+          return { bugId: expected.bugId, isDetected: true, evidence };
+        }
+        continue;
+      }
       if (signal.kind === 'failed-case') {
         if (latestResultOf(data.results, signal.testCaseId)?.status === 'failed') {
           return { bugId: expected.bugId, isDetected: true, evidence: signal.testCaseId };

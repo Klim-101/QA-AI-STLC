@@ -3,34 +3,19 @@
   "id": "baseline-demo-app",
   "title": "Find the catalogued functional bugs of the demo app",
   "expectedBugs": [
-    {
-      "bugId": "BUG-001",
-      "signals": [
-        { "kind": "failed-case", "testCaseId": "task-empty-title" },
-        { "kind": "defect-title", "pattern": "empty title|blank task|without a title" }
-      ]
-    },
+    { "bugId": "BUG-001", "signals": [{ "kind": "requirement", "requirementId": "req-001-create-a-task" }] },
     {
       "bugId": "BUG-002",
-      "signals": [
-        { "kind": "failed-case", "testCaseId": "task-status-filter" },
-        { "kind": "defect-title", "pattern": "status filter" }
-      ]
+      "signals": [{ "kind": "requirement", "requirementId": "req-002-list-and-filter-tasks" }]
     },
-    {
-      "bugId": "BUG-004",
-      "signals": [
-        { "kind": "failed-case", "testCaseId": "task-delete" },
-        { "kind": "defect-title", "pattern": "delet" }
-      ]
-    },
+    { "bugId": "BUG-004", "signals": [{ "kind": "requirement", "requirementId": "req-004-delete-a-task" }] },
     {
       "bugId": "BUG-007",
-      "signals": [
-        { "kind": "failed-case", "testCaseId": "dashboard-greeting" },
-        { "kind": "defect-title", "pattern": "greeting|welcome" }
-      ]
+      "signals": [{ "kind": "requirement", "requirementId": "req-005-dashboard-greeting" }]
     },
-    { "bugId": "BUG-008", "signals": [{ "kind": "defect-title", "pattern": "sort.*priorit|priorit.*sort" }] }
+    {
+      "bugId": "BUG-008",
+      "signals": [{ "kind": "requirement", "requirementId": "req-003-sort-tasks-by-priority" }]
+    }
   ]
 }

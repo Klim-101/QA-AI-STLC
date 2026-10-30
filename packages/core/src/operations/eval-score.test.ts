@@ -15,6 +15,7 @@ const SCENARIO = {
   expectedBugs: [
     { bugId: 'BUG-002', signals: [{ kind: 'failed-case', testCaseId: 'filter' }] },
     { bugId: 'BUG-004', signals: [{ kind: 'defect-title', pattern: 'delet' }] },
+    { bugId: 'BUG-008', signals: [{ kind: 'requirement', requirementId: 'req-3' }] },
   ],
 };
 
@@ -79,6 +80,30 @@ async function projectWithRun(): Promise<EngineContext> {
     evidenceIds: [],
     failure: { message: 'boom' },
   });
+  await store.writeJson('artifacts/cases/sorting/tc-sort.json', {
+    schemaVersion: 1,
+    id: 'tc-sort',
+    feature: 'sorting',
+    requirementIds: ['req-3'],
+    testType: 'e2e',
+    title: 'Sorting orders by priority',
+    steps: [{ description: 'Sort the list' }],
+    expectedResult: 'High, medium, low',
+    status: 'approved',
+    createdAt: '2026-10-17T10:00:00Z',
+  });
+  await store.writeJson('runs/run-1/results/r-sort.json', {
+    schemaVersion: 1,
+    id: 'r-sort',
+    runId: 'run-1',
+    testCaseId: 'tc-sort',
+    testType: 'e2e',
+    status: 'failed',
+    startedAt: '2026-10-17T10:00:00Z',
+    finishedAt: '2026-10-17T10:00:01Z',
+    evidenceIds: [],
+    failure: { message: 'wrong order' },
+  });
   await store.writeJson('artifacts/defects/delete-defect.json', {
     schemaVersion: 1,
     id: 'delete-defect',
@@ -125,6 +150,7 @@ describe('runEvalScore', () => {
     expect(report.bugs.results).toEqual([
       { bugId: 'BUG-002', isDetected: true, evidence: 'filter' },
       { bugId: 'BUG-004', isDetected: true, evidence: 'delete-defect' },
+      { bugId: 'BUG-008', isDetected: true, evidence: 'tc-sort' },
     ]);
     expect(report.spokes).toMatchObject({
       attempts: 3,
