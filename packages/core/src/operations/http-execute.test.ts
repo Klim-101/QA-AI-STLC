@@ -39,6 +39,77 @@ function createContext(
   return { context: createFakeEngineContext({ fs, httpClient, clock: { now: () => NOW } }), fs };
 }
 
+describe('runHttpExecute: a redirect to a sign-in page', () => {
+  const PROTECTED_URL = 'https://staging.example.test/api/tasks/1';
+
+  function recordOf(fs: FakeFileSystem, path: string): Record<string, unknown> {
+    return JSON.parse(String(fs.getRawFile(join('project', '.qa', path)))) as Record<string, unknown>;
+  }
+
+  it('reports followed redirects that end on the login page as blocked, not as the 200 it answered', async () => {
+    const httpClient = createFakeHttpClient({
+      ok: true,
+      status: 200,
+      bodyText: '<html>Log in</html>',
+      redirectedTo: 'https://staging.example.test/login?next=%2Fapi%2Ftasks%2F1',
+    });
+    const { context, fs } = createContext(httpClient);
+
+    const result = await runHttpExecute(context, { runId: 'run-1', url: PROTECTED_URL });
+
+    expect(result.status).toBe(200);
+    expect(result.blocked).toEqual({ reason: 'login-redirect', location: '/login' });
+    expect(recordOf(fs, result.evidence.path)).toMatchObject({
+      status: 200,
+      blocked: { reason: 'login-redirect', location: '/login' },
+    });
+  });
+
+  it('reports an unfollowed 3xx whose location is the login page as blocked', async () => {
+    const httpClient = createFakeHttpClient({ ok: false, status: 302, headers: { location: '/signin' } });
+    const { context } = createContext(httpClient);
+
+    const result = await runHttpExecute(context, { runId: 'run-1', url: PROTECTED_URL });
+
+    expect(result.blocked).toEqual({ reason: 'login-redirect', location: '/signin' });
+  });
+
+  it('reads the login path of a configured identity', async () => {
+    const yaml = CONFIG_YAML.replace(
+      'identities: {}',
+      'identities: { admin: { auth: storage-state, loginUrl: "/welcome/enter", username: admin@example.test, secret: QA_ADMIN_PASSWORD } }',
+    );
+    const httpClient = createFakeHttpClient({
+      ok: false,
+      status: 302,
+      headers: { location: '/welcome/enter' },
+    });
+    const { context } = createContext(httpClient, yaml);
+
+    const result = await runHttpExecute(context, { runId: 'run-1', url: PROTECTED_URL });
+
+    expect(result.blocked).toEqual({ reason: 'login-redirect', location: '/welcome/enter' });
+  });
+
+  it('leaves a redirect elsewhere and a plain answer unmarked', async () => {
+    const elsewhere = createContext(
+      createFakeHttpClient({
+        ok: true,
+        status: 200,
+        redirectedTo: 'https://staging.example.test/api/tasks/2',
+      }),
+    );
+    const plain = createContext(createFakeHttpClient({ ok: true, status: 200 }));
+
+    const moved = await runHttpExecute(elsewhere.context, { runId: 'run-1', url: PROTECTED_URL });
+    const answered = await runHttpExecute(plain.context, { runId: 'run-1', url: PROTECTED_URL });
+
+    expect(moved).not.toHaveProperty('blocked');
+    expect(answered).not.toHaveProperty('blocked');
+    expect(recordOf(plain.fs, answered.evidence.path)).not.toHaveProperty('blocked');
+  });
+});
+
 describe('runHttpExecute', () => {
   it('makes a request and registers the request/response as evidence', async () => {
     const httpClient = createFakeHttpClient({

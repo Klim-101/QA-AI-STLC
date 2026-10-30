@@ -54,6 +54,12 @@ const InputSchema = z.object({
 const OutputSchema = z.object({
   status: z.number(),
   evidence: EvidenceSchema,
+  blocked: z
+    .object({ reason: z.literal('login-redirect'), location: z.string() })
+    .optional()
+    .describe(
+      'Present when the response sent the call to a sign-in page: status is then the login page, not the endpoint. Register the case as blocked, and authenticate the call with an auth profile (and identity or sessionId).',
+    ),
 });
 
 /**
@@ -80,7 +86,8 @@ export function createHttpExecuteTool(
       'for the "api" test type. A GET, HEAD, OPTIONS or QUERY needs no case; a POST, PUT, PATCH or DELETE needs caseId, the id of a case in the approved case set. Returns the status code only — compare it and the recorded ' +
       "evidence against the case's expected result yourself; the engine never decides pass or fail. " +
       'To call a protected API pass auth (an apiAuth profile name); credentials are never accepted in headers or the URL. ' +
-      'A profile that reads its token from the browser also needs sessionId (an open, signed-in qa.browser_open session) or identity.',
+      'A profile that reads its token or session cookie from the browser also needs sessionId (an open, signed-in qa.browser_open session) or identity. ' +
+      'A response that redirects to a sign-in page comes back with blocked set: the call was not authenticated, and the status is not the endpoint status.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
     handler: (input) =>

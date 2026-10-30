@@ -116,7 +116,7 @@ describe('runBrowserDiscoverApiAuth', () => {
     );
 
     expect(result.sources).toEqual([
-      { kind: 'cookie', name: 'access' },
+      { kind: 'cookie', name: 'access', sendAs: 'bearer' },
       { kind: 'session-storage', key: 'oidc', jsonPath: 'access_token' },
       { kind: 'request-header', header: 'authorization' },
     ]);

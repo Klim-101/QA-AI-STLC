@@ -23,6 +23,7 @@ import { registerEvidenceOrThrow } from './browser-evidence.js';
 import { assertCaseApprovedForExecution } from './case-execution-approval.js';
 import { resolveBrowserEnvironment } from './browser-open.js';
 import { toCanonicalJson } from '../json-file.js';
+import { findLoginRedirect, loginPathsOf } from '../login-redirect.js';
 import { isSafeHttpMethod } from '../safe-http-methods.js';
 import { ManifestStore } from '../manifest-store.js';
 import { randomIdGenerator, type IdGenerator } from '../ports/id-generator.js';
@@ -53,6 +54,11 @@ export interface HttpExecuteOptions extends BrowserOriginOptions {
 export interface HttpExecuteResult {
   readonly status: number;
   readonly evidence: Evidence;
+  /**
+   * Set when the response sent the call to a sign-in page. The status is then the login page's, not
+   * the endpoint's: record the case as `blocked`, and authenticate the call with an `apiAuth` profile.
+   */
+  readonly blocked?: { readonly reason: 'login-redirect'; readonly location: string };
 }
 
 /**
@@ -155,6 +161,14 @@ export async function runHttpExecute(
   const bodyPreviewMaxLength = config.evidence.httpBodyPreviewMaxLength;
   const scrubbedBody = scrubSecretValues(response.bodyText, secretValues);
   const truncated = scrubbedBody.length > bodyPreviewMaxLength;
+  const redirectTarget = response.redirectedTo ?? response.headers.location;
+  const loginLocation = findLoginRedirect(
+    options.url,
+    redirectTarget,
+    loginPathsOf(config.identities, environment.config.baseUrl),
+  );
+  const blocked =
+    loginLocation === undefined ? undefined : { reason: 'login-redirect' as const, location: loginLocation };
   const record = HttpRequestRecordSchema.parse({
     type: 'http-request',
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
@@ -164,6 +178,7 @@ export async function runHttpExecute(
     responseHeaders: redactHeaderValues(response.headers, sensitiveNames, secretValues),
     bodyPreview: scrubbedBody.slice(0, bodyPreviewMaxLength),
     truncated,
+    ...(blocked === undefined ? {} : { blocked }),
     at: context.clock.now().toISOString(),
   });
 
@@ -178,7 +193,7 @@ export async function runHttpExecute(
     ...(options.stepId !== undefined ? { stepId: options.stepId } : {}),
   });
 
-  return { status: response.status, evidence };
+  return { status: response.status, evidence, ...(blocked === undefined ? {} : { blocked }) };
 }
 
 function withQueryParameters(url: string, auth: ResolvedApiAuth | undefined): string {

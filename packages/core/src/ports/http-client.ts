@@ -35,6 +35,8 @@ export interface HttpResponseDetails extends HttpResponse {
    */
   readonly setCookies: readonly string[];
   readonly bodyText: string;
+  /** The URL the redirects ended on, when the request followed any; absent otherwise. */
+  readonly redirectedTo?: string;
 }
 
 /**
@@ -90,6 +92,7 @@ export const fetchHttpClient: HttpClient = {
       headers: headersToRecord(response.headers),
       setCookies: response.headers.getSetCookie(),
       bodyText,
+      ...(response.redirected ? { redirectedTo: response.url } : {}),
     };
   },
 };

@@ -188,6 +188,13 @@ export async function readBrowserToken(
       if (value === undefined) {
         throw unavailable(what, origin);
       }
+      if (source.sendAs === 'cookie') {
+        if (value.length === 0) {
+          throw invalid(what);
+        }
+        const pair = `${source.name}=${value}`;
+        return { headerName: 'Cookie', headerValue: pair, secretValues: [value, pair] };
+      }
       return toToken(value, undefined, what);
     }
     case 'local-storage': {

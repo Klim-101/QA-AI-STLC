@@ -136,7 +136,15 @@ export function collectSensitiveNames(apiAuth: ApiAuthConfig): SensitiveNames {
         headers.add('Authorization');
         break;
       case 'from-browser':
-        headers.add(profile.source.kind === 'request-header' ? profile.source.header : 'Authorization');
+        if (profile.source.kind === 'request-header') {
+          headers.add(profile.source.header);
+        } else {
+          headers.add(
+            profile.source.kind === 'cookie' && profile.source.sendAs === 'cookie'
+              ? 'Cookie'
+              : 'Authorization',
+          );
+        }
         break;
       case 'none':
         break;

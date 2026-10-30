@@ -93,7 +93,7 @@ async function findStoredSources(session: BrowserSession, token: string): Promis
       isCookieDomainAllowed(cookie.domain, session.allowlist) &&
       locateToken(cookie.value, token) === ''
     ) {
-      sources.push({ kind: 'cookie', name: cookie.name });
+      sources.push({ kind: 'cookie', name: cookie.name, sendAs: 'bearer' });
     }
   }
   for (const entry of origins) {
