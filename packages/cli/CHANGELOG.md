@@ -1,5 +1,29 @@
 # @qa-ai-stlc/cli
 
+## 1.16.0
+
+### Minor Changes
+
+- 815f82b: `qa doctor` / `qa.doctor` now checks that `@playwright/test` resolves from the project root when `testing.e2e`, `testing.api` or `testing.a11y` is `in-scope`. A bare project failed the first generated spec's typecheck even though the doctor was green, because the doctor only looked at the engine's own Chromium. The failing check is named `playwright-test` and its remediation gives the install command (`npm install --save-dev --save-exact @qa-ai-stlc/cli`). On Codex, `qa-start` shows the operator that command to run in their own terminal instead of retrying with a local npm cache.
+- a0bce8a: `qa cases add` rejects a case whose expectation uses a selector engine the browser tools cannot run (`label=`, `testid=`), with `CASE_SELECTOR_UNSUPPORTED` naming the step and the accepted forms. The browser tools share the same check and fail with `BROWSER_SELECTOR_UNSUPPORTED` instead of a raw Playwright error.
+
+### Patch Changes
+
+- Updated dependencies [3eb5b39]
+- Updated dependencies [635a1c3]
+- Updated dependencies [815f82b]
+- Updated dependencies [429af34]
+- Updated dependencies [712d997]
+- Updated dependencies [e7b099f]
+- Updated dependencies [a0bce8a]
+  - @qa-ai-stlc/schemas@1.16.0
+  - @qa-ai-stlc/core@1.16.0
+  - @qa-ai-stlc/runner-playwright@1.16.0
+  - @qa-ai-stlc/explorer@1.16.0
+  - @qa-ai-stlc/runner-api@1.16.0
+  - @qa-ai-stlc/runner-security@1.16.0
+  - @qa-ai-stlc/runner-a11y@1.16.0
+
 ## 1.15.0
 
 ### Patch Changes

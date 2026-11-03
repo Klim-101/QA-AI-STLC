@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "qa-ai-stlc",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Open-source, model-agnostic QA framework: explorer, test design, execution and reporting.",
   "author": { "name": "The QA-AI-STLC Authors" },
   "homepage": "https://github.com/Klim-101/QA-AI-STLC",
