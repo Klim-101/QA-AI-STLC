@@ -16,7 +16,7 @@
     "express-session": "1.19.0"
   },
   "devDependencies": {
-    "@progress/kendo-theme-default": "14.6.1",
+    "@progress/kendo-theme-default": "14.7.0",
     "@types/express": "5.0.6",
     "@types/express-session": "1.19.0",
     "@types/supertest": "7.2.1",
