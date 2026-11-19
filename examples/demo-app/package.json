@@ -16,12 +16,12 @@
     "express-session": "1.19.0"
   },
   "devDependencies": {
-    "@progress/kendo-theme-default": "14.7.0",
+    "@progress/kendo-theme-default": "14.9.0",
     "@types/express": "5.0.6",
     "@types/express-session": "1.19.0",
     "@types/supertest": "7.2.1",
     "jquery": "3.7.1",
     "kendo-ui-core": "2024.2.319",
-    "supertest": "7.3.1"
+    "supertest": "7.3.2"
   }
 }
